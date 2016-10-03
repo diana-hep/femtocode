@@ -16,9 +16,10 @@ reserved = {
   'not': 'NOT',
   'if': 'IF',
   'or': 'OR',
+  'def': 'DEF',
   }
 
-tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR']
+tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
 def t_STRING(t):
     r'([uUbB]?[rR]?\'[^\\n\'\\\\]*(?:\\\\.[^\\n\'\\\\]*)*\'|[uUbB]?[rR]?"[^\\n"\\\\]*(?:\\\\.[^\\n"\\\\]*)*")'
@@ -49,6 +50,11 @@ def t_DEC_NUMBER(t):
     r"[1-9][0-9]*"
     return t
 tokens.append("DEC_NUMBER")
+
+def t_ATARG(t):
+    r"@[0-9]*"
+    return t
+tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
@@ -174,53 +180,75 @@ def t_comment(t):
 t_ignore = " \t\f\n"
 
 
-# suite: expression | assignment ';' suite
+# suite: expression [';'] | assignment ';' suite
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
     print("suite : expression")
 def p_suite_2(p):
+    '''suite : expression SEMI'''
+    #                   1    2
+    print("suite : expression SEMI")
+def p_suite_3(p):
     '''suite : assignment SEMI suite'''
     #                   1    2     3
     print("suite : assignment SEMI suite")
 
-# assignment: NAME '=' expression
-def p_assignment(p):
+# assignment: NAME '=' expression | fcnndef
+def p_assignment_1(p):
     '''assignment : NAME EQUAL expression'''
     #                  1     2          3
     print("assignment : NAME EQUAL expression")
+def p_assignment_2(p):
+    '''assignment : fcnndef'''
+    #                     1
+    print("assignment : fcnndef")
 
-# expression: fcndef | fcndef '(' [arglist] ')' | ifblock | or_test
+# fcnndef: 'def' NAME '(' paramlist ')' exprsuite
+def p_fcnndef(p):
+    '''fcnndef : DEF NAME LPAR paramlist RPAR exprsuite'''
+    #              1    2    3         4    5         6
+    print("fcnndef : DEF NAME LPAR paramlist RPAR exprsuite")
+
+# expression: ifblock | fcndef | or_test
 def p_expression_1(p):
-    '''expression : fcndef'''
-    #                    1
-    print("expression : fcndef")
-def p_expression_2(p):
-    '''expression : fcndef LPAR RPAR'''
-    #                    1    2    3
-    print("expression : fcndef LPAR RPAR")
-def p_expression_3(p):
-    '''expression : fcndef LPAR arglist RPAR'''
-    #                    1    2       3    4
-    print("expression : fcndef LPAR arglist RPAR")
-def p_expression_4(p):
     '''expression : ifblock'''
     #                     1
     print("expression : ifblock")
-def p_expression_5(p):
+def p_expression_2(p):
+    '''expression : fcndef'''
+    #                    1
+    print("expression : fcndef")
+def p_expression_3(p):
     '''expression : or_test'''
     #                     1
     print("expression : or_test")
 
-# fcndef: '{' [paramlist] '=>' suite '}'
-def p_fcndef_1(p):
-    '''fcndef : LBRACE RIGHTARROW suite RBRACE'''
-    #                1          2     3      4
-    print("fcndef : LBRACE RIGHTARROW suite RBRACE")
-def p_fcndef_2(p):
+# exprsuite: (':' expression | [':'] '{' suite '}')
+def p_exprsuite_1(p):
+    '''exprsuite : COLON expression'''
+    #                  1          2
+    print("exprsuite : COLON expression")
+def p_exprsuite_2(p):
+    '''exprsuite : LBRACE suite RBRACE'''
+    #                   1     2      3
+    print("exprsuite : LBRACE suite RBRACE")
+def p_exprsuite_3(p):
+    '''exprsuite : COLON LBRACE suite RBRACE'''
+    #                  1      2     3      4
+    print("exprsuite : COLON LBRACE suite RBRACE")
+
+# fcndef: '{' paramlist '=>' suite '}'
+def p_fcndef(p):
     '''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''
     #                1         2          3     4      5
     print("fcndef : LBRACE paramlist RIGHTARROW suite RBRACE")
+
+# fcn1def: parameter '=>' suite
+def p_fcn1def(p):
+    '''fcn1def : parameter RIGHTARROW suite'''
+    #                    1          2     3
+    print("fcn1def : parameter RIGHTARROW suite")
 
 # paramlist: (parameter ',')* (parameter [','])
 def p_paramlist_1(p):
@@ -255,75 +283,24 @@ def p_parameter(p):
     #                 1
     print("parameter : NAME")
 
-# ifblock: ('if' expression ':' (expression | '{' suite '}')
-#          ('elif' expression ':' (expression | '{' suite '}'))*
-#           'else' ':' (expression | '{' suite '}'))
+# ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
 def p_ifblock_1(p):
-    '''ifblock : IF expression COLON expression ELSE COLON expression'''
-    #             1          2     3          4    5     6          7
-    print("ifblock : IF expression COLON expression ELSE COLON expression")
+    '''ifblock : IF expression exprsuite ELSE exprsuite'''
+    #             1          2         3    4         5
+    print("ifblock : IF expression exprsuite ELSE exprsuite")
 def p_ifblock_2(p):
-    '''ifblock : IF expression COLON expression ELSE COLON LBRACE suite RBRACE'''
-    #             1          2     3          4    5     6      7     8      9
-    print("ifblock : IF expression COLON expression ELSE COLON LBRACE suite RBRACE")
-def p_ifblock_3(p):
-    '''ifblock : IF expression COLON expression ifblock_star ELSE COLON expression'''
-    #             1          2     3          4            5    6     7          8
-    print("ifblock : IF expression COLON expression ifblock_star ELSE COLON expression")
-def p_ifblock_4(p):
-    '''ifblock : IF expression COLON expression ifblock_star ELSE COLON LBRACE suite RBRACE'''
-    #             1          2     3          4            5    6     7      8     9     10
-    print("ifblock : IF expression COLON expression ifblock_star ELSE COLON LBRACE suite RBRACE")
-def p_ifblock_5(p):
-    '''ifblock : IF expression COLON LBRACE suite RBRACE ELSE COLON expression'''
-    #             1          2     3      4     5      6    7     8          9
-    print("ifblock : IF expression COLON LBRACE suite RBRACE ELSE COLON expression")
-def p_ifblock_6(p):
-    '''ifblock : IF expression COLON LBRACE suite RBRACE ELSE COLON LBRACE suite RBRACE'''
-    #             1          2     3      4     5      6    7     8      9    10     11
-    print("ifblock : IF expression COLON LBRACE suite RBRACE ELSE COLON LBRACE suite RBRACE")
-def p_ifblock_7(p):
-    '''ifblock : IF expression COLON LBRACE suite RBRACE ifblock_star2 ELSE COLON expression'''
-    #             1          2     3      4     5      6             7    8     9         10
-    print("ifblock : IF expression COLON LBRACE suite RBRACE ifblock_star2 ELSE COLON expression")
-def p_ifblock_8(p):
-    '''ifblock : IF expression COLON LBRACE suite RBRACE ifblock_star2 ELSE COLON LBRACE suite RBRACE'''
-    #             1          2     3      4     5      6             7    8     9     10    11     12
-    print("ifblock : IF expression COLON LBRACE suite RBRACE ifblock_star2 ELSE COLON LBRACE suite RBRACE")
+    '''ifblock : IF expression exprsuite ifblock_star ELSE exprsuite'''
+    #             1          2         3            4    5         6
+    print("ifblock : IF expression exprsuite ifblock_star ELSE exprsuite")
 
 def p_ifblock_star_1(p):
-    '''ifblock_star : ELIF expression COLON expression'''
-    #                    1          2     3          4
-    print("ifblock_star : ELIF expression COLON expression")
+    '''ifblock_star : ELIF expression exprsuite'''
+    #                    1          2         3
+    print("ifblock_star : ELIF expression exprsuite")
 def p_ifblock_star_2(p):
-    '''ifblock_star : ELIF expression COLON LBRACE suite RBRACE'''
-    #                    1          2     3      4     5      6
-    print("ifblock_star : ELIF expression COLON LBRACE suite RBRACE")
-def p_ifblock_star_3(p):
-    '''ifblock_star : ifblock_star ELIF expression COLON expression'''
-    #                            1    2          3     4          5
-    print("ifblock_star : ifblock_star ELIF expression COLON expression")
-def p_ifblock_star_4(p):
-    '''ifblock_star : ifblock_star ELIF expression COLON LBRACE suite RBRACE'''
-    #                            1    2          3     4      5     6      7
-    print("ifblock_star : ifblock_star ELIF expression COLON LBRACE suite RBRACE")
-
-def p_ifblock_star2_1(p):
-    '''ifblock_star2 : ELIF expression COLON expression'''
-    #                     1          2     3          4
-    print("ifblock_star2 : ELIF expression COLON expression")
-def p_ifblock_star2_2(p):
-    '''ifblock_star2 : ELIF expression COLON LBRACE suite RBRACE'''
-    #                     1          2     3      4     5      6
-    print("ifblock_star2 : ELIF expression COLON LBRACE suite RBRACE")
-def p_ifblock_star2_3(p):
-    '''ifblock_star2 : ifblock_star2 ELIF expression COLON expression'''
-    #                              1    2          3     4          5
-    print("ifblock_star2 : ifblock_star2 ELIF expression COLON expression")
-def p_ifblock_star2_4(p):
-    '''ifblock_star2 : ifblock_star2 ELIF expression COLON LBRACE suite RBRACE'''
-    #                              1    2          3     4      5     6      7
-    print("ifblock_star2 : ifblock_star2 ELIF expression COLON LBRACE suite RBRACE")
+    '''ifblock_star : ifblock_star ELIF expression exprsuite'''
+    #                            1    2          3         4
+    print("ifblock_star : ifblock_star ELIF expression exprsuite")
 
 # or_test: and_test ('or' and_test)*
 def p_or_test_1(p):
@@ -426,7 +403,7 @@ def p_comp_op_8(p):
     #              1  2
     print("comp_op : NOT IN")
 
-# arith_expr: term (( '+' | '-' ) term)*
+# arith_expr: term (('+' | '-') term)*
 def p_arith_expr_1(p):
     '''arith_expr : term'''
     #                  1
@@ -453,7 +430,7 @@ def p_arith_expr_star_4(p):
     #                                  1     2    3
     print("arith_expr_star : arith_expr_star MINUS term")
 
-# term: factor (( '*' | '/' | '%' | '//' ) factor)*
+# term: factor (('*' | '/' | '%' | '//') factor)*
 def p_term_1(p):
     '''term : factor'''
     #              1
@@ -538,12 +515,14 @@ def p_power_star_2(p):
     print("power_star : power_star trailer")
 
 # atom: ('(' [expression] ')'
+#         | fcndef '(' [arglist] ')'    # defining a function and immediately using it
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
 #         | HEX_NUMBER
 #         | OCT_NUMBER
 #         | DEC_NUMBER
+#         | ATARG
 #         | NAME)
 def p_atom_1(p):
     '''atom : LPAR RPAR'''
@@ -554,43 +533,55 @@ def p_atom_2(p):
     #            1          2    3
     print("atom : LPAR expression RPAR")
 def p_atom_3(p):
+    '''atom : fcndef LPAR RPAR'''
+    #              1    2    3
+    print("atom : fcndef LPAR RPAR")
+def p_atom_4(p):
+    '''atom : fcndef LPAR arglist RPAR'''
+    #              1    2       3    4
+    print("atom : fcndef LPAR arglist RPAR")
+def p_atom_5(p):
     '''atom : STRING'''
     #              1
     print("atom : STRING")
-def p_atom_4(p):
+def p_atom_6(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     print("atom : IMAG_NUMBER")
-def p_atom_5(p):
+def p_atom_7(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     print("atom : FLOAT_NUMBER")
-def p_atom_6(p):
+def p_atom_8(p):
     '''atom : HEX_NUMBER'''
     #                  1
     print("atom : HEX_NUMBER")
-def p_atom_7(p):
+def p_atom_9(p):
     '''atom : OCT_NUMBER'''
     #                  1
     print("atom : OCT_NUMBER")
-def p_atom_8(p):
+def p_atom_10(p):
     '''atom : DEC_NUMBER'''
     #                  1
     print("atom : DEC_NUMBER")
-def p_atom_9(p):
+def p_atom_11(p):
+    '''atom : ATARG'''
+    #             1
+    print("atom : ATARG")
+def p_atom_12(p):
     '''atom : NAME'''
     #            1
     print("atom : NAME")
 
-# trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
+# trailer: '(' (arglist | fcn1def) ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
-    '''trailer : LPAR RPAR'''
-    #               1    2
-    print("trailer : LPAR RPAR")
-def p_trailer_2(p):
     '''trailer : LPAR arglist RPAR'''
     #               1       2    3
     print("trailer : LPAR arglist RPAR")
+def p_trailer_2(p):
+    '''trailer : LPAR fcn1def RPAR'''
+    #               1       2    3
+    print("trailer : LPAR fcn1def RPAR")
 def p_trailer_3(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3

@@ -57,6 +57,7 @@ literal_to_name = {
     "if": "IF",
     "elif": "ELIF",
     "else": "ELSE",
+    "def": "DEF",
 
     # "\n": "NL",
 
@@ -354,6 +355,11 @@ def t_DEC_NUMBER(t):
     r"[1-9][0-9]*"
     return t
 tokens.append("DEC_NUMBER")
+
+def t_ATARG(t):
+    r"@[0-9]*"
+    return t
+tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
