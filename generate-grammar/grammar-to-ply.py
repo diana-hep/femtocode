@@ -51,13 +51,22 @@ inputGrammar, outputPLY, = sys.argv[1:]
 
 literal_to_name = {
     "and": "AND",
-    "def": "DEF",
-    "else": "ELSE",
-    "if": "IF",
-    "in": "IN",
-    "is": "IS",
-    "not": "NOT",
     "or": "OR",
+    "not": "NOT",
+    "in": "IN",
+    "if": "IF",
+    "elif": "ELIF",
+    "else": "ELSE",
+
+    # "\n": "NL",
+
+    "==": "EQEQUAL",       # 2-character tokens first
+    "!=": "NOTEQUAL",
+    "<=": "LESSEQUAL",
+    ">=": "GREATEREQUAL",
+    "**": "DOUBLESTAR",
+    "//": "DOUBLESLASH",
+    "=>": "RIGHTARROW",
 
     ":": "COLON",          # single-character literals
     ",": "COMMA",
@@ -71,21 +80,13 @@ literal_to_name = {
     "=": "EQUAL",
     ".": "DOT",
     "%": "PERCENT",
-    "!": "BANG",
 
     "(": "LPAR",           # braces
     ")": "RPAR",
     "{": "LBRACE",
     "}": "RBRACE",
     "[": "LSQB",
-    "]": "RSQB",
-
-    "|": "VBAR",           # not used, but here for posterity
-    "&": "AMPER",
-    "`": "BACKQUOTE",
-    "^": "CIRCUMFLEX",
-    "~": "TILDE",
-    "@": "AT"}
+    "]": "RSQB"}
 
 tokens = ("LEXER_NAME", "PARSER_NAME", "STRING", "NL", "LPAR", "RPAR", "COLON")
 
@@ -318,13 +319,21 @@ import ast
 from ply import lex
 from ply import yacc
 
-tokens = []
 ''' % ("NOW", " ".join(sys.argv[1:])))  # (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:]))
+
+W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
+
+W("tokens = [%s]\n" % ", ".join("'%s'" % name for literal, name in literal_to_name.items() if literal.isalpha()))
 
 W('''def t_STRING(t):
     r'([uUbB]?[rR]?\\'[^\\\\n\\'\\\\\\\\]*(?:\\\\\\\\.[^\\\\n\\'\\\\\\\\]*)*\\'|[uUbB]?[rR]?"[^\\\\n"\\\\\\\\]*(?:\\\\\\\\.[^\\\\n"\\\\\\\\]*)*")'
     return t
 tokens.append("STRING")
+
+def t_IMAG_NUMBER(t):
+    r"(\\d+[jJ]|((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)[jJ])"
+    return t
+tokens.append("IMAG_NUMBER")
 
 def t_FLOAT_NUMBER(t):
     r"((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)"
@@ -348,22 +357,33 @@ tokens.append("DEC_NUMBER")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
+    t.type = reserved.get(t.value, "NAME")
     return t
 tokens.append("NAME")
 ''')
 
-W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
-
 W("tokens.extend([%s])\n" % ", ".join("'%s'" % name for literal, name in literal_to_name.items() if not literal.isalpha()))
 
-W("literals = [%s]\n" % ", ".join("'%s'" % literal for literal, name in literal_to_name.items() if not literal.isalpha()))
+W("literals = [%s]\n" % ", ".join("'%s'" % literal for literal, name in literal_to_name.items() if not literal.isalpha() and len(literal) == 1 and literal != "\n"))
 
 for literal, name in literal_to_name.items():
-    if not literal.isalpha():
+    if not literal.isalpha() and len(literal) == 2:
         W('''def t_%s(t):
     r"%s"
     return t
 ''' % (name, re.escape(literal)))
+
+for literal, name in literal_to_name.items():
+    if not literal.isalpha() and len(literal) == 1 and literal != "\n":
+        W('''def t_%s(t):
+    r"%s"
+    return t
+''' % (name, re.escape(literal)))
+
+W('''def t_NL(t):
+    r"\\n"
+    return t
+''')
 
 W('''def t_error(t):
     raise SyntaxError(t)
@@ -431,7 +451,7 @@ W('''\ndef p_error(p):
 def parse(source, fileName="<unknown>"):
     lexer = lex.lex()
     parser = yacc.yacc()
-    return parser.parse(source + "\\n", lexer=lexer)
+    return parser.parse(source, lexer=lexer)
 ''')
 
     # lexer = p.lexer

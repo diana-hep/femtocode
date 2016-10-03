@@ -1,31 +1,40 @@
 # Grammar for Femtocode
 
-# funcdef: 'def' NAME parameters ':' suite
-# parameters: '(' [paramlist] ')'
-# paramlist: (parameter ',')* (parameter [','])
-# parameter: NAME [':' expression]
+suite: expression | assignment ';' suite
 
-# anonfuncdef: (param | parameters) '-' '>' suite
+assignment: NAME '=' expression
 
-# suite: expression
+expression: fcndef | fcndef '(' [arglist] ')' | ifblock | or_test
 
-# expression: and_test ('or' and_test)*
-# and_test: not_test ('and' not_test)*
-# not_test: 'not' not_test | comparison
-# comparison: arith_expr (comp_op arith_expr)*
-# comp_op: '<' | '>' | '=' '=' | '>' '=' | '<' '=' | '!' '=' | 'in' | 'not' 'in' | 'is' | 'is' 'not'
-# arith_expr: term (( '+' | '-' ) term)*
-# term: factor (( '*' | '/' | '%' | '/' '/' ) factor)*
-# factor: ( '+' | '-' ) factor | power
-# power: atom trailer* [ '*' '*' factor ]
-# atom: '(' [expression] ')' | NAME | NUMBER | STRING
-# trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
-# subscriptlist: subscript (',' subscript)* [',']
-# subscript: expression | [expression] ':' [expression] [sliceop]
-# sliceop: ':' [expression]
+fcndef: '{' [paramlist] '=>' suite '}'
+paramlist: (parameter ',')* (parameter [','])
+parameter: NAME
 
-# arglist: (argument ',')* (argument [','])
+ifblock: ('if' expression ':' (expression | '{' suite '}')
+         ('elif' expression ':' (expression | '{' suite '}'))*
+          'else' ':' (expression | '{' suite '}'))
 
-# argument: expression | NAME '=' expression
+or_test: and_test ('or' and_test)*
+and_test: not_test ('and' not_test)*
+not_test: 'not' not_test | comparison
+comparison: arith_expr (comp_op arith_expr)*
+comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
+arith_expr: term (( '+' | '-' ) term)*
+term: factor (( '*' | '/' | '%' | '//' ) factor)*
+factor: ('+' | '-') factor | power
+power: atom trailer* ['**' factor]
+atom: ('(' [expression] ')'
+        | STRING
+        | IMAG_NUMBER
+        | FLOAT_NUMBER
+        | HEX_NUMBER
+        | OCT_NUMBER
+        | DEC_NUMBER
+        | NAME)
 
-atom: NAME | HEX_NUMBER | OCT_NUMBER | DEC_NUMBER | FLOAT_NUMBER | STRING
+trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
+subscriptlist: subscript (',' subscript)* [',']
+subscript: expression | [expression] ':' [expression] [sliceop]
+sliceop: ':' [expression]
+arglist: (argument ',')* (argument [','])
+argument: expression | NAME '=' expression
