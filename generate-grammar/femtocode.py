@@ -633,6 +633,8 @@ def p_power_star_2(p):
     print("power_star : power_star trailer")
 
 # atom: ('(' [expression] ')'
+#         | fcndef '(' arglist ')'    // defining a function and immediately using it
+#                                     // source of the "WARNING: 1 shift/reduce conflict" (benign)
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -650,52 +652,52 @@ def p_atom_2(p):
     #            1          2    3
     print("atom : LPAR expression RPAR")
 def p_atom_3(p):
+    '''atom : fcndef LPAR arglist RPAR'''
+    #              1    2       3    4
+    print("atom : fcndef LPAR arglist RPAR")
+def p_atom_4(p):
     '''atom : STRING'''
     #              1
     print("atom : STRING")
-def p_atom_4(p):
+def p_atom_5(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     print("atom : IMAG_NUMBER")
-def p_atom_5(p):
+def p_atom_6(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     print("atom : FLOAT_NUMBER")
-def p_atom_6(p):
+def p_atom_7(p):
     '''atom : HEX_NUMBER'''
     #                  1
     print("atom : HEX_NUMBER")
-def p_atom_7(p):
+def p_atom_8(p):
     '''atom : OCT_NUMBER'''
     #                  1
     print("atom : OCT_NUMBER")
-def p_atom_8(p):
+def p_atom_9(p):
     '''atom : DEC_NUMBER'''
     #                  1
     print("atom : DEC_NUMBER")
-def p_atom_9(p):
+def p_atom_10(p):
     '''atom : ATARG'''
     #             1
     print("atom : ATARG")
-def p_atom_10(p):
+def p_atom_11(p):
     '''atom : NAME'''
     #            1
     print("atom : NAME")
 
-# trailer: '(' (arglist | fcn1def) ')' | '[' subscriptlist ']' | '.' NAME
+# trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
     '''trailer : LPAR arglist RPAR'''
     #               1       2    3
     print("trailer : LPAR arglist RPAR")
 def p_trailer_2(p):
-    '''trailer : LPAR fcn1def RPAR'''
-    #               1       2    3
-    print("trailer : LPAR fcn1def RPAR")
-def p_trailer_3(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
     print("trailer : LSQB subscriptlist RSQB")
-def p_trailer_4(p):
+def p_trailer_3(p):
     '''trailer : DOT NAME'''
     #              1    2
     print("trailer : DOT NAME")
@@ -775,7 +777,7 @@ def p_sliceop_2(p):
     #                1          2
     print("sliceop : COLON expression")
 
-# arglist: (argument ',')* (argument [','])
+# arglist: ((argument ',')* (argument [','])) | fcn1def
 def p_arglist_1(p):
     '''arglist : argument'''
     #                   1
@@ -792,6 +794,10 @@ def p_arglist_4(p):
     '''arglist : arglist_star argument COMMA'''
     #                       1        2     3
     print("arglist : arglist_star argument COMMA")
+def p_arglist_5(p):
+    '''arglist : fcn1def'''
+    #                  1
+    print("arglist : fcn1def")
 
 def p_arglist_star_1(p):
     '''arglist_star : argument COMMA'''

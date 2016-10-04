@@ -30,6 +30,8 @@ term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' [expression] ')'
+        | fcndef '(' arglist ')'    // defining a function and immediately using it
+                                    // source of the "WARNING: 1 shift/reduce conflict" (benign)
         | STRING
         | IMAG_NUMBER
         | FLOAT_NUMBER
@@ -39,9 +41,9 @@ atom: ('(' [expression] ')'
         | ATARG
         | NAME)
 
-trailer: '(' (arglist | fcn1def) ')' | '[' subscriptlist ']' | '.' NAME
+trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 subscriptlist: subscript (',' subscript)* [',']
 subscript: expression | [expression] ':' [expression] [sliceop]
 sliceop: ':' [expression]
-arglist: (argument ',')* (argument [','])
+arglist: ((argument ',')* (argument [','])) | fcn1def
 argument: expression | NAME '=' expression
