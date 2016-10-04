@@ -92,7 +92,7 @@ literal_to_name = {
 tokens = ("LEXER_NAME", "PARSER_NAME", "STRING", "NL", "LPAR", "RPAR", "COLON")
 
 def t_comment(t):
-    r"\#.*"
+    r"//.*"
     pass
 
 t_ignore = " \t"
@@ -459,6 +459,30 @@ def parse(source, fileName="<unknown>"):
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 ''')
+
+
+# class SemicolonLexer(object):
+#     def __init__(self):
+#         self.plylexer = lex.lex()
+#         self.last = None
+
+#     def input(self, text):
+#         self.plylexer.input(text)
+
+#     def token(self):
+#         if isinstance(self.last, lex.LexToken) and self.last.value == '}':
+#             out = lex.LexToken()
+#             out.type = "SEMI"
+#             out.value = ';'
+#             out.lineno = self.last.lineno
+#             out.lexpos = self.last.lexpos
+#             self.last = out
+#             return out
+
+#         x = self.plylexer.token()
+#         self.last = x
+#         return x
+
 
     # lexer = p.lexer
     # if isinstance(lexer, PythonLexer):

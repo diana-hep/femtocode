@@ -180,35 +180,102 @@ def t_comment(t):
 t_ignore = " \t\f\n"
 
 
-# suite: expression [';'] | assignment ';' suite
+# body: ';'* suite
+def p_body_1(p):
+    '''body : suite'''
+    #             1
+    print("body : suite")
+def p_body_2(p):
+    '''body : body_star suite'''
+    #                 1     2
+    print("body : body_star suite")
+
+def p_body_star_1(p):
+    '''body_star : SEMI'''
+    #                 1
+    print("body_star : SEMI")
+def p_body_star_2(p):
+    '''body_star : body_star SEMI'''
+    #                      1    2
+    print("body_star : body_star SEMI")
+
+# suite: (assignment ';'*)* expression ';'*
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
     print("suite : expression")
 def p_suite_2(p):
-    '''suite : expression SEMI'''
-    #                   1    2
-    print("suite : expression SEMI")
+    '''suite : expression suite_star'''
+    #                   1          2
+    print("suite : expression suite_star")
 def p_suite_3(p):
-    '''suite : assignment SEMI suite'''
-    #                   1    2     3
-    print("suite : assignment SEMI suite")
+    '''suite : suite_star2 expression'''
+    #                    1          2
+    print("suite : suite_star2 expression")
+def p_suite_4(p):
+    '''suite : suite_star2 expression suite_star3'''
+    #                    1          2           3
+    print("suite : suite_star2 expression suite_star3")
 
-# assignment: NAME '=' expression | fcnndef
+def p_suite_star_1(p):
+    '''suite_star : SEMI'''
+    #                  1
+    print("suite_star : SEMI")
+def p_suite_star_2(p):
+    '''suite_star : suite_star SEMI'''
+    #                        1    2
+    print("suite_star : suite_star SEMI")
+
+def p_suite_star3_1(p):
+    '''suite_star3 : SEMI'''
+    #                   1
+    print("suite_star3 : SEMI")
+def p_suite_star3_2(p):
+    '''suite_star3 : suite_star3 SEMI'''
+    #                          1    2
+    print("suite_star3 : suite_star3 SEMI")
+
+def p_suite_star2_1(p):
+    '''suite_star2 : assignment'''
+    #                         1
+    print("suite_star2 : assignment")
+def p_suite_star2_2(p):
+    '''suite_star2 : assignment suite_star2_star'''
+    #                         1                2
+    print("suite_star2 : assignment suite_star2_star")
+def p_suite_star2_3(p):
+    '''suite_star2 : suite_star2 assignment'''
+    #                          1          2
+    print("suite_star2 : suite_star2 assignment")
+def p_suite_star2_4(p):
+    '''suite_star2 : suite_star2 assignment suite_star2_star'''
+    #                          1          2                3
+    print("suite_star2 : suite_star2 assignment suite_star2_star")
+
+def p_suite_star2_star_1(p):
+    '''suite_star2_star : SEMI'''
+    #                        1
+    print("suite_star2_star : SEMI")
+def p_suite_star2_star_2(p):
+    '''suite_star2_star : suite_star2_star SEMI'''
+    #                                    1    2
+    print("suite_star2_star : suite_star2_star SEMI")
+
+# assignment: NAME '=' closed_expression | fcnndef
 def p_assignment_1(p):
-    '''assignment : NAME EQUAL expression'''
-    #                  1     2          3
-    print("assignment : NAME EQUAL expression")
+    '''assignment : NAME EQUAL closed_expression'''
+    #                  1     2                 3
+    print("assignment : NAME EQUAL closed_expression")
 def p_assignment_2(p):
     '''assignment : fcnndef'''
     #                     1
     print("assignment : fcnndef")
 
-# fcnndef: 'def' NAME '(' paramlist ')' exprsuite
+# fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 def p_fcnndef(p):
-    '''fcnndef : DEF NAME LPAR paramlist RPAR exprsuite'''
-    #              1    2    3         4    5         6
-    print("fcnndef : DEF NAME LPAR paramlist RPAR exprsuite")
+    '''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''
+    #              1    2    3         4    5                6
+    print("fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite")
 
 # expression: ifblock | fcndef | or_test
 def p_expression_1(p):
@@ -224,19 +291,19 @@ def p_expression_3(p):
     #                     1
     print("expression : or_test")
 
-# exprsuite: (':' expression | [':'] '{' suite '}')
-def p_exprsuite_1(p):
-    '''exprsuite : COLON expression'''
-    #                  1          2
-    print("exprsuite : COLON expression")
-def p_exprsuite_2(p):
-    '''exprsuite : LBRACE suite RBRACE'''
-    #                   1     2      3
-    print("exprsuite : LBRACE suite RBRACE")
-def p_exprsuite_3(p):
-    '''exprsuite : COLON LBRACE suite RBRACE'''
-    #                  1      2     3      4
-    print("exprsuite : COLON LBRACE suite RBRACE")
+# closed_expression: closed_ifblock | fcndef | or_test ';'
+def p_closed_expression_1(p):
+    '''closed_expression : closed_ifblock'''
+    #                                   1
+    print("closed_expression : closed_ifblock")
+def p_closed_expression_2(p):
+    '''closed_expression : fcndef'''
+    #                           1
+    print("closed_expression : fcndef")
+def p_closed_expression_3(p):
+    '''closed_expression : or_test SEMI'''
+    #                            1    2
+    print("closed_expression : or_test SEMI")
 
 # fcndef: '{' paramlist '=>' suite '}'
 def p_fcndef(p):
@@ -244,11 +311,15 @@ def p_fcndef(p):
     #                1         2          3     4      5
     print("fcndef : LBRACE paramlist RIGHTARROW suite RBRACE")
 
-# fcn1def: parameter '=>' suite
-def p_fcn1def(p):
-    '''fcn1def : parameter RIGHTARROW suite'''
-    #                    1          2     3
-    print("fcn1def : parameter RIGHTARROW suite")
+# fcn1def: parameter '=>' (expression | '{' suite '}')
+def p_fcn1def_1(p):
+    '''fcn1def : parameter RIGHTARROW expression'''
+    #                    1          2          3
+    print("fcn1def : parameter RIGHTARROW expression")
+def p_fcn1def_2(p):
+    '''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''
+    #                    1          2      3     4      5
+    print("fcn1def : parameter RIGHTARROW LBRACE suite RBRACE")
 
 # paramlist: (parameter ',')* (parameter [','])
 def p_paramlist_1(p):
@@ -283,6 +354,34 @@ def p_parameter(p):
     #                 1
     print("parameter : NAME")
 
+# exprsuite: (':' expression | [':'] '{' suite '}')
+def p_exprsuite_1(p):
+    '''exprsuite : COLON expression'''
+    #                  1          2
+    print("exprsuite : COLON expression")
+def p_exprsuite_2(p):
+    '''exprsuite : LBRACE suite RBRACE'''
+    #                   1     2      3
+    print("exprsuite : LBRACE suite RBRACE")
+def p_exprsuite_3(p):
+    '''exprsuite : COLON LBRACE suite RBRACE'''
+    #                  1      2     3      4
+    print("exprsuite : COLON LBRACE suite RBRACE")
+
+# closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
+def p_closed_exprsuite_1(p):
+    '''closed_exprsuite : COLON closed_expression'''
+    #                         1                 2
+    print("closed_exprsuite : COLON closed_expression")
+def p_closed_exprsuite_2(p):
+    '''closed_exprsuite : LBRACE suite RBRACE'''
+    #                          1     2      3
+    print("closed_exprsuite : LBRACE suite RBRACE")
+def p_closed_exprsuite_3(p):
+    '''closed_exprsuite : COLON LBRACE suite RBRACE'''
+    #                         1      2     3      4
+    print("closed_exprsuite : COLON LBRACE suite RBRACE")
+
 # ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
 def p_ifblock_1(p):
     '''ifblock : IF expression exprsuite ELSE exprsuite'''
@@ -301,6 +400,25 @@ def p_ifblock_star_2(p):
     '''ifblock_star : ifblock_star ELIF expression exprsuite'''
     #                            1    2          3         4
     print("ifblock_star : ifblock_star ELIF expression exprsuite")
+
+# closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' closed_exprsuite)
+def p_closed_ifblock_1(p):
+    '''closed_ifblock : IF expression exprsuite ELSE closed_exprsuite'''
+    #                    1          2         3    4                5
+    print("closed_ifblock : IF expression exprsuite ELSE closed_exprsuite")
+def p_closed_ifblock_2(p):
+    '''closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite'''
+    #                    1          2         3                   4    5                6
+    print("closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite")
+
+def p_closed_ifblock_star_1(p):
+    '''closed_ifblock_star : ELIF expression exprsuite'''
+    #                           1          2         3
+    print("closed_ifblock_star : ELIF expression exprsuite")
+def p_closed_ifblock_star_2(p):
+    '''closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite'''
+    #                                          1    2          3         4
+    print("closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite")
 
 # or_test: and_test ('or' and_test)*
 def p_or_test_1(p):
@@ -515,7 +633,6 @@ def p_power_star_2(p):
     print("power_star : power_star trailer")
 
 # atom: ('(' [expression] ')'
-#         | fcndef '(' [arglist] ')'    # defining a function and immediately using it
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -533,42 +650,34 @@ def p_atom_2(p):
     #            1          2    3
     print("atom : LPAR expression RPAR")
 def p_atom_3(p):
-    '''atom : fcndef LPAR RPAR'''
-    #              1    2    3
-    print("atom : fcndef LPAR RPAR")
-def p_atom_4(p):
-    '''atom : fcndef LPAR arglist RPAR'''
-    #              1    2       3    4
-    print("atom : fcndef LPAR arglist RPAR")
-def p_atom_5(p):
     '''atom : STRING'''
     #              1
     print("atom : STRING")
-def p_atom_6(p):
+def p_atom_4(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     print("atom : IMAG_NUMBER")
-def p_atom_7(p):
+def p_atom_5(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     print("atom : FLOAT_NUMBER")
-def p_atom_8(p):
+def p_atom_6(p):
     '''atom : HEX_NUMBER'''
     #                  1
     print("atom : HEX_NUMBER")
-def p_atom_9(p):
+def p_atom_7(p):
     '''atom : OCT_NUMBER'''
     #                  1
     print("atom : OCT_NUMBER")
-def p_atom_10(p):
+def p_atom_8(p):
     '''atom : DEC_NUMBER'''
     #                  1
     print("atom : DEC_NUMBER")
-def p_atom_11(p):
+def p_atom_9(p):
     '''atom : ATARG'''
     #             1
     print("atom : ATARG")
-def p_atom_12(p):
+def p_atom_10(p):
     '''atom : NAME'''
     #            1
     print("atom : NAME")

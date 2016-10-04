@@ -1,19 +1,24 @@
-# Grammar for Femtocode
+// Grammar for Femtocode
 
-suite: expression [';'] | assignment ';' suite
+body: ';'* suite
+suite: (assignment ';'*)* expression ';'*
 
-assignment: NAME '=' expression | fcnndef
-fcnndef: 'def' NAME '(' paramlist ')' exprsuite
+assignment: NAME '=' closed_expression | fcnndef
+fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 
 expression: ifblock | fcndef | or_test
-exprsuite: (':' expression | [':'] '{' suite '}')
+closed_expression: closed_ifblock | fcndef | or_test ';'
 
 fcndef: '{' paramlist '=>' suite '}'
-fcn1def: parameter '=>' suite
+fcn1def: parameter '=>' (expression | '{' suite '}')
 paramlist: (parameter ',')* (parameter [','])
 parameter: NAME
 
+exprsuite: (':' expression | [':'] '{' suite '}')
+closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
+
 ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
+closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' closed_exprsuite)
 
 or_test: and_test ('or' and_test)*
 and_test: not_test ('and' not_test)*
@@ -25,7 +30,6 @@ term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' [expression] ')'
-        | fcndef '(' [arglist] ')'    # defining a function and immediately using it
         | STRING
         | IMAG_NUMBER
         | FLOAT_NUMBER
