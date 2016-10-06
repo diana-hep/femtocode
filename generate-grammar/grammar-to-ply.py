@@ -316,10 +316,10 @@ W('''#!/usr/bin/env python
 # generated at %s by "python %s"
 
 import re
-from femtocode.asts.parsingtree import *
+from femtocode.ast.parsingtree import *
 
-from ply import lex
-from ply import yacc
+from femtocode.ply import lex
+from femtocode.ply import yacc
 
 ''' % ((datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])), " ".join(sys.argv[1:])))
 
