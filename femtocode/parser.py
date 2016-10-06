@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-06T17:31:24 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-06T17:38:17 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -896,39 +896,44 @@ def p_subscriptlist_star_2(p):
 def p_subscript_1(p):
     '''subscript : expression'''
     #                       1
-    raise NotImplementedError
+    p[0] = ast.Index(p[1], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 def p_subscript_2(p):
     '''subscript : COLON'''
     #                  1
-    p[0] = Slice(None, None, None, **p[1][1])
+    p[0] = ast.Slice(None, None, None, rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_3(p):
     '''subscript : COLON sliceop'''
     #                  1       2
-    p[0] = Slice(None, None, p[2], **p[1][1])
+    p[0] = ast.Slice(None, None, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_4(p):
     '''subscript : COLON expression'''
     #                  1          2
-    raise NotImplementedError
+    p[0] = ast.Slice(None, p[2], None, rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_5(p):
     '''subscript : COLON expression sliceop'''
     #                  1          2       3
-    raise NotImplementedError
+    p[0] = ast.Slice(None, p[2], p[3], rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_6(p):
     '''subscript : expression COLON'''
     #                       1     2
-    raise NotImplementedError
+    p[0] = ast.Slice(p[1], None, None, rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 def p_subscript_7(p):
     '''subscript : expression COLON sliceop'''
     #                       1     2       3
-    raise NotImplementedError
+    p[0] = ast.Slice(p[1], None, p[3], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 def p_subscript_8(p):
     '''subscript : expression COLON expression'''
     #                       1     2          3
-    raise NotImplementedError
+    p[0] = ast.Slice(p[1], p[3], None, rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 def p_subscript_9(p):
     '''subscript : expression COLON expression sliceop'''
     #                       1     2          3       4
-    raise NotImplementedError
+    p[0] = ast.Slice(p[1], p[3], p[4], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 
 # sliceop: ':' [expression]
 def p_sliceop_1(p):
@@ -938,7 +943,7 @@ def p_sliceop_1(p):
 def p_sliceop_2(p):
     '''sliceop : COLON expression'''
     #                1          2
-    raise NotImplementedError
+    p[0] = p[2]
 
 # arglist: ((argument ',')* (argument [','])) | fcn1def
 def p_arglist_1(p):
