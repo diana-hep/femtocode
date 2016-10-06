@@ -36,6 +36,10 @@ The grammar.g file is pretty simple but not designed for LALR(1) and
 similar parsers. This program tweaks the grammar slightly and
 flattens the results to a more usable form. It might prove useful for
 other parsers. (Yes, it did.)
+
+Use it like this:
+
+    generate-grammar/grammar-to-ply.py generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py
 """
 
 import datetime
@@ -44,7 +48,7 @@ import re
 import sys
 import time
 
-from femtocode.ply import lex, yacc
+from femtocode.thirdparty.ply import lex, yacc
 
 inputGrammar, grammarActions, outputPLY, = sys.argv[1:]
 
@@ -318,8 +322,8 @@ W('''#!/usr/bin/env python
 import re
 from femtocode.ast.parsingtree import *
 
-from femtocode.ply import lex
-from femtocode.ply import yacc
+from femtocode.thirdparty.ply import lex
+from femtocode.thirdparty.ply import yacc
 
 ''' % ((datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])), " ".join(sys.argv[1:])))
 
