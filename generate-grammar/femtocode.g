@@ -3,7 +3,8 @@
 body: ';'* suite
 suite: (assignment ';'*)* expression ';'*
 
-assignment: NAME '=' closed_expression | fcnndef
+lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict" but works
+assignment: lvalues '=' closed_expression | fcnndef
 fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 
 expression: ifblock | fcndef | or_test
@@ -30,8 +31,7 @@ term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' [expression] ')'
-        | fcndef '(' arglist ')'    // defining a function and immediately using it
-                                    // source of the "WARNING: 1 shift/reduce conflict" (benign)
+        | fcndef '(' arglist ')'    // source of "WARNING: 1 shift/reduce conflict" but works
         | STRING
         | IMAG_NUMBER
         | FLOAT_NUMBER

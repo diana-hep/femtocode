@@ -39,7 +39,6 @@ other parsers. (Yes, it did.)
 """
 
 import datetime
-import importlib
 import itertools
 import re
 import sys
@@ -49,7 +48,7 @@ from ply import lex, yacc
 
 inputGrammar, grammarActions, outputPLY, = sys.argv[1:]
 
-actions = importlib.import_module(grammarActions).actions
+execfile(grammarActions)
 
 literal_to_name = {
     "and": "AND",
@@ -317,12 +316,12 @@ W('''#!/usr/bin/env python
 # generated at %s by "python %s"
 
 import re
-import ast
+from femtocode.asts.parsingtree import *
 
 from ply import lex
 from ply import yacc
 
-''' % ("NOW", " ".join(sys.argv[1:])))  # (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:]))
+''' % ((datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])), " ".join(sys.argv[1:])))
 
 W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
 
@@ -390,7 +389,6 @@ for literal, name in literal_to_name.items():
 
 W('''def t_NL(t):
     r"\\n"
-    return t
 ''')
 
 W('''def t_error(t):
@@ -400,7 +398,54 @@ W('''def t_comment(t):
     r"[ ]*\\043[^\\n]*"  # \\043 is # ; otherwise PLY thinks it is a regex comment
     pass
 ''')
-W('''t_ignore = " \\t\\f\\n"
+W('''t_ignore = " \\t\\f"
+''')
+
+W('''def inherit_lineno(p0, px, alt=True):
+    if isinstance(px, dict):
+        p0.lineno = px["lineno"]
+        p0.col_offset = px["col_offset"]
+    else:
+        if alt and hasattr(px, "alt"):
+            p0.lineno = px.alt["lineno"]
+            p0.col_offset = px.alt["col_offset"]
+        else:
+            p0.lineno = px.lineno
+            p0.col_offset = px.col_offset
+
+def unwrap_left_associative(args, rule, alt=False):
+    out = ast.BinOp(args[0], args[1], args[2], rule=rule)
+    inherit_lineno(out, args[0])
+    args = args[3:]
+    while len(args) > 0:
+        out = ast.BinOp(out, args[0], args[1], rule=rule)
+        inherit_lineno(out, out.left)
+        if alt:
+            out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
+            inherit_lineno(out, out.op)
+        args = args[2:]
+    return out
+
+def unpack_trailer(atom, power_star):
+    out = atom
+    for trailer in power_star:
+        if isinstance(trailer, ast.Call):
+            trailer.func = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        elif isinstance(trailer, ast.Attribute):
+            trailer.value = out
+            inherit_lineno(trailer, out, alt=False)
+            if hasattr(out, "alt"):
+                trailer.alt = out.alt
+            out = trailer
+        elif isinstance(trailer, ast.Subscript):
+            trailer.value = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        else:
+            assert False
+    return out
 ''')
 
 def numbers(s):
@@ -414,8 +459,11 @@ def format_function(name, rules):
         r = "%s : %s" % (name, rules[0])
         if r in actions:
             W(actions[r])
+            del actions[r]
         else:
             W("    raise NotImplementedError")
+        # W("    print \"%s : %s\"" % (name, rules[0]))
+
     else:
         for i, rule in enumerate(rules):
             W("def p_%s_%d(p):" % (name, i+1))
@@ -424,8 +472,10 @@ def format_function(name, rules):
             r = "%s : %s" % (name, rule)
             if r in actions:
                 W(actions[r])
+                del actions[r]
             else:
                 W("    raise NotImplementedError")
+            # W("    print \"%s : %s\"" % (name, rules[0]))
     
 grammar_lines = grammar_text.splitlines()
 
@@ -459,38 +509,3 @@ def parse(source, fileName="<unknown>"):
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 ''')
-
-
-# class SemicolonLexer(object):
-#     def __init__(self):
-#         self.plylexer = lex.lex()
-#         self.last = None
-
-#     def input(self, text):
-#         self.plylexer.input(text)
-
-#     def token(self):
-#         if isinstance(self.last, lex.LexToken) and self.last.value == '}':
-#             out = lex.LexToken()
-#             out.type = "SEMI"
-#             out.value = ';'
-#             out.lineno = self.last.lineno
-#             out.lexpos = self.last.lexpos
-#             self.last = out
-#             return out
-
-#         x = self.plylexer.token()
-#         self.last = x
-#         return x
-
-
-    # lexer = p.lexer
-    # if isinstance(lexer, PythonLexer):
-    #     lexer = lexer.lexer
-    # pos = lexer.kwds(lexer.lexpos)
-    # line = re.split("\\r?\\n", lexer.source)[max(pos["lineno"] - 3, 0):pos["lineno"]]
-    # indicator = "-" * pos["col_offset"] + "^"
-    # raise SyntaxError("invalid syntax\\n  File " + lexer.fileName + ", line " + str(pos["lineno"]) + " col " + str(pos["col_offset"]) + "\\n    " + "\\n    ".join(line) + "\\n----" + indicator)
-
-# (debug=False, write_tables=True, tabmodule="%s_table", errorlog=yacc.NullLogger())
-#  % inputGrammar.replace(".g", "")

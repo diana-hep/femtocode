@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at NOW by "python femtocode.g actions parser.py"
+# generated at ('2016-10-06T14:33:23', 'femtocode.g actions.py parser.py') by "python femtocode.g actions.py parser.py"
 
 import re
 import ast
@@ -168,7 +168,6 @@ def t_GREATER(t):
 
 def t_NL(t):
     r"\n"
-    return t
 
 def t_error(t):
     raise SyntaxError(t)
@@ -177,7 +176,53 @@ def t_comment(t):
     r"[ ]*\043[^\n]*"  # \043 is # ; otherwise PLY thinks it is a regex comment
     pass
 
-t_ignore = " \t\f\n"
+t_ignore = " \t\f"
+
+def inherit_lineno(p0, px, alt=True):
+    if isinstance(px, dict):
+        p0.lineno = px["lineno"]
+        p0.col_offset = px["col_offset"]
+    else:
+        if alt and hasattr(px, "alt"):
+            p0.lineno = px.alt["lineno"]
+            p0.col_offset = px.alt["col_offset"]
+        else:
+            p0.lineno = px.lineno
+            p0.col_offset = px.col_offset
+
+def unwrap_left_associative(args, rule, alt=False):
+    out = ast.BinOp(args[0], args[1], args[2], rule=rule)
+    inherit_lineno(out, args[0])
+    args = args[3:]
+    while len(args) > 0:
+        out = ast.BinOp(out, args[0], args[1], rule=rule)
+        inherit_lineno(out, out.left)
+        if alt:
+            out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
+            inherit_lineno(out, out.op)
+        args = args[2:]
+    return out
+
+def unpack_trailer(atom, power_star):
+    out = atom
+    for trailer in power_star:
+        if isinstance(trailer, ast.Call):
+            trailer.func = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        elif isinstance(trailer, ast.Attribute):
+            trailer.value = out
+            inherit_lineno(trailer, out, alt=False)
+            if hasattr(out, "alt"):
+                trailer.alt = out.alt
+            out = trailer
+        elif isinstance(trailer, ast.Subscript):
+            trailer.value = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        else:
+            assert False
+    return out
 
 
 # body: ';'* suite
@@ -261,10 +306,37 @@ def p_suite_star2_star_2(p):
     #                                    1    2
     raise NotImplementedError
 
-# assignment: NAME '=' closed_expression | fcnndef
+# lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict" but works
+def p_lvalues_1(p):
+    '''lvalues : NAME'''
+    #               1
+    raise NotImplementedError
+def p_lvalues_2(p):
+    '''lvalues : NAME COMMA'''
+    #               1     2
+    raise NotImplementedError
+def p_lvalues_3(p):
+    '''lvalues : lvalues_star NAME'''
+    #                       1    2
+    raise NotImplementedError
+def p_lvalues_4(p):
+    '''lvalues : lvalues_star NAME COMMA'''
+    #                       1    2     3
+    raise NotImplementedError
+
+def p_lvalues_star_1(p):
+    '''lvalues_star : NAME COMMA'''
+    #                    1     2
+    raise NotImplementedError
+def p_lvalues_star_2(p):
+    '''lvalues_star : lvalues_star NAME COMMA'''
+    #                            1    2     3
+    raise NotImplementedError
+
+# assignment: lvalues '=' closed_expression | fcnndef
 def p_assignment_1(p):
-    '''assignment : NAME EQUAL closed_expression'''
-    #                  1     2                 3
+    '''assignment : lvalues EQUAL closed_expression'''
+    #                     1     2                 3
     raise NotImplementedError
 def p_assignment_2(p):
     '''assignment : fcnndef'''
@@ -653,8 +725,7 @@ def p_power_star_2(p):
     p[0] = p[1] + [p[2]]
 
 # atom: ('(' [expression] ')'
-#         | fcndef '(' arglist ')'    // defining a function and immediately using it
-#                                     // source of the "WARNING: 1 shift/reduce conflict" (benign)
+#         | fcndef '(' arglist ')'    // source of "WARNING: 1 shift/reduce conflict" but works
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -666,7 +737,7 @@ def p_power_star_2(p):
 def p_atom_1(p):
     '''atom : LPAR RPAR'''
     #            1    2
-    p[0] = ast.Tuple([], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=True, **p[1][1])
+    raise NotImplementedError
 def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
@@ -706,7 +777,7 @@ def p_atom_10(p):
 def p_atom_11(p):
     '''atom : NAME'''
     #            1
-    p[0] = ast.Name(p[1][0], ast.Load(), rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    raise NotImplementedError
 
 # trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
@@ -824,17 +895,11 @@ def p_sliceop_2(p):
 def p_arglist_1(p):
     '''arglist : argument'''
     #                   1
-    if notkeyword(p[1]):
-        p[0] = ast.Call(None, [p[1]], [], None, None, rule=inspect.currentframe().f_code.co_name)
-    else:
-        p[0] = ast.Call(None, [], [p[1]], None, None, rule=inspect.currentframe().f_code.co_name)
+    raise NotImplementedError
 def p_arglist_2(p):
     '''arglist : argument COMMA'''
     #                   1     2
-    if notkeyword(p[1]):
-        p[0] = ast.Call(None, [p[1]], [], None, None, rule=inspect.currentframe().f_code.co_name)
-    else:
-        p[0] = ast.Call(None, [], [p[1]], None, None, rule=inspect.currentframe().f_code.co_name)
+    raise NotImplementedError
 def p_arglist_3(p):
     '''arglist : arglist_star argument'''
     #                       1        2
