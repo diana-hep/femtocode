@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at NOW by "python femtocode.g femtocode.py"
+# generated at NOW by "python femtocode.g actions parser.py"
 
 import re
 import ast
@@ -184,453 +184,473 @@ t_ignore = " \t\f\n"
 def p_body_1(p):
     '''body : suite'''
     #             1
-    print("body : suite")
+    raise NotImplementedError
 def p_body_2(p):
     '''body : body_star suite'''
     #                 1     2
-    print("body : body_star suite")
+    raise NotImplementedError
 
 def p_body_star_1(p):
     '''body_star : SEMI'''
     #                 1
-    print("body_star : SEMI")
+    raise NotImplementedError
 def p_body_star_2(p):
     '''body_star : body_star SEMI'''
     #                      1    2
-    print("body_star : body_star SEMI")
+    raise NotImplementedError
 
 # suite: (assignment ';'*)* expression ';'*
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
-    print("suite : expression")
+    raise NotImplementedError
 def p_suite_2(p):
     '''suite : expression suite_star'''
     #                   1          2
-    print("suite : expression suite_star")
+    raise NotImplementedError
 def p_suite_3(p):
     '''suite : suite_star2 expression'''
     #                    1          2
-    print("suite : suite_star2 expression")
+    raise NotImplementedError
 def p_suite_4(p):
     '''suite : suite_star2 expression suite_star3'''
     #                    1          2           3
-    print("suite : suite_star2 expression suite_star3")
+    raise NotImplementedError
 
 def p_suite_star_1(p):
     '''suite_star : SEMI'''
     #                  1
-    print("suite_star : SEMI")
+    raise NotImplementedError
 def p_suite_star_2(p):
     '''suite_star : suite_star SEMI'''
     #                        1    2
-    print("suite_star : suite_star SEMI")
+    raise NotImplementedError
 
 def p_suite_star3_1(p):
     '''suite_star3 : SEMI'''
     #                   1
-    print("suite_star3 : SEMI")
+    raise NotImplementedError
 def p_suite_star3_2(p):
     '''suite_star3 : suite_star3 SEMI'''
     #                          1    2
-    print("suite_star3 : suite_star3 SEMI")
+    raise NotImplementedError
 
 def p_suite_star2_1(p):
     '''suite_star2 : assignment'''
     #                         1
-    print("suite_star2 : assignment")
+    raise NotImplementedError
 def p_suite_star2_2(p):
     '''suite_star2 : assignment suite_star2_star'''
     #                         1                2
-    print("suite_star2 : assignment suite_star2_star")
+    raise NotImplementedError
 def p_suite_star2_3(p):
     '''suite_star2 : suite_star2 assignment'''
     #                          1          2
-    print("suite_star2 : suite_star2 assignment")
+    raise NotImplementedError
 def p_suite_star2_4(p):
     '''suite_star2 : suite_star2 assignment suite_star2_star'''
     #                          1          2                3
-    print("suite_star2 : suite_star2 assignment suite_star2_star")
+    raise NotImplementedError
 
 def p_suite_star2_star_1(p):
     '''suite_star2_star : SEMI'''
     #                        1
-    print("suite_star2_star : SEMI")
+    raise NotImplementedError
 def p_suite_star2_star_2(p):
     '''suite_star2_star : suite_star2_star SEMI'''
     #                                    1    2
-    print("suite_star2_star : suite_star2_star SEMI")
+    raise NotImplementedError
 
 # assignment: NAME '=' closed_expression | fcnndef
 def p_assignment_1(p):
     '''assignment : NAME EQUAL closed_expression'''
     #                  1     2                 3
-    print("assignment : NAME EQUAL closed_expression")
+    raise NotImplementedError
 def p_assignment_2(p):
     '''assignment : fcnndef'''
     #                     1
-    print("assignment : fcnndef")
+    raise NotImplementedError
 
 # fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 def p_fcnndef(p):
     '''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''
     #              1    2    3         4    5                6
-    print("fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite")
+    raise NotImplementedError
 
 # expression: ifblock | fcndef | or_test
 def p_expression_1(p):
     '''expression : ifblock'''
     #                     1
-    print("expression : ifblock")
+    raise NotImplementedError
 def p_expression_2(p):
     '''expression : fcndef'''
     #                    1
-    print("expression : fcndef")
+    raise NotImplementedError
 def p_expression_3(p):
     '''expression : or_test'''
     #                     1
-    print("expression : or_test")
+    raise NotImplementedError
 
 # closed_expression: closed_ifblock | fcndef | or_test ';'
 def p_closed_expression_1(p):
     '''closed_expression : closed_ifblock'''
     #                                   1
-    print("closed_expression : closed_ifblock")
+    raise NotImplementedError
 def p_closed_expression_2(p):
     '''closed_expression : fcndef'''
     #                           1
-    print("closed_expression : fcndef")
+    raise NotImplementedError
 def p_closed_expression_3(p):
     '''closed_expression : or_test SEMI'''
     #                            1    2
-    print("closed_expression : or_test SEMI")
+    raise NotImplementedError
 
 # fcndef: '{' paramlist '=>' suite '}'
 def p_fcndef(p):
     '''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''
     #                1         2          3     4      5
-    print("fcndef : LBRACE paramlist RIGHTARROW suite RBRACE")
+    raise NotImplementedError
 
 # fcn1def: parameter '=>' (expression | '{' suite '}')
 def p_fcn1def_1(p):
     '''fcn1def : parameter RIGHTARROW expression'''
     #                    1          2          3
-    print("fcn1def : parameter RIGHTARROW expression")
+    raise NotImplementedError
 def p_fcn1def_2(p):
     '''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''
     #                    1          2      3     4      5
-    print("fcn1def : parameter RIGHTARROW LBRACE suite RBRACE")
+    raise NotImplementedError
 
 # paramlist: (parameter ',')* (parameter [','])
 def p_paramlist_1(p):
     '''paramlist : parameter'''
     #                      1
-    print("paramlist : parameter")
+    raise NotImplementedError
 def p_paramlist_2(p):
     '''paramlist : parameter COMMA'''
     #                      1     2
-    print("paramlist : parameter COMMA")
+    raise NotImplementedError
 def p_paramlist_3(p):
     '''paramlist : paramlist_star parameter'''
     #                           1         2
-    print("paramlist : paramlist_star parameter")
+    raise NotImplementedError
 def p_paramlist_4(p):
     '''paramlist : paramlist_star parameter COMMA'''
     #                           1         2     3
-    print("paramlist : paramlist_star parameter COMMA")
+    raise NotImplementedError
 
 def p_paramlist_star_1(p):
     '''paramlist_star : parameter COMMA'''
     #                           1     2
-    print("paramlist_star : parameter COMMA")
+    raise NotImplementedError
 def p_paramlist_star_2(p):
     '''paramlist_star : paramlist_star parameter COMMA'''
     #                                1         2     3
-    print("paramlist_star : paramlist_star parameter COMMA")
+    raise NotImplementedError
 
 # parameter: NAME
 def p_parameter(p):
     '''parameter : NAME'''
     #                 1
-    print("parameter : NAME")
+    raise NotImplementedError
 
 # exprsuite: (':' expression | [':'] '{' suite '}')
 def p_exprsuite_1(p):
     '''exprsuite : COLON expression'''
     #                  1          2
-    print("exprsuite : COLON expression")
+    raise NotImplementedError
 def p_exprsuite_2(p):
     '''exprsuite : LBRACE suite RBRACE'''
     #                   1     2      3
-    print("exprsuite : LBRACE suite RBRACE")
+    raise NotImplementedError
 def p_exprsuite_3(p):
     '''exprsuite : COLON LBRACE suite RBRACE'''
     #                  1      2     3      4
-    print("exprsuite : COLON LBRACE suite RBRACE")
+    raise NotImplementedError
 
 # closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
 def p_closed_exprsuite_1(p):
     '''closed_exprsuite : COLON closed_expression'''
     #                         1                 2
-    print("closed_exprsuite : COLON closed_expression")
+    raise NotImplementedError
 def p_closed_exprsuite_2(p):
     '''closed_exprsuite : LBRACE suite RBRACE'''
     #                          1     2      3
-    print("closed_exprsuite : LBRACE suite RBRACE")
+    raise NotImplementedError
 def p_closed_exprsuite_3(p):
     '''closed_exprsuite : COLON LBRACE suite RBRACE'''
     #                         1      2     3      4
-    print("closed_exprsuite : COLON LBRACE suite RBRACE")
+    raise NotImplementedError
 
 # ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
 def p_ifblock_1(p):
     '''ifblock : IF expression exprsuite ELSE exprsuite'''
     #             1          2         3    4         5
-    print("ifblock : IF expression exprsuite ELSE exprsuite")
+    raise NotImplementedError
 def p_ifblock_2(p):
     '''ifblock : IF expression exprsuite ifblock_star ELSE exprsuite'''
     #             1          2         3            4    5         6
-    print("ifblock : IF expression exprsuite ifblock_star ELSE exprsuite")
+    raise NotImplementedError
 
 def p_ifblock_star_1(p):
     '''ifblock_star : ELIF expression exprsuite'''
     #                    1          2         3
-    print("ifblock_star : ELIF expression exprsuite")
+    raise NotImplementedError
 def p_ifblock_star_2(p):
     '''ifblock_star : ifblock_star ELIF expression exprsuite'''
     #                            1    2          3         4
-    print("ifblock_star : ifblock_star ELIF expression exprsuite")
+    raise NotImplementedError
 
 # closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' closed_exprsuite)
 def p_closed_ifblock_1(p):
     '''closed_ifblock : IF expression exprsuite ELSE closed_exprsuite'''
     #                    1          2         3    4                5
-    print("closed_ifblock : IF expression exprsuite ELSE closed_exprsuite")
+    raise NotImplementedError
 def p_closed_ifblock_2(p):
     '''closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite'''
     #                    1          2         3                   4    5                6
-    print("closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite")
+    raise NotImplementedError
 
 def p_closed_ifblock_star_1(p):
     '''closed_ifblock_star : ELIF expression exprsuite'''
     #                           1          2         3
-    print("closed_ifblock_star : ELIF expression exprsuite")
+    raise NotImplementedError
 def p_closed_ifblock_star_2(p):
     '''closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite'''
     #                                          1    2          3         4
-    print("closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite")
+    raise NotImplementedError
 
 # or_test: and_test ('or' and_test)*
 def p_or_test_1(p):
     '''or_test : and_test'''
     #                   1
-    print("or_test : and_test")
+    p[0] = p[1]
 def p_or_test_2(p):
     '''or_test : and_test or_test_star'''
     #                   1            2
-    print("or_test : and_test or_test_star")
+    theor = ast.Or(rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(theor, p[2][0])
+    p[0] = ast.BoolOp(theor, [p[1]] + p[2], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 
 def p_or_test_star_1(p):
     '''or_test_star : OR and_test'''
     #                  1        2
-    print("or_test_star : OR and_test")
+    p[0] = [p[2]]
 def p_or_test_star_2(p):
     '''or_test_star : or_test_star OR and_test'''
     #                            1  2        3
-    print("or_test_star : or_test_star OR and_test")
+    p[0] = p[1] + [p[3]]
 
 # and_test: not_test ('and' not_test)*
 def p_and_test_1(p):
     '''and_test : not_test'''
     #                    1
-    print("and_test : not_test")
+    p[0] = p[1]
 def p_and_test_2(p):
     '''and_test : not_test and_test_star'''
     #                    1             2
-    print("and_test : not_test and_test_star")
+    theand = ast.And(rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(theand, p[2][0])
+    p[0] = ast.BoolOp(theand, [p[1]] + p[2], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 
 def p_and_test_star_1(p):
     '''and_test_star : AND not_test'''
     #                    1        2
-    print("and_test_star : AND not_test")
+    p[0] = [p[2]]
 def p_and_test_star_2(p):
     '''and_test_star : and_test_star AND not_test'''
     #                              1   2        3
-    print("and_test_star : and_test_star AND not_test")
+    p[0] = p[1] + [p[3]]
 
 # not_test: 'not' not_test | comparison
 def p_not_test_1(p):
     '''not_test : NOT not_test'''
     #               1        2
-    print("not_test : NOT not_test")
+    thenot = ast.Not(rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(thenot, p[2])
+    p[0] = ast.UnaryOp(thenot, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_not_test_2(p):
     '''not_test : comparison'''
     #                      1
-    print("not_test : comparison")
+    p[0] = p[1]
 
 # comparison: arith_expr (comp_op arith_expr)*
 def p_comparison_1(p):
     '''comparison : arith_expr'''
     #                        1
-    print("comparison : arith_expr")
+    raise NotImplementedError
 def p_comparison_2(p):
     '''comparison : arith_expr comparison_star'''
     #                        1               2
-    print("comparison : arith_expr comparison_star")
+    raise NotImplementedError
 
 def p_comparison_star_1(p):
     '''comparison_star : comp_op arith_expr'''
     #                          1          2
-    print("comparison_star : comp_op arith_expr")
+    raise NotImplementedError
 def p_comparison_star_2(p):
     '''comparison_star : comparison_star comp_op arith_expr'''
     #                                  1       2          3
-    print("comparison_star : comparison_star comp_op arith_expr")
+    raise NotImplementedError
 
 # comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
 def p_comp_op_1(p):
     '''comp_op : LESS'''
     #               1
-    print("comp_op : LESS")
+    p[0] = ast.Lt(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_2(p):
     '''comp_op : GREATER'''
     #                  1
-    print("comp_op : GREATER")
+    p[0] = ast.Gt(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_3(p):
     '''comp_op : EQEQUAL'''
     #                  1
-    print("comp_op : EQEQUAL")
+    p[0] = ast.Eq(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_4(p):
     '''comp_op : GREATEREQUAL'''
     #                       1
-    print("comp_op : GREATEREQUAL")
+    p[0] = ast.GtE(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_5(p):
     '''comp_op : LESSEQUAL'''
     #                    1
-    print("comp_op : LESSEQUAL")
+    p[0] = ast.LtE(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_6(p):
     '''comp_op : NOTEQUAL'''
     #                   1
-    print("comp_op : NOTEQUAL")
+    p[0] = ast.NotEq(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_7(p):
     '''comp_op : IN'''
     #             1
-    print("comp_op : IN")
+    p[0] = ast.In(rule=inspect.currentframe().f_code.co_name)
 def p_comp_op_8(p):
     '''comp_op : NOT IN'''
     #              1  2
-    print("comp_op : NOT IN")
+    p[0] = ast.NotIn(rule=inspect.currentframe().f_code.co_name)
 
 # arith_expr: term (('+' | '-') term)*
 def p_arith_expr_1(p):
     '''arith_expr : term'''
     #                  1
-    print("arith_expr : term")
+    p[0] = p[1]
 def p_arith_expr_2(p):
     '''arith_expr : term arith_expr_star'''
     #                  1               2
-    print("arith_expr : term arith_expr_star")
+    p[0] = unwrap_left_associative([p[1]] + p[2], rule=inspect.currentframe().f_code.co_name, alt=len(p[2]) > 2)
 
 def p_arith_expr_star_1(p):
     '''arith_expr_star : PLUS term'''
     #                       1    2
-    print("arith_expr_star : PLUS term")
+    p[0] = [ast.Add(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_arith_expr_star_2(p):
     '''arith_expr_star : MINUS term'''
     #                        1    2
-    print("arith_expr_star : MINUS term")
+    p[0] = [ast.Sub(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_arith_expr_star_3(p):
     '''arith_expr_star : arith_expr_star PLUS term'''
     #                                  1    2    3
-    print("arith_expr_star : arith_expr_star PLUS term")
+    p[0] = p[1] + [ast.Add(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 def p_arith_expr_star_4(p):
     '''arith_expr_star : arith_expr_star MINUS term'''
     #                                  1     2    3
-    print("arith_expr_star : arith_expr_star MINUS term")
+    p[0] = p[1] + [ast.Sub(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 
 # term: factor (('*' | '/' | '%' | '//') factor)*
 def p_term_1(p):
     '''term : factor'''
     #              1
-    print("term : factor")
+    p[0] = p[1]
 def p_term_2(p):
     '''term : factor term_star'''
     #              1         2
-    print("term : factor term_star")
+    p[0] = unwrap_left_associative([p[1]] + p[2], rule=inspect.currentframe().f_code.co_name, alt=len(p[2]) > 2)
 
 def p_term_star_1(p):
     '''term_star : STAR factor'''
     #                 1      2
-    print("term_star : STAR factor")
+    p[0] = [ast.Mult(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_term_star_2(p):
     '''term_star : SLASH factor'''
     #                  1      2
-    print("term_star : SLASH factor")
+    p[0] = [ast.Div(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_term_star_3(p):
     '''term_star : PERCENT factor'''
     #                    1      2
-    print("term_star : PERCENT factor")
+    p[0] = [ast.Mod(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_term_star_4(p):
     '''term_star : DOUBLESLASH factor'''
     #                        1      2
-    print("term_star : DOUBLESLASH factor")
+    p[0] = [ast.FloorDiv(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
 def p_term_star_5(p):
     '''term_star : term_star STAR factor'''
     #                      1    2      3
-    print("term_star : term_star STAR factor")
+    p[0] = p[1] + [ast.Mult(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 def p_term_star_6(p):
     '''term_star : term_star SLASH factor'''
     #                      1     2      3
-    print("term_star : term_star SLASH factor")
+    p[0] = p[1] + [ast.Div(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 def p_term_star_7(p):
     '''term_star : term_star PERCENT factor'''
     #                      1       2      3
-    print("term_star : term_star PERCENT factor")
+    p[0] = p[1] + [ast.Mod(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 def p_term_star_8(p):
     '''term_star : term_star DOUBLESLASH factor'''
     #                      1           2      3
-    print("term_star : term_star DOUBLESLASH factor")
+    p[0] = p[1] + [ast.FloorDiv(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
 
 # factor: ('+' | '-') factor | power
 def p_factor_1(p):
     '''factor : PLUS factor'''
     #              1      2
-    print("factor : PLUS factor")
+    op = ast.UAdd(rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    p[0] = ast.UnaryOp(op, p[2], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], op)
 def p_factor_2(p):
     '''factor : MINUS factor'''
     #               1      2
-    print("factor : MINUS factor")
+    if isinstance(p[2], ast.Num) and not hasattr(p[2], "unary"):
+        p[2].n *= -1
+        p[0] = p[2]
+        p[0].unary = True
+        inherit_lineno(p[0], p[1][1])
+    else:
+        op = ast.USub(rule=inspect.currentframe().f_code.co_name, **p[1][1])
+        p[0] = ast.UnaryOp(op, p[2], rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], op)
 def p_factor_3(p):
     '''factor : power'''
     #               1
-    print("factor : power")
+    p[0] = p[1]
 
 # power: atom trailer* ['**' factor]
 def p_power_1(p):
     '''power : atom'''
     #             1
-    print("power : atom")
+    p[0] = p[1]
 def p_power_2(p):
     '''power : atom DOUBLESTAR factor'''
     #             1          2      3
-    print("power : atom DOUBLESTAR factor")
+    p[0] = ast.BinOp(p[1], ast.Pow(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 def p_power_3(p):
     '''power : atom power_star'''
     #             1          2
-    print("power : atom power_star")
+    p[0] = unpack_trailer(p[1], p[2])
 def p_power_4(p):
     '''power : atom power_star DOUBLESTAR factor'''
     #             1          2          3      4
-    print("power : atom power_star DOUBLESTAR factor")
+    p[0] = ast.BinOp(unpack_trailer(p[1], p[2]), ast.Pow(rule=inspect.currentframe().f_code.co_name, **p[3][1]), p[4], rule=inspect.currentframe().f_code.co_name)
+    inherit_lineno(p[0], p[1])
 
 def p_power_star_1(p):
     '''power_star : trailer'''
     #                     1
-    print("power_star : trailer")
+    p[0] = [p[1]]
 def p_power_star_2(p):
     '''power_star : power_star trailer'''
     #                        1       2
-    print("power_star : power_star trailer")
+    p[0] = p[1] + [p[2]]
 
 # atom: ('(' [expression] ')'
 #         | fcndef '(' arglist ')'    // defining a function and immediately using it
@@ -646,177 +666,206 @@ def p_power_star_2(p):
 def p_atom_1(p):
     '''atom : LPAR RPAR'''
     #            1    2
-    print("atom : LPAR RPAR")
+    p[0] = ast.Tuple([], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=True, **p[1][1])
 def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
-    print("atom : LPAR expression RPAR")
+    raise NotImplementedError
 def p_atom_3(p):
     '''atom : fcndef LPAR arglist RPAR'''
     #              1    2       3    4
-    print("atom : fcndef LPAR arglist RPAR")
+    raise NotImplementedError
 def p_atom_4(p):
     '''atom : STRING'''
     #              1
-    print("atom : STRING")
+    raise NotImplementedError
 def p_atom_5(p):
     '''atom : IMAG_NUMBER'''
     #                   1
-    print("atom : IMAG_NUMBER")
+    raise NotImplementedError
 def p_atom_6(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
-    print("atom : FLOAT_NUMBER")
+    raise NotImplementedError
 def p_atom_7(p):
     '''atom : HEX_NUMBER'''
     #                  1
-    print("atom : HEX_NUMBER")
+    raise NotImplementedError
 def p_atom_8(p):
     '''atom : OCT_NUMBER'''
     #                  1
-    print("atom : OCT_NUMBER")
+    raise NotImplementedError
 def p_atom_9(p):
     '''atom : DEC_NUMBER'''
     #                  1
-    print("atom : DEC_NUMBER")
+    raise NotImplementedError
 def p_atom_10(p):
     '''atom : ATARG'''
     #             1
-    print("atom : ATARG")
+    raise NotImplementedError
 def p_atom_11(p):
     '''atom : NAME'''
     #            1
-    print("atom : NAME")
+    p[0] = ast.Name(p[1][0], ast.Load(), rule=inspect.currentframe().f_code.co_name, **p[1][1])
 
 # trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
     '''trailer : LPAR arglist RPAR'''
     #               1       2    3
-    print("trailer : LPAR arglist RPAR")
+    p[0] = p[2]
 def p_trailer_2(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
-    print("trailer : LSQB subscriptlist RSQB")
+    p[0] = ast.Subscript(None, p[2], ast.Load(), rule=inspect.currentframe().f_code.co_name)
 def p_trailer_3(p):
     '''trailer : DOT NAME'''
     #              1    2
-    print("trailer : DOT NAME")
+    p[0] = ast.Attribute(None, p[2][0], ast.Load(), rule=inspect.currentframe().f_code.co_name)
 
 # subscriptlist: subscript (',' subscript)* [',']
 def p_subscriptlist_1(p):
     '''subscriptlist : subscript'''
     #                          1
-    print("subscriptlist : subscript")
+    p[0] = p[1]
 def p_subscriptlist_2(p):
     '''subscriptlist : subscript COMMA'''
     #                          1     2
-    print("subscriptlist : subscript COMMA")
+    if isinstance(p[1], ast.Index):
+        tup = ast.Tuple([p[1].value], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+        inherit_lineno(tup, p[1].value)
+        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], tup)
+    else:
+        p[0] = ast.ExtSlice([p[1]], rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], p[1])
 def p_subscriptlist_3(p):
     '''subscriptlist : subscript subscriptlist_star'''
     #                          1                  2
-    print("subscriptlist : subscript subscriptlist_star")
+    args = [p[1]] + p[2]
+    if all(isinstance(x, ast.Index) for x in args):
+        tup = ast.Tuple([x.value for x in args], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+        inherit_lineno(tup, args[0].value)
+        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], tup)
+    else:
+        p[0] = ast.ExtSlice(args, rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], p[1])
 def p_subscriptlist_4(p):
     '''subscriptlist : subscript subscriptlist_star COMMA'''
     #                          1                  2     3
-    print("subscriptlist : subscript subscriptlist_star COMMA")
+    args = [p[1]] + p[2]
+    if all(isinstance(x, ast.Index) for x in args):
+        tup = ast.Tuple([x.value for x in args], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+        inherit_lineno(tup, args[0].value)
+        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], tup)
+    else:
+        p[0] = ast.ExtSlice(args, rule=inspect.currentframe().f_code.co_name)
+        inherit_lineno(p[0], p[1])
 
 def p_subscriptlist_star_1(p):
     '''subscriptlist_star : COMMA subscript'''
     #                           1         2
-    print("subscriptlist_star : COMMA subscript")
+    p[0] = [p[2]]
 def p_subscriptlist_star_2(p):
     '''subscriptlist_star : subscriptlist_star COMMA subscript'''
     #                                        1     2         3
-    print("subscriptlist_star : subscriptlist_star COMMA subscript")
+    p[0] = p[1] + [p[3]]
 
 # subscript: expression | [expression] ':' [expression] [sliceop]
 def p_subscript_1(p):
     '''subscript : expression'''
     #                       1
-    print("subscript : expression")
+    raise NotImplementedError
 def p_subscript_2(p):
     '''subscript : COLON'''
     #                  1
-    print("subscript : COLON")
+    p[0] = ast.Slice(None, None, None, rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_3(p):
     '''subscript : COLON sliceop'''
     #                  1       2
-    print("subscript : COLON sliceop")
+    p[0] = ast.Slice(None, None, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_subscript_4(p):
     '''subscript : COLON expression'''
     #                  1          2
-    print("subscript : COLON expression")
+    raise NotImplementedError
 def p_subscript_5(p):
     '''subscript : COLON expression sliceop'''
     #                  1          2       3
-    print("subscript : COLON expression sliceop")
+    raise NotImplementedError
 def p_subscript_6(p):
     '''subscript : expression COLON'''
     #                       1     2
-    print("subscript : expression COLON")
+    raise NotImplementedError
 def p_subscript_7(p):
     '''subscript : expression COLON sliceop'''
     #                       1     2       3
-    print("subscript : expression COLON sliceop")
+    raise NotImplementedError
 def p_subscript_8(p):
     '''subscript : expression COLON expression'''
     #                       1     2          3
-    print("subscript : expression COLON expression")
+    raise NotImplementedError
 def p_subscript_9(p):
     '''subscript : expression COLON expression sliceop'''
     #                       1     2          3       4
-    print("subscript : expression COLON expression sliceop")
+    raise NotImplementedError
 
 # sliceop: ':' [expression]
 def p_sliceop_1(p):
     '''sliceop : COLON'''
     #                1
-    print("sliceop : COLON")
+    p[0] = ast.Name("None", ast.Load(), rule=inspect.currentframe().f_code.co_name, **p[1][1])
 def p_sliceop_2(p):
     '''sliceop : COLON expression'''
     #                1          2
-    print("sliceop : COLON expression")
+    raise NotImplementedError
 
 # arglist: ((argument ',')* (argument [','])) | fcn1def
 def p_arglist_1(p):
     '''arglist : argument'''
     #                   1
-    print("arglist : argument")
+    if notkeyword(p[1]):
+        p[0] = ast.Call(None, [p[1]], [], None, None, rule=inspect.currentframe().f_code.co_name)
+    else:
+        p[0] = ast.Call(None, [], [p[1]], None, None, rule=inspect.currentframe().f_code.co_name)
 def p_arglist_2(p):
     '''arglist : argument COMMA'''
     #                   1     2
-    print("arglist : argument COMMA")
+    if notkeyword(p[1]):
+        p[0] = ast.Call(None, [p[1]], [], None, None, rule=inspect.currentframe().f_code.co_name)
+    else:
+        p[0] = ast.Call(None, [], [p[1]], None, None, rule=inspect.currentframe().f_code.co_name)
 def p_arglist_3(p):
     '''arglist : arglist_star argument'''
     #                       1        2
-    print("arglist : arglist_star argument")
+    raise NotImplementedError
 def p_arglist_4(p):
     '''arglist : arglist_star argument COMMA'''
     #                       1        2     3
-    print("arglist : arglist_star argument COMMA")
+    raise NotImplementedError
 def p_arglist_5(p):
     '''arglist : fcn1def'''
     #                  1
-    print("arglist : fcn1def")
+    raise NotImplementedError
 
 def p_arglist_star_1(p):
     '''arglist_star : argument COMMA'''
     #                        1     2
-    print("arglist_star : argument COMMA")
+    raise NotImplementedError
 def p_arglist_star_2(p):
     '''arglist_star : arglist_star argument COMMA'''
     #                            1        2     3
-    print("arglist_star : arglist_star argument COMMA")
+    raise NotImplementedError
 
 # argument: expression | NAME '=' expression
 def p_argument_1(p):
     '''argument : expression'''
     #                      1
-    print("argument : expression")
+    raise NotImplementedError
 def p_argument_2(p):
     '''argument : NAME EQUAL expression'''
     #                1     2          3
-    print("argument : NAME EQUAL expression")
+    raise NotImplementedError
 
 def p_error(p):
     raise SyntaxError(p)

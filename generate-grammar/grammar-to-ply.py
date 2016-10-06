@@ -47,7 +47,9 @@ import time
 
 from ply import lex, yacc
 
-inputGrammar, outputPLY, = sys.argv[1:]
+inputGrammar, grammarActions, outputPLY, = sys.argv[1:]
+
+actions = importlib.import_module(grammarActions).actions
 
 literal_to_name = {
     "and": "AND",
@@ -410,22 +412,20 @@ def format_function(name, rules):
         W("    '''%s : %s'''" % (name, rules[0]))
         W("    #  %s   %s" % (" " * len(name), numbers(rules[0])))
         r = "%s : %s" % (name, rules[0])
-        # if r in actions:
-        #     W(actions[r])
-        # else:
-        # W("    raise NotImplementedError")
-        W("    print(\"%s\")" % r)
+        if r in actions:
+            W(actions[r])
+        else:
+            W("    raise NotImplementedError")
     else:
         for i, rule in enumerate(rules):
             W("def p_%s_%d(p):" % (name, i+1))
             W("    '''%s : %s'''" % (name, rule))
             W("    #  %s   %s" % (" " * len(name), numbers(rule)))
             r = "%s : %s" % (name, rule)
-            # if r in actions:
-            #     W(actions[r])
-            # else:
-            # W("    raise NotImplementedError")
-            W("    print(\"%s\")" % r)
+            if r in actions:
+                W(actions[r])
+            else:
+                W("    raise NotImplementedError")
     
 grammar_lines = grammar_text.splitlines()
 
