@@ -70,7 +70,7 @@ actions['''trailer : LSQB subscriptlist RSQB'''] = '''    p[0] = Subscript(None,
 actions['''trailer : DOT NAME'''] = '''    p[0] = Attribute(None, p[2][0], Load())'''
 actions['''subscriptlist : subscript'''] = '''    p[0] = p[1]'''
 actions['''subscriptlist : subscript COMMA'''] = '''    if isinstance(p[1], Index):
-        tup = Tuple([p[1].value], Load(), paren=False)
+        tup = Tuple([p[1].value], Load())
         inherit_lineno(tup, p[1].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
@@ -79,7 +79,7 @@ actions['''subscriptlist : subscript COMMA'''] = '''    if isinstance(p[1], Inde
         inherit_lineno(p[0], p[1])'''
 actions['''subscriptlist : subscript subscriptlist_star'''] = '''    args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
-        tup = Tuple([x.value for x in args], Load(), paren=False)
+        tup = Tuple([x.value for x in args], Load())
         inherit_lineno(tup, args[0].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
@@ -88,7 +88,7 @@ actions['''subscriptlist : subscript subscriptlist_star'''] = '''    args = [p[1
         inherit_lineno(p[0], p[1])'''
 actions['''subscriptlist : subscript subscriptlist_star COMMA'''] = '''    args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
-        tup = Tuple([x.value for x in args], Load(), paren=False)
+        tup = Tuple([x.value for x in args], Load())
         inherit_lineno(tup, args[0].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
@@ -100,3 +100,22 @@ actions['''subscriptlist_star : subscriptlist_star COMMA subscript'''] = '''    
 actions['''subscript : COLON'''] = '''    p[0] = Slice(None, None, None, **p[1][1])'''
 actions['''subscript : COLON sliceop'''] = '''    p[0] = Slice(None, None, p[2], **p[1][1])'''
 actions['''sliceop : COLON'''] = '''    p[0] = Name("None", Load(), **p[1][1])'''
+
+# Different from pure Python merely for spelling (names in femtocode.g)
+actions['''body : suite'''] = '''    p[0] = p[1]'''
+
+actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])'''
+
+actions['''expression : or_test'''] = '''    p[0] = p[1]'''
+
+actions['''comparison : arith_expr'''] = '''    p[0] = p[1]'''
+actions['''comparison : arith_expr comparison_star'''] = '''    ops, exprs = p[2]
+    p[0] = Compare(p[1], ops, exprs)
+    inherit_lineno(p[0], p[1])'''
+actions['''comparison_star : comp_op arith_expr'''] = '''    inherit_lineno(p[1], p[2])
+    p[0] = ([p[1]], [p[2]])'''
+actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops, exprs = p[1]
+    inherit_lineno(p[2], p[3])
+    p[0] = (ops + [p[2]], exprs + [p[3]])'''
+
+actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), paren=False)'''

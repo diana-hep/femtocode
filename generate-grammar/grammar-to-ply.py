@@ -325,7 +325,7 @@ from femtocode.thirdparty.ply import yacc
 
 from femtocode.asts.parsingtree import *
 
-''' % ((datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])), " ".join(sys.argv[1:])))
+''' % (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])))
 
 W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
 

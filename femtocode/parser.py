@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at ('2016-10-06T16:23:09', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-06T16:49:30 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 from ast import literal_eval
@@ -267,7 +267,7 @@ def unpack_trailer(atom, power_star):
 def p_body_1(p):
     '''body : suite'''
     #             1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_body_2(p):
     '''body : body_star suite'''
     #                 1     2
@@ -286,7 +286,7 @@ def p_body_star_2(p):
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
-    raise NotImplementedError
+    p[0] = Suite([], p[1])
 def p_suite_2(p):
     '''suite : expression suite_star'''
     #                   1          2
@@ -399,7 +399,7 @@ def p_expression_2(p):
 def p_expression_3(p):
     '''expression : or_test'''
     #                     1
-    raise NotImplementedError
+    p[0] = p[1]
 
 # closed_expression: closed_ifblock | fcndef | or_test ';'
 def p_closed_expression_1(p):
@@ -590,20 +590,25 @@ def p_not_test_2(p):
 def p_comparison_1(p):
     '''comparison : arith_expr'''
     #                        1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_comparison_2(p):
     '''comparison : arith_expr comparison_star'''
     #                        1               2
-    raise NotImplementedError
+    ops, exprs = p[2]
+    p[0] = Compare(p[1], ops, exprs)
+    inherit_lineno(p[0], p[1])
 
 def p_comparison_star_1(p):
     '''comparison_star : comp_op arith_expr'''
     #                          1          2
-    raise NotImplementedError
+    inherit_lineno(p[1], p[2])
+    p[0] = ([p[1]], [p[2]])
 def p_comparison_star_2(p):
     '''comparison_star : comparison_star comp_op arith_expr'''
     #                                  1       2          3
-    raise NotImplementedError
+    ops, exprs = p[1]
+    inherit_lineno(p[2], p[3])
+    p[0] = (ops + [p[2]], exprs + [p[3]])
 
 # comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
 def p_comp_op_1(p):
@@ -775,7 +780,7 @@ def p_power_star_2(p):
 def p_atom_1(p):
     '''atom : LPAR RPAR'''
     #            1    2
-    raise NotImplementedError
+    p[0] = Tuple([], Load(), paren=False)
 def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
@@ -840,7 +845,7 @@ def p_subscriptlist_2(p):
     '''subscriptlist : subscript COMMA'''
     #                          1     2
     if isinstance(p[1], Index):
-        tup = Tuple([p[1].value], Load(), paren=False)
+        tup = Tuple([p[1].value], Load())
         inherit_lineno(tup, p[1].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
@@ -852,7 +857,7 @@ def p_subscriptlist_3(p):
     #                          1                  2
     args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
-        tup = Tuple([x.value for x in args], Load(), paren=False)
+        tup = Tuple([x.value for x in args], Load())
         inherit_lineno(tup, args[0].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
@@ -864,7 +869,7 @@ def p_subscriptlist_4(p):
     #                          1                  2     3
     args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
-        tup = Tuple([x.value for x in args], Load(), paren=False)
+        tup = Tuple([x.value for x in args], Load())
         inherit_lineno(tup, args[0].value)
         p[0] = Index(tup)
         inherit_lineno(p[0], tup)
