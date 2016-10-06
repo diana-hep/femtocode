@@ -122,19 +122,19 @@ actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])'''
 
-actions['''subscript : expression'''] = '''    p[0] = ast.Index(p[1], rule=inspect.currentframe().f_code.co_name)
+actions['''subscript : expression'''] = '''    p[0] = Index(p[1])
     inherit_lineno(p[0], p[1])'''
-actions['''subscript : COLON'''] = '''    p[0] = ast.Slice(None, None, None, rule=inspect.currentframe().f_code.co_name, **p[1][1])'''
-actions['''subscript : COLON sliceop'''] = '''    p[0] = ast.Slice(None, None, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])'''
-actions['''subscript : COLON expression'''] = '''    p[0] = ast.Slice(None, p[2], None, rule=inspect.currentframe().f_code.co_name, **p[1][1])'''
-actions['''subscript : COLON expression sliceop'''] = '''    p[0] = ast.Slice(None, p[2], p[3], rule=inspect.currentframe().f_code.co_name, **p[1][1])'''
-actions['''subscript : expression COLON'''] = '''    p[0] = ast.Slice(p[1], None, None, rule=inspect.currentframe().f_code.co_name)
+actions['''subscript : COLON'''] = '''    p[0] = Slice(None, None, None, **p[1][1])'''
+actions['''subscript : COLON sliceop'''] = '''    p[0] = Slice(None, None, p[2], **p[1][1])'''
+actions['''subscript : COLON expression'''] = '''    p[0] = Slice(None, p[2], None, **p[1][1])'''
+actions['''subscript : COLON expression sliceop'''] = '''    p[0] = Slice(None, p[2], p[3], **p[1][1])'''
+actions['''subscript : expression COLON'''] = '''    p[0] = Slice(p[1], None, None)
     inherit_lineno(p[0], p[1])'''
-actions['''subscript : expression COLON sliceop'''] = '''    p[0] = ast.Slice(p[1], None, p[3], rule=inspect.currentframe().f_code.co_name)
+actions['''subscript : expression COLON sliceop'''] = '''    p[0] = Slice(p[1], None, p[3])
     inherit_lineno(p[0], p[1])'''
-actions['''subscript : expression COLON expression'''] = '''    p[0] = ast.Slice(p[1], p[3], None, rule=inspect.currentframe().f_code.co_name)
+actions['''subscript : expression COLON expression'''] = '''    p[0] = Slice(p[1], p[3], None)
     inherit_lineno(p[0], p[1])'''
-actions['''subscript : expression COLON expression sliceop'''] = '''    p[0] = ast.Slice(p[1], p[3], p[4], rule=inspect.currentframe().f_code.co_name)
+actions['''subscript : expression COLON expression sliceop'''] = '''    p[0] = Slice(p[1], p[3], p[4])
     inherit_lineno(p[0], p[1])'''
 actions['''sliceop : COLON expression'''] = '''    p[0] = p[2]'''
 
