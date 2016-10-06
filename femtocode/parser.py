@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-# generated at ('2016-10-06T15:29:26', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at ('2016-10-06T16:23:09', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
-from femtocode.ast.parsingtree import *
+from ast import literal_eval
 
 from femtocode.thirdparty.ply import lex
 from femtocode.thirdparty.ply import yacc
+
+from femtocode.asts.parsingtree import *
 
 
 reserved = {
@@ -23,42 +25,50 @@ tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
 def t_STRING(t):
     r'([uUbB]?[rR]?\'[^\\n\'\\\\]*(?:\\\\.[^\\n\'\\\\]*)*\'|[uUbB]?[rR]?"[^\\n"\\\\]*(?:\\\\.[^\\n"\\\\]*)*")'
+    t.value = literal_eval(t.value), kwds(t.lexer)
     return t
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
     r"(\d+[jJ]|((\d+\.\d*|\.\d+)([eE][-+]?\d+)?|\d+[eE][-+]?\d+)[jJ])"
+    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer)
     return t
 tokens.append("IMAG_NUMBER")
 
 def t_FLOAT_NUMBER(t):
     r"((\d+\.\d*|\.\d+)([eE][-+]?\d+)?|\d+[eE][-+]?\d+)"
+    t.value = float(t.value), kwds(t.lexer)
     return t
 tokens.append("FLOAT_NUMBER")
 
 def t_HEX_NUMBER(t):
     r"0[xX][0-9a-fA-F]+"
+    t.value = int(t.value, 16), kwds(t.lexer)
     return t
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
     r"0o?[0-7]*"
+    t.value = int(t.value, 8), kwds(t.lexer)
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
     r"[1-9][0-9]*"
+    t.value = int(t.value), kwds(t.lexer)
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
     r"@[0-9]*"
+    t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
     t.type = reserved.get(t.value, "NAME")
+    t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("NAME")
 
@@ -68,106 +78,128 @@ literals = ['[', '.', '{', '%', ']', ')', '(', '+', '*', '-', ',', '/', '<', '}'
 
 def t_RIGHTARROW(t):
     r"\=\>"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_GREATEREQUAL(t):
     r"\>\="
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_EQEQUAL(t):
     r"\=\="
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_LESSEQUAL(t):
     r"\<\="
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_DOUBLESTAR(t):
     r"\*\*"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_NOTEQUAL(t):
     r"\!\="
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_DOUBLESLASH(t):
     r"\/\/"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_LSQB(t):
     r"\["
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_DOT(t):
     r"\."
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_LBRACE(t):
     r"\{"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_PERCENT(t):
     r"\%"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_RSQB(t):
     r"\]"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_RPAR(t):
     r"\)"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_LPAR(t):
     r"\("
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_PLUS(t):
     r"\+"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_STAR(t):
     r"\*"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_MINUS(t):
     r"\-"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_COMMA(t):
     r"\,"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_SLASH(t):
     r"\/"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_LESS(t):
     r"\<"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_RBRACE(t):
     r"\}"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_SEMI(t):
     r"\;"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_COLON(t):
     r"\:"
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_EQUAL(t):
     r"\="
+    t.value = t.value, kwds(t.lexer)
     return t
 
 def t_GREATER(t):
     r"\>"
+    t.value = t.value, kwds(t.lexer)
     return t
-
-def t_NL(t):
-    r"\n"
 
 def t_error(t):
     raise SyntaxError(t)
@@ -177,6 +209,12 @@ def t_comment(t):
     pass
 
 t_ignore = " \t\f"
+
+def t_newline(t):
+    r"\n"
+    t.value = t.value, kwds(t.lexer)
+    t.lexer.lineno += 1
+    t.lexer.last_col0 = t.lexer.lexpos + 1
 
 def inherit_lineno(p0, px, alt=True):
     if isinstance(px, dict):
@@ -502,7 +540,7 @@ def p_or_test_2(p):
     #                   1            2
     theor = Or()
     inherit_lineno(theor, p[2][0])
-    p[0] = BoolOp(theor, [p[1]] + p[2], )
+    p[0] = BoolOp(theor, [p[1]] + p[2])
     inherit_lineno(p[0], p[1])
 
 def p_or_test_star_1(p):
@@ -524,7 +562,7 @@ def p_and_test_2(p):
     #                    1             2
     theand = And()
     inherit_lineno(theand, p[2][0])
-    p[0] = BoolOp(theand, [p[1]] + p[2], )
+    p[0] = BoolOp(theand, [p[1]] + p[2])
     inherit_lineno(p[0], p[1])
 
 def p_and_test_star_1(p):
@@ -676,7 +714,7 @@ def p_factor_1(p):
     '''factor : PLUS factor'''
     #              1      2
     op = UAdd(**p[1][1])
-    p[0] = UnaryOp(op, p[2], )
+    p[0] = UnaryOp(op, p[2])
     inherit_lineno(p[0], op)
 def p_factor_2(p):
     '''factor : MINUS factor'''
@@ -688,7 +726,7 @@ def p_factor_2(p):
         inherit_lineno(p[0], p[1][1])
     else:
         op = USub(**p[1][1])
-        p[0] = UnaryOp(op, p[2], )
+        p[0] = UnaryOp(op, p[2])
         inherit_lineno(p[0], op)
 def p_factor_3(p):
     '''factor : power'''
@@ -703,7 +741,7 @@ def p_power_1(p):
 def p_power_2(p):
     '''power : atom DOUBLESTAR factor'''
     #             1          2      3
-    p[0] = BinOp(p[1], Pow(**p[2][1]), p[3], )
+    p[0] = BinOp(p[1], Pow(**p[2][1]), p[3])
     inherit_lineno(p[0], p[1])
 def p_power_3(p):
     '''power : atom power_star'''
@@ -712,7 +750,7 @@ def p_power_3(p):
 def p_power_4(p):
     '''power : atom power_star DOUBLESTAR factor'''
     #             1          2          3      4
-    p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(**p[3][1]), p[4], )
+    p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(**p[3][1]), p[4])
     inherit_lineno(p[0], p[1])
 
 def p_power_star_1(p):
@@ -787,11 +825,11 @@ def p_trailer_1(p):
 def p_trailer_2(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
-    p[0] = Subscript(None, p[2], Load(), )
+    p[0] = Subscript(None, p[2], Load())
 def p_trailer_3(p):
     '''trailer : DOT NAME'''
     #              1    2
-    p[0] = Attribute(None, p[2][0], Load(), )
+    p[0] = Attribute(None, p[2][0], Load())
 
 # subscriptlist: subscript (',' subscript)* [',']
 def p_subscriptlist_1(p):
@@ -804,10 +842,10 @@ def p_subscriptlist_2(p):
     if isinstance(p[1], Index):
         tup = Tuple([p[1].value], Load(), paren=False)
         inherit_lineno(tup, p[1].value)
-        p[0] = Index(tup, )
+        p[0] = Index(tup)
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ExtSlice([p[1]], )
+        p[0] = ExtSlice([p[1]])
         inherit_lineno(p[0], p[1])
 def p_subscriptlist_3(p):
     '''subscriptlist : subscript subscriptlist_star'''
@@ -816,10 +854,10 @@ def p_subscriptlist_3(p):
     if all(isinstance(x, Index) for x in args):
         tup = Tuple([x.value for x in args], Load(), paren=False)
         inherit_lineno(tup, args[0].value)
-        p[0] = Index(tup, )
+        p[0] = Index(tup)
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ExtSlice(args, )
+        p[0] = ExtSlice(args)
         inherit_lineno(p[0], p[1])
 def p_subscriptlist_4(p):
     '''subscriptlist : subscript subscriptlist_star COMMA'''
@@ -828,10 +866,10 @@ def p_subscriptlist_4(p):
     if all(isinstance(x, Index) for x in args):
         tup = Tuple([x.value for x in args], Load(), paren=False)
         inherit_lineno(tup, args[0].value)
-        p[0] = Index(tup, )
+        p[0] = Index(tup)
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ExtSlice(args, )
+        p[0] = ExtSlice(args)
         inherit_lineno(p[0], p[1])
 
 def p_subscriptlist_star_1(p):
@@ -935,8 +973,13 @@ def p_argument_2(p):
 def p_error(p):
     raise SyntaxError(p)
 
-def parse(source, fileName="<unknown>"):
+def kwds(lexer):
+    return {"lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0}
+
+def parse(source, fileName="<string>"):
     lexer = lex.lex()
+    lexer.lineno = 1
+    lexer.last_col0 = 0
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 

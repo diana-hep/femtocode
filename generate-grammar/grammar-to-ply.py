@@ -64,8 +64,6 @@ literal_to_name = {
     "else": "ELSE",
     "def": "DEF",
 
-    # "\n": "NL",
-
     "==": "EQEQUAL",       # 2-character tokens first
     "!=": "NOTEQUAL",
     "<=": "LESSEQUAL",
@@ -320,10 +318,12 @@ W('''#!/usr/bin/env python
 # generated at %s by "python %s"
 
 import re
-from femtocode.ast.parsingtree import *
+from ast import literal_eval
 
 from femtocode.thirdparty.ply import lex
 from femtocode.thirdparty.ply import yacc
+
+from femtocode.asts.parsingtree import *
 
 ''' % ((datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])), " ".join(sys.argv[1:])))
 
@@ -333,42 +333,50 @@ W("tokens = [%s]\n" % ", ".join("'%s'" % name for literal, name in literal_to_na
 
 W('''def t_STRING(t):
     r'([uUbB]?[rR]?\\'[^\\\\n\\'\\\\\\\\]*(?:\\\\\\\\.[^\\\\n\\'\\\\\\\\]*)*\\'|[uUbB]?[rR]?"[^\\\\n"\\\\\\\\]*(?:\\\\\\\\.[^\\\\n"\\\\\\\\]*)*")'
+    t.value = literal_eval(t.value), kwds(t.lexer)
     return t
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
     r"(\\d+[jJ]|((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)[jJ])"
+    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer)
     return t
 tokens.append("IMAG_NUMBER")
 
 def t_FLOAT_NUMBER(t):
     r"((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)"
+    t.value = float(t.value), kwds(t.lexer)
     return t
 tokens.append("FLOAT_NUMBER")
 
 def t_HEX_NUMBER(t):
     r"0[xX][0-9a-fA-F]+"
+    t.value = int(t.value, 16), kwds(t.lexer)
     return t
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
     r"0o?[0-7]*"
+    t.value = int(t.value, 8), kwds(t.lexer)
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
     r"[1-9][0-9]*"
+    t.value = int(t.value), kwds(t.lexer)
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
     r"@[0-9]*"
+    t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
     t.type = reserved.get(t.value, "NAME")
+    t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("NAME")
 ''')
@@ -381,19 +389,17 @@ for literal, name in literal_to_name.items():
     if not literal.isalpha() and len(literal) == 2:
         W('''def t_%s(t):
     r"%s"
+    t.value = t.value, kwds(t.lexer)
     return t
 ''' % (name, re.escape(literal)))
 
 for literal, name in literal_to_name.items():
-    if not literal.isalpha() and len(literal) == 1 and literal != "\n":
+    if not literal.isalpha() and len(literal) == 1:
         W('''def t_%s(t):
     r"%s"
+    t.value = t.value, kwds(t.lexer)
     return t
 ''' % (name, re.escape(literal)))
-
-W('''def t_NL(t):
-    r"\\n"
-''')
 
 W('''def t_error(t):
     raise SyntaxError(t)
@@ -403,6 +409,12 @@ W('''def t_comment(t):
     pass
 ''')
 W('''t_ignore = " \\t\\f"
+
+def t_newline(t):
+    r"\\n"
+    t.value = t.value, kwds(t.lexer)
+    t.lexer.lineno += 1
+    t.lexer.last_col0 = t.lexer.lexpos + 1
 ''')
 
 W('''def inherit_lineno(p0, px, alt=True):
@@ -508,8 +520,13 @@ for definition in definition_list:
 W('''\ndef p_error(p):
     raise SyntaxError(p)
 
-def parse(source, fileName="<unknown>"):
+def kwds(lexer):
+    return {"lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0}
+
+def parse(source, fileName="<string>"):
     lexer = lex.lex()
+    lexer.lineno = 1
+    lexer.last_col0 = 0
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 ''')
