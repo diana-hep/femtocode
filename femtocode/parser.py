@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# generated at ('2016-10-06T14:50:56', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at ('2016-10-06T15:29:26', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 from femtocode.ast.parsingtree import *
 
-from femtocode.ply import lex
-from femtocode.ply import yacc
+from femtocode.thirdparty.ply import lex
+from femtocode.thirdparty.ply import yacc
 
 
 reserved = {
