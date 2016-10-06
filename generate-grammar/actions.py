@@ -123,3 +123,12 @@ actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops
     p[0] = (ops + [p[2]], exprs + [p[3]])'''
 
 actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), **p[1][1])'''
+actions['''atom : LPAR expression RPAR'''] = '''    p[0] = p[1]'''
+actions['''atom : STRING'''] = '''    p[0] = Str(p[1][0], **p[1][1])'''
+actions['''atom : IMAG_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
+actions['''atom : FLOAT_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
+actions['''atom : HEX_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
+actions['''atom : OCT_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
+actions['''atom : DEC_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
+actions['''atom : ATARG'''] = '''    p[0] = AtArg(p[1][0], **p[1][1])'''
+actions['''atom : NAME'''] = '''    p[0] = Name(p[1][0], Load(), **p[1][1])'''

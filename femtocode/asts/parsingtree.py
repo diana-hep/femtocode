@@ -42,6 +42,7 @@ from ast import NotEq
 from ast import NotIn
 from ast import Num
 from ast import Or
+from ast import Param
 from ast import Pow
 from ast import Slice
 from ast import Str
@@ -61,3 +62,8 @@ class Suite(expr):
         self.expression = expression
         self.__dict__.update(kwds)
 
+class AtArg(expr):
+    _fields = ("num",)
+    def __init__(self, num, **kwds):
+        self.num = num
+        self.__dict__.update(kwds)

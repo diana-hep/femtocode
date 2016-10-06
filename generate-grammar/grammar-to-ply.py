@@ -318,6 +318,7 @@ W('''#!/usr/bin/env python
 # generated at %s by "python %s"
 
 import re
+import tokenize
 from ast import literal_eval
 
 from femtocode.thirdparty.ply import lex
@@ -332,9 +333,9 @@ W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for lite
 W("tokens = [%s]\n" % ", ".join("'%s'" % name for literal, name in literal_to_name.items() if literal.isalpha()))
 
 W('''def t_STRING(t):
-    r'([uUbB]?[rR]?\\'[^\\\\n\\'\\\\\\\\]*(?:\\\\\\\\.[^\\\\n\\'\\\\\\\\]*)*\\'|[uUbB]?[rR]?"[^\\\\n"\\\\\\\\]*(?:\\\\\\\\.[^\\\\n"\\\\\\\\]*)*")'
     t.value = literal_eval(t.value), kwds(t.lexer)
     return t
+t_STRING.__doc__ = tokenize.String
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
@@ -356,19 +357,23 @@ def t_HEX_NUMBER(t):
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
-    r"0o?[0-7]*"
+    r"0[oO][0-7]*"      # follow Python 3 rules: it is clearer
     t.value = int(t.value, 8), kwds(t.lexer)
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
-    r"[1-9][0-9]*"
+    r"(0|[1-9][0-9]*)"
     t.value = int(t.value), kwds(t.lexer)
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
-    r"@[0-9]*"
+    r"@([1-9][0-9]*)?"
+    if len(t.value) == 1:
+        t.value = None
+    else:
+        t.value = int(t.value[1:])
     t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("ATARG")

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-# generated at 2016-10-06T16:58:02 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-06T17:31:24 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
+import tokenize
 from ast import literal_eval
 
 from femtocode.thirdparty.ply import lex
@@ -24,9 +25,9 @@ reserved = {
 tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
 def t_STRING(t):
-    r'([uUbB]?[rR]?\'[^\\n\'\\\\]*(?:\\\\.[^\\n\'\\\\]*)*\'|[uUbB]?[rR]?"[^\\n"\\\\]*(?:\\\\.[^\\n"\\\\]*)*")'
     t.value = literal_eval(t.value), kwds(t.lexer)
     return t
+t_STRING.__doc__ = tokenize.String
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
@@ -48,19 +49,23 @@ def t_HEX_NUMBER(t):
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
-    r"0o?[0-7]*"
+    r"0[oO][0-7]*"      # follow Python 3 rules: it is clearer
     t.value = int(t.value, 8), kwds(t.lexer)
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
-    r"[1-9][0-9]*"
+    r"(0|[1-9][0-9]*)"
     t.value = int(t.value), kwds(t.lexer)
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
-    r"@[0-9]*"
+    r"@([1-9][0-9]*)?"
+    if len(t.value) == 1:
+        t.value = None
+    else:
+        t.value = int(t.value[1:])
     t.value = t.value, kwds(t.lexer)
     return t
 tokens.append("ATARG")
@@ -785,7 +790,7 @@ def p_atom_1(p):
 def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
-    raise NotImplementedError
+    p[0] = p[1]
 def p_atom_3(p):
     '''atom : fcndef LPAR arglist RPAR'''
     #              1    2       3    4
@@ -793,35 +798,35 @@ def p_atom_3(p):
 def p_atom_4(p):
     '''atom : STRING'''
     #              1
-    raise NotImplementedError
+    p[0] = Str(p[1][0], **p[1][1])
 def p_atom_5(p):
     '''atom : IMAG_NUMBER'''
     #                   1
-    raise NotImplementedError
+    p[0] = Num(p[1][0], **p[1][1])
 def p_atom_6(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
-    raise NotImplementedError
+    p[0] = Num(p[1][0], **p[1][1])
 def p_atom_7(p):
     '''atom : HEX_NUMBER'''
     #                  1
-    raise NotImplementedError
+    p[0] = Num(p[1][0], **p[1][1])
 def p_atom_8(p):
     '''atom : OCT_NUMBER'''
     #                  1
-    raise NotImplementedError
+    p[0] = Num(p[1][0], **p[1][1])
 def p_atom_9(p):
     '''atom : DEC_NUMBER'''
     #                  1
-    raise NotImplementedError
+    p[0] = Num(p[1][0], **p[1][1])
 def p_atom_10(p):
     '''atom : ATARG'''
     #             1
-    raise NotImplementedError
+    p[0] = AtArg(p[1][0], **p[1][1])
 def p_atom_11(p):
     '''atom : NAME'''
     #            1
-    raise NotImplementedError
+    p[0] = Name(p[1][0], Load(), **p[1][1])
 
 # trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
