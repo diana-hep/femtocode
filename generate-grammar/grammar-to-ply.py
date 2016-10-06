@@ -44,7 +44,7 @@ import re
 import sys
 import time
 
-from ply import lex, yacc
+from femtocode.ply import lex, yacc
 
 inputGrammar, grammarActions, outputPLY, = sys.argv[1:]
 
