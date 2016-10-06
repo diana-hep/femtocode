@@ -526,7 +526,7 @@ def kwds(lexer):
 def parse(source, fileName="<string>"):
     lexer = lex.lex()
     lexer.lineno = 1
-    lexer.last_col0 = 0
+    lexer.last_col0 = 1
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 ''')

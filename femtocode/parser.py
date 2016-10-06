@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-06T16:49:30 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-06T16:58:02 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 from ast import literal_eval
@@ -271,22 +271,23 @@ def p_body_1(p):
 def p_body_2(p):
     '''body : body_star suite'''
     #                 1     2
-    raise NotImplementedError
+    p[0] = p[2]
 
 def p_body_star_1(p):
     '''body_star : SEMI'''
     #                 1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_body_star_2(p):
     '''body_star : body_star SEMI'''
     #                      1    2
-    raise NotImplementedError
+    p[0] = p[2]
 
 # suite: (assignment ';'*)* expression ';'*
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
     p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])
 def p_suite_2(p):
     '''suite : expression suite_star'''
     #                   1          2
@@ -780,7 +781,7 @@ def p_power_star_2(p):
 def p_atom_1(p):
     '''atom : LPAR RPAR'''
     #            1    2
-    p[0] = Tuple([], Load(), paren=False)
+    p[0] = Tuple([], Load(), **p[1][1])
 def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
@@ -984,7 +985,7 @@ def kwds(lexer):
 def parse(source, fileName="<string>"):
     lexer = lex.lex()
     lexer.lineno = 1
-    lexer.last_col0 = 0
+    lexer.last_col0 = 1
     parser = yacc.yacc()
     return parser.parse(source, lexer=lexer)
 

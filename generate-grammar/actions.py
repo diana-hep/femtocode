@@ -103,8 +103,12 @@ actions['''sliceop : COLON'''] = '''    p[0] = Name("None", Load(), **p[1][1])''
 
 # Different from pure Python merely for spelling (names in femtocode.g)
 actions['''body : suite'''] = '''    p[0] = p[1]'''
+actions['''body : body_star suite'''] = '''    p[0] = p[2]'''
+actions['''body_star : SEMI'''] = '''    p[0] = p[1]'''
+actions['''body_star : body_star SEMI'''] = '''    p[0] = p[2]'''
 
-actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])'''
+actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])'''
 
 actions['''expression : or_test'''] = '''    p[0] = p[1]'''
 
@@ -118,4 +122,4 @@ actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])'''
 
-actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), paren=False)'''
+actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), **p[1][1])'''
