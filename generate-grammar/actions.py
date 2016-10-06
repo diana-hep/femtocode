@@ -30,21 +30,21 @@ actions['''comp_op : IN'''] = '''    p[0] = In()'''
 actions['''comp_op : NOT IN'''] = '''    p[0] = NotIn()'''
 actions['''arith_expr : term'''] = '''    p[0] = p[1]'''
 actions['''arith_expr : term arith_expr_star'''] = '''    p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)'''
-actions['''arith_expr_star : PLUS term'''] = '''    p[0] = [Add(, **p[1][1]), p[2]]'''
-actions['''arith_expr_star : MINUS term'''] = '''    p[0] = [Sub(, **p[1][1]), p[2]]'''
-actions['''arith_expr_star : arith_expr_star PLUS term'''] = '''    p[0] = p[1] + [Add(, **p[2][1]), p[3]]'''
-actions['''arith_expr_star : arith_expr_star MINUS term'''] = '''    p[0] = p[1] + [Sub(, **p[2][1]), p[3]]'''
+actions['''arith_expr_star : PLUS term'''] = '''    p[0] = [Add(**p[1][1]), p[2]]'''
+actions['''arith_expr_star : MINUS term'''] = '''    p[0] = [Sub(**p[1][1]), p[2]]'''
+actions['''arith_expr_star : arith_expr_star PLUS term'''] = '''    p[0] = p[1] + [Add(**p[2][1]), p[3]]'''
+actions['''arith_expr_star : arith_expr_star MINUS term'''] = '''    p[0] = p[1] + [Sub(**p[2][1]), p[3]]'''
 actions['''term : factor'''] = '''    p[0] = p[1]'''
 actions['''term : factor term_star'''] = '''    p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)'''
-actions['''term_star : STAR factor'''] = '''    p[0] = [Mult(, **p[1][1]), p[2]]'''
-actions['''term_star : SLASH factor'''] = '''    p[0] = [Div(, **p[1][1]), p[2]]'''
-actions['''term_star : PERCENT factor'''] = '''    p[0] = [Mod(, **p[1][1]), p[2]]'''
-actions['''term_star : DOUBLESLASH factor'''] = '''    p[0] = [FloorDiv(, **p[1][1]), p[2]]'''
-actions['''term_star : term_star STAR factor'''] = '''    p[0] = p[1] + [Mult(, **p[2][1]), p[3]]'''
-actions['''term_star : term_star SLASH factor'''] = '''    p[0] = p[1] + [Div(, **p[2][1]), p[3]]'''
-actions['''term_star : term_star PERCENT factor'''] = '''    p[0] = p[1] + [Mod(, **p[2][1]), p[3]]'''
-actions['''term_star : term_star DOUBLESLASH factor'''] = '''    p[0] = p[1] + [FloorDiv(, **p[2][1]), p[3]]'''
-actions['''factor : PLUS factor'''] = '''    op = UAdd(, **p[1][1])
+actions['''term_star : STAR factor'''] = '''    p[0] = [Mult(**p[1][1]), p[2]]'''
+actions['''term_star : SLASH factor'''] = '''    p[0] = [Div(**p[1][1]), p[2]]'''
+actions['''term_star : PERCENT factor'''] = '''    p[0] = [Mod(**p[1][1]), p[2]]'''
+actions['''term_star : DOUBLESLASH factor'''] = '''    p[0] = [FloorDiv(**p[1][1]), p[2]]'''
+actions['''term_star : term_star STAR factor'''] = '''    p[0] = p[1] + [Mult(**p[2][1]), p[3]]'''
+actions['''term_star : term_star SLASH factor'''] = '''    p[0] = p[1] + [Div(**p[2][1]), p[3]]'''
+actions['''term_star : term_star PERCENT factor'''] = '''    p[0] = p[1] + [Mod(**p[2][1]), p[3]]'''
+actions['''term_star : term_star DOUBLESLASH factor'''] = '''    p[0] = p[1] + [FloorDiv(**p[2][1]), p[3]]'''
+actions['''factor : PLUS factor'''] = '''    op = UAdd(**p[1][1])
     p[0] = UnaryOp(op, p[2], )
     inherit_lineno(p[0], op)'''
 actions['''factor : MINUS factor'''] = '''    if isinstance(p[2], Num) and not hasattr(p[2], "unary"):
@@ -53,15 +53,15 @@ actions['''factor : MINUS factor'''] = '''    if isinstance(p[2], Num) and not h
         p[0].unary = True
         inherit_lineno(p[0], p[1][1])
     else:
-        op = USub(, **p[1][1])
+        op = USub(**p[1][1])
         p[0] = UnaryOp(op, p[2], )
         inherit_lineno(p[0], op)'''
 actions['''factor : power'''] = '''    p[0] = p[1]'''
 actions['''power : atom'''] = '''    p[0] = p[1]'''
-actions['''power : atom DOUBLESTAR factor'''] = '''    p[0] = BinOp(p[1], Pow(, **p[2][1]), p[3], )
+actions['''power : atom DOUBLESTAR factor'''] = '''    p[0] = BinOp(p[1], Pow(**p[2][1]), p[3], )
     inherit_lineno(p[0], p[1])'''
 actions['''power : atom power_star'''] = '''    p[0] = unpack_trailer(p[1], p[2])'''
-actions['''power : atom power_star DOUBLESTAR factor'''] = '''    p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(, **p[3][1]), p[4], )
+actions['''power : atom power_star DOUBLESTAR factor'''] = '''    p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(**p[3][1]), p[4], )
     inherit_lineno(p[0], p[1])'''
 actions['''power_star : trailer'''] = '''    p[0] = [p[1]]'''
 actions['''power_star : power_star trailer'''] = '''    p[0] = p[1] + [p[2]]'''

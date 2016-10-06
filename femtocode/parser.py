@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# generated at ('2016-10-06T14:33:23', 'femtocode.g actions.py parser.py') by "python femtocode.g actions.py parser.py"
+# generated at ('2016-10-06T14:50:56', 'generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py') by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
-import ast
+from femtocode.ast.parsingtree import *
 
-from ply import lex
-from ply import yacc
+from femtocode.ply import lex
+from femtocode.ply import yacc
 
 
 reserved = {
@@ -500,9 +500,9 @@ def p_or_test_1(p):
 def p_or_test_2(p):
     '''or_test : and_test or_test_star'''
     #                   1            2
-    theor = ast.Or(rule=inspect.currentframe().f_code.co_name)
+    theor = Or()
     inherit_lineno(theor, p[2][0])
-    p[0] = ast.BoolOp(theor, [p[1]] + p[2], rule=inspect.currentframe().f_code.co_name)
+    p[0] = BoolOp(theor, [p[1]] + p[2], )
     inherit_lineno(p[0], p[1])
 
 def p_or_test_star_1(p):
@@ -522,9 +522,9 @@ def p_and_test_1(p):
 def p_and_test_2(p):
     '''and_test : not_test and_test_star'''
     #                    1             2
-    theand = ast.And(rule=inspect.currentframe().f_code.co_name)
+    theand = And()
     inherit_lineno(theand, p[2][0])
-    p[0] = ast.BoolOp(theand, [p[1]] + p[2], rule=inspect.currentframe().f_code.co_name)
+    p[0] = BoolOp(theand, [p[1]] + p[2], )
     inherit_lineno(p[0], p[1])
 
 def p_and_test_star_1(p):
@@ -540,9 +540,9 @@ def p_and_test_star_2(p):
 def p_not_test_1(p):
     '''not_test : NOT not_test'''
     #               1        2
-    thenot = ast.Not(rule=inspect.currentframe().f_code.co_name)
+    thenot = Not()
     inherit_lineno(thenot, p[2])
-    p[0] = ast.UnaryOp(thenot, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    p[0] = UnaryOp(thenot, p[2], **p[1][1])
 def p_not_test_2(p):
     '''not_test : comparison'''
     #                      1
@@ -571,35 +571,35 @@ def p_comparison_star_2(p):
 def p_comp_op_1(p):
     '''comp_op : LESS'''
     #               1
-    p[0] = ast.Lt(rule=inspect.currentframe().f_code.co_name)
+    p[0] = Lt()
 def p_comp_op_2(p):
     '''comp_op : GREATER'''
     #                  1
-    p[0] = ast.Gt(rule=inspect.currentframe().f_code.co_name)
+    p[0] = Gt()
 def p_comp_op_3(p):
     '''comp_op : EQEQUAL'''
     #                  1
-    p[0] = ast.Eq(rule=inspect.currentframe().f_code.co_name)
+    p[0] = Eq()
 def p_comp_op_4(p):
     '''comp_op : GREATEREQUAL'''
     #                       1
-    p[0] = ast.GtE(rule=inspect.currentframe().f_code.co_name)
+    p[0] = GtE()
 def p_comp_op_5(p):
     '''comp_op : LESSEQUAL'''
     #                    1
-    p[0] = ast.LtE(rule=inspect.currentframe().f_code.co_name)
+    p[0] = LtE()
 def p_comp_op_6(p):
     '''comp_op : NOTEQUAL'''
     #                   1
-    p[0] = ast.NotEq(rule=inspect.currentframe().f_code.co_name)
+    p[0] = NotEq()
 def p_comp_op_7(p):
     '''comp_op : IN'''
     #             1
-    p[0] = ast.In(rule=inspect.currentframe().f_code.co_name)
+    p[0] = In()
 def p_comp_op_8(p):
     '''comp_op : NOT IN'''
     #              1  2
-    p[0] = ast.NotIn(rule=inspect.currentframe().f_code.co_name)
+    p[0] = NotIn()
 
 # arith_expr: term (('+' | '-') term)*
 def p_arith_expr_1(p):
@@ -609,24 +609,24 @@ def p_arith_expr_1(p):
 def p_arith_expr_2(p):
     '''arith_expr : term arith_expr_star'''
     #                  1               2
-    p[0] = unwrap_left_associative([p[1]] + p[2], rule=inspect.currentframe().f_code.co_name, alt=len(p[2]) > 2)
+    p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)
 
 def p_arith_expr_star_1(p):
     '''arith_expr_star : PLUS term'''
     #                       1    2
-    p[0] = [ast.Add(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [Add(**p[1][1]), p[2]]
 def p_arith_expr_star_2(p):
     '''arith_expr_star : MINUS term'''
     #                        1    2
-    p[0] = [ast.Sub(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [Sub(**p[1][1]), p[2]]
 def p_arith_expr_star_3(p):
     '''arith_expr_star : arith_expr_star PLUS term'''
     #                                  1    2    3
-    p[0] = p[1] + [ast.Add(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [Add(**p[2][1]), p[3]]
 def p_arith_expr_star_4(p):
     '''arith_expr_star : arith_expr_star MINUS term'''
     #                                  1     2    3
-    p[0] = p[1] + [ast.Sub(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [Sub(**p[2][1]), p[3]]
 
 # term: factor (('*' | '/' | '%' | '//') factor)*
 def p_term_1(p):
@@ -636,59 +636,59 @@ def p_term_1(p):
 def p_term_2(p):
     '''term : factor term_star'''
     #              1         2
-    p[0] = unwrap_left_associative([p[1]] + p[2], rule=inspect.currentframe().f_code.co_name, alt=len(p[2]) > 2)
+    p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)
 
 def p_term_star_1(p):
     '''term_star : STAR factor'''
     #                 1      2
-    p[0] = [ast.Mult(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [Mult(**p[1][1]), p[2]]
 def p_term_star_2(p):
     '''term_star : SLASH factor'''
     #                  1      2
-    p[0] = [ast.Div(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [Div(**p[1][1]), p[2]]
 def p_term_star_3(p):
     '''term_star : PERCENT factor'''
     #                    1      2
-    p[0] = [ast.Mod(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [Mod(**p[1][1]), p[2]]
 def p_term_star_4(p):
     '''term_star : DOUBLESLASH factor'''
     #                        1      2
-    p[0] = [ast.FloorDiv(rule=inspect.currentframe().f_code.co_name, **p[1][1]), p[2]]
+    p[0] = [FloorDiv(**p[1][1]), p[2]]
 def p_term_star_5(p):
     '''term_star : term_star STAR factor'''
     #                      1    2      3
-    p[0] = p[1] + [ast.Mult(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [Mult(**p[2][1]), p[3]]
 def p_term_star_6(p):
     '''term_star : term_star SLASH factor'''
     #                      1     2      3
-    p[0] = p[1] + [ast.Div(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [Div(**p[2][1]), p[3]]
 def p_term_star_7(p):
     '''term_star : term_star PERCENT factor'''
     #                      1       2      3
-    p[0] = p[1] + [ast.Mod(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [Mod(**p[2][1]), p[3]]
 def p_term_star_8(p):
     '''term_star : term_star DOUBLESLASH factor'''
     #                      1           2      3
-    p[0] = p[1] + [ast.FloorDiv(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3]]
+    p[0] = p[1] + [FloorDiv(**p[2][1]), p[3]]
 
 # factor: ('+' | '-') factor | power
 def p_factor_1(p):
     '''factor : PLUS factor'''
     #              1      2
-    op = ast.UAdd(rule=inspect.currentframe().f_code.co_name, **p[1][1])
-    p[0] = ast.UnaryOp(op, p[2], rule=inspect.currentframe().f_code.co_name)
+    op = UAdd(**p[1][1])
+    p[0] = UnaryOp(op, p[2], )
     inherit_lineno(p[0], op)
 def p_factor_2(p):
     '''factor : MINUS factor'''
     #               1      2
-    if isinstance(p[2], ast.Num) and not hasattr(p[2], "unary"):
+    if isinstance(p[2], Num) and not hasattr(p[2], "unary"):
         p[2].n *= -1
         p[0] = p[2]
         p[0].unary = True
         inherit_lineno(p[0], p[1][1])
     else:
-        op = ast.USub(rule=inspect.currentframe().f_code.co_name, **p[1][1])
-        p[0] = ast.UnaryOp(op, p[2], rule=inspect.currentframe().f_code.co_name)
+        op = USub(**p[1][1])
+        p[0] = UnaryOp(op, p[2], )
         inherit_lineno(p[0], op)
 def p_factor_3(p):
     '''factor : power'''
@@ -703,7 +703,7 @@ def p_power_1(p):
 def p_power_2(p):
     '''power : atom DOUBLESTAR factor'''
     #             1          2      3
-    p[0] = ast.BinOp(p[1], ast.Pow(rule=inspect.currentframe().f_code.co_name, **p[2][1]), p[3], rule=inspect.currentframe().f_code.co_name)
+    p[0] = BinOp(p[1], Pow(**p[2][1]), p[3], )
     inherit_lineno(p[0], p[1])
 def p_power_3(p):
     '''power : atom power_star'''
@@ -712,7 +712,7 @@ def p_power_3(p):
 def p_power_4(p):
     '''power : atom power_star DOUBLESTAR factor'''
     #             1          2          3      4
-    p[0] = ast.BinOp(unpack_trailer(p[1], p[2]), ast.Pow(rule=inspect.currentframe().f_code.co_name, **p[3][1]), p[4], rule=inspect.currentframe().f_code.co_name)
+    p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(**p[3][1]), p[4], )
     inherit_lineno(p[0], p[1])
 
 def p_power_star_1(p):
@@ -787,11 +787,11 @@ def p_trailer_1(p):
 def p_trailer_2(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
-    p[0] = ast.Subscript(None, p[2], ast.Load(), rule=inspect.currentframe().f_code.co_name)
+    p[0] = Subscript(None, p[2], Load(), )
 def p_trailer_3(p):
     '''trailer : DOT NAME'''
     #              1    2
-    p[0] = ast.Attribute(None, p[2][0], ast.Load(), rule=inspect.currentframe().f_code.co_name)
+    p[0] = Attribute(None, p[2][0], Load(), )
 
 # subscriptlist: subscript (',' subscript)* [',']
 def p_subscriptlist_1(p):
@@ -801,37 +801,37 @@ def p_subscriptlist_1(p):
 def p_subscriptlist_2(p):
     '''subscriptlist : subscript COMMA'''
     #                          1     2
-    if isinstance(p[1], ast.Index):
-        tup = ast.Tuple([p[1].value], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+    if isinstance(p[1], Index):
+        tup = Tuple([p[1].value], Load(), paren=False)
         inherit_lineno(tup, p[1].value)
-        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        p[0] = Index(tup, )
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ast.ExtSlice([p[1]], rule=inspect.currentframe().f_code.co_name)
+        p[0] = ExtSlice([p[1]], )
         inherit_lineno(p[0], p[1])
 def p_subscriptlist_3(p):
     '''subscriptlist : subscript subscriptlist_star'''
     #                          1                  2
     args = [p[1]] + p[2]
-    if all(isinstance(x, ast.Index) for x in args):
-        tup = ast.Tuple([x.value for x in args], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+    if all(isinstance(x, Index) for x in args):
+        tup = Tuple([x.value for x in args], Load(), paren=False)
         inherit_lineno(tup, args[0].value)
-        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        p[0] = Index(tup, )
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ast.ExtSlice(args, rule=inspect.currentframe().f_code.co_name)
+        p[0] = ExtSlice(args, )
         inherit_lineno(p[0], p[1])
 def p_subscriptlist_4(p):
     '''subscriptlist : subscript subscriptlist_star COMMA'''
     #                          1                  2     3
     args = [p[1]] + p[2]
-    if all(isinstance(x, ast.Index) for x in args):
-        tup = ast.Tuple([x.value for x in args], ast.Load(), rule=inspect.currentframe().f_code.co_name, paren=False)
+    if all(isinstance(x, Index) for x in args):
+        tup = Tuple([x.value for x in args], Load(), paren=False)
         inherit_lineno(tup, args[0].value)
-        p[0] = ast.Index(tup, rule=inspect.currentframe().f_code.co_name)
+        p[0] = Index(tup, )
         inherit_lineno(p[0], tup)
     else:
-        p[0] = ast.ExtSlice(args, rule=inspect.currentframe().f_code.co_name)
+        p[0] = ExtSlice(args, )
         inherit_lineno(p[0], p[1])
 
 def p_subscriptlist_star_1(p):
@@ -851,11 +851,11 @@ def p_subscript_1(p):
 def p_subscript_2(p):
     '''subscript : COLON'''
     #                  1
-    p[0] = ast.Slice(None, None, None, rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    p[0] = Slice(None, None, None, **p[1][1])
 def p_subscript_3(p):
     '''subscript : COLON sliceop'''
     #                  1       2
-    p[0] = ast.Slice(None, None, p[2], rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    p[0] = Slice(None, None, p[2], **p[1][1])
 def p_subscript_4(p):
     '''subscript : COLON expression'''
     #                  1          2
@@ -885,7 +885,7 @@ def p_subscript_9(p):
 def p_sliceop_1(p):
     '''sliceop : COLON'''
     #                1
-    p[0] = ast.Name("None", ast.Load(), rule=inspect.currentframe().f_code.co_name, **p[1][1])
+    p[0] = Name("None", Load(), **p[1][1])
 def p_sliceop_2(p):
     '''sliceop : COLON expression'''
     #                1          2
