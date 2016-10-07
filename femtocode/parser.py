@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T15:47:36 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T15:49:30 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -251,12 +251,12 @@ def inherit_lineno(p0, px, alt=True):
             p0.lineno = px.lineno
             p0.col_offset = px.col_offset
 
-def unwrap_left_associative(args, rule, alt=False):
-    out = BinOp(args[0], args[1], args[2], rule=rule)
+def unwrap_left_associative(args, alt=False):
+    out = BinOp(args[0], args[1], args[2])
     inherit_lineno(out, args[0])
     args = args[3:]
     while len(args) > 0:
-        out = BinOp(out, args[0], args[1], rule=rule)
+        out = BinOp(out, args[0], args[1])
         inherit_lineno(out, out.left)
         if alt:
             out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
