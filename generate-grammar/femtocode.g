@@ -3,7 +3,7 @@
 body: ';'* suite
 suite: (assignment ';'*)* expression ';'*
 
-lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict" but works
+lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict"
 assignment: lvalues '=' closed_expression | fcnndef
 fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 
@@ -13,7 +13,7 @@ closed_expression: closed_ifblock | fcndef | or_test ';'
 fcndef: '{' paramlist '=>' suite '}'
 fcn1def: parameter '=>' (expression | '{' suite '}')
 paramlist: (parameter ',')* (parameter [','])
-parameter: NAME
+parameter: NAME ['=' expression]    // source of "WARNING: 1 shift/reduce conflict"
 
 exprsuite: (':' expression | [':'] '{' suite '}')
 closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
@@ -31,7 +31,7 @@ term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' [expression] ')'
-        | fcndef '(' arglist ')'    // source of "WARNING: 1 shift/reduce conflict" but works
+        | fcndef '(' [arglist] ')'  // source of "WARNING: 1 shift/reduce conflict"
         | STRING
         | IMAG_NUMBER
         | FLOAT_NUMBER
@@ -41,9 +41,10 @@ atom: ('(' [expression] ')'
         | ATARG
         | NAME)
 
-trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
+trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
 subscriptlist: subscript (',' subscript)* [',']
 subscript: expression | [expression] ':' [expression] [sliceop]
 sliceop: ':' [expression]
+
 arglist: ((argument ',')* (argument [','])) | fcn1def
 argument: expression | NAME '=' expression

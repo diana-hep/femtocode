@@ -45,6 +45,7 @@ from ast import Or
 from ast import Param
 from ast import Pow
 from ast import Slice
+from ast import Store
 from ast import Str
 from ast import Sub
 from ast import Subscript
@@ -66,4 +67,36 @@ class AtArg(expr):
     _fields = ("num",)
     def __init__(self, num, **kwds):
         self.num = num
+        self.__dict__.update(kwds)
+
+class Assignment(expr):
+    _fields = ("lvalues", "expression")
+    def __init__(self, lvalues, expression, **kwds):
+        self.lvalues = lvalues
+        self.expression = expression
+        self.__dict__.update(kwds)
+
+class FcnCall(expr):
+    _fields = ("function", "positional", "names", "named")
+    def __init__(self, function, positional, names, named, **kwds):
+        self.function = function
+        self.positional = positional
+        self.names = names
+        self.named = named
+        self.__dict__.update(kwds)
+
+class FcnDef(expr):
+    _fields = ("parameters", "defaults", "body")
+    def __init__(self, parameters, defaults, body, **kwds):
+        self.parameters = parameters
+        self.defaults = defaults
+        self.body = body
+        self.__dict__.update(kwds)
+
+class IfChain(expr):
+    _fields = ("predicates", "consequents", "alternate")
+    def __init__(self, predicates, consequents, alternate, **kwds):
+        self.predicates = predicates
+        self.consequents = consequents
+        self.alternate = alternate
         self.__dict__.update(kwds)

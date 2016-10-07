@@ -453,11 +453,11 @@ W('''def inherit_lineno(p0, px, alt=True):
             p0.col_offset = px.col_offset
 
 def unwrap_left_associative(args, rule, alt=False):
-    out = ast.BinOp(args[0], args[1], args[2], rule=rule)
+    out = BinOp(args[0], args[1], args[2], rule=rule)
     inherit_lineno(out, args[0])
     args = args[3:]
     while len(args) > 0:
-        out = ast.BinOp(out, args[0], args[1], rule=rule)
+        out = BinOp(out, args[0], args[1], rule=rule)
         inherit_lineno(out, out.left)
         if alt:
             out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
@@ -468,17 +468,17 @@ def unwrap_left_associative(args, rule, alt=False):
 def unpack_trailer(atom, power_star):
     out = atom
     for trailer in power_star:
-        if isinstance(trailer, ast.Call):
-            trailer.func = out
+        if isinstance(trailer, FcnCall):
+            trailer.function = out
             inherit_lineno(trailer, out)
             out = trailer
-        elif isinstance(trailer, ast.Attribute):
+        elif isinstance(trailer, Attribute):
             trailer.value = out
             inherit_lineno(trailer, out, alt=False)
             if hasattr(out, "alt"):
                 trailer.alt = out.alt
             out = trailer
-        elif isinstance(trailer, ast.Subscript):
+        elif isinstance(trailer, Subscript):
             trailer.value = out
             inherit_lineno(trailer, out)
             out = trailer
@@ -496,12 +496,12 @@ def format_function(name, rules):
         W("    '''%s : %s'''" % (name, rules[0]))
         W("    #  %s   %s" % (" " * len(name), numbers(rules[0])))
         r = "%s : %s" % (name, rules[0])
+        # W("    print(\"%s : %s\")" % (name, rules[0]))
         if r in actions:
             W(actions[r])
             del actions[r]
         else:
             W("    raise NotImplementedError")
-        # W("    print \"%s : %s\"" % (name, rules[0]))
 
     else:
         for i, rule in enumerate(rules):
@@ -509,12 +509,12 @@ def format_function(name, rules):
             W("    '''%s : %s'''" % (name, rule))
             W("    #  %s   %s" % (" " * len(name), numbers(rule)))
             r = "%s : %s" % (name, rule)
+            # W("    print(\"%s : %s\")" % (name, rule))
             if r in actions:
                 W(actions[r])
                 del actions[r]
             else:
                 W("    raise NotImplementedError")
-            # W("    print \"%s : %s\"" % (name, rules[0]))
     
 grammar_lines = grammar_text.splitlines()
 

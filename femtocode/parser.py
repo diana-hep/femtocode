@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T07:20:49 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T11:12:01 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -251,11 +251,11 @@ def inherit_lineno(p0, px, alt=True):
             p0.col_offset = px.col_offset
 
 def unwrap_left_associative(args, rule, alt=False):
-    out = ast.BinOp(args[0], args[1], args[2], rule=rule)
+    out = BinOp(args[0], args[1], args[2], rule=rule)
     inherit_lineno(out, args[0])
     args = args[3:]
     while len(args) > 0:
-        out = ast.BinOp(out, args[0], args[1], rule=rule)
+        out = BinOp(out, args[0], args[1], rule=rule)
         inherit_lineno(out, out.left)
         if alt:
             out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
@@ -266,17 +266,17 @@ def unwrap_left_associative(args, rule, alt=False):
 def unpack_trailer(atom, power_star):
     out = atom
     for trailer in power_star:
-        if isinstance(trailer, ast.Call):
-            trailer.func = out
+        if isinstance(trailer, FcnCall):
+            trailer.function = out
             inherit_lineno(trailer, out)
             out = trailer
-        elif isinstance(trailer, ast.Attribute):
+        elif isinstance(trailer, Attribute):
             trailer.value = out
             inherit_lineno(trailer, out, alt=False)
             if hasattr(out, "alt"):
                 trailer.alt = out.alt
             out = trailer
-        elif isinstance(trailer, ast.Subscript):
+        elif isinstance(trailer, Subscript):
             trailer.value = out
             inherit_lineno(trailer, out)
             out = trailer
@@ -313,112 +313,118 @@ def p_suite_1(p):
 def p_suite_2(p):
     '''suite : expression suite_star'''
     #                   1          2
-    raise NotImplementedError
+    p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])
 def p_suite_3(p):
     '''suite : suite_star2 expression'''
     #                    1          2
-    raise NotImplementedError
+    p[0] = Suite(p[1], p[2])
+    inherit_lineno(p[0], p[1][0])
 def p_suite_4(p):
     '''suite : suite_star2 expression suite_star3'''
     #                    1          2           3
-    raise NotImplementedError
+    p[0] = Suite(p[1], p[2])
+    inherit_lineno(p[0], p[1][0])
 
 def p_suite_star_1(p):
     '''suite_star : SEMI'''
     #                  1
-    raise NotImplementedError
+    p[0] = None
 def p_suite_star_2(p):
     '''suite_star : suite_star SEMI'''
     #                        1    2
-    raise NotImplementedError
+    p[0] = None
 
 def p_suite_star3_1(p):
     '''suite_star3 : SEMI'''
     #                   1
-    raise NotImplementedError
+    p[0] = None
 def p_suite_star3_2(p):
     '''suite_star3 : suite_star3 SEMI'''
     #                          1    2
-    raise NotImplementedError
+    p[0] = None
 
 def p_suite_star2_1(p):
     '''suite_star2 : assignment'''
     #                         1
-    raise NotImplementedError
+    p[0] = [p[1]]
 def p_suite_star2_2(p):
     '''suite_star2 : assignment suite_star2_star'''
     #                         1                2
-    raise NotImplementedError
+    p[0] = [p[1]]
 def p_suite_star2_3(p):
     '''suite_star2 : suite_star2 assignment'''
     #                          1          2
-    raise NotImplementedError
+    p[0] = p[1] + [p[2]]
 def p_suite_star2_4(p):
     '''suite_star2 : suite_star2 assignment suite_star2_star'''
     #                          1          2                3
-    raise NotImplementedError
+    p[0] = p[1] + [p[2]]
 
 def p_suite_star2_star_1(p):
     '''suite_star2_star : SEMI'''
     #                        1
-    raise NotImplementedError
+    p[0] = None
 def p_suite_star2_star_2(p):
     '''suite_star2_star : suite_star2_star SEMI'''
     #                                    1    2
-    raise NotImplementedError
+    p[0] = None
 
-# lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict" but works
+# lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict"
 def p_lvalues_1(p):
     '''lvalues : NAME'''
     #               1
-    raise NotImplementedError
+    p[0] = [Name(p[1][0], Store(), **p[1][1])]
 def p_lvalues_2(p):
     '''lvalues : NAME COMMA'''
     #               1     2
-    raise NotImplementedError
+    p[0] = [Name(p[1][0], Store(), **p[1][1])]
 def p_lvalues_3(p):
     '''lvalues : lvalues_star NAME'''
     #                       1    2
-    raise NotImplementedError
+    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
 def p_lvalues_4(p):
     '''lvalues : lvalues_star NAME COMMA'''
     #                       1    2     3
-    raise NotImplementedError
+    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
 
 def p_lvalues_star_1(p):
     '''lvalues_star : NAME COMMA'''
     #                    1     2
-    raise NotImplementedError
+    p[0] = [Name(p[1][0], Store(), **p[1][1])]
 def p_lvalues_star_2(p):
     '''lvalues_star : lvalues_star NAME COMMA'''
     #                            1    2     3
-    raise NotImplementedError
+    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
 
 # assignment: lvalues '=' closed_expression | fcnndef
 def p_assignment_1(p):
     '''assignment : lvalues EQUAL closed_expression'''
     #                     1     2                 3
-    raise NotImplementedError
+    p[0] = Assignment(p[1], p[3])
+    inherit_lineno(p[0], p[1][0])
 def p_assignment_2(p):
     '''assignment : fcnndef'''
     #                     1
-    raise NotImplementedError
+    p[0] = p[1]
 
 # fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
 def p_fcnndef(p):
     '''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''
     #              1    2    3         4    5                6
-    raise NotImplementedError
+    fcndef = p[4]
+    fcndef.body = p[6]
+    p[0] = Assignment([Name(p[2][0], Store(), **p[2][1])], fcndef, **p[1][1])
 
 # expression: ifblock | fcndef | or_test
 def p_expression_1(p):
     '''expression : ifblock'''
     #                     1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_expression_2(p):
     '''expression : fcndef'''
     #                    1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_expression_3(p):
     '''expression : or_test'''
     #                     1
@@ -428,130 +434,152 @@ def p_expression_3(p):
 def p_closed_expression_1(p):
     '''closed_expression : closed_ifblock'''
     #                                   1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_closed_expression_2(p):
     '''closed_expression : fcndef'''
     #                           1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_closed_expression_3(p):
     '''closed_expression : or_test SEMI'''
     #                            1    2
-    raise NotImplementedError
+    p[0] = p[1]
 
 # fcndef: '{' paramlist '=>' suite '}'
 def p_fcndef(p):
     '''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''
     #                1         2          3     4      5
-    raise NotImplementedError
+    p[0] = p[2]
+    p[0].body = p[4]
 
 # fcn1def: parameter '=>' (expression | '{' suite '}')
 def p_fcn1def_1(p):
     '''fcn1def : parameter RIGHTARROW expression'''
     #                    1          2          3
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].body = Suite([], p[3])
+    inherit_lineno(p[0].body, p[3])
 def p_fcn1def_2(p):
     '''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''
     #                    1          2      3     4      5
-    raise NotImplementedError
+
+    p[0] = p[1]
+    p[0].body = p[4]
 
 # paramlist: (parameter ',')* (parameter [','])
 def p_paramlist_1(p):
     '''paramlist : parameter'''
     #                      1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_paramlist_2(p):
     '''paramlist : parameter COMMA'''
     #                      1     2
-    raise NotImplementedError
+    p[0] = p[1]
 def p_paramlist_3(p):
     '''paramlist : paramlist_star parameter'''
     #                           1         2
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)
 def p_paramlist_4(p):
     '''paramlist : paramlist_star parameter COMMA'''
     #                           1         2     3
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)
 
 def p_paramlist_star_1(p):
     '''paramlist_star : parameter COMMA'''
     #                           1     2
-    raise NotImplementedError
+    p[0] = p[1]
 def p_paramlist_star_2(p):
     '''paramlist_star : paramlist_star parameter COMMA'''
     #                                1         2     3
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)
 
-# parameter: NAME
-def p_parameter(p):
+# parameter: NAME ['=' expression]    // source of "WARNING: 1 shift/reduce conflict"
+def p_parameter_1(p):
     '''parameter : NAME'''
     #                 1
-    raise NotImplementedError
+    p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [None], None, **p[1][1])
+def p_parameter_2(p):
+    '''parameter : NAME EQUAL expression'''
+    #                 1     2          3
+    p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [p[3]], None, **p[1][1])
 
 # exprsuite: (':' expression | [':'] '{' suite '}')
 def p_exprsuite_1(p):
     '''exprsuite : COLON expression'''
     #                  1          2
-    raise NotImplementedError
+    p[0] = Suite([], p[2])
+    inherit_lineno(p[0], p[2])
 def p_exprsuite_2(p):
     '''exprsuite : LBRACE suite RBRACE'''
     #                   1     2      3
-    raise NotImplementedError
+    p[0] = p[2]
 def p_exprsuite_3(p):
     '''exprsuite : COLON LBRACE suite RBRACE'''
     #                  1      2     3      4
-    raise NotImplementedError
+    p[0] = p[3]
 
 # closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
 def p_closed_exprsuite_1(p):
     '''closed_exprsuite : COLON closed_expression'''
     #                         1                 2
-    raise NotImplementedError
+    p[0] = Suite([], p[2])
+    inherit_lineno(p[0], p[2])
 def p_closed_exprsuite_2(p):
     '''closed_exprsuite : LBRACE suite RBRACE'''
     #                          1     2      3
-    raise NotImplementedError
+    p[0] = p[2]
 def p_closed_exprsuite_3(p):
     '''closed_exprsuite : COLON LBRACE suite RBRACE'''
     #                         1      2     3      4
-    raise NotImplementedError
+    p[0] = p[3]
 
 # ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
 def p_ifblock_1(p):
     '''ifblock : IF expression exprsuite ELSE exprsuite'''
     #             1          2         3    4         5
-    raise NotImplementedError
+    p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])
 def p_ifblock_2(p):
     '''ifblock : IF expression exprsuite ifblock_star ELSE exprsuite'''
     #             1          2         3            4    5         6
-    raise NotImplementedError
+    p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])
 
 def p_ifblock_star_1(p):
     '''ifblock_star : ELIF expression exprsuite'''
     #                    1          2         3
-    raise NotImplementedError
+    p[0] = ([p[2]], [p[3]])
 def p_ifblock_star_2(p):
     '''ifblock_star : ifblock_star ELIF expression exprsuite'''
     #                            1    2          3         4
-    raise NotImplementedError
+
+    p[0] = p[1]
+    p[0][0].append(p[3])
+    p[0][1].append(p[4])
 
 # closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' closed_exprsuite)
 def p_closed_ifblock_1(p):
     '''closed_ifblock : IF expression exprsuite ELSE closed_exprsuite'''
     #                    1          2         3    4                5
-    raise NotImplementedError
+    p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])
 def p_closed_ifblock_2(p):
     '''closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite'''
     #                    1          2         3                   4    5                6
-    raise NotImplementedError
+    p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])
 
 def p_closed_ifblock_star_1(p):
     '''closed_ifblock_star : ELIF expression exprsuite'''
     #                           1          2         3
-    raise NotImplementedError
+    p[0] = ([p[2]], [p[3]])
 def p_closed_ifblock_star_2(p):
     '''closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite'''
     #                                          1    2          3         4
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0][0].append(p[3])
+    p[0][1].append(p[4])
 
 # or_test: and_test ('or' and_test)*
 def p_or_test_1(p):
@@ -791,7 +819,7 @@ def p_power_star_2(p):
     p[0] = p[1] + [p[2]]
 
 # atom: ('(' [expression] ')'
-#         | fcndef '(' arglist ')'    // source of "WARNING: 1 shift/reduce conflict" but works
+#         | fcndef '(' [arglist] ')'  // source of "WARNING: 1 shift/reduce conflict"
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -809,52 +837,63 @@ def p_atom_2(p):
     #            1          2    3
     p[0] = p[1]
 def p_atom_3(p):
+    '''atom : fcndef LPAR RPAR'''
+    #              1    2    3
+    p[0] = FcnCall(p[1], [], [], [])
+    inherit_lineno(p[0], p[1])
+def p_atom_4(p):
     '''atom : fcndef LPAR arglist RPAR'''
     #              1    2       3    4
-    raise NotImplementedError
-def p_atom_4(p):
+
+    p[0] = p[3]
+    p[0].function = p[1]
+def p_atom_5(p):
     '''atom : STRING'''
     #              1
     p[0] = Str(p[1][0], **p[1][1])
-def p_atom_5(p):
+def p_atom_6(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_6(p):
+def p_atom_7(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_7(p):
+def p_atom_8(p):
     '''atom : HEX_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_8(p):
+def p_atom_9(p):
     '''atom : OCT_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_9(p):
+def p_atom_10(p):
     '''atom : DEC_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_10(p):
+def p_atom_11(p):
     '''atom : ATARG'''
     #             1
     p[0] = AtArg(p[1][0], **p[1][1])
-def p_atom_11(p):
+def p_atom_12(p):
     '''atom : NAME'''
     #            1
     p[0] = Name(p[1][0], Load(), **p[1][1])
 
-# trailer: '(' arglist ')' | '[' subscriptlist ']' | '.' NAME
+# trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
+    '''trailer : LPAR RPAR'''
+    #               1    2
+    p[0] = FcnCall(None, [], [], [], **p[1][1])
+def p_trailer_2(p):
     '''trailer : LPAR arglist RPAR'''
     #               1       2    3
     p[0] = p[2]
-def p_trailer_2(p):
+def p_trailer_3(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
     p[0] = Subscript(None, p[2], Load())
-def p_trailer_3(p):
+def p_trailer_4(p):
     '''trailer : DOT NAME'''
     #              1    2
     p[0] = Attribute(None, p[2][0], Load())
@@ -966,42 +1005,53 @@ def p_sliceop_2(p):
 def p_arglist_1(p):
     '''arglist : argument'''
     #                   1
-    raise NotImplementedError
+    p[0] = p[1]
 def p_arglist_2(p):
     '''arglist : argument COMMA'''
     #                   1     2
-    raise NotImplementedError
+    p[0] = p[1]
 def p_arglist_3(p):
     '''arglist : arglist_star argument'''
     #                       1        2
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)
 def p_arglist_4(p):
     '''arglist : arglist_star argument COMMA'''
     #                       1        2     3
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)
 def p_arglist_5(p):
     '''arglist : fcn1def'''
     #                  1
-    raise NotImplementedError
+    p[0] = FcnCall(None, [p[1]], [], [])
+    inherit_lineno(p[0], p[1])
 
 def p_arglist_star_1(p):
     '''arglist_star : argument COMMA'''
     #                        1     2
-    raise NotImplementedError
+    p[0] = p[1]
 def p_arglist_star_2(p):
     '''arglist_star : arglist_star argument COMMA'''
     #                            1        2     3
-    raise NotImplementedError
+    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)
 
 # argument: expression | NAME '=' expression
 def p_argument_1(p):
     '''argument : expression'''
     #                      1
-    raise NotImplementedError
+    p[0] = FcnCall(None, [p[1]], [], [])
+    inherit_lineno(p[0], p[1])
 def p_argument_2(p):
     '''argument : NAME EQUAL expression'''
     #                1     2          3
-    raise NotImplementedError
+    p[0] = FcnCall(None, [], [Name(p[1][0], Param(), **p[1][1])], [p[3]], **p[1][1])
 
 def p_error(p):
     complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)

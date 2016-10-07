@@ -102,15 +102,12 @@ actions['''subscript : COLON sliceop'''] = '''    p[0] = Slice(None, None, p[2],
 actions['''sliceop : COLON'''] = '''    p[0] = Name("None", Load(), **p[1][1])'''
 
 # Different from pure Python merely for spelling (names in femtocode.g)
-actions['''body : suite'''] = '''    p[0] = p[1]'''
-actions['''body : body_star suite'''] = '''    p[0] = p[2]'''
-actions['''body_star : SEMI'''] = '''    p[0] = p[1]'''
-actions['''body_star : body_star SEMI'''] = '''    p[0] = p[2]'''
-
-actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])
-    inherit_lineno(p[0], p[1])'''
-
+actions['''expression : ifblock'''] = '''    p[0] = p[1]'''
+actions['''expression : fcndef'''] = '''    p[0] = p[1]'''
 actions['''expression : or_test'''] = '''    p[0] = p[1]'''
+actions['''closed_expression : closed_ifblock'''] = '''    p[0] = p[1]'''
+actions['''closed_expression : fcndef'''] = '''    p[0] = p[1]'''
+actions['''closed_expression : or_test SEMI'''] = '''    p[0] = p[1]'''
 
 actions['''comparison : arith_expr'''] = '''    p[0] = p[1]'''
 actions['''comparison : arith_expr comparison_star'''] = '''    ops, exprs = p[2]
@@ -121,6 +118,8 @@ actions['''comparison_star : comp_op arith_expr'''] = '''    inherit_lineno(p[1]
 actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops, exprs = p[1]
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])'''
+
+actions['''trailer : LPAR RPAR'''] = '''    p[0] = FcnCall(None, [], [], [], **p[1][1])'''
 
 actions['''subscript : expression'''] = '''    p[0] = Index(p[1])
     inherit_lineno(p[0], p[1])'''
@@ -140,6 +139,11 @@ actions['''sliceop : COLON expression'''] = '''    p[0] = p[2]'''
 
 actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), **p[1][1])'''
 actions['''atom : LPAR expression RPAR'''] = '''    p[0] = p[1]'''
+actions['''atom : fcndef LPAR RPAR'''] = '''    p[0] = FcnCall(p[1], [], [], [])
+    inherit_lineno(p[0], p[1])'''
+actions['''atom : fcndef LPAR arglist RPAR'''] = '''
+    p[0] = p[3]
+    p[0].function = p[1]'''
 actions['''atom : STRING'''] = '''    p[0] = Str(p[1][0], **p[1][1])'''
 actions['''atom : IMAG_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
 actions['''atom : FLOAT_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
@@ -148,3 +152,112 @@ actions['''atom : OCT_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
 actions['''atom : DEC_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
 actions['''atom : ATARG'''] = '''    p[0] = AtArg(p[1][0], **p[1][1])'''
 actions['''atom : NAME'''] = '''    p[0] = Name(p[1][0], Load(), **p[1][1])'''
+
+# Different from Python in behavior; fill Femtocode ASTs, not Python
+actions['''body : suite'''] = '''    p[0] = p[1]'''
+actions['''body : body_star suite'''] = '''    p[0] = p[2]'''
+actions['''body_star : SEMI'''] = '''    p[0] = p[1]'''
+actions['''body_star : body_star SEMI'''] = '''    p[0] = p[2]'''
+
+actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])'''
+actions['''suite : expression'''] = '''    p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])'''
+actions['''suite : expression suite_star'''] = '''    p[0] = Suite([], p[1])
+    inherit_lineno(p[0], p[1])'''
+actions['''suite : suite_star2 expression'''] = '''    p[0] = Suite(p[1], p[2])
+    inherit_lineno(p[0], p[1][0])'''
+actions['''suite : suite_star2 expression suite_star3'''] = '''    p[0] = Suite(p[1], p[2])
+    inherit_lineno(p[0], p[1][0])'''
+actions['''suite_star : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star : suite_star SEMI'''] = '''    p[0] = None'''
+actions['''suite_star3 : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star3 : suite_star3 SEMI'''] = '''    p[0] = None'''
+actions['''suite_star2 : assignment'''] = '''    p[0] = [p[1]]'''
+actions['''suite_star2 : assignment suite_star2_star'''] = '''    p[0] = [p[1]]'''
+actions['''suite_star2 : suite_star2 assignment'''] = '''    p[0] = p[1] + [p[2]]'''
+actions['''suite_star2 : suite_star2 assignment suite_star2_star'''] = '''    p[0] = p[1] + [p[2]]'''
+actions['''suite_star2_star : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star2_star : suite_star2_star SEMI'''] = '''    p[0] = None'''
+
+actions['''lvalues : NAME'''] = '''    p[0] = [Name(p[1][0], Store(), **p[1][1])]'''
+actions['''lvalues : NAME COMMA'''] = '''    p[0] = [Name(p[1][0], Store(), **p[1][1])]'''
+actions['''lvalues : lvalues_star NAME'''] = '''    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]'''
+actions['''lvalues : lvalues_star NAME COMMA'''] = '''    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]'''
+actions['''lvalues_star : NAME COMMA'''] = '''    p[0] = [Name(p[1][0], Store(), **p[1][1])]'''
+actions['''lvalues_star : lvalues_star NAME COMMA'''] = '''    p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]'''
+
+actions['''assignment : lvalues EQUAL closed_expression'''] = '''    p[0] = Assignment(p[1], p[3])
+    inherit_lineno(p[0], p[1][0])'''
+actions['''assignment : fcnndef'''] = '''    p[0] = p[1]'''
+
+actions['''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''] = '''    fcndef = p[4]
+    fcndef.body = p[6]
+    p[0] = Assignment([Name(p[2][0], Store(), **p[2][1])], fcndef, **p[1][1])'''
+actions['''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''] = '''    p[0] = p[2]
+    p[0].body = p[4]'''
+actions['''fcn1def : parameter RIGHTARROW expression'''] = '''    p[0] = p[1]
+    p[0].body = Suite([], p[3])
+    inherit_lineno(p[0].body, p[3])'''
+actions['''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''] = '''
+    p[0] = p[1]
+    p[0].body = p[4]'''
+
+actions['''paramlist : parameter'''] = '''    p[0] = p[1]'''
+actions['''paramlist : parameter COMMA'''] = '''    p[0] = p[1]'''
+actions['''paramlist : paramlist_star parameter'''] = '''    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)'''
+actions['''paramlist : paramlist_star parameter COMMA'''] = '''    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)'''
+actions['''paramlist_star : parameter COMMA'''] = '''    p[0] = p[1]'''
+actions['''paramlist_star : paramlist_star parameter COMMA'''] = '''    p[0] = p[1]
+    p[0].parameters.extend(p[2].parameters)
+    p[0].defaults.extend(p[2].defaults)'''
+actions['''parameter : NAME'''] = '''    p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [None], None, **p[1][1])'''
+actions['''parameter : NAME EQUAL expression'''] = '''    p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [p[3]], None, **p[1][1])'''
+
+actions['''exprsuite : COLON expression'''] = '''    p[0] = Suite([], p[2])
+    inherit_lineno(p[0], p[2])'''
+actions['''exprsuite : LBRACE suite RBRACE'''] = '''    p[0] = p[2]'''
+actions['''exprsuite : COLON LBRACE suite RBRACE'''] = '''    p[0] = p[3]'''
+actions['''closed_exprsuite : COLON closed_expression'''] = '''    p[0] = Suite([], p[2])
+    inherit_lineno(p[0], p[2])'''
+actions['''closed_exprsuite : LBRACE suite RBRACE'''] = '''    p[0] = p[2]'''
+actions['''closed_exprsuite : COLON LBRACE suite RBRACE'''] = '''    p[0] = p[3]'''
+
+actions['''ifblock : IF expression exprsuite ELSE exprsuite'''] = '''    p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])'''
+actions['''ifblock : IF expression exprsuite ifblock_star ELSE exprsuite'''] = '''    p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])'''
+actions['''ifblock_star : ELIF expression exprsuite'''] = '''    p[0] = ([p[2]], [p[3]])'''
+actions['''ifblock_star : ifblock_star ELIF expression exprsuite'''] = '''
+    p[0] = p[1]
+    p[0][0].append(p[3])
+    p[0][1].append(p[4])'''
+actions['''closed_ifblock : IF expression exprsuite ELSE closed_exprsuite'''] = '''    p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])'''
+actions['''closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite'''] = '''    p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])'''
+actions['''closed_ifblock_star : ELIF expression exprsuite'''] = '''    p[0] = ([p[2]], [p[3]])'''
+actions['''closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite'''] = '''    p[0] = p[1]
+    p[0][0].append(p[3])
+    p[0][1].append(p[4])'''
+
+actions['''arglist : argument'''] = '''    p[0] = p[1]'''
+actions['''arglist : argument COMMA'''] = '''    p[0] = p[1]'''
+actions['''arglist : arglist_star argument'''] = '''    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)'''
+actions['''arglist : arglist_star argument COMMA'''] = '''    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)'''
+actions['''arglist : fcn1def'''] = '''    p[0] = FcnCall(None, [p[1]], [], [])
+    inherit_lineno(p[0], p[1])'''
+actions['''arglist_star : argument COMMA'''] = '''    p[0] = p[1]'''
+actions['''arglist_star : arglist_star argument COMMA'''] = '''    p[0] = p[1]
+    p[0].positional.extend(p[2].positional)
+    p[0].names.extend(p[2].names)
+    p[0].named.extend(p[2].named)'''
+actions['''argument : expression'''] = '''    p[0] = FcnCall(None, [p[1]], [], [])
+    inherit_lineno(p[0], p[1])'''
+actions['''argument : NAME EQUAL expression'''] = '''    p[0] = FcnCall(None, [], [Name(p[1][0], Param(), **p[1][1])], [p[3]], **p[1][1])'''
