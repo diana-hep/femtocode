@@ -552,6 +552,6 @@ def parse(source, fileName="<string>"):
     lexer.fileName = fileName
     lexer.lineno = 1
     lexer.last_col0 = 1
-    parser = yacc.yacc()
+    parser = yacc.yacc(debug=False, write_tables=True, tabmodule="parsertable", errorlog=yacc.NullLogger())
     return parser.parse(source, lexer=lexer)
 ''')

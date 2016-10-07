@@ -1,5 +1,11 @@
 // Grammar for Femtocode
 
+// Three shift/reduce conflicts resolved as shift; this is the right choice in each case.
+// 
+// WARNING: shift/reduce conflict for LPAR in state 130 resolved as shift
+// WARNING: shift/reduce conflict for EQUAL in state 198 resolved as shift
+// WARNING: shift/reduce conflict for COMMA in state 198 resolved as shift
+
 body: ';'* suite
 suite: (assignment ';'*)* expression ';'*
 
