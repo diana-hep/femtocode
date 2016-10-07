@@ -23,6 +23,7 @@ from ast import And
 from ast import Attribute
 from ast import BinOp
 from ast import BoolOp
+from ast import Compare
 from ast import Div
 from ast import Eq
 from ast import ExtSlice

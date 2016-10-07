@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T15:15:32 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T15:47:36 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -833,7 +833,8 @@ def p_power_star_2(p):
 def p_atom_1(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
-    p[0] = p[1]
+    p[0] = p[2]
+    p[0].alt = p[1][1]
 def p_atom_2(p):
     '''atom : LSQB RSQB'''
     #            1    2

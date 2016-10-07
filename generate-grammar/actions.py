@@ -137,7 +137,8 @@ actions['''subscript : expression COLON expression sliceop'''] = '''    p[0] = S
     inherit_lineno(p[0], p[1])'''
 actions['''sliceop : COLON expression'''] = '''    p[0] = p[2]'''
 
-actions['''atom : LPAR expression RPAR'''] = '''    p[0] = p[1]'''
+actions['''atom : LPAR expression RPAR'''] = '''    p[0] = p[2]
+    p[0].alt = p[1][1]'''
 
 actions['''atom : LSQB RSQB'''] = '''    p[0] = List([], Load(), **p[1][1])'''
 actions['''atom : LSQB expression RSQB'''] = '''    p[0] = List([p[2]], Load(), **p[1][1])'''
