@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T16:43:09 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T17:12:16 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
+import sys
 import tokenize
 from ast import literal_eval
 
@@ -782,7 +783,7 @@ def p_factor_1(p):
 def p_factor_2(p):
     '''factor : MINUS factor'''
     #               1      2
-    if isinstance(p[2], Num) and not hasattr(p[2], "unary"):
+    if sys.version_info.major <= 2 and isinstance(p[2], Num) and not hasattr(p[2], "unary"):
         p[2].n *= -1
         p[0] = p[2]
         p[0].unary = True
@@ -1041,7 +1042,7 @@ def p_subscript_9(p):
 def p_sliceop_1(p):
     '''sliceop : COLON'''
     #                1
-    p[0] = Name("None", Load(), **p[1][1])
+    p[0] = Name("None", Load(), **p[1][1]) if sys.version_info.major <= 2 else None
 def p_sliceop_2(p):
     '''sliceop : COLON expression'''
     #                1          2

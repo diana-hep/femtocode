@@ -318,6 +318,7 @@ W('''#!/usr/bin/env python
 # generated at %s by "python %s"
 
 import re
+import sys
 import tokenize
 from ast import literal_eval
 

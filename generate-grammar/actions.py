@@ -47,7 +47,7 @@ actions['''term_star : term_star DOUBLESLASH factor'''] = '''    p[0] = p[1] + [
 actions['''factor : PLUS factor'''] = '''    op = UAdd(**p[1][1])
     p[0] = UnaryOp(op, p[2])
     inherit_lineno(p[0], op)'''
-actions['''factor : MINUS factor'''] = '''    if isinstance(p[2], Num) and not hasattr(p[2], "unary"):
+actions['''factor : MINUS factor'''] = '''    if sys.version_info.major <= 2 and isinstance(p[2], Num) and not hasattr(p[2], "unary"):
         p[2].n *= -1
         p[0] = p[2]
         p[0].unary = True
@@ -99,7 +99,7 @@ actions['''subscriptlist_star : COMMA subscript'''] = '''    p[0] = [p[2]]'''
 actions['''subscriptlist_star : subscriptlist_star COMMA subscript'''] = '''    p[0] = p[1] + [p[3]]'''
 actions['''subscript : COLON'''] = '''    p[0] = Slice(None, None, None, **p[1][1])'''
 actions['''subscript : COLON sliceop'''] = '''    p[0] = Slice(None, None, p[2], **p[1][1])'''
-actions['''sliceop : COLON'''] = '''    p[0] = Name("None", Load(), **p[1][1])'''
+actions['''sliceop : COLON'''] = '''    p[0] = Name("None", Load(), **p[1][1]) if sys.version_info.major <= 2 else None'''
 
 # Different from pure Python merely for spelling (names in femtocode.g)
 actions['''expression : ifblock'''] = '''    p[0] = p[1]'''
