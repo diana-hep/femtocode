@@ -41,6 +41,7 @@ power: atom trailer* ['**' factor]
 atom: ('(' expression ')'
         | '[' (expression ',')* [expression [',']] ']'    // source of 2 shift/reduce conflicts
         | fcndef '(' [arglist] ')'                        // source of 1 shift/reduce conflict
+        | MULTILINESTRING
         | STRING
         | IMAG_NUMBER
         | FLOAT_NUMBER

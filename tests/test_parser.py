@@ -22,6 +22,12 @@ import unittest
 from femtocode.parser import parse
 from femtocode.asts.parsingtree import *
 
+import sys
+
+if sys.version_info.major >= 3:
+    long = int
+    basestring = str
+
 class TestParser(unittest.TestCase):
     def runTest(self):
         pass
@@ -123,6 +129,42 @@ class TestParser(unittest.TestCase):
             sys.exit(-1)   # too much output to see all at once
 
     def test_PythonCompatibility(self):
+        self.check('"hello"')
+        self.check('"he\\nllo"')
+        self.check('"he\\\\nllo"')
+        self.check('"he\\"\\\\nllo"')
+        self.check('"he\'\\"\\\\nllo"')
+        self.check('"he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3llo"')
+        self.check('"he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\\N{LATIN SMALL LETTER ETH}llo"')
+
+        self.check('"""hello"""')
+        self.check('"""he\\nllo"""')
+        self.check('"""he\\\\nllo"""')
+        self.check('"""he\\"\\\\nllo"""')
+        self.check('"""he\'\\"\\\\nllo"""')
+        self.check('"""he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3llo"""')
+        self.check('"""he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\\N{LATIN SMALL LETTER ETH}llo"""')
+        self.check('"""he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\nllo"""')
+        self.check('"""he\'\\"\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\n"llo"""')
+
+        self.check("'hello'")
+        self.check("'he\\nllo'")
+        self.check("'he\\\\nllo'")
+        self.check("'he\\'\\\\nllo'")
+        self.check("'he\"\\'\\\\nllo'")
+        self.check("'he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3llo'")
+        self.check("'he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\\N{LATIN SMALL LETTER ETH}llo'")
+
+        self.check("'''hello'''")
+        self.check("'''he\\nllo'''")
+        self.check("'''he\\\\nllo'''")
+        self.check("'''he\\'\\\\nllo'''")
+        self.check("'''he\"\\'\\\\nllo'''")
+        self.check("'''he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3llo'''")
+        self.check("'''he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\\N{LATIN SMALL LETTER ETH}llo'''")
+        self.check("'''he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\nllo'''")
+        self.check("'''he\"\\'\\\\n\\a\\b\\f\\r\\t\\v\\123\\o123\\xf3\n'llo'''")
+
         self.check('''.3''')
         self.check('''-3''')
         self.check('''- 3''')
@@ -509,34 +551,3 @@ class TestParser(unittest.TestCase):
         self.check('''x ** y ** z''')
         self.check('''x ** y ** z ** w''')
         self.check('''x ** y // z ** w''')
-
-        self.check('"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('r"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('u"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('ur"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('R"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('U"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('UR"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('Ur"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('uR"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905"')
-        self.check('b"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('B"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('br"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('Br"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('bR"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('BR"hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo"')
-        self.check('\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('r\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('u\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('ur\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('R\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('U\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('UR\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('Ur\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('uR\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\vlo\\N{LATIN SMALL LETTER ETH}\\u2212\\U00010905lo\'')
-        self.check('b\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('B\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('br\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('Br\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('bR\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')
-        self.check('BR\'hel\\\n\\\\\\\'\\"\\a\\b\\f\\n\\r\\t\\v\\123\\o123\\xf3lo\'')

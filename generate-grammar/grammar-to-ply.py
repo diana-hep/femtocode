@@ -350,10 +350,17 @@ W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for lite
 
 W("tokens = [%s]\n" % ", ".join("'%s'" % name for literal, name in literal_to_name.items() if literal.isalpha()))
 
-W('''def t_STRING(t):
+W('''def t_MULTILINESTRING(t):
+    r'(\\'\\'\\'[^\\\\]*(\\\\.[^\\\\]*)*\\'\\'\\'|"""[^\\\\]*(\\\\.[^\\\\]*)*""")'
     t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
     return t
-t_STRING.__doc__ = tokenize.String
+tokens.append("MULTILINESTRING")
+''')
+
+W('''def t_STRING(t):
+    r'(\\'[^\\n\\'\\\\]*(\\\\.[^\\n\\'\\\\]*)*\\'|"[^\\n"\\\\]*(\\\\.[^\\n"\\\\]*)*")'
+    t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
+    return t
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):

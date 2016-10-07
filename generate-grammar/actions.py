@@ -157,6 +157,7 @@ actions['''atom : fcndef LPAR RPAR'''] = '''    p[0] = FcnCall(p[1], [], [], [])
 actions['''atom : fcndef LPAR arglist RPAR'''] = '''
     p[0] = p[3]
     p[0].function = p[1]'''
+actions['''atom : MULTILINESTRING'''] = '''    p[0] = Str(p[1][0], **p[1][1])'''
 actions['''atom : STRING'''] = '''    p[0] = Str(p[1][0], **p[1][1])'''
 actions['''atom : IMAG_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''
 actions['''atom : FLOAT_NUMBER'''] = '''    p[0] = Num(p[1][0], **p[1][1])'''

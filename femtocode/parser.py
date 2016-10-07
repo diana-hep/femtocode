@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T15:49:30 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T16:43:09 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -41,10 +41,16 @@ reserved = {
 
 tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
-def t_STRING(t):
+def t_MULTILINESTRING(t):
+    r'(\'\'\'[^\\]*(\\.[^\\]*)*\'\'\'|"""[^\\]*(\\.[^\\]*)*""")'
     t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
     return t
-t_STRING.__doc__ = tokenize.String
+tokens.append("MULTILINESTRING")
+
+def t_STRING(t):
+    r'(\'[^\n\'\\]*(\\.[^\n\'\\]*)*\'|"[^\n"\\]*(\\.[^\n"\\]*)*")'
+    t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
+    return t
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
@@ -822,6 +828,7 @@ def p_power_star_2(p):
 # atom: ('(' expression ')'
 #         | '[' (expression ',')* [expression [',']] ']'    // source of 2 shift/reduce conflicts
 #         | fcndef '(' [arglist] ')'                        // source of 1 shift/reduce conflict
+#         | MULTILINESTRING
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -873,34 +880,38 @@ def p_atom_9(p):
     p[0] = p[3]
     p[0].function = p[1]
 def p_atom_10(p):
+    '''atom : MULTILINESTRING'''
+    #                       1
+    p[0] = Str(p[1][0], **p[1][1])
+def p_atom_11(p):
     '''atom : STRING'''
     #              1
     p[0] = Str(p[1][0], **p[1][1])
-def p_atom_11(p):
+def p_atom_12(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_12(p):
+def p_atom_13(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_13(p):
+def p_atom_14(p):
     '''atom : HEX_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_14(p):
+def p_atom_15(p):
     '''atom : OCT_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_15(p):
+def p_atom_16(p):
     '''atom : DEC_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_16(p):
+def p_atom_17(p):
     '''atom : ATARG'''
     #             1
     p[0] = AtArg(p[1][0], **p[1][1])
-def p_atom_17(p):
+def p_atom_18(p):
     '''atom : NAME'''
     #            1
     p[0] = Name(p[1][0], Load(), **p[1][1])
