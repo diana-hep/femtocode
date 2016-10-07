@@ -137,8 +137,20 @@ actions['''subscript : expression COLON expression sliceop'''] = '''    p[0] = S
     inherit_lineno(p[0], p[1])'''
 actions['''sliceop : COLON expression'''] = '''    p[0] = p[2]'''
 
-actions['''atom : LPAR RPAR'''] = '''    p[0] = Tuple([], Load(), **p[1][1])'''
 actions['''atom : LPAR expression RPAR'''] = '''    p[0] = p[1]'''
+
+actions['''atom : LSQB RSQB'''] = '''    p[0] = List([], Load(), **p[1][1])'''
+actions['''atom : LSQB expression RSQB'''] = '''    p[0] = List([p[2]], Load(), **p[1][1])'''
+actions['''atom : LSQB expression COMMA RSQB'''] = '''    p[0] = List([p[2]], Load(), **p[1][1])'''
+actions['''atom : LSQB atom_star RSQB'''] = '''    p[0] = List(p[2], Load(), **p[1][1])'''
+actions['''atom : LSQB atom_star expression RSQB'''] = '''    p[2].append(p[3])
+    p[0] = List(p[2], Load(), **p[1][1])'''
+actions['''atom : LSQB atom_star expression COMMA RSQB'''] = '''    p[2].append(p[3])
+    p[0] = List(p[2], Load(), **p[1][1])'''
+actions['''atom_star : expression COMMA'''] = '''    p[0] = [p[1]]'''
+actions['''atom_star : atom_star expression COMMA'''] = '''    p[1].append(p[2])
+    p[0] = p[1]'''
+
 actions['''atom : fcndef LPAR RPAR'''] = '''    p[0] = FcnCall(p[1], [], [], [])
     inherit_lineno(p[0], p[1])'''
 actions['''atom : fcndef LPAR arglist RPAR'''] = '''

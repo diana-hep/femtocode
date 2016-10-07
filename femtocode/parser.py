@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T13:41:35 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-07T15:15:32 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import tokenize
@@ -42,55 +42,56 @@ reserved = {
 tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
 def t_STRING(t):
-    t.value = literal_eval(t.value), kwds(t.lexer)
+    t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
     return t
 t_STRING.__doc__ = tokenize.String
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
     r"(\d+[jJ]|((\d+\.\d*|\.\d+)([eE][-+]?\d+)?|\d+[eE][-+]?\d+)[jJ])"
-    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer)
+    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer, len(t.value))
     return t
 tokens.append("IMAG_NUMBER")
 
 def t_FLOAT_NUMBER(t):
     r"((\d+\.\d*|\.\d+)([eE][-+]?\d+)?|\d+[eE][-+]?\d+)"
-    t.value = float(t.value), kwds(t.lexer)
+    t.value = float(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("FLOAT_NUMBER")
 
 def t_HEX_NUMBER(t):
     r"0[xX][0-9a-fA-F]+"
-    t.value = int(t.value, 16), kwds(t.lexer)
+    t.value = int(t.value, 16), kwds(t.lexer, len(t.value))
     return t
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
     r"0[oO][0-7]*"      # follow Python 3 rules: it is clearer
-    t.value = int(t.value, 8), kwds(t.lexer)
+    t.value = int(t.value, 8), kwds(t.lexer, len(t.value))
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
     r"(0|[1-9][0-9]*)"
-    t.value = int(t.value), kwds(t.lexer)
+    t.value = int(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
     r"@([0-9][0-9]*)?"
+    length = len(t.value)
     if len(t.value) == 1:
         t.value = None
     else:
         t.value = int(t.value[1:])
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, length)
     return t
 tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
     t.type = reserved.get(t.value, "NAME")
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 tokens.append("NAME")
 
@@ -100,127 +101,127 @@ literals = ['[', '.', '{', '%', ']', ')', '(', '+', '*', '-', ',', '/', '<', '}'
 
 def t_RIGHTARROW(t):
     r"\=\>"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_GREATEREQUAL(t):
     r"\>\="
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_EQEQUAL(t):
     r"\=\="
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_LESSEQUAL(t):
     r"\<\="
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_DOUBLESTAR(t):
     r"\*\*"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_NOTEQUAL(t):
     r"\!\="
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_DOUBLESLASH(t):
     r"\/\/"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_LSQB(t):
     r"\["
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_DOT(t):
     r"\."
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_LBRACE(t):
     r"\{"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_PERCENT(t):
     r"\%"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_RSQB(t):
     r"\]"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_RPAR(t):
     r"\)"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_LPAR(t):
     r"\("
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_PLUS(t):
     r"\+"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_STAR(t):
     r"\*"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_MINUS(t):
     r"\-"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_COMMA(t):
     r"\,"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_SLASH(t):
     r"\/"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_LESS(t):
     r"\<"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_RBRACE(t):
     r"\}"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_SEMI(t):
     r"\;"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_COLON(t):
     r"\:"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_EQUAL(t):
     r"\="
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_GREATER(t):
     r"\>"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 
 def t_error(t):
@@ -234,7 +235,7 @@ t_ignore = " \t\f"
 
 def t_newline(t):
     r"\n"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     t.lexer.lineno += 1
     t.lexer.last_col0 = t.lexer.lexpos + 1
 
@@ -370,7 +371,7 @@ def p_suite_star2_star_2(p):
     #                                    1    2
     p[0] = None
 
-# lvalues: (NAME ',')* NAME [',']     // source of "WARNING: 1 shift/reduce conflict"
+# lvalues: (NAME ',')* NAME [',']                           // source of 1 shift/reduce conflict
 def p_lvalues_1(p):
     '''lvalues : NAME'''
     #               1
@@ -498,7 +499,7 @@ def p_paramlist_star_2(p):
     p[0].parameters.extend(p[2].parameters)
     p[0].defaults.extend(p[2].defaults)
 
-# parameter: NAME ['=' expression]    // source of "WARNING: 1 shift/reduce conflict"
+# parameter: NAME ['=' expression]                          // source of 1 shift/reduce conflict
 def p_parameter_1(p):
     '''parameter : NAME'''
     #                 1
@@ -818,8 +819,9 @@ def p_power_star_2(p):
     #                        1       2
     p[0] = p[1] + [p[2]]
 
-# atom: ('(' [expression] ')'
-#         | fcndef '(' [arglist] ')'  // source of "WARNING: 1 shift/reduce conflict"
+# atom: ('(' expression ')'
+#         | '[' (expression ',')* [expression [',']] ']'    // source of 2 shift/reduce conflicts
+#         | fcndef '(' [arglist] ')'                        // source of 1 shift/reduce conflict
 #         | STRING
 #         | IMAG_NUMBER
 #         | FLOAT_NUMBER
@@ -829,56 +831,88 @@ def p_power_star_2(p):
 #         | ATARG
 #         | NAME)
 def p_atom_1(p):
-    '''atom : LPAR RPAR'''
-    #            1    2
-    p[0] = Tuple([], Load(), **p[1][1])
-def p_atom_2(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
     p[0] = p[1]
+def p_atom_2(p):
+    '''atom : LSQB RSQB'''
+    #            1    2
+    p[0] = List([], Load(), **p[1][1])
 def p_atom_3(p):
+    '''atom : LSQB expression RSQB'''
+    #            1          2    3
+    p[0] = List([p[2]], Load(), **p[1][1])
+def p_atom_4(p):
+    '''atom : LSQB expression COMMA RSQB'''
+    #            1          2     3    4
+    p[0] = List([p[2]], Load(), **p[1][1])
+def p_atom_5(p):
+    '''atom : LSQB atom_star RSQB'''
+    #            1         2    3
+    p[0] = List(p[2], Load(), **p[1][1])
+def p_atom_6(p):
+    '''atom : LSQB atom_star expression RSQB'''
+    #            1         2          3    4
+    p[2].append(p[3])
+    p[0] = List(p[2], Load(), **p[1][1])
+def p_atom_7(p):
+    '''atom : LSQB atom_star expression COMMA RSQB'''
+    #            1         2          3     4    5
+    p[2].append(p[3])
+    p[0] = List(p[2], Load(), **p[1][1])
+def p_atom_8(p):
     '''atom : fcndef LPAR RPAR'''
     #              1    2    3
     p[0] = FcnCall(p[1], [], [], [])
     inherit_lineno(p[0], p[1])
-def p_atom_4(p):
+def p_atom_9(p):
     '''atom : fcndef LPAR arglist RPAR'''
     #              1    2       3    4
 
     p[0] = p[3]
     p[0].function = p[1]
-def p_atom_5(p):
+def p_atom_10(p):
     '''atom : STRING'''
     #              1
     p[0] = Str(p[1][0], **p[1][1])
-def p_atom_6(p):
+def p_atom_11(p):
     '''atom : IMAG_NUMBER'''
     #                   1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_7(p):
+def p_atom_12(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_8(p):
+def p_atom_13(p):
     '''atom : HEX_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_9(p):
+def p_atom_14(p):
     '''atom : OCT_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_10(p):
+def p_atom_15(p):
     '''atom : DEC_NUMBER'''
     #                  1
     p[0] = Num(p[1][0], **p[1][1])
-def p_atom_11(p):
+def p_atom_16(p):
     '''atom : ATARG'''
     #             1
     p[0] = AtArg(p[1][0], **p[1][1])
-def p_atom_12(p):
+def p_atom_17(p):
     '''atom : NAME'''
     #            1
     p[0] = Name(p[1][0], Load(), **p[1][1])
+
+def p_atom_star_1(p):
+    '''atom_star : expression COMMA'''
+    #                       1     2
+    p[0] = [p[1]]
+def p_atom_star_2(p):
+    '''atom_star : atom_star expression COMMA'''
+    #                      1          2     3
+    p[1].append(p[2])
+    p[0] = p[1]
 
 # trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
 def p_trailer_1(p):
@@ -1056,8 +1090,8 @@ def p_argument_2(p):
 def p_error(p):
     complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
 
-def kwds(lexer):
-    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0, "fileName": lexer.fileName}
+def kwds(lexer, length):
+    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()

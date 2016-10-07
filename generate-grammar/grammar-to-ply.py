@@ -351,55 +351,56 @@ W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for lite
 W("tokens = [%s]\n" % ", ".join("'%s'" % name for literal, name in literal_to_name.items() if literal.isalpha()))
 
 W('''def t_STRING(t):
-    t.value = literal_eval(t.value), kwds(t.lexer)
+    t.value = literal_eval(t.value), kwds(t.lexer, len(t.value))
     return t
 t_STRING.__doc__ = tokenize.String
 tokens.append("STRING")
 
 def t_IMAG_NUMBER(t):
     r"(\\d+[jJ]|((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)[jJ])"
-    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer)
+    t.value = float(t.value[:-1]) * 1j, kwds(t.lexer, len(t.value))
     return t
 tokens.append("IMAG_NUMBER")
 
 def t_FLOAT_NUMBER(t):
     r"((\\d+\\.\\d*|\\.\\d+)([eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)"
-    t.value = float(t.value), kwds(t.lexer)
+    t.value = float(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("FLOAT_NUMBER")
 
 def t_HEX_NUMBER(t):
     r"0[xX][0-9a-fA-F]+"
-    t.value = int(t.value, 16), kwds(t.lexer)
+    t.value = int(t.value, 16), kwds(t.lexer, len(t.value))
     return t
 tokens.append("HEX_NUMBER")
 
 def t_OCT_NUMBER(t):
     r"0[oO][0-7]*"      # follow Python 3 rules: it is clearer
-    t.value = int(t.value, 8), kwds(t.lexer)
+    t.value = int(t.value, 8), kwds(t.lexer, len(t.value))
     return t
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
     r"(0|[1-9][0-9]*)"
-    t.value = int(t.value), kwds(t.lexer)
+    t.value = int(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
     r"@([0-9][0-9]*)?"
+    length = len(t.value)
     if len(t.value) == 1:
         t.value = None
     else:
         t.value = int(t.value[1:])
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, length)
     return t
 tokens.append("ATARG")
 
 def t_NAME(t):
     r"[a-zA-Z_][a-zA-Z0-9_]*"
     t.type = reserved.get(t.value, "NAME")
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 tokens.append("NAME")
 ''')
@@ -412,7 +413,7 @@ for literal, name in literal_to_name.items():
     if not literal.isalpha() and len(literal) == 2:
         W('''def t_%s(t):
     r"%s"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 ''' % (name, re.escape(literal)))
 
@@ -420,7 +421,7 @@ for literal, name in literal_to_name.items():
     if not literal.isalpha() and len(literal) == 1:
         W('''def t_%s(t):
     r"%s"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     return t
 ''' % (name, re.escape(literal)))
 
@@ -435,7 +436,7 @@ W('''t_ignore = " \\t\\f"
 
 def t_newline(t):
     r"\\n"
-    t.value = t.value, kwds(t.lexer)
+    t.value = t.value, kwds(t.lexer, len(t.value))
     t.lexer.lineno += 1
     t.lexer.last_col0 = t.lexer.lexpos + 1
 ''')
@@ -543,8 +544,8 @@ for definition in definition_list:
 W('''\ndef p_error(p):
     complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
 
-def kwds(lexer):
-    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0, "fileName": lexer.fileName}
+def kwds(lexer, length):
+    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()
