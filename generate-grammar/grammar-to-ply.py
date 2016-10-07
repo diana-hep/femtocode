@@ -325,8 +325,26 @@ from femtocode.thirdparty.ply import lex
 from femtocode.thirdparty.ply import yacc
 
 from femtocode.asts.parsingtree import *
-
 ''' % (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])))
+
+W('''def complain(message, source, pos, lineno, col_offset, fileName):
+    start = source.rfind("\\n", 0, pos)
+    if start == -1: start = 0
+    start = source.rfind("\\n", 0, start)
+    if start == -1: start = 0
+    end = source.find("\\n", pos)
+    if end == -1:
+        snippet = source[start:]
+    else:
+        snippet = source[start:end]
+    snippet = "    " + snippet.replace("\\n", "\\n    ")
+    indicator = "-" * col_offset + "^"
+    if fileName == "<string>":
+        where = ""
+    else:
+        where = "in file \\"" + fileName + "\\""
+    raise SyntaxError("%s\\n    at line:col %d:%d (character %d)%s\\n\\n%s\\n----%s\\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+''')
 
 W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
 
@@ -369,7 +387,7 @@ def t_DEC_NUMBER(t):
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
-    r"@([1-9][0-9]*)?"
+    r"@([0-9][0-9]*)?"
     if len(t.value) == 1:
         t.value = None
     else:
@@ -407,7 +425,7 @@ for literal, name in literal_to_name.items():
 ''' % (name, re.escape(literal)))
 
 W('''def t_error(t):
-    raise SyntaxError(t)
+    complain("unidentifiable token \\"" + t.value + "\\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName)
 ''')
 W('''def t_comment(t):
     r"[ ]*\\043[^\\n]*"  # \\043 is # ; otherwise PLY thinks it is a regex comment
@@ -523,13 +541,15 @@ for definition in definition_list:
         format_function(name, rules)
 
 W('''\ndef p_error(p):
-    raise SyntaxError(p)
+    complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
 
 def kwds(lexer):
-    return {"lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0}
+    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0, "fileName": lexer.fileName}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()
+    lexer.source = source
+    lexer.fileName = fileName
     lexer.lineno = 1
     lexer.last_col0 = 1
     parser = yacc.yacc()
