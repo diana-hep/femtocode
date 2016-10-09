@@ -391,13 +391,13 @@ def t_OCT_NUMBER(t):
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
-    r"(0|[1-9][0-9]*)"
+    r"(0+|[1-9][0-9]*)"
     t.value = int(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
-    r"@([0-9][0-9]*)?"
+    r"\$[0-9]*"
     length = len(t.value)
     if len(t.value) == 1:
         t.value = None

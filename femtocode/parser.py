@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-08T21:02:55 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-08T21:11:03 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -79,13 +79,13 @@ def t_OCT_NUMBER(t):
 tokens.append("OCT_NUMBER")
 
 def t_DEC_NUMBER(t):
-    r"(0|[1-9][0-9]*)"
+    r"(0+|[1-9][0-9]*)"
     t.value = int(t.value), kwds(t.lexer, len(t.value))
     return t
 tokens.append("DEC_NUMBER")
 
 def t_ATARG(t):
-    r"@([0-9][0-9]*)?"
+    r"\$[0-9]*"
     length = len(t.value)
     if len(t.value) == 1:
         t.value = None

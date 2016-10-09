@@ -636,10 +636,10 @@ class TestParser(unittest.TestCase):
         self.check('def f(x, y,) {x = y; x} x', Suite(assignments=[Assignment(lvalues=[Name(id='f', ctx=Store())], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param())], defaults=[None, None], body=Suite(assignments=[Assignment(lvalues=[Name(id='x', ctx=Store())], expression=Name(id='y', ctx=Load()))], expression=Name(id='x', ctx=Load()))))], expression=Name(id='x', ctx=Load())))
         self.check('def f(x, y,) {x = y; x}; x', Suite(assignments=[Assignment(lvalues=[Name(id='f', ctx=Store())], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param())], defaults=[None, None], body=Suite(assignments=[Assignment(lvalues=[Name(id='x', ctx=Store())], expression=Name(id='y', ctx=Load()))], expression=Name(id='x', ctx=Load()))))], expression=Name(id='x', ctx=Load())))
 
-        self.check('@', Suite(assignments=[], expression=AtArg(num=None)))
-        self.check('f(@)', Suite(assignments=[], expression=FcnCall(function=Name(id='f', ctx=Load()), positional=[AtArg(num=None)], names=[], named=[])))
-        self.check('@1', Suite(assignments=[], expression=AtArg(num=1)))
-        self.check('f(@1)', Suite(assignments=[], expression=FcnCall(function=Name(id='f', ctx=Load()), positional=[AtArg(num=1)], names=[], named=[])))
+        self.check('$', Suite(assignments=[], expression=AtArg(num=None)))
+        self.check('f($)', Suite(assignments=[], expression=FcnCall(function=Name(id='f', ctx=Load()), positional=[AtArg(num=None)], names=[], named=[])))
+        self.check('$1', Suite(assignments=[], expression=AtArg(num=1)))
+        self.check('f($1)', Suite(assignments=[], expression=FcnCall(function=Name(id='f', ctx=Load()), positional=[AtArg(num=1)], names=[], named=[])))
 
         self.check('0x123', Suite(assignments=[], expression=Num(n=291)))
         self.check('0o123', Suite(assignments=[], expression=Num(n=83)))
