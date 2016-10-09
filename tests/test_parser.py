@@ -679,11 +679,7 @@ class TestParser(unittest.TestCase):
         self.check('x = if true {1} elif false {2} else {3}; x', Suite(assignments=[Assignment(lvalues=[Name(id='x', ctx=Store())], expression=IfChain(predicates=[Name(id='true', ctx=Load()), Name(id='false', ctx=Load())], consequents=[Suite(assignments=[], expression=Num(n=1)), Suite(assignments=[], expression=Num(n=2))], alternate=Suite(assignments=[], expression=Num(n=3))))], expression=Name(id='x', ctx=Load())))
         self.check('x = if true {1} elif false {2} else {3} x', Suite(assignments=[Assignment(lvalues=[Name(id='x', ctx=Store())], expression=IfChain(predicates=[Name(id='true', ctx=Load()), Name(id='false', ctx=Load())], consequents=[Suite(assignments=[], expression=Num(n=1)), Suite(assignments=[], expression=Num(n=2))], alternate=Suite(assignments=[], expression=Num(n=3))))], expression=Name(id='x', ctx=Load())))
         self.check('x = if true: 1 elif false: 2 elif true: 3 else: 4; x', Suite(assignments=[Assignment(lvalues=[Name(id='x', ctx=Store())], expression=IfChain(predicates=[Name(id='true', ctx=Load()), Name(id='false', ctx=Load()), Name(id='true', ctx=Load())], consequents=[Suite(assignments=[], expression=Num(n=1)), Suite(assignments=[], expression=Num(n=2)), Suite(assignments=[], expression=Num(n=3))], alternate=Suite(assignments=[], expression=Num(n=4))))], expression=Name(id='x', ctx=Load())))
-
-
-
-
-
-        import femtocode.parser
-        for rule in sorted(femtocode.parser.coverage):
-            print(rule)
+        
+        self.check("{=> 3.14}", Suite(assignments=[], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14)))))
+        self.check("def pi(): 3.14; pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))
+        self.check("def pi() {3.14} pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))

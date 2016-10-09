@@ -496,9 +496,8 @@ def unpack_trailer(atom, power_star):
         else:
             assert False
     return out
-
-coverage = {}
 ''')
+# coverage = {}
 
 def numbers(s):
     return " ".join(("%" + str(len(x)) + "d") % (i+1) for i, x in enumerate(s.split()))
@@ -506,14 +505,14 @@ def numbers(s):
 def format_function(name, rules):
     if len(rules) == 1:
         if "%s : %s" % (name, rules[0]) not in duplicates:
-            W("coverage[\"%s : %s\"] = False" % (name, rules[0]))
+            # W("coverage[\"%s : %s\"] = False" % (name, rules[0]))
             W("def p_%s(p):" % name)
             W("    '''%s : %s'''" % (name, rules[0]))
             W("    #  %s   %s" % (" " * len(name), numbers(rules[0])))
             r = "%s : %s" % (name, rules[0])
             # W("    print(\"%s : %s\")" % (name, rules[0]))
             if r in actions:
-                W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rules[0], name, rules[0]))
+                # W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rules[0], name, rules[0]))
                 W(actions[r])
                 del actions[r]
             else:
@@ -522,14 +521,14 @@ def format_function(name, rules):
     else:
         for i, rule in enumerate(rules):
             if "%s : %s" % (name, rule) not in duplicates:
-                W("coverage[\"%s : %s\"] = False" % (name, rule))
+                # W("coverage[\"%s : %s\"] = False" % (name, rule))
                 W("def p_%s_%d(p):" % (name, i+1))
                 W("    '''%s : %s'''" % (name, rule))
                 W("    #  %s   %s" % (" " * len(name), numbers(rule)))
                 r = "%s : %s" % (name, rule)
                 # W("    print(\"%s : %s\")" % (name, rule))
                 if r in actions:
-                    W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rule, name, rule))
+                    # W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rule, name, rule))
                     W(actions[r])
                     del actions[r]
                 else:

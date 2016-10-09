@@ -205,9 +205,11 @@ actions['''assignment : lvalues EQUAL closed_expression'''] = '''    p[0] = Assi
     inherit_lineno(p[0], p[1][0])'''
 actions['''assignment : fcnndef'''] = '''    p[0] = p[1]'''
 
+actions['''fcnndef : DEF NAME LPAR RPAR closed_exprsuite'''] = '''    p[0] = Assignment([Name(p[2][0], Store(), **p[2][1])], FcnDef([], [], p[5], **p[1][1]), **p[1][1])'''
 actions['''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''] = '''    fcndef = p[4]
     fcndef.body = p[6]
     p[0] = Assignment([Name(p[2][0], Store(), **p[2][1])], fcndef, **p[1][1])'''
+actions['''fcndef : LBRACE RIGHTARROW suite RBRACE'''] = '''    p[0] = FcnDef([], [], p[3], **p[1][1])'''
 actions['''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''] = '''    p[0] = p[2]
     p[0].body = p[4]'''
 actions['''fcn1def : parameter RIGHTARROW expression'''] = '''    p[0] = p[1]

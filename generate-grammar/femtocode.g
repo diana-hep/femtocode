@@ -11,12 +11,12 @@ suite: (assignment ';'*)* expression ';'*
 
 lvalues: (NAME ',')* NAME [',']                           // source of 1 shift/reduce conflict
 assignment: lvalues '=' closed_expression | fcnndef
-fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
+fcnndef: 'def' NAME '(' [paramlist] ')' closed_exprsuite
 
 expression: ifblock | fcndef | or_test
 closed_expression: closed_ifblock | fcndef | or_test ';'
 
-fcndef: '{' paramlist '=>' suite '}'
+fcndef: '{' [paramlist] '=>' suite '}'
 fcn1def: parameter '=>' expression
 paramlist: (parameter ',')* (parameter [','])
 parameter: NAME ['=' expression]                          // source of 1 shift/reduce conflict
