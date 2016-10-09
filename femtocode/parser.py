@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-08T21:14:23 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-08T22:07:53 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -456,16 +456,43 @@ def p_closed_expression_3(p):
     #                            1    2
     p[0] = p[1]
 
-# fcndef: '{' [paramlist] '=>' suite '}'
+# fcndef: '{' [paramlist] '=>' ';'* suite '}'
 def p_fcndef_1(p):
     '''fcndef : LBRACE RIGHTARROW suite RBRACE'''
     #                1          2     3      4
     p[0] = FcnDef([], [], p[3], **p[1][1])
 def p_fcndef_2(p):
+    '''fcndef : LBRACE RIGHTARROW fcndef_star suite RBRACE'''
+    #                1          2           3     4      5
+    p[0] = FcnDef([], [], p[4], **p[1][1])
+def p_fcndef_3(p):
     '''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''
     #                1         2          3     4      5
     p[0] = p[2]
     p[0].body = p[4]
+def p_fcndef_4(p):
+    '''fcndef : LBRACE paramlist RIGHTARROW fcndef_star2 suite RBRACE'''
+    #                1         2          3            4     5      6
+    p[0] = p[2]
+    p[0].body = p[5]
+
+def p_fcndef_star_1(p):
+    '''fcndef_star : SEMI'''
+    #                   1
+    p[0] = None
+def p_fcndef_star_2(p):
+    '''fcndef_star : fcndef_star SEMI'''
+    #                          1    2
+    p[0] = None
+
+def p_fcndef_star2_1(p):
+    '''fcndef_star2 : SEMI'''
+    #                    1
+    p[0] = None
+def p_fcndef_star2_2(p):
+    '''fcndef_star2 : fcndef_star2 SEMI'''
+    #                            1    2
+    p[0] = None
 
 # fcn1def: parameter '=>' expression
 def p_fcn1def(p):
@@ -518,7 +545,7 @@ def p_parameter_2(p):
     #                 1     2          3
     p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [p[3]], None, **p[1][1])
 
-# exprsuite: (':' expression | [':'] '{' suite '}')
+# exprsuite: (':' expression | [':'] '{' ';'* suite '}')
 def p_exprsuite_1(p):
     '''exprsuite : COLON expression'''
     #                  1          2
@@ -529,11 +556,37 @@ def p_exprsuite_2(p):
     #                   1     2      3
     p[0] = p[2]
 def p_exprsuite_3(p):
+    '''exprsuite : LBRACE exprsuite_star suite RBRACE'''
+    #                   1              2     3      4
+    p[0] = p[3]
+def p_exprsuite_4(p):
     '''exprsuite : COLON LBRACE suite RBRACE'''
     #                  1      2     3      4
     p[0] = p[3]
+def p_exprsuite_5(p):
+    '''exprsuite : COLON LBRACE exprsuite_star2 suite RBRACE'''
+    #                  1      2               3     4      5
+    p[0] = p[4]
 
-# closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
+def p_exprsuite_star_1(p):
+    '''exprsuite_star : SEMI'''
+    #                      1
+    p[0] = None
+def p_exprsuite_star_2(p):
+    '''exprsuite_star : exprsuite_star SEMI'''
+    #                                1    2
+    p[0] = None
+
+def p_exprsuite_star2_1(p):
+    '''exprsuite_star2 : SEMI'''
+    #                       1
+    p[0] = None
+def p_exprsuite_star2_2(p):
+    '''exprsuite_star2 : exprsuite_star2 SEMI'''
+    #                                  1    2
+    p[0] = None
+
+# closed_exprsuite: (':' closed_expression | [':'] '{' ';'* suite '}')
 def p_closed_exprsuite_1(p):
     '''closed_exprsuite : COLON closed_expression'''
     #                         1                 2
@@ -544,9 +597,35 @@ def p_closed_exprsuite_2(p):
     #                          1     2      3
     p[0] = p[2]
 def p_closed_exprsuite_3(p):
+    '''closed_exprsuite : LBRACE closed_exprsuite_star suite RBRACE'''
+    #                          1                     2     3      4
+    p[0] = p[3]
+def p_closed_exprsuite_4(p):
     '''closed_exprsuite : COLON LBRACE suite RBRACE'''
     #                         1      2     3      4
     p[0] = p[3]
+def p_closed_exprsuite_5(p):
+    '''closed_exprsuite : COLON LBRACE closed_exprsuite_star2 suite RBRACE'''
+    #                         1      2                      3     4      5
+    p[0] = p[4]
+
+def p_closed_exprsuite_star_1(p):
+    '''closed_exprsuite_star : SEMI'''
+    #                             1
+    p[0] = None
+def p_closed_exprsuite_star_2(p):
+    '''closed_exprsuite_star : closed_exprsuite_star SEMI'''
+    #                                              1    2
+    p[0] = None
+
+def p_closed_exprsuite_star2_1(p):
+    '''closed_exprsuite_star2 : SEMI'''
+    #                              1
+    p[0] = None
+def p_closed_exprsuite_star2_2(p):
+    '''closed_exprsuite_star2 : closed_exprsuite_star2 SEMI'''
+    #                                                1    2
+    p[0] = None
 
 # ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
 def p_ifblock_1(p):

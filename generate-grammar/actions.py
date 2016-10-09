@@ -277,3 +277,46 @@ actions['''arglist_star : arglist_star argument COMMA'''] = '''    p[0] = p[1]
 actions['''argument : expression'''] = '''    p[0] = FcnCall(None, [p[1]], [], [])
     inherit_lineno(p[0], p[1])'''
 actions['''argument : NAME EQUAL expression'''] = '''    p[0] = FcnCall(None, [], [Name(p[1][0], Param(), **p[1][1])], [p[3]], **p[1][1])'''
+
+# Didn't use these: tried putting optional semicolons at the beginning of suite
+actions['''suite : suite_star4 expression'''] = '''    p[0] = p[2]'''
+actions['''suite : suite_star4 expression suite_star5'''] = '''    p[0] = p[2]'''
+actions['''suite : suite_star4 suite_star6 expression'''] = '''    p[0] = Suite(p[2], p[3])
+    inherit_lineno(p[0], p[2][0] if len(p[2]) > 0 else p[3])'''
+actions['''suite : suite_star4 suite_star6 expression suite_star7'''] = '''    p[0] = Suite(p[2], p[3])
+    inherit_lineno(p[0], p[2][0] if len(p[2]) > 0 else p[3])'''
+actions['''suite_star5 : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star5 : suite_star5 SEMI'''] = '''    p[0] = None'''
+actions['''suite_star7 : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star7 : suite_star7 SEMI'''] = '''    p[0] = None'''
+actions['''suite_star6 : assignment'''] = '''    p[0] = [p[1]]'''
+actions['''suite_star6 : assignment suite_star6_star'''] = '''    p[0] = [p[1]]'''
+actions['''suite_star6 : suite_star6 assignment'''] = '''    p[1].append(p[2])
+    p[0] = p[1]'''
+actions['''suite_star6 : suite_star6 assignment suite_star6_star'''] = '''    p[1].append(p[2])
+    p[0] = p[1]'''
+actions['''suite_star4 : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star4 : suite_star4 SEMI'''] = '''    p[0] = None'''
+actions['''suite_star6_star : SEMI'''] = '''    p[0] = None'''
+actions['''suite_star6_star : suite_star6_star SEMI'''] = '''    p[0] = None'''
+
+# tried putting optional semicolons at every site where suite is used
+actions['''fcndef : LBRACE RIGHTARROW fcndef_star suite RBRACE'''] = '''    p[0] = FcnDef([], [], p[4], **p[1][1])'''
+actions['''fcndef : LBRACE paramlist RIGHTARROW fcndef_star2 suite RBRACE'''] = '''    p[0] = p[2]
+    p[0].body = p[5]'''
+actions['''fcndef_star : SEMI'''] = '''    p[0] = None'''
+actions['''fcndef_star : fcndef_star SEMI'''] = '''    p[0] = None'''
+actions['''fcndef_star2 : SEMI'''] = '''    p[0] = None'''
+actions['''fcndef_star2 : fcndef_star2 SEMI'''] = '''    p[0] = None'''
+actions['''exprsuite : LBRACE exprsuite_star suite RBRACE'''] = '''    p[0] = p[3]'''
+actions['''exprsuite : COLON LBRACE exprsuite_star2 suite RBRACE'''] = '''    p[0] = p[4]'''
+actions['''exprsuite_star : SEMI'''] = '''    p[0] = None'''
+actions['''exprsuite_star : exprsuite_star SEMI'''] = '''    p[0] = None'''
+actions['''exprsuite_star2 : SEMI'''] = '''    p[0] = None'''
+actions['''exprsuite_star2 : exprsuite_star2 SEMI'''] = '''    p[0] = None'''
+actions['''closed_exprsuite : LBRACE closed_exprsuite_star suite RBRACE'''] = '''    p[0] = p[3]'''
+actions['''closed_exprsuite : COLON LBRACE closed_exprsuite_star2 suite RBRACE'''] = '''    p[0] = p[4]'''
+actions['''closed_exprsuite_star : SEMI'''] = '''    p[0] = None'''
+actions['''closed_exprsuite_star : closed_exprsuite_star SEMI'''] = '''    p[0] = None'''
+actions['''closed_exprsuite_star2 : SEMI'''] = '''    p[0] = None'''
+actions['''closed_exprsuite_star2 : closed_exprsuite_star2 SEMI'''] = '''    p[0] = None'''
