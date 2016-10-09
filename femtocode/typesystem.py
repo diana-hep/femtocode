@@ -16,11 +16,11 @@
 
 inf = float("inf")
 
-class Type(object):
+class Schema(object):
     def accepts(self, other):
         raise NotImplementedError
 
-class Missing(Type):
+class Missing(Schema):
     def __repr__(self):
         return "missing"
     def accepts(self, other):
@@ -30,7 +30,7 @@ class Missing(Type):
 
 missing = Missing()
 
-class Boolean(Type):
+class Boolean(Schema):
     def __repr__(self):
         return "boolean"
     def accepts(self, other):
@@ -40,7 +40,7 @@ class Boolean(Type):
 
 boolean = Boolean()
 
-class Integer(Type):
+class Integer(Schema):
     def __init__(self, min=-inf, max=inf):
         self.min = min
         self.max = max
@@ -56,7 +56,7 @@ class Integer(Type):
 
 integer = Integer()
 
-class Real(Type):
+class Real(Schema):
     def __init__(self, inf=None, sup=None, min=None, max=None):
         if min is None and inf is None:
             self.min = None
@@ -68,7 +68,7 @@ class Real(Type):
             self.min = min
             self.inf = None
         else:
-            raise TypeError("cannot specify both min and inf")
+            raise SchemaError("cannot specify both min and inf")
         if max is None and sup is None:
             self.max = None
             self.sup = float("inf")
@@ -79,12 +79,12 @@ class Real(Type):
             self.max = max
             self.sup = None
         else:
-            raise TypeError("cannot specify both max and sup")
+            raise SchemaError("cannot specify both max and sup")
     def __repr__(self):
         if self.inf == float("-inf") and self.sup == float("inf"):
             return "real"
         else:
-            return "Real()"
+            return "real()"
     def accepts(self, other):
         return isinstance(other, (Integer, Real))
     def __call__(self, *args, **kwds):
@@ -92,7 +92,7 @@ class Real(Type):
 
 real = Real()
         
-class String(Type):
+class String(Schema):
     def __repr__(self):
         return "string"
     def accepts(self, other):
@@ -102,7 +102,7 @@ class String(Type):
 
 string = String()
         
-class Binary(Type):
+class Binary(Schema):
     def __init__(self, size=None):
         self.size = size
     def __repr__(self):
@@ -117,7 +117,7 @@ class Binary(Type):
 
 binary = Binary()
 
-class Record(Type):
+class Record(Schema):
     def __init__(self, **fields):
         self.fields = sorted(fields.items())
     def __repr__(self):
@@ -136,7 +136,7 @@ class Record(Type):
 
 record = Record
 
-class Collection(Type):
+class Collection(Schema):
     def __init__(self, itemtype, min=0, max=None):
         self.itemtype = itemtype
         self.min = min
@@ -153,7 +153,7 @@ class Collection(Type):
 
 collection = Collection
 
-class Tensor(Type):
+class Tensor(Schema):
     def __init__(self, itemtype, dimensions):
         self.itemtype = itemtype
         if isinstance(dimensions, (list, tuple)):
@@ -172,7 +172,7 @@ class Tensor(Type):
 
 tensor = Tensor
 
-class Union(Type):
+class Union(Schema):
     def __init__(self, *types):
         self.types = types
     def __repr__(self):
@@ -184,7 +184,7 @@ class Union(Type):
 
 union = Union
 
-class Function:
+class Function(Schema):
     def __init__(self, args, ret):
         self.args = args
         self.ret = ret
