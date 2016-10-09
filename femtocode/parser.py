@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-07T17:12:16 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-08T20:01:43 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -292,497 +292,695 @@ def unpack_trailer(atom, power_star):
             assert False
     return out
 
+coverage = {}
+
 
 # body: ';'* suite
+coverage["body : suite"] = False
 def p_body_1(p):
     '''body : suite'''
     #             1
+    if "body : suite" in coverage: del coverage["body : suite"]
     p[0] = p[1]
+coverage["body : body_star suite"] = False
 def p_body_2(p):
     '''body : body_star suite'''
     #                 1     2
+    if "body : body_star suite" in coverage: del coverage["body : body_star suite"]
     p[0] = p[2]
 
+coverage["body_star : SEMI"] = False
 def p_body_star_1(p):
     '''body_star : SEMI'''
     #                 1
+    if "body_star : SEMI" in coverage: del coverage["body_star : SEMI"]
     p[0] = p[1]
+coverage["body_star : body_star SEMI"] = False
 def p_body_star_2(p):
     '''body_star : body_star SEMI'''
     #                      1    2
+    if "body_star : body_star SEMI" in coverage: del coverage["body_star : body_star SEMI"]
     p[0] = p[2]
 
 # suite: (assignment ';'*)* expression ';'*
+coverage["suite : expression"] = False
 def p_suite_1(p):
     '''suite : expression'''
     #                   1
+    if "suite : expression" in coverage: del coverage["suite : expression"]
     p[0] = Suite([], p[1])
     inherit_lineno(p[0], p[1])
+coverage["suite : expression suite_star"] = False
 def p_suite_2(p):
     '''suite : expression suite_star'''
     #                   1          2
+    if "suite : expression suite_star" in coverage: del coverage["suite : expression suite_star"]
     p[0] = Suite([], p[1])
     inherit_lineno(p[0], p[1])
+coverage["suite : suite_star2 expression"] = False
 def p_suite_3(p):
     '''suite : suite_star2 expression'''
     #                    1          2
+    if "suite : suite_star2 expression" in coverage: del coverage["suite : suite_star2 expression"]
     p[0] = Suite(p[1], p[2])
     inherit_lineno(p[0], p[1][0])
+coverage["suite : suite_star2 expression suite_star3"] = False
 def p_suite_4(p):
     '''suite : suite_star2 expression suite_star3'''
     #                    1          2           3
+    if "suite : suite_star2 expression suite_star3" in coverage: del coverage["suite : suite_star2 expression suite_star3"]
     p[0] = Suite(p[1], p[2])
     inherit_lineno(p[0], p[1][0])
 
+coverage["suite_star : SEMI"] = False
 def p_suite_star_1(p):
     '''suite_star : SEMI'''
     #                  1
+    if "suite_star : SEMI" in coverage: del coverage["suite_star : SEMI"]
     p[0] = None
+coverage["suite_star : suite_star SEMI"] = False
 def p_suite_star_2(p):
     '''suite_star : suite_star SEMI'''
     #                        1    2
+    if "suite_star : suite_star SEMI" in coverage: del coverage["suite_star : suite_star SEMI"]
     p[0] = None
 
+coverage["suite_star3 : SEMI"] = False
 def p_suite_star3_1(p):
     '''suite_star3 : SEMI'''
     #                   1
+    if "suite_star3 : SEMI" in coverage: del coverage["suite_star3 : SEMI"]
     p[0] = None
+coverage["suite_star3 : suite_star3 SEMI"] = False
 def p_suite_star3_2(p):
     '''suite_star3 : suite_star3 SEMI'''
     #                          1    2
+    if "suite_star3 : suite_star3 SEMI" in coverage: del coverage["suite_star3 : suite_star3 SEMI"]
     p[0] = None
 
+coverage["suite_star2 : assignment"] = False
 def p_suite_star2_1(p):
     '''suite_star2 : assignment'''
     #                         1
+    if "suite_star2 : assignment" in coverage: del coverage["suite_star2 : assignment"]
     p[0] = [p[1]]
+coverage["suite_star2 : assignment suite_star2_star"] = False
 def p_suite_star2_2(p):
     '''suite_star2 : assignment suite_star2_star'''
     #                         1                2
+    if "suite_star2 : assignment suite_star2_star" in coverage: del coverage["suite_star2 : assignment suite_star2_star"]
     p[0] = [p[1]]
+coverage["suite_star2 : suite_star2 assignment"] = False
 def p_suite_star2_3(p):
     '''suite_star2 : suite_star2 assignment'''
     #                          1          2
+    if "suite_star2 : suite_star2 assignment" in coverage: del coverage["suite_star2 : suite_star2 assignment"]
     p[0] = p[1] + [p[2]]
+coverage["suite_star2 : suite_star2 assignment suite_star2_star"] = False
 def p_suite_star2_4(p):
     '''suite_star2 : suite_star2 assignment suite_star2_star'''
     #                          1          2                3
+    if "suite_star2 : suite_star2 assignment suite_star2_star" in coverage: del coverage["suite_star2 : suite_star2 assignment suite_star2_star"]
     p[0] = p[1] + [p[2]]
 
+coverage["suite_star2_star : SEMI"] = False
 def p_suite_star2_star_1(p):
     '''suite_star2_star : SEMI'''
     #                        1
+    if "suite_star2_star : SEMI" in coverage: del coverage["suite_star2_star : SEMI"]
     p[0] = None
+coverage["suite_star2_star : suite_star2_star SEMI"] = False
 def p_suite_star2_star_2(p):
     '''suite_star2_star : suite_star2_star SEMI'''
     #                                    1    2
+    if "suite_star2_star : suite_star2_star SEMI" in coverage: del coverage["suite_star2_star : suite_star2_star SEMI"]
     p[0] = None
 
 # lvalues: (NAME ',')* NAME [',']                           // source of 1 shift/reduce conflict
+coverage["lvalues : NAME"] = False
 def p_lvalues_1(p):
     '''lvalues : NAME'''
     #               1
+    if "lvalues : NAME" in coverage: del coverage["lvalues : NAME"]
     p[0] = [Name(p[1][0], Store(), **p[1][1])]
+coverage["lvalues : NAME COMMA"] = False
 def p_lvalues_2(p):
     '''lvalues : NAME COMMA'''
     #               1     2
+    if "lvalues : NAME COMMA" in coverage: del coverage["lvalues : NAME COMMA"]
     p[0] = [Name(p[1][0], Store(), **p[1][1])]
+coverage["lvalues : lvalues_star NAME"] = False
 def p_lvalues_3(p):
     '''lvalues : lvalues_star NAME'''
     #                       1    2
+    if "lvalues : lvalues_star NAME" in coverage: del coverage["lvalues : lvalues_star NAME"]
     p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
+coverage["lvalues : lvalues_star NAME COMMA"] = False
 def p_lvalues_4(p):
     '''lvalues : lvalues_star NAME COMMA'''
     #                       1    2     3
+    if "lvalues : lvalues_star NAME COMMA" in coverage: del coverage["lvalues : lvalues_star NAME COMMA"]
     p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
 
+coverage["lvalues_star : NAME COMMA"] = False
 def p_lvalues_star_1(p):
     '''lvalues_star : NAME COMMA'''
     #                    1     2
+    if "lvalues_star : NAME COMMA" in coverage: del coverage["lvalues_star : NAME COMMA"]
     p[0] = [Name(p[1][0], Store(), **p[1][1])]
+coverage["lvalues_star : lvalues_star NAME COMMA"] = False
 def p_lvalues_star_2(p):
     '''lvalues_star : lvalues_star NAME COMMA'''
     #                            1    2     3
+    if "lvalues_star : lvalues_star NAME COMMA" in coverage: del coverage["lvalues_star : lvalues_star NAME COMMA"]
     p[0] = p[1] + [Name(p[2][0], Store(), **p[2][1])]
 
 # assignment: lvalues '=' closed_expression | fcnndef
+coverage["assignment : lvalues EQUAL closed_expression"] = False
 def p_assignment_1(p):
     '''assignment : lvalues EQUAL closed_expression'''
     #                     1     2                 3
+    if "assignment : lvalues EQUAL closed_expression" in coverage: del coverage["assignment : lvalues EQUAL closed_expression"]
     p[0] = Assignment(p[1], p[3])
     inherit_lineno(p[0], p[1][0])
+coverage["assignment : fcnndef"] = False
 def p_assignment_2(p):
     '''assignment : fcnndef'''
     #                     1
+    if "assignment : fcnndef" in coverage: del coverage["assignment : fcnndef"]
     p[0] = p[1]
 
 # fcnndef: 'def' NAME '(' paramlist ')' closed_exprsuite
+coverage["fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite"] = False
 def p_fcnndef(p):
     '''fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite'''
     #              1    2    3         4    5                6
+    if "fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite" in coverage: del coverage["fcnndef : DEF NAME LPAR paramlist RPAR closed_exprsuite"]
     fcndef = p[4]
     fcndef.body = p[6]
     p[0] = Assignment([Name(p[2][0], Store(), **p[2][1])], fcndef, **p[1][1])
 
 # expression: ifblock | fcndef | or_test
+coverage["expression : ifblock"] = False
 def p_expression_1(p):
     '''expression : ifblock'''
     #                     1
+    if "expression : ifblock" in coverage: del coverage["expression : ifblock"]
     p[0] = p[1]
+coverage["expression : fcndef"] = False
 def p_expression_2(p):
     '''expression : fcndef'''
     #                    1
+    if "expression : fcndef" in coverage: del coverage["expression : fcndef"]
     p[0] = p[1]
+coverage["expression : or_test"] = False
 def p_expression_3(p):
     '''expression : or_test'''
     #                     1
+    if "expression : or_test" in coverage: del coverage["expression : or_test"]
     p[0] = p[1]
 
 # closed_expression: closed_ifblock | fcndef | or_test ';'
+coverage["closed_expression : closed_ifblock"] = False
 def p_closed_expression_1(p):
     '''closed_expression : closed_ifblock'''
     #                                   1
+    if "closed_expression : closed_ifblock" in coverage: del coverage["closed_expression : closed_ifblock"]
     p[0] = p[1]
+coverage["closed_expression : fcndef"] = False
 def p_closed_expression_2(p):
     '''closed_expression : fcndef'''
     #                           1
+    if "closed_expression : fcndef" in coverage: del coverage["closed_expression : fcndef"]
     p[0] = p[1]
+coverage["closed_expression : or_test SEMI"] = False
 def p_closed_expression_3(p):
     '''closed_expression : or_test SEMI'''
     #                            1    2
+    if "closed_expression : or_test SEMI" in coverage: del coverage["closed_expression : or_test SEMI"]
     p[0] = p[1]
 
 # fcndef: '{' paramlist '=>' suite '}'
+coverage["fcndef : LBRACE paramlist RIGHTARROW suite RBRACE"] = False
 def p_fcndef(p):
     '''fcndef : LBRACE paramlist RIGHTARROW suite RBRACE'''
     #                1         2          3     4      5
+    if "fcndef : LBRACE paramlist RIGHTARROW suite RBRACE" in coverage: del coverage["fcndef : LBRACE paramlist RIGHTARROW suite RBRACE"]
     p[0] = p[2]
     p[0].body = p[4]
 
 # fcn1def: parameter '=>' (expression | '{' suite '}')
+coverage["fcn1def : parameter RIGHTARROW expression"] = False
 def p_fcn1def_1(p):
     '''fcn1def : parameter RIGHTARROW expression'''
     #                    1          2          3
+    if "fcn1def : parameter RIGHTARROW expression" in coverage: del coverage["fcn1def : parameter RIGHTARROW expression"]
     p[0] = p[1]
     p[0].body = Suite([], p[3])
     inherit_lineno(p[0].body, p[3])
+coverage["fcn1def : parameter RIGHTARROW LBRACE suite RBRACE"] = False
 def p_fcn1def_2(p):
     '''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''
     #                    1          2      3     4      5
+    if "fcn1def : parameter RIGHTARROW LBRACE suite RBRACE" in coverage: del coverage["fcn1def : parameter RIGHTARROW LBRACE suite RBRACE"]
 
     p[0] = p[1]
     p[0].body = p[4]
 
 # paramlist: (parameter ',')* (parameter [','])
+coverage["paramlist : parameter"] = False
 def p_paramlist_1(p):
     '''paramlist : parameter'''
     #                      1
+    if "paramlist : parameter" in coverage: del coverage["paramlist : parameter"]
     p[0] = p[1]
+coverage["paramlist : parameter COMMA"] = False
 def p_paramlist_2(p):
     '''paramlist : parameter COMMA'''
     #                      1     2
+    if "paramlist : parameter COMMA" in coverage: del coverage["paramlist : parameter COMMA"]
     p[0] = p[1]
+coverage["paramlist : paramlist_star parameter"] = False
 def p_paramlist_3(p):
     '''paramlist : paramlist_star parameter'''
     #                           1         2
+    if "paramlist : paramlist_star parameter" in coverage: del coverage["paramlist : paramlist_star parameter"]
     p[0] = p[1]
     p[0].parameters.extend(p[2].parameters)
     p[0].defaults.extend(p[2].defaults)
+coverage["paramlist : paramlist_star parameter COMMA"] = False
 def p_paramlist_4(p):
     '''paramlist : paramlist_star parameter COMMA'''
     #                           1         2     3
+    if "paramlist : paramlist_star parameter COMMA" in coverage: del coverage["paramlist : paramlist_star parameter COMMA"]
     p[0] = p[1]
     p[0].parameters.extend(p[2].parameters)
     p[0].defaults.extend(p[2].defaults)
 
+coverage["paramlist_star : parameter COMMA"] = False
 def p_paramlist_star_1(p):
     '''paramlist_star : parameter COMMA'''
     #                           1     2
+    if "paramlist_star : parameter COMMA" in coverage: del coverage["paramlist_star : parameter COMMA"]
     p[0] = p[1]
+coverage["paramlist_star : paramlist_star parameter COMMA"] = False
 def p_paramlist_star_2(p):
     '''paramlist_star : paramlist_star parameter COMMA'''
     #                                1         2     3
+    if "paramlist_star : paramlist_star parameter COMMA" in coverage: del coverage["paramlist_star : paramlist_star parameter COMMA"]
     p[0] = p[1]
     p[0].parameters.extend(p[2].parameters)
     p[0].defaults.extend(p[2].defaults)
 
 # parameter: NAME ['=' expression]                          // source of 1 shift/reduce conflict
+coverage["parameter : NAME"] = False
 def p_parameter_1(p):
     '''parameter : NAME'''
     #                 1
+    if "parameter : NAME" in coverage: del coverage["parameter : NAME"]
     p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [None], None, **p[1][1])
+coverage["parameter : NAME EQUAL expression"] = False
 def p_parameter_2(p):
     '''parameter : NAME EQUAL expression'''
     #                 1     2          3
+    if "parameter : NAME EQUAL expression" in coverage: del coverage["parameter : NAME EQUAL expression"]
     p[0] = FcnDef([Name(p[1][0], Param(), **p[1][1])], [p[3]], None, **p[1][1])
 
 # exprsuite: (':' expression | [':'] '{' suite '}')
+coverage["exprsuite : COLON expression"] = False
 def p_exprsuite_1(p):
     '''exprsuite : COLON expression'''
     #                  1          2
+    if "exprsuite : COLON expression" in coverage: del coverage["exprsuite : COLON expression"]
     p[0] = Suite([], p[2])
     inherit_lineno(p[0], p[2])
+coverage["exprsuite : LBRACE suite RBRACE"] = False
 def p_exprsuite_2(p):
     '''exprsuite : LBRACE suite RBRACE'''
     #                   1     2      3
+    if "exprsuite : LBRACE suite RBRACE" in coverage: del coverage["exprsuite : LBRACE suite RBRACE"]
     p[0] = p[2]
+coverage["exprsuite : COLON LBRACE suite RBRACE"] = False
 def p_exprsuite_3(p):
     '''exprsuite : COLON LBRACE suite RBRACE'''
     #                  1      2     3      4
+    if "exprsuite : COLON LBRACE suite RBRACE" in coverage: del coverage["exprsuite : COLON LBRACE suite RBRACE"]
     p[0] = p[3]
 
 # closed_exprsuite: (':' closed_expression | [':'] '{' suite '}')
+coverage["closed_exprsuite : COLON closed_expression"] = False
 def p_closed_exprsuite_1(p):
     '''closed_exprsuite : COLON closed_expression'''
     #                         1                 2
+    if "closed_exprsuite : COLON closed_expression" in coverage: del coverage["closed_exprsuite : COLON closed_expression"]
     p[0] = Suite([], p[2])
     inherit_lineno(p[0], p[2])
+coverage["closed_exprsuite : LBRACE suite RBRACE"] = False
 def p_closed_exprsuite_2(p):
     '''closed_exprsuite : LBRACE suite RBRACE'''
     #                          1     2      3
+    if "closed_exprsuite : LBRACE suite RBRACE" in coverage: del coverage["closed_exprsuite : LBRACE suite RBRACE"]
     p[0] = p[2]
+coverage["closed_exprsuite : COLON LBRACE suite RBRACE"] = False
 def p_closed_exprsuite_3(p):
     '''closed_exprsuite : COLON LBRACE suite RBRACE'''
     #                         1      2     3      4
+    if "closed_exprsuite : COLON LBRACE suite RBRACE" in coverage: del coverage["closed_exprsuite : COLON LBRACE suite RBRACE"]
     p[0] = p[3]
 
 # ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' exprsuite)
+coverage["ifblock : IF expression exprsuite ELSE exprsuite"] = False
 def p_ifblock_1(p):
     '''ifblock : IF expression exprsuite ELSE exprsuite'''
     #             1          2         3    4         5
+    if "ifblock : IF expression exprsuite ELSE exprsuite" in coverage: del coverage["ifblock : IF expression exprsuite ELSE exprsuite"]
     p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])
+coverage["ifblock : IF expression exprsuite ifblock_star ELSE exprsuite"] = False
 def p_ifblock_2(p):
     '''ifblock : IF expression exprsuite ifblock_star ELSE exprsuite'''
     #             1          2         3            4    5         6
+    if "ifblock : IF expression exprsuite ifblock_star ELSE exprsuite" in coverage: del coverage["ifblock : IF expression exprsuite ifblock_star ELSE exprsuite"]
     p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])
 
+coverage["ifblock_star : ELIF expression exprsuite"] = False
 def p_ifblock_star_1(p):
     '''ifblock_star : ELIF expression exprsuite'''
     #                    1          2         3
+    if "ifblock_star : ELIF expression exprsuite" in coverage: del coverage["ifblock_star : ELIF expression exprsuite"]
     p[0] = ([p[2]], [p[3]])
+coverage["ifblock_star : ifblock_star ELIF expression exprsuite"] = False
 def p_ifblock_star_2(p):
     '''ifblock_star : ifblock_star ELIF expression exprsuite'''
     #                            1    2          3         4
+    if "ifblock_star : ifblock_star ELIF expression exprsuite" in coverage: del coverage["ifblock_star : ifblock_star ELIF expression exprsuite"]
 
     p[0] = p[1]
     p[0][0].append(p[3])
     p[0][1].append(p[4])
 
 # closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else' closed_exprsuite)
+coverage["closed_ifblock : IF expression exprsuite ELSE closed_exprsuite"] = False
 def p_closed_ifblock_1(p):
     '''closed_ifblock : IF expression exprsuite ELSE closed_exprsuite'''
     #                    1          2         3    4                5
+    if "closed_ifblock : IF expression exprsuite ELSE closed_exprsuite" in coverage: del coverage["closed_ifblock : IF expression exprsuite ELSE closed_exprsuite"]
     p[0] = IfChain([p[2]], [p[3]], p[5], **p[1][1])
+coverage["closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite"] = False
 def p_closed_ifblock_2(p):
     '''closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite'''
     #                    1          2         3                   4    5                6
+    if "closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite" in coverage: del coverage["closed_ifblock : IF expression exprsuite closed_ifblock_star ELSE closed_exprsuite"]
     p[0] = IfChain([p[2]] + p[4][0], [p[3]] + p[4][1], p[6], **p[1][1])
 
+coverage["closed_ifblock_star : ELIF expression exprsuite"] = False
 def p_closed_ifblock_star_1(p):
     '''closed_ifblock_star : ELIF expression exprsuite'''
     #                           1          2         3
+    if "closed_ifblock_star : ELIF expression exprsuite" in coverage: del coverage["closed_ifblock_star : ELIF expression exprsuite"]
     p[0] = ([p[2]], [p[3]])
+coverage["closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite"] = False
 def p_closed_ifblock_star_2(p):
     '''closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite'''
     #                                          1    2          3         4
+    if "closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite" in coverage: del coverage["closed_ifblock_star : closed_ifblock_star ELIF expression exprsuite"]
     p[0] = p[1]
     p[0][0].append(p[3])
     p[0][1].append(p[4])
 
 # or_test: and_test ('or' and_test)*
+coverage["or_test : and_test"] = False
 def p_or_test_1(p):
     '''or_test : and_test'''
     #                   1
+    if "or_test : and_test" in coverage: del coverage["or_test : and_test"]
     p[0] = p[1]
+coverage["or_test : and_test or_test_star"] = False
 def p_or_test_2(p):
     '''or_test : and_test or_test_star'''
     #                   1            2
+    if "or_test : and_test or_test_star" in coverage: del coverage["or_test : and_test or_test_star"]
     theor = Or()
     inherit_lineno(theor, p[2][0])
     p[0] = BoolOp(theor, [p[1]] + p[2])
     inherit_lineno(p[0], p[1])
 
+coverage["or_test_star : OR and_test"] = False
 def p_or_test_star_1(p):
     '''or_test_star : OR and_test'''
     #                  1        2
+    if "or_test_star : OR and_test" in coverage: del coverage["or_test_star : OR and_test"]
     p[0] = [p[2]]
+coverage["or_test_star : or_test_star OR and_test"] = False
 def p_or_test_star_2(p):
     '''or_test_star : or_test_star OR and_test'''
     #                            1  2        3
+    if "or_test_star : or_test_star OR and_test" in coverage: del coverage["or_test_star : or_test_star OR and_test"]
     p[0] = p[1] + [p[3]]
 
 # and_test: not_test ('and' not_test)*
+coverage["and_test : not_test"] = False
 def p_and_test_1(p):
     '''and_test : not_test'''
     #                    1
+    if "and_test : not_test" in coverage: del coverage["and_test : not_test"]
     p[0] = p[1]
+coverage["and_test : not_test and_test_star"] = False
 def p_and_test_2(p):
     '''and_test : not_test and_test_star'''
     #                    1             2
+    if "and_test : not_test and_test_star" in coverage: del coverage["and_test : not_test and_test_star"]
     theand = And()
     inherit_lineno(theand, p[2][0])
     p[0] = BoolOp(theand, [p[1]] + p[2])
     inherit_lineno(p[0], p[1])
 
+coverage["and_test_star : AND not_test"] = False
 def p_and_test_star_1(p):
     '''and_test_star : AND not_test'''
     #                    1        2
+    if "and_test_star : AND not_test" in coverage: del coverage["and_test_star : AND not_test"]
     p[0] = [p[2]]
+coverage["and_test_star : and_test_star AND not_test"] = False
 def p_and_test_star_2(p):
     '''and_test_star : and_test_star AND not_test'''
     #                              1   2        3
+    if "and_test_star : and_test_star AND not_test" in coverage: del coverage["and_test_star : and_test_star AND not_test"]
     p[0] = p[1] + [p[3]]
 
 # not_test: 'not' not_test | comparison
+coverage["not_test : NOT not_test"] = False
 def p_not_test_1(p):
     '''not_test : NOT not_test'''
     #               1        2
+    if "not_test : NOT not_test" in coverage: del coverage["not_test : NOT not_test"]
     thenot = Not()
     inherit_lineno(thenot, p[2])
     p[0] = UnaryOp(thenot, p[2], **p[1][1])
+coverage["not_test : comparison"] = False
 def p_not_test_2(p):
     '''not_test : comparison'''
     #                      1
+    if "not_test : comparison" in coverage: del coverage["not_test : comparison"]
     p[0] = p[1]
 
 # comparison: arith_expr (comp_op arith_expr)*
+coverage["comparison : arith_expr"] = False
 def p_comparison_1(p):
     '''comparison : arith_expr'''
     #                        1
+    if "comparison : arith_expr" in coverage: del coverage["comparison : arith_expr"]
     p[0] = p[1]
+coverage["comparison : arith_expr comparison_star"] = False
 def p_comparison_2(p):
     '''comparison : arith_expr comparison_star'''
     #                        1               2
+    if "comparison : arith_expr comparison_star" in coverage: del coverage["comparison : arith_expr comparison_star"]
     ops, exprs = p[2]
     p[0] = Compare(p[1], ops, exprs)
     inherit_lineno(p[0], p[1])
 
+coverage["comparison_star : comp_op arith_expr"] = False
 def p_comparison_star_1(p):
     '''comparison_star : comp_op arith_expr'''
     #                          1          2
+    if "comparison_star : comp_op arith_expr" in coverage: del coverage["comparison_star : comp_op arith_expr"]
     inherit_lineno(p[1], p[2])
     p[0] = ([p[1]], [p[2]])
+coverage["comparison_star : comparison_star comp_op arith_expr"] = False
 def p_comparison_star_2(p):
     '''comparison_star : comparison_star comp_op arith_expr'''
     #                                  1       2          3
+    if "comparison_star : comparison_star comp_op arith_expr" in coverage: del coverage["comparison_star : comparison_star comp_op arith_expr"]
     ops, exprs = p[1]
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])
 
 # comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
+coverage["comp_op : LESS"] = False
 def p_comp_op_1(p):
     '''comp_op : LESS'''
     #               1
+    if "comp_op : LESS" in coverage: del coverage["comp_op : LESS"]
     p[0] = Lt()
+coverage["comp_op : GREATER"] = False
 def p_comp_op_2(p):
     '''comp_op : GREATER'''
     #                  1
+    if "comp_op : GREATER" in coverage: del coverage["comp_op : GREATER"]
     p[0] = Gt()
+coverage["comp_op : EQEQUAL"] = False
 def p_comp_op_3(p):
     '''comp_op : EQEQUAL'''
     #                  1
+    if "comp_op : EQEQUAL" in coverage: del coverage["comp_op : EQEQUAL"]
     p[0] = Eq()
+coverage["comp_op : GREATEREQUAL"] = False
 def p_comp_op_4(p):
     '''comp_op : GREATEREQUAL'''
     #                       1
+    if "comp_op : GREATEREQUAL" in coverage: del coverage["comp_op : GREATEREQUAL"]
     p[0] = GtE()
+coverage["comp_op : LESSEQUAL"] = False
 def p_comp_op_5(p):
     '''comp_op : LESSEQUAL'''
     #                    1
+    if "comp_op : LESSEQUAL" in coverage: del coverage["comp_op : LESSEQUAL"]
     p[0] = LtE()
+coverage["comp_op : NOTEQUAL"] = False
 def p_comp_op_6(p):
     '''comp_op : NOTEQUAL'''
     #                   1
+    if "comp_op : NOTEQUAL" in coverage: del coverage["comp_op : NOTEQUAL"]
     p[0] = NotEq()
+coverage["comp_op : IN"] = False
 def p_comp_op_7(p):
     '''comp_op : IN'''
     #             1
+    if "comp_op : IN" in coverage: del coverage["comp_op : IN"]
     p[0] = In()
+coverage["comp_op : NOT IN"] = False
 def p_comp_op_8(p):
     '''comp_op : NOT IN'''
     #              1  2
+    if "comp_op : NOT IN" in coverage: del coverage["comp_op : NOT IN"]
     p[0] = NotIn()
 
 # arith_expr: term (('+' | '-') term)*
+coverage["arith_expr : term"] = False
 def p_arith_expr_1(p):
     '''arith_expr : term'''
     #                  1
+    if "arith_expr : term" in coverage: del coverage["arith_expr : term"]
     p[0] = p[1]
+coverage["arith_expr : term arith_expr_star"] = False
 def p_arith_expr_2(p):
     '''arith_expr : term arith_expr_star'''
     #                  1               2
+    if "arith_expr : term arith_expr_star" in coverage: del coverage["arith_expr : term arith_expr_star"]
     p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)
 
+coverage["arith_expr_star : PLUS term"] = False
 def p_arith_expr_star_1(p):
     '''arith_expr_star : PLUS term'''
     #                       1    2
+    if "arith_expr_star : PLUS term" in coverage: del coverage["arith_expr_star : PLUS term"]
     p[0] = [Add(**p[1][1]), p[2]]
+coverage["arith_expr_star : MINUS term"] = False
 def p_arith_expr_star_2(p):
     '''arith_expr_star : MINUS term'''
     #                        1    2
+    if "arith_expr_star : MINUS term" in coverage: del coverage["arith_expr_star : MINUS term"]
     p[0] = [Sub(**p[1][1]), p[2]]
+coverage["arith_expr_star : arith_expr_star PLUS term"] = False
 def p_arith_expr_star_3(p):
     '''arith_expr_star : arith_expr_star PLUS term'''
     #                                  1    2    3
+    if "arith_expr_star : arith_expr_star PLUS term" in coverage: del coverage["arith_expr_star : arith_expr_star PLUS term"]
     p[0] = p[1] + [Add(**p[2][1]), p[3]]
+coverage["arith_expr_star : arith_expr_star MINUS term"] = False
 def p_arith_expr_star_4(p):
     '''arith_expr_star : arith_expr_star MINUS term'''
     #                                  1     2    3
+    if "arith_expr_star : arith_expr_star MINUS term" in coverage: del coverage["arith_expr_star : arith_expr_star MINUS term"]
     p[0] = p[1] + [Sub(**p[2][1]), p[3]]
 
 # term: factor (('*' | '/' | '%' | '//') factor)*
+coverage["term : factor"] = False
 def p_term_1(p):
     '''term : factor'''
     #              1
+    if "term : factor" in coverage: del coverage["term : factor"]
     p[0] = p[1]
+coverage["term : factor term_star"] = False
 def p_term_2(p):
     '''term : factor term_star'''
     #              1         2
+    if "term : factor term_star" in coverage: del coverage["term : factor term_star"]
     p[0] = unwrap_left_associative([p[1]] + p[2], alt=len(p[2]) > 2)
 
+coverage["term_star : STAR factor"] = False
 def p_term_star_1(p):
     '''term_star : STAR factor'''
     #                 1      2
+    if "term_star : STAR factor" in coverage: del coverage["term_star : STAR factor"]
     p[0] = [Mult(**p[1][1]), p[2]]
+coverage["term_star : SLASH factor"] = False
 def p_term_star_2(p):
     '''term_star : SLASH factor'''
     #                  1      2
+    if "term_star : SLASH factor" in coverage: del coverage["term_star : SLASH factor"]
     p[0] = [Div(**p[1][1]), p[2]]
+coverage["term_star : PERCENT factor"] = False
 def p_term_star_3(p):
     '''term_star : PERCENT factor'''
     #                    1      2
+    if "term_star : PERCENT factor" in coverage: del coverage["term_star : PERCENT factor"]
     p[0] = [Mod(**p[1][1]), p[2]]
+coverage["term_star : DOUBLESLASH factor"] = False
 def p_term_star_4(p):
     '''term_star : DOUBLESLASH factor'''
     #                        1      2
+    if "term_star : DOUBLESLASH factor" in coverage: del coverage["term_star : DOUBLESLASH factor"]
     p[0] = [FloorDiv(**p[1][1]), p[2]]
+coverage["term_star : term_star STAR factor"] = False
 def p_term_star_5(p):
     '''term_star : term_star STAR factor'''
     #                      1    2      3
+    if "term_star : term_star STAR factor" in coverage: del coverage["term_star : term_star STAR factor"]
     p[0] = p[1] + [Mult(**p[2][1]), p[3]]
+coverage["term_star : term_star SLASH factor"] = False
 def p_term_star_6(p):
     '''term_star : term_star SLASH factor'''
     #                      1     2      3
+    if "term_star : term_star SLASH factor" in coverage: del coverage["term_star : term_star SLASH factor"]
     p[0] = p[1] + [Div(**p[2][1]), p[3]]
+coverage["term_star : term_star PERCENT factor"] = False
 def p_term_star_7(p):
     '''term_star : term_star PERCENT factor'''
     #                      1       2      3
+    if "term_star : term_star PERCENT factor" in coverage: del coverage["term_star : term_star PERCENT factor"]
     p[0] = p[1] + [Mod(**p[2][1]), p[3]]
+coverage["term_star : term_star DOUBLESLASH factor"] = False
 def p_term_star_8(p):
     '''term_star : term_star DOUBLESLASH factor'''
     #                      1           2      3
+    if "term_star : term_star DOUBLESLASH factor" in coverage: del coverage["term_star : term_star DOUBLESLASH factor"]
     p[0] = p[1] + [FloorDiv(**p[2][1]), p[3]]
 
 # factor: ('+' | '-') factor | power
+coverage["factor : PLUS factor"] = False
 def p_factor_1(p):
     '''factor : PLUS factor'''
     #              1      2
+    if "factor : PLUS factor" in coverage: del coverage["factor : PLUS factor"]
     op = UAdd(**p[1][1])
     p[0] = UnaryOp(op, p[2])
     inherit_lineno(p[0], op)
+coverage["factor : MINUS factor"] = False
 def p_factor_2(p):
     '''factor : MINUS factor'''
     #               1      2
+    if "factor : MINUS factor" in coverage: del coverage["factor : MINUS factor"]
     if sys.version_info.major <= 2 and isinstance(p[2], Num) and not hasattr(p[2], "unary"):
         p[2].n *= -1
         p[0] = p[2]
@@ -792,42 +990,56 @@ def p_factor_2(p):
         op = USub(**p[1][1])
         p[0] = UnaryOp(op, p[2])
         inherit_lineno(p[0], op)
+coverage["factor : power"] = False
 def p_factor_3(p):
     '''factor : power'''
     #               1
+    if "factor : power" in coverage: del coverage["factor : power"]
     p[0] = p[1]
 
 # power: atom trailer* ['**' factor]
+coverage["power : atom"] = False
 def p_power_1(p):
     '''power : atom'''
     #             1
+    if "power : atom" in coverage: del coverage["power : atom"]
     p[0] = p[1]
+coverage["power : atom DOUBLESTAR factor"] = False
 def p_power_2(p):
     '''power : atom DOUBLESTAR factor'''
     #             1          2      3
+    if "power : atom DOUBLESTAR factor" in coverage: del coverage["power : atom DOUBLESTAR factor"]
     p[0] = BinOp(p[1], Pow(**p[2][1]), p[3])
     inherit_lineno(p[0], p[1])
+coverage["power : atom power_star"] = False
 def p_power_3(p):
     '''power : atom power_star'''
     #             1          2
+    if "power : atom power_star" in coverage: del coverage["power : atom power_star"]
     p[0] = unpack_trailer(p[1], p[2])
+coverage["power : atom power_star DOUBLESTAR factor"] = False
 def p_power_4(p):
     '''power : atom power_star DOUBLESTAR factor'''
     #             1          2          3      4
+    if "power : atom power_star DOUBLESTAR factor" in coverage: del coverage["power : atom power_star DOUBLESTAR factor"]
     p[0] = BinOp(unpack_trailer(p[1], p[2]), Pow(**p[3][1]), p[4])
     inherit_lineno(p[0], p[1])
 
+coverage["power_star : trailer"] = False
 def p_power_star_1(p):
     '''power_star : trailer'''
     #                     1
+    if "power_star : trailer" in coverage: del coverage["power_star : trailer"]
     p[0] = [p[1]]
+coverage["power_star : power_star trailer"] = False
 def p_power_star_2(p):
     '''power_star : power_star trailer'''
     #                        1       2
+    if "power_star : power_star trailer" in coverage: del coverage["power_star : power_star trailer"]
     p[0] = p[1] + [p[2]]
 
 # atom: ('(' expression ')'
-#         | '[' (expression ',')* [expression [',']] ']'    // source of 2 shift/reduce conflicts
+#         | '[' (expression ',')* [expression [',']] ']'
 #         | fcndef '(' [arglist] ')'                        // source of 1 shift/reduce conflict
 #         | MULTILINESTRING
 #         | STRING
@@ -838,121 +1050,167 @@ def p_power_star_2(p):
 #         | DEC_NUMBER
 #         | ATARG
 #         | NAME)
+coverage["atom : LPAR expression RPAR"] = False
 def p_atom_1(p):
     '''atom : LPAR expression RPAR'''
     #            1          2    3
+    if "atom : LPAR expression RPAR" in coverage: del coverage["atom : LPAR expression RPAR"]
     p[0] = p[2]
     p[0].alt = p[1][1]
+coverage["atom : LSQB RSQB"] = False
 def p_atom_2(p):
     '''atom : LSQB RSQB'''
     #            1    2
+    if "atom : LSQB RSQB" in coverage: del coverage["atom : LSQB RSQB"]
     p[0] = List([], Load(), **p[1][1])
+coverage["atom : LSQB expression RSQB"] = False
 def p_atom_3(p):
     '''atom : LSQB expression RSQB'''
     #            1          2    3
+    if "atom : LSQB expression RSQB" in coverage: del coverage["atom : LSQB expression RSQB"]
     p[0] = List([p[2]], Load(), **p[1][1])
+coverage["atom : LSQB expression COMMA RSQB"] = False
 def p_atom_4(p):
     '''atom : LSQB expression COMMA RSQB'''
     #            1          2     3    4
+    if "atom : LSQB expression COMMA RSQB" in coverage: del coverage["atom : LSQB expression COMMA RSQB"]
     p[0] = List([p[2]], Load(), **p[1][1])
-def p_atom_5(p):
-    '''atom : LSQB atom_star RSQB'''
-    #            1         2    3
-    p[0] = List(p[2], Load(), **p[1][1])
+coverage["atom : LSQB atom_star expression RSQB"] = False
 def p_atom_6(p):
     '''atom : LSQB atom_star expression RSQB'''
     #            1         2          3    4
+    if "atom : LSQB atom_star expression RSQB" in coverage: del coverage["atom : LSQB atom_star expression RSQB"]
     p[2].append(p[3])
     p[0] = List(p[2], Load(), **p[1][1])
+coverage["atom : LSQB atom_star expression COMMA RSQB"] = False
 def p_atom_7(p):
     '''atom : LSQB atom_star expression COMMA RSQB'''
     #            1         2          3     4    5
+    if "atom : LSQB atom_star expression COMMA RSQB" in coverage: del coverage["atom : LSQB atom_star expression COMMA RSQB"]
     p[2].append(p[3])
     p[0] = List(p[2], Load(), **p[1][1])
+coverage["atom : fcndef LPAR RPAR"] = False
 def p_atom_8(p):
     '''atom : fcndef LPAR RPAR'''
     #              1    2    3
+    if "atom : fcndef LPAR RPAR" in coverage: del coverage["atom : fcndef LPAR RPAR"]
     p[0] = FcnCall(p[1], [], [], [])
     inherit_lineno(p[0], p[1])
+coverage["atom : fcndef LPAR arglist RPAR"] = False
 def p_atom_9(p):
     '''atom : fcndef LPAR arglist RPAR'''
     #              1    2       3    4
+    if "atom : fcndef LPAR arglist RPAR" in coverage: del coverage["atom : fcndef LPAR arglist RPAR"]
 
     p[0] = p[3]
     p[0].function = p[1]
+coverage["atom : MULTILINESTRING"] = False
 def p_atom_10(p):
     '''atom : MULTILINESTRING'''
     #                       1
+    if "atom : MULTILINESTRING" in coverage: del coverage["atom : MULTILINESTRING"]
     p[0] = Str(p[1][0], **p[1][1])
+coverage["atom : STRING"] = False
 def p_atom_11(p):
     '''atom : STRING'''
     #              1
+    if "atom : STRING" in coverage: del coverage["atom : STRING"]
     p[0] = Str(p[1][0], **p[1][1])
+coverage["atom : IMAG_NUMBER"] = False
 def p_atom_12(p):
     '''atom : IMAG_NUMBER'''
     #                   1
+    if "atom : IMAG_NUMBER" in coverage: del coverage["atom : IMAG_NUMBER"]
     p[0] = Num(p[1][0], **p[1][1])
+coverage["atom : FLOAT_NUMBER"] = False
 def p_atom_13(p):
     '''atom : FLOAT_NUMBER'''
     #                    1
+    if "atom : FLOAT_NUMBER" in coverage: del coverage["atom : FLOAT_NUMBER"]
     p[0] = Num(p[1][0], **p[1][1])
+coverage["atom : HEX_NUMBER"] = False
 def p_atom_14(p):
     '''atom : HEX_NUMBER'''
     #                  1
+    if "atom : HEX_NUMBER" in coverage: del coverage["atom : HEX_NUMBER"]
     p[0] = Num(p[1][0], **p[1][1])
+coverage["atom : OCT_NUMBER"] = False
 def p_atom_15(p):
     '''atom : OCT_NUMBER'''
     #                  1
+    if "atom : OCT_NUMBER" in coverage: del coverage["atom : OCT_NUMBER"]
     p[0] = Num(p[1][0], **p[1][1])
+coverage["atom : DEC_NUMBER"] = False
 def p_atom_16(p):
     '''atom : DEC_NUMBER'''
     #                  1
+    if "atom : DEC_NUMBER" in coverage: del coverage["atom : DEC_NUMBER"]
     p[0] = Num(p[1][0], **p[1][1])
+coverage["atom : ATARG"] = False
 def p_atom_17(p):
     '''atom : ATARG'''
     #             1
+    if "atom : ATARG" in coverage: del coverage["atom : ATARG"]
     p[0] = AtArg(p[1][0], **p[1][1])
+coverage["atom : NAME"] = False
 def p_atom_18(p):
     '''atom : NAME'''
     #            1
+    if "atom : NAME" in coverage: del coverage["atom : NAME"]
     p[0] = Name(p[1][0], Load(), **p[1][1])
 
+coverage["atom_star : expression COMMA"] = False
 def p_atom_star_1(p):
     '''atom_star : expression COMMA'''
     #                       1     2
+    if "atom_star : expression COMMA" in coverage: del coverage["atom_star : expression COMMA"]
     p[0] = [p[1]]
+coverage["atom_star : atom_star expression COMMA"] = False
 def p_atom_star_2(p):
     '''atom_star : atom_star expression COMMA'''
     #                      1          2     3
+    if "atom_star : atom_star expression COMMA" in coverage: del coverage["atom_star : atom_star expression COMMA"]
     p[1].append(p[2])
     p[0] = p[1]
 
 # trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
+coverage["trailer : LPAR RPAR"] = False
 def p_trailer_1(p):
     '''trailer : LPAR RPAR'''
     #               1    2
+    if "trailer : LPAR RPAR" in coverage: del coverage["trailer : LPAR RPAR"]
     p[0] = FcnCall(None, [], [], [], **p[1][1])
+coverage["trailer : LPAR arglist RPAR"] = False
 def p_trailer_2(p):
     '''trailer : LPAR arglist RPAR'''
     #               1       2    3
+    if "trailer : LPAR arglist RPAR" in coverage: del coverage["trailer : LPAR arglist RPAR"]
     p[0] = p[2]
+coverage["trailer : LSQB subscriptlist RSQB"] = False
 def p_trailer_3(p):
     '''trailer : LSQB subscriptlist RSQB'''
     #               1             2    3
+    if "trailer : LSQB subscriptlist RSQB" in coverage: del coverage["trailer : LSQB subscriptlist RSQB"]
     p[0] = Subscript(None, p[2], Load())
+coverage["trailer : DOT NAME"] = False
 def p_trailer_4(p):
     '''trailer : DOT NAME'''
     #              1    2
+    if "trailer : DOT NAME" in coverage: del coverage["trailer : DOT NAME"]
     p[0] = Attribute(None, p[2][0], Load())
 
 # subscriptlist: subscript (',' subscript)* [',']
+coverage["subscriptlist : subscript"] = False
 def p_subscriptlist_1(p):
     '''subscriptlist : subscript'''
     #                          1
+    if "subscriptlist : subscript" in coverage: del coverage["subscriptlist : subscript"]
     p[0] = p[1]
+coverage["subscriptlist : subscript COMMA"] = False
 def p_subscriptlist_2(p):
     '''subscriptlist : subscript COMMA'''
     #                          1     2
+    if "subscriptlist : subscript COMMA" in coverage: del coverage["subscriptlist : subscript COMMA"]
     if isinstance(p[1], Index):
         tup = Tuple([p[1].value], Load())
         inherit_lineno(tup, p[1].value)
@@ -961,9 +1219,11 @@ def p_subscriptlist_2(p):
     else:
         p[0] = ExtSlice([p[1]])
         inherit_lineno(p[0], p[1])
+coverage["subscriptlist : subscript subscriptlist_star"] = False
 def p_subscriptlist_3(p):
     '''subscriptlist : subscript subscriptlist_star'''
     #                          1                  2
+    if "subscriptlist : subscript subscriptlist_star" in coverage: del coverage["subscriptlist : subscript subscriptlist_star"]
     args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
         tup = Tuple([x.value for x in args], Load())
@@ -973,9 +1233,11 @@ def p_subscriptlist_3(p):
     else:
         p[0] = ExtSlice(args)
         inherit_lineno(p[0], p[1])
+coverage["subscriptlist : subscript subscriptlist_star COMMA"] = False
 def p_subscriptlist_4(p):
     '''subscriptlist : subscript subscriptlist_star COMMA'''
     #                          1                  2     3
+    if "subscriptlist : subscript subscriptlist_star COMMA" in coverage: del coverage["subscriptlist : subscript subscriptlist_star COMMA"]
     args = [p[1]] + p[2]
     if all(isinstance(x, Index) for x in args):
         tup = Tuple([x.value for x in args], Load())
@@ -986,122 +1248,169 @@ def p_subscriptlist_4(p):
         p[0] = ExtSlice(args)
         inherit_lineno(p[0], p[1])
 
+coverage["subscriptlist_star : COMMA subscript"] = False
 def p_subscriptlist_star_1(p):
     '''subscriptlist_star : COMMA subscript'''
     #                           1         2
+    if "subscriptlist_star : COMMA subscript" in coverage: del coverage["subscriptlist_star : COMMA subscript"]
     p[0] = [p[2]]
+coverage["subscriptlist_star : subscriptlist_star COMMA subscript"] = False
 def p_subscriptlist_star_2(p):
     '''subscriptlist_star : subscriptlist_star COMMA subscript'''
     #                                        1     2         3
+    if "subscriptlist_star : subscriptlist_star COMMA subscript" in coverage: del coverage["subscriptlist_star : subscriptlist_star COMMA subscript"]
     p[0] = p[1] + [p[3]]
 
 # subscript: expression | [expression] ':' [expression] [sliceop]
+coverage["subscript : expression"] = False
 def p_subscript_1(p):
     '''subscript : expression'''
     #                       1
+    if "subscript : expression" in coverage: del coverage["subscript : expression"]
     p[0] = Index(p[1])
     inherit_lineno(p[0], p[1])
+coverage["subscript : COLON"] = False
 def p_subscript_2(p):
     '''subscript : COLON'''
     #                  1
+    if "subscript : COLON" in coverage: del coverage["subscript : COLON"]
     p[0] = Slice(None, None, None, **p[1][1])
+coverage["subscript : COLON sliceop"] = False
 def p_subscript_3(p):
     '''subscript : COLON sliceop'''
     #                  1       2
+    if "subscript : COLON sliceop" in coverage: del coverage["subscript : COLON sliceop"]
     p[0] = Slice(None, None, p[2], **p[1][1])
+coverage["subscript : COLON expression"] = False
 def p_subscript_4(p):
     '''subscript : COLON expression'''
     #                  1          2
+    if "subscript : COLON expression" in coverage: del coverage["subscript : COLON expression"]
     p[0] = Slice(None, p[2], None, **p[1][1])
+coverage["subscript : COLON expression sliceop"] = False
 def p_subscript_5(p):
     '''subscript : COLON expression sliceop'''
     #                  1          2       3
+    if "subscript : COLON expression sliceop" in coverage: del coverage["subscript : COLON expression sliceop"]
     p[0] = Slice(None, p[2], p[3], **p[1][1])
+coverage["subscript : expression COLON"] = False
 def p_subscript_6(p):
     '''subscript : expression COLON'''
     #                       1     2
+    if "subscript : expression COLON" in coverage: del coverage["subscript : expression COLON"]
     p[0] = Slice(p[1], None, None)
     inherit_lineno(p[0], p[1])
+coverage["subscript : expression COLON sliceop"] = False
 def p_subscript_7(p):
     '''subscript : expression COLON sliceop'''
     #                       1     2       3
+    if "subscript : expression COLON sliceop" in coverage: del coverage["subscript : expression COLON sliceop"]
     p[0] = Slice(p[1], None, p[3])
     inherit_lineno(p[0], p[1])
+coverage["subscript : expression COLON expression"] = False
 def p_subscript_8(p):
     '''subscript : expression COLON expression'''
     #                       1     2          3
+    if "subscript : expression COLON expression" in coverage: del coverage["subscript : expression COLON expression"]
     p[0] = Slice(p[1], p[3], None)
     inherit_lineno(p[0], p[1])
+coverage["subscript : expression COLON expression sliceop"] = False
 def p_subscript_9(p):
     '''subscript : expression COLON expression sliceop'''
     #                       1     2          3       4
+    if "subscript : expression COLON expression sliceop" in coverage: del coverage["subscript : expression COLON expression sliceop"]
     p[0] = Slice(p[1], p[3], p[4])
     inherit_lineno(p[0], p[1])
 
 # sliceop: ':' [expression]
+coverage["sliceop : COLON"] = False
 def p_sliceop_1(p):
     '''sliceop : COLON'''
     #                1
+    if "sliceop : COLON" in coverage: del coverage["sliceop : COLON"]
     p[0] = Name("None", Load(), **p[1][1]) if sys.version_info.major <= 2 else None
+coverage["sliceop : COLON expression"] = False
 def p_sliceop_2(p):
     '''sliceop : COLON expression'''
     #                1          2
+    if "sliceop : COLON expression" in coverage: del coverage["sliceop : COLON expression"]
     p[0] = p[2]
 
 # arglist: ((argument ',')* (argument [','])) | fcn1def
+coverage["arglist : argument"] = False
 def p_arglist_1(p):
     '''arglist : argument'''
     #                   1
+    if "arglist : argument" in coverage: del coverage["arglist : argument"]
     p[0] = p[1]
+coverage["arglist : argument COMMA"] = False
 def p_arglist_2(p):
     '''arglist : argument COMMA'''
     #                   1     2
+    if "arglist : argument COMMA" in coverage: del coverage["arglist : argument COMMA"]
     p[0] = p[1]
+coverage["arglist : arglist_star argument"] = False
 def p_arglist_3(p):
     '''arglist : arglist_star argument'''
     #                       1        2
+    if "arglist : arglist_star argument" in coverage: del coverage["arglist : arglist_star argument"]
     p[0] = p[1]
     p[0].positional.extend(p[2].positional)
     p[0].names.extend(p[2].names)
     p[0].named.extend(p[2].named)
+coverage["arglist : arglist_star argument COMMA"] = False
 def p_arglist_4(p):
     '''arglist : arglist_star argument COMMA'''
     #                       1        2     3
+    if "arglist : arglist_star argument COMMA" in coverage: del coverage["arglist : arglist_star argument COMMA"]
     p[0] = p[1]
     p[0].positional.extend(p[2].positional)
     p[0].names.extend(p[2].names)
     p[0].named.extend(p[2].named)
+coverage["arglist : fcn1def"] = False
 def p_arglist_5(p):
     '''arglist : fcn1def'''
     #                  1
+    if "arglist : fcn1def" in coverage: del coverage["arglist : fcn1def"]
     p[0] = FcnCall(None, [p[1]], [], [])
     inherit_lineno(p[0], p[1])
 
+coverage["arglist_star : argument COMMA"] = False
 def p_arglist_star_1(p):
     '''arglist_star : argument COMMA'''
     #                        1     2
+    if "arglist_star : argument COMMA" in coverage: del coverage["arglist_star : argument COMMA"]
     p[0] = p[1]
+coverage["arglist_star : arglist_star argument COMMA"] = False
 def p_arglist_star_2(p):
     '''arglist_star : arglist_star argument COMMA'''
     #                            1        2     3
+    if "arglist_star : arglist_star argument COMMA" in coverage: del coverage["arglist_star : arglist_star argument COMMA"]
     p[0] = p[1]
     p[0].positional.extend(p[2].positional)
     p[0].names.extend(p[2].names)
     p[0].named.extend(p[2].named)
 
 # argument: expression | NAME '=' expression
+coverage["argument : expression"] = False
 def p_argument_1(p):
     '''argument : expression'''
     #                      1
+    if "argument : expression" in coverage: del coverage["argument : expression"]
     p[0] = FcnCall(None, [p[1]], [], [])
     inherit_lineno(p[0], p[1])
+coverage["argument : NAME EQUAL expression"] = False
 def p_argument_2(p):
     '''argument : NAME EQUAL expression'''
     #                1     2          3
+    if "argument : NAME EQUAL expression" in coverage: del coverage["argument : NAME EQUAL expression"]
     p[0] = FcnCall(None, [], [Name(p[1][0], Param(), **p[1][1])], [p[3]], **p[1][1])
 
 def p_error(p):
-    complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
+    if p is None:
+        raise SyntaxError("code block did not end with an expression")
+    else:
+        complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
 
 def kwds(lexer, length):
     return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}

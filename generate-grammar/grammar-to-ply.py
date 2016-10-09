@@ -54,6 +54,8 @@ inputGrammar, grammarActions, outputPLY, = sys.argv[1:]
 
 execfile(grammarActions)
 
+duplicates = ["atom : LSQB atom_star RSQB"]
+
 literal_to_name = {
     "and": "AND",
     "or": "OR",
@@ -494,6 +496,8 @@ def unpack_trailer(atom, power_star):
         else:
             assert False
     return out
+
+coverage = {}
 ''')
 
 def numbers(s):
@@ -501,29 +505,35 @@ def numbers(s):
 
 def format_function(name, rules):
     if len(rules) == 1:
-        W("def p_%s(p):" % name)
-        W("    '''%s : %s'''" % (name, rules[0]))
-        W("    #  %s   %s" % (" " * len(name), numbers(rules[0])))
-        r = "%s : %s" % (name, rules[0])
-        # W("    print(\"%s : %s\")" % (name, rules[0]))
-        if r in actions:
-            W(actions[r])
-            del actions[r]
-        else:
-            W("    raise NotImplementedError")
-
-    else:
-        for i, rule in enumerate(rules):
-            W("def p_%s_%d(p):" % (name, i+1))
-            W("    '''%s : %s'''" % (name, rule))
-            W("    #  %s   %s" % (" " * len(name), numbers(rule)))
-            r = "%s : %s" % (name, rule)
-            # W("    print(\"%s : %s\")" % (name, rule))
+        if "%s : %s" % (name, rules[0]) not in duplicates:
+            W("coverage[\"%s : %s\"] = False" % (name, rules[0]))
+            W("def p_%s(p):" % name)
+            W("    '''%s : %s'''" % (name, rules[0]))
+            W("    #  %s   %s" % (" " * len(name), numbers(rules[0])))
+            r = "%s : %s" % (name, rules[0])
+            # W("    print(\"%s : %s\")" % (name, rules[0]))
             if r in actions:
+                W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rules[0], name, rules[0]))
                 W(actions[r])
                 del actions[r]
             else:
                 W("    raise NotImplementedError")
+
+    else:
+        for i, rule in enumerate(rules):
+            if "%s : %s" % (name, rule) not in duplicates:
+                W("coverage[\"%s : %s\"] = False" % (name, rule))
+                W("def p_%s_%d(p):" % (name, i+1))
+                W("    '''%s : %s'''" % (name, rule))
+                W("    #  %s   %s" % (" " * len(name), numbers(rule)))
+                r = "%s : %s" % (name, rule)
+                # W("    print(\"%s : %s\")" % (name, rule))
+                if r in actions:
+                    W("    if \"%s : %s\" in coverage: del coverage[\"%s : %s\"]" % (name, rule, name, rule))
+                    W(actions[r])
+                    del actions[r]
+                else:
+                    W("    raise NotImplementedError")
     
 grammar_lines = grammar_text.splitlines()
 
@@ -550,7 +560,10 @@ for definition in definition_list:
         format_function(name, rules)
 
 W('''\ndef p_error(p):
-    complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
+    if p is None:
+        raise SyntaxError("code block did not end with an expression")
+    else:
+        complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
 
 def kwds(lexer, length):
     return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}

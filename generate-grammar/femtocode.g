@@ -1,12 +1,10 @@
 // Grammar for Femtocode
 
-// Five shift/reduce conflicts resolved as shift, which is the right choice in each case.
+// 3 shift/reduce conflicts resolved as shift, which is the right choice in each case.
 // 
-// WARNING: shift/reduce conflict for LPAR in state 121 resolved as shift
-// WARNING: shift/reduce conflict for RSQB in state 144 resolved as shift
-// WARNING: shift/reduce conflict for RSQB in state 187 resolved as shift
-// WARNING: shift/reduce conflict for EQUAL in state 213 resolved as shift
-// WARNING: shift/reduce conflict for COMMA in state 213 resolved as shift
+// WARNING: shift/reduce conflict for LPAR in state 112 resolved as shift
+// WARNING: shift/reduce conflict for EQUAL in state 214 resolved as shift
+// WARNING: shift/reduce conflict for COMMA in state 214 resolved as shift
 
 body: ';'* suite
 suite: (assignment ';'*)* expression ';'*
@@ -39,7 +37,7 @@ term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' expression ')'
-        | '[' (expression ',')* [expression [',']] ']'    // source of 2 shift/reduce conflicts
+        | '[' (expression ',')* [expression [',']] ']'
         | fcndef '(' [arglist] ')'                        // source of 1 shift/reduce conflict
         | MULTILINESTRING
         | STRING
