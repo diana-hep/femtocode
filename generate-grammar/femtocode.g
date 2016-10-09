@@ -17,7 +17,7 @@ expression: ifblock | fcndef | or_test
 closed_expression: closed_ifblock | fcndef | or_test ';'
 
 fcndef: '{' paramlist '=>' suite '}'
-fcn1def: parameter '=>' (expression | '{' suite '}')
+fcn1def: parameter '=>' expression
 paramlist: (parameter ',')* (parameter [','])
 parameter: NAME ['=' expression]                          // source of 1 shift/reduce conflict
 

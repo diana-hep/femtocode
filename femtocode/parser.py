@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-08T20:01:43 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-08T20:33:37 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -11,7 +11,7 @@ from femtocode.thirdparty.ply import yacc
 
 from femtocode.asts.parsingtree import *
 
-def complain(message, source, pos, lineno, col_offset, fileName):
+def complain(message, source, pos, lineno, col_offset, fileName, length):
     start = source.rfind("\n", 0, pos)
     if start == -1: start = 0
     start = source.rfind("\n", 0, start)
@@ -22,7 +22,7 @@ def complain(message, source, pos, lineno, col_offset, fileName):
     else:
         snippet = source[start:end]
     snippet = "    " + snippet.replace("\n", "\n    ")
-    indicator = "-" * col_offset + "^"
+    indicator = "-" * col_offset + "^" * length
     if fileName == "<string>":
         where = ""
     else:
@@ -232,7 +232,7 @@ def t_GREATER(t):
     return t
 
 def t_error(t):
-    complain("unidentifiable token \"" + t.value + "\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName)
+    complain("unrecognizable token \"" + t.value + "\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName, t.value[1]["length"])
 
 def t_comment(t):
     r"[ ]*\043[^\n]*"  # \043 is # ; otherwise PLY thinks it is a regex comment
@@ -529,23 +529,15 @@ def p_fcndef(p):
     p[0] = p[2]
     p[0].body = p[4]
 
-# fcn1def: parameter '=>' (expression | '{' suite '}')
+# fcn1def: parameter '=>' expression
 coverage["fcn1def : parameter RIGHTARROW expression"] = False
-def p_fcn1def_1(p):
+def p_fcn1def(p):
     '''fcn1def : parameter RIGHTARROW expression'''
     #                    1          2          3
     if "fcn1def : parameter RIGHTARROW expression" in coverage: del coverage["fcn1def : parameter RIGHTARROW expression"]
     p[0] = p[1]
     p[0].body = Suite([], p[3])
     inherit_lineno(p[0].body, p[3])
-coverage["fcn1def : parameter RIGHTARROW LBRACE suite RBRACE"] = False
-def p_fcn1def_2(p):
-    '''fcn1def : parameter RIGHTARROW LBRACE suite RBRACE'''
-    #                    1          2      3     4      5
-    if "fcn1def : parameter RIGHTARROW LBRACE suite RBRACE" in coverage: del coverage["fcn1def : parameter RIGHTARROW LBRACE suite RBRACE"]
-
-    p[0] = p[1]
-    p[0].body = p[4]
 
 # paramlist: (parameter ',')* (parameter [','])
 coverage["paramlist : parameter"] = False
@@ -1410,10 +1402,10 @@ def p_error(p):
     if p is None:
         raise SyntaxError("code block did not end with an expression")
     else:
-        complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
+        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.fileName, p.value[1]["length"])
 
 def kwds(lexer, length):
-    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}
+    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName, "length": length}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()

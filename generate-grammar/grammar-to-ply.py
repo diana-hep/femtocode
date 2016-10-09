@@ -330,7 +330,7 @@ from femtocode.thirdparty.ply import yacc
 from femtocode.asts.parsingtree import *
 ''' % (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])))
 
-W('''def complain(message, source, pos, lineno, col_offset, fileName):
+W('''def complain(message, source, pos, lineno, col_offset, fileName, length):
     start = source.rfind("\\n", 0, pos)
     if start == -1: start = 0
     start = source.rfind("\\n", 0, start)
@@ -341,7 +341,7 @@ W('''def complain(message, source, pos, lineno, col_offset, fileName):
     else:
         snippet = source[start:end]
     snippet = "    " + snippet.replace("\\n", "\\n    ")
-    indicator = "-" * col_offset + "^"
+    indicator = "-" * col_offset + "^" * length
     if fileName == "<string>":
         where = ""
     else:
@@ -436,7 +436,7 @@ for literal, name in literal_to_name.items():
 ''' % (name, re.escape(literal)))
 
 W('''def t_error(t):
-    complain("unidentifiable token \\"" + t.value + "\\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName)
+    complain("unrecognizable token \\"" + t.value + "\\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName, t.value[1]["length"])
 ''')
 W('''def t_comment(t):
     r"[ ]*\\043[^\\n]*"  # \\043 is # ; otherwise PLY thinks it is a regex comment
@@ -563,10 +563,10 @@ W('''\ndef p_error(p):
     if p is None:
         raise SyntaxError("code block did not end with an expression")
     else:
-        complain("unparsable sequence of tokens", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1, p.lexer.fileName)
+        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.fileName, p.value[1]["length"])
 
 def kwds(lexer, length):
-    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName}
+    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName, "length": length}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()
