@@ -48,7 +48,7 @@ class Integer(Schema):
         if self.min == -inf and self.max == inf:
             return "integer"
         else:
-            return "integer({0}, {1})".format(self.min, self.max)
+            return "integer(min={0}, max={1})".format(self.min, self.max)
     def accepts(self, other):
         return isinstance(other, Integer)
     def __call__(self, *args, **kwds):
@@ -84,16 +84,16 @@ class Real(Schema):
         if self.inf == float("-inf") and self.sup == float("inf"):
             return "real"
         else:
-            args = ""
+            args = []
             if self.inf is not None:
-                args += "inf = " + repr(self.inf)
+                args.append("inf=" + repr(self.inf))
             if self.sup is not None:
-                args += "sup = " + repr(self.sup)
+                args.append("sup=" + repr(self.sup))
             if self.min is not None:
-                args += "min = " + repr(self.min)
+                args.append("min=" + repr(self.min))
             if self.max is not None:
-                args += "max = " + repr(self.max)
-            return "real(" + args + ")"
+                args.append("max=" + repr(self.max))
+            return "real(" + ", ".join(args) + ")"
     def accepts(self, other):
         return isinstance(other, (Integer, Real))
     def __call__(self, *args, **kwds):
@@ -130,7 +130,7 @@ class Record(Schema):
     def __init__(self, **fields):
         self.fields = sorted(fields.items())
     def __repr__(self):
-        return "record(" + ", ".join(n + " = " + repr(t) for n, t in self.fields) + ")"
+        return "record(" + ", ".join(n + "=" + repr(t) for n, t in self.fields) + ")"
     def accepts(self, other):
         if not isinstance(other, Record):
             return False

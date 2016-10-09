@@ -453,15 +453,22 @@ def t_newline(t):
 
 W('''def inherit_lineno(p0, px, alt=True):
     if isinstance(px, dict):
+        p0.source = px["source"]
+        p0.pos = px["pos"]
         p0.lineno = px["lineno"]
         p0.col_offset = px["col_offset"]
+        p0.fileName = px["fileName"]
+        p0.length = px["length"]
     else:
+        p0.source = px.source
+        p0.pos = px.pos
+        p0.lineno = px.lineno
+        p0.col_offset = px.col_offset
+        p0.fileName = px.fileName
+        p0.length = px.length
         if alt and hasattr(px, "alt"):
             p0.lineno = px.alt["lineno"]
             p0.col_offset = px.alt["col_offset"]
-        else:
-            p0.lineno = px.lineno
-            p0.col_offset = px.col_offset
 
 def unwrap_left_associative(args, alt=False):
     out = BinOp(args[0], args[1], args[2])
@@ -562,10 +569,10 @@ W('''\ndef p_error(p):
     if p is None:
         raise SyntaxError("code block did not end with an expression")
     else:
-        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.fileName, p.value[1]["length"])
+        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.fileName, 1)
 
 def kwds(lexer, length):
-    return {"source": lexer.source, "pos": lexer.lexpos, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName, "length": length}
+    return {"source": lexer.source, "pos": lexer.lexpos - length, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName, "length": length}
 
 def parse(source, fileName="<string>"):
     lexer = lex.lex()

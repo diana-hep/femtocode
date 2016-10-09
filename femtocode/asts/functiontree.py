@@ -14,38 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import femtocode.parser
 from femtocode.asts import parsingtree
 from femtocode.defs import BuiltinFunction
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class Ref(object):
+def complain(message, p):
+    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.fileName, 1)
+
+class FunctionTree(object): pass
+
+class Ref(FunctionTree):
     def __init__(self, name, schema):
         self.name = name
         self.schema = schema
     def __repr__(self):
         return "Ref({0}, {1})".format(self.name, self.schema)
 
-class Literal(object):
+class Literal(FunctionTree):
     def __init__(self, value, schema):
         self.value = value
         self.schema = schema
     def __repr__(self):
         return "Literal({0}, {1})".format(self.value, self.schema)
 
-class Call(object):
+class Call(FunctionTree):
     def __init__(self, fcn, args):
         self.fcn = fcn
         self.args = args
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
-class Def(object):
+class Def(FunctionTree):
     def __init__(self, params, body):
         self.params = params
         self.body = body
     def __repr__(self):
         return "Def({0}, {1})".format(self.params, self.body)
+
+class Unpack(FunctionTree):
+    def __init__(self, structure, index):
+        self.structure = structure
+        self.index = index
+    def __repr__(self):
+        return "Unpack({0}, {1})".format(self.structure, self.index)
 
 def flatten(tree, op):
     if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
@@ -53,7 +66,7 @@ def flatten(tree, op):
     else:
         return [tree]
 
-def convert(parsing, builtin, inputs, stack, **options):
+def convert(parsing, builtin, stack, **options):
     if isinstance(parsing, parsingtree.And):
         raise NotImplementedError
 
@@ -61,16 +74,14 @@ def convert(parsing, builtin, inputs, stack, **options):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.BinOp):
-        print ast.dump(parsing)
-
         args = flatten(parsing, parsing.op.__class__)
 
         if isinstance(parsing.op, parsingtree.Add):
-            return Call(builtin.get("+"), [convert(a, builtin, inputs, stack, **options) for a in args])
+            return Call(builtin.get("+"), [convert(a, builtin, stack, **options) for a in args])
         elif isinstance(parsing.op, parsingtree.Sub):
             raise NotImplementedError
         elif isinstance(parsing.op, parsingtree.Mult):
-            return Call(builtin.get("*"), [convert(a, builtin, inputs, stack, **options) for a in args])
+            return Call(builtin.get("*"), [convert(a, builtin, stack, **options) for a in args])
         elif isinstance(parsing.op, parsingtree.Div):
             raise NotImplementedError
         elif isinstance(parsing.op, parsingtree.Mod):
@@ -121,7 +132,14 @@ def convert(parsing, builtin, inputs, stack, **options):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Name):
-        raise NotImplementedError
+        if not stack.defined(parsing.id):
+            complain(parsing.id + " not defined in this scope (curly brackets)", parsing)
+        else:
+            x = stack.get(parsing.id)
+            if isinstance(x, Schema):
+                return Ref(parsing.id, x)
+            else:
+                return x
 
     elif isinstance(parsing, parsingtree.Not):
         raise NotImplementedError
@@ -173,14 +191,28 @@ def convert(parsing, builtin, inputs, stack, **options):
 
     elif isinstance(parsing, parsingtree.Suite):
         if len(parsing.assignments) > 0:
-            raise NotImplementedError
-        return convert(parsing.expression, builtin, inputs, stack, **options)
+            for assignment in parsing.assignments:
+                convert(assignment, builtin, stack, **options)
+        return convert(parsing.expression, builtin, stack, **options)
 
     elif isinstance(parsing, parsingtree.AtArg):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Assignment):
-        raise NotImplementedError
+        result = convert(parsing.expression, builtin, stack, **options)
+
+        if len(parsing.lvalues) == 1:
+            name = parsing.lvalues[0].id
+            if stack.definedHere(name):
+                complain(name + " is already defined in this scope (curly brackets)", parsing.lvalues[0])
+            stack.append(name, result)
+
+        else:
+            for index, lvalue in enumerate(parsing.lvalues):
+                name = lvalue.id
+                if stack.definedHere(name):
+                    complain(name + " is already defined in this scope (curly brackets)", lvalue)
+                stack.append(name, Unpack(result, index))
 
     elif isinstance(parsing, parsingtree.FcnCall):
         raise NotImplementedError
@@ -201,6 +233,7 @@ def convert(parsing, builtin, inputs, stack, **options):
 from femtocode.parser import parse
 from femtocode.lib.standard import table
 
-inputs = table.child()
+stack = table.child()
+stack.append("hello", real)
 
-print convert(parse("1 + 2 * 3"), table, inputs, inputs)
+print convert(parse("x = 1; x + 1"), table, stack.child())
