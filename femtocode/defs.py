@@ -25,20 +25,28 @@ class BuiltinFunction(object):
         raise NotImplementedError
 
 class SymbolTable(object):
-    def __init__(self, **symbols):
-        self.symbols = symbols
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.symbols = {}
 
-    def __repr__(self):
-        return "SymbolTable(" + ", ".join(n + " = " + repr(v) for n, v in sorted(self.symbols.items())) + ")"
+    def definedHere(self, name):
+        return name in self.symbols
 
-    def copy(self):
-        return SymbolTable(**self.symbols.copy())
+    def defined(self, name):
+        return self.definedHere(name) or (self.parent is not None and self.parent.defined(name))
+
+    def getHere(self, name):
+        return self.symbols.get(name)
+
+    def get(self, name):
+        trial = self.getHere(name)
+        if trial is not None:
+            return trial
+        else:
+            return self.parent.get(name)
 
     def append(self, name, value):
         self.symbols[name] = value
 
-    def __add__(self, other):
-        if isinstance(other, SymbolTable):
-            return SymbolTable(**dict(self.symbols.items() + other.symbols.items()))
-        else:
-            raise TypeError("cannot add SymbolTable and " + repr(type(other)))
+    def child(self):
+        return SymbolTable(self)

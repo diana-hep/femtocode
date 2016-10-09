@@ -47,17 +47,36 @@ class Def(object):
     def __repr__(self):
         return "Def({0}, {1})".format(self.params, self.body)
 
-def convert(parsing, symbols, **options):
-    if isinstance(parsing, parsingtree.Add):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.And):
+def convert(parsing, builtin, inputs, stack, **options):
+    if isinstance(parsing, parsingtree.And):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Attribute):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.BinOp):
+        print ast.dump(parsing)
+
+        left = convert(parsing.left, builtin, inputs, stack, **options)
+        right = convert(parsing.right, builtin, inputs, stack, **options)
+
+        if isinstance(parsing.op, parsingtree.Add):
+            return Call(builtin.get("+"), [left, right])
+        elif isinstance(parsing.op, parsingtree.Sub):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Mult):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Div):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Mod):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Pow):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.FloorDiv):
+            raise NotImplementedError
+        else:
+            raise TypeError("unrecognized BinOp.op: " + repr(parsing.op))
+
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.BoolOp):
@@ -66,16 +85,10 @@ def convert(parsing, symbols, **options):
     elif isinstance(parsing, parsingtree.Compare):
         raise NotImplementedError
 
-    elif isinstance(parsing, parsingtree.Div):
-        raise NotImplementedError
-
     elif isinstance(parsing, parsingtree.Eq):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.ExtSlice):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.FloorDiv):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Gt):
@@ -100,12 +113,6 @@ def convert(parsing, symbols, **options):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.LtE):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Mod):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Mult):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Name):
@@ -135,9 +142,6 @@ def convert(parsing, symbols, **options):
     elif isinstance(parsing, parsingtree.Param):
         raise NotImplementedError
 
-    elif isinstance(parsing, parsingtree.Pow):
-        raise NotImplementedError
-
     elif isinstance(parsing, parsingtree.Slice):
         raise NotImplementedError
 
@@ -145,9 +149,6 @@ def convert(parsing, symbols, **options):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Str):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Sub):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Subscript):
@@ -168,7 +169,7 @@ def convert(parsing, symbols, **options):
     elif isinstance(parsing, parsingtree.Suite):
         if len(parsing.assignments) > 0:
             raise NotImplementedError
-        return convert(parsing.expression, symbols, **options)
+        return convert(parsing.expression, builtin, inputs, stack, **options)
 
     elif isinstance(parsing, parsingtree.AtArg):
         raise NotImplementedError
@@ -188,7 +189,13 @@ def convert(parsing, symbols, **options):
     else:
         raise TypeError("unrecognized element in parsingtree: " + repr(parsing))
     
+
+
+
+
 from femtocode.parser import parse
+from femtocode.lib.standard import table
 
-print convert(parse("3"), {})
+inputs = table.child()
 
+print convert(parse("3 + 3"), table, inputs, inputs)
