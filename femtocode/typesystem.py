@@ -84,7 +84,16 @@ class Real(Schema):
         if self.inf == float("-inf") and self.sup == float("inf"):
             return "real"
         else:
-            return "real()"
+            args = ""
+            if self.inf is not None:
+                args += "inf = " + repr(self.inf)
+            if self.sup is not None:
+                args += "sup = " + repr(self.sup)
+            if self.min is not None:
+                args += "min = " + repr(self.min)
+            if self.max is not None:
+                args += "max = " + repr(self.max)
+            return "real(" + args + ")"
     def accepts(self, other):
         return isinstance(other, (Integer, Real))
     def __call__(self, *args, **kwds):

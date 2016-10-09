@@ -47,6 +47,12 @@ class Def(object):
     def __repr__(self):
         return "Def({0}, {1})".format(self.params, self.body)
 
+def flatten(tree, op):
+    if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
+        return flatten(tree.left, op) + flatten(tree.right, op)
+    else:
+        return [tree]
+
 def convert(parsing, builtin, inputs, stack, **options):
     if isinstance(parsing, parsingtree.And):
         raise NotImplementedError
@@ -57,15 +63,14 @@ def convert(parsing, builtin, inputs, stack, **options):
     elif isinstance(parsing, parsingtree.BinOp):
         print ast.dump(parsing)
 
-        left = convert(parsing.left, builtin, inputs, stack, **options)
-        right = convert(parsing.right, builtin, inputs, stack, **options)
+        args = flatten(parsing, parsing.op.__class__)
 
         if isinstance(parsing.op, parsingtree.Add):
-            return Call(builtin.get("+"), [left, right])
+            return Call(builtin.get("+"), [convert(a, builtin, inputs, stack, **options) for a in args])
         elif isinstance(parsing.op, parsingtree.Sub):
             raise NotImplementedError
         elif isinstance(parsing.op, parsingtree.Mult):
-            raise NotImplementedError
+            return Call(builtin.get("*"), [convert(a, builtin, inputs, stack, **options) for a in args])
         elif isinstance(parsing.op, parsingtree.Div):
             raise NotImplementedError
         elif isinstance(parsing.op, parsingtree.Mod):
@@ -198,4 +203,4 @@ from femtocode.lib.standard import table
 
 inputs = table.child()
 
-print convert(parse("3 + 3"), table, inputs, inputs)
+print convert(parse("1 + 2 * 3"), table, inputs, inputs)
