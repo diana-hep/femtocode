@@ -22,6 +22,14 @@ class Schema(object):
     def accepts(self, other):
         raise NotImplementedError
 
+class Unknown(object):    # not a real Schema!
+    counter = 0
+    def __init__(self):
+        self.n = Unknown.counter
+        Unknown.counter += 1
+    def __repr__(self):
+        return "Unknown" + str(self.n)
+
 class Missing(Schema):
     def __repr__(self):
         return "missing"

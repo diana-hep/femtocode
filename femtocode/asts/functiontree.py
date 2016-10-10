@@ -16,7 +16,7 @@
 
 import femtocode.parser
 from femtocode.asts import parsingtree
-from femtocode.defs import BuiltinFunction
+from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
@@ -59,16 +59,20 @@ class Call(FunctionTree):
         return out
 
 class Def(FunctionTree):
-    def __init__(self, params, body):
+    def __init__(self, params, defaults, body):
         self.params = params
+        self.defaults = defaults
         self.body = body
     def __repr__(self):
-        return "Def({0}, {1})".format(self.params, self.body)
-    def typify(self, schema):
+        return "Def({0}, {1}, {2})".format(self.params, self.defaults, self.body)
+    def typify(self, tparams, tbody, schema):
         out = Def(self.params, self.body)
+        out.tparams = tparams
         out.schema = schema
         return out
 
+# Not just a function call because we have to examine the structure's schema
+# to know how many indexes are allowed.
 class Unpack(FunctionTree):
     def __init__(self, structure, index):
         self.structure = structure
@@ -149,7 +153,7 @@ def convert(tree, builtin, stack, **options):
             if isinstance(x, Schema):
                 return Ref(tree.id)
             else:
-                return x
+                return x   # could be an expression tree or a ParameterSymbol
 
     elif isinstance(tree, parsingtree.Num):
         return Literal(tree.n)
@@ -184,7 +188,7 @@ def convert(tree, builtin, stack, **options):
         return convert(tree.expression, builtin, stack, **options)
 
     elif isinstance(tree, parsingtree.AtArg):
-        raise ProgrammingError("missing implementation")
+        return ParameterSymbol(1 if tree.num is None else tree.num)
 
     elif isinstance(tree, parsingtree.Assignment):
         result = convert(tree.expression, builtin, stack, **options)
@@ -206,7 +210,12 @@ def convert(tree, builtin, stack, **options):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.FcnDef):
-        raise ProgrammingError("missing implementation")
+        tparams = [x.id for x in tree.parameters]   # tree.parameters are all ast.Name
+        tdefaults = [None if x is None else convert(x, builtin, stack, **options) for x in tree.defaults]
+        frame = stack.child()
+        for name in tree.parameters:
+            frame.append(name.id, ParameterSymbol(name.id))
+        return Def(tparams, tdefaults, convert(tree.body, builtin, frame, **options))
 
     elif isinstance(tree, parsingtree.IfChain):
         raise ProgrammingError("missing implementation")
@@ -214,26 +223,31 @@ def convert(tree, builtin, stack, **options):
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
 
-def typify(tree, inputSchema, **options):
+def typify(tree, stack, **options):
     if isinstance(tree, Ref):
-        if inputSchema.defined(tree.name):
-            return tree.typify(inputSchema.get(tree.name))
-        else:
+        t = stack.get(tree.name)
+        if not isinstance(t, Schema):
             raise ProgrammingError("Ref created without input datum")
+        return tree.typify(t, **options)
 
     elif isinstance(tree, Literal):
         if isinstance(tree.value, (int, long)):
-            return tree.typify(integer(min=tree.value, max=tree.value))
+            return tree.typify(integer(min=tree.value, max=tree.value), **options)
         elif isinstance(tree.value, float):
-            return tree.typify(real(min=tree.value, max=tree.value))
+            return tree.typify(real(min=tree.value, max=tree.value), **options)
         else:
             raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, Call):
-        return tree.fcn.typify(tree, inputSchema)
+        return tree.fcn.typify(tree, stack, **options)
 
     elif isinstance(tree, Def):
-        raise ProgrammingError("missing implementation")
+        tbody = tree.body.typify()
+
+
+
+
+        return tree.typify(tparams, tret)
 
     elif isinstance(tree, Unpack):
         raise ProgrammingError("missing implementation")

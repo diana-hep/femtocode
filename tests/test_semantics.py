@@ -35,11 +35,17 @@ class TestSemantics(unittest.TestCase):
     def runTest(self):
         pass
 
-    def test_simple(self):
+    def test_simple1(self):
         stack = table.child()
-        stack.append("hello", real)
-
-        print(convert(parse("x = 1; x + x"), table, stack.child()))
-        result = typify(convert(parse("x = 1; x + 3.14"), table, stack.child()), stack)
+        result = convert(parse("x = 1; x + x"), table, stack.child())
+        print(result)
+        result = typify(result, stack)
         print(result.schema)
         print([x.schema for x in result.args])
+
+    def test_simple2(self):
+        stack = table.child()
+        result = convert(parse("{x => x + 1}"), table, stack.child())
+        print(result)
+        result = typify(result, stack)
+        print result.schema

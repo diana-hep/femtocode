@@ -26,8 +26,15 @@ class BuiltinFunction(object):
     def sortArgs(self, positional, named):
         raise ProgrammingError("missing implementation")
 
-    def typify(self, tree, typifyTree):
+    def typify(self, tree, typifyTree, **options):
         raise ProgrammingError("missing implementation")
+
+class ParameterSymbol(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "ParameterSymbol({0})".format(self.name)
 
 class SymbolTable(object):
     def __init__(self, parent=None):
@@ -47,8 +54,10 @@ class SymbolTable(object):
         trial = self.getHere(name)
         if trial is not None:
             return trial
-        else:
+        elif self.parent is not None:
             return self.parent.get(name)
+        else:
+            return None
 
     def append(self, name, value):
         self.symbols[name] = value
