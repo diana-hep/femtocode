@@ -25,7 +25,7 @@ def complain(message, p):
 
 class FunctionTree(object):
     def typify(self, schema):
-        raise NotImplementedError
+        raise ProgrammingError("missing implementation")
 
 class Ref(FunctionTree):
     def __init__(self, name):
@@ -86,134 +86,163 @@ def flatten(tree, op):
     else:
         return [tree]
 
-def convert(parsing, builtin, stack, **options):
-    if isinstance(parsing, parsingtree.Attribute):
-        raise NotImplementedError
+def convert(tree, builtin, stack, **options):
+    if isinstance(tree, parsingtree.Attribute):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.BinOp):
-        args = flatten(parsing, parsing.op.__class__)
+    elif isinstance(tree, parsingtree.BinOp):
+        args = flatten(tree, tree.op.__class__)
 
-        if isinstance(parsing.op, parsingtree.Add):
+        if isinstance(tree.op, parsingtree.Add):
             return Call(builtin.get("+"), [convert(a, builtin, stack, **options) for a in args])
-        elif isinstance(parsing.op, parsingtree.Sub):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Mult):
+        elif isinstance(tree.op, parsingtree.Sub):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Mult):
             return Call(builtin.get("*"), [convert(a, builtin, stack, **options) for a in args])
-        elif isinstance(parsing.op, parsingtree.Div):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Mod):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Pow):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.FloorDiv):
-            raise NotImplementedError
+        elif isinstance(tree.op, parsingtree.Div):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Mod):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Pow):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.FloorDiv):
+            raise ProgrammingError("missing implementation")
         else:
-            raise TypeError("unrecognized BinOp.op: " + repr(parsing.op))
+            raise ProgrammingError("unrecognized BinOp.op: " + repr(tree.op))
 
-        raise NotImplementedError
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.BoolOp):
-        if isinstance(parsing.op, parsingtree.And):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Or):
-            raise NotImplementedError
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.BoolOp):
+        if isinstance(tree.op, parsingtree.And):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Or):
+            raise ProgrammingError("missing implementation")
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.Compare):
-        if isinstance(parsing.op, parsingtree.Eq):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.NotEq):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Lt):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.LtE):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Gt):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.GtE):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.In):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.NotIn):
-            raise NotImplementedError
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.Compare):
+        if isinstance(tree.op, parsingtree.Eq):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.NotEq):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Lt):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.LtE):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Gt):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.GtE):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.In):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.NotIn):
+            raise ProgrammingError("missing implementation")
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.List):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.List):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.Name):
-        if not stack.defined(parsing.id):
-            complain(parsing.id + " not defined in this scope (curly brackets)", parsing)
+    elif isinstance(tree, parsingtree.Name):
+        if not stack.defined(tree.id):
+            complain(tree.id + " not defined in this scope (curly brackets)", tree)
         else:
-            x = stack.get(parsing.id)
+            x = stack.get(tree.id)
             if isinstance(x, Schema):
-                return Ref(parsing.id)
+                return Ref(tree.id)
             else:
                 return x
 
-    elif isinstance(parsing, parsingtree.Num):
-        return Literal(parsing.n)
+    elif isinstance(tree, parsingtree.Num):
+        return Literal(tree.n)
 
-    elif isinstance(parsing, parsingtree.Str):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.Str):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.Subscript):
-        if isinstance(parsing.op, parsingtree.Slice):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.ExtSlice):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.Index):
-            raise NotImplementedError
-        elif isinstance(parsing, parsingtree.Tuple):
-            raise NotImplementedError
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.Subscript):
+        if isinstance(tree.op, parsingtree.Slice):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.ExtSlice):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.Index):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree, parsingtree.Tuple):
+            raise ProgrammingError("missing implementation")
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.UnaryOp):
-        if isinstance(parsing.op, parsingtree.Not):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.UAdd):
-            raise NotImplementedError
-        elif isinstance(parsing.op, parsingtree.USub):
-            raise NotImplementedError
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.UnaryOp):
+        if isinstance(tree.op, parsingtree.Not):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.UAdd):
+            raise ProgrammingError("missing implementation")
+        elif isinstance(tree.op, parsingtree.USub):
+            raise ProgrammingError("missing implementation")
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.Suite):
-        if len(parsing.assignments) > 0:
-            for assignment in parsing.assignments:
+    elif isinstance(tree, parsingtree.Suite):
+        if len(tree.assignments) > 0:
+            for assignment in tree.assignments:
                 convert(assignment, builtin, stack, **options)
-        return convert(parsing.expression, builtin, stack, **options)
+        return convert(tree.expression, builtin, stack, **options)
 
-    elif isinstance(parsing, parsingtree.AtArg):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.AtArg):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.Assignment):
-        result = convert(parsing.expression, builtin, stack, **options)
+    elif isinstance(tree, parsingtree.Assignment):
+        result = convert(tree.expression, builtin, stack, **options)
 
-        if len(parsing.lvalues) == 1:
-            name = parsing.lvalues[0].id
+        if len(tree.lvalues) == 1:
+            name = tree.lvalues[0].id
             if stack.definedHere(name):
-                complain(name + " is already defined in this scope (curly brackets)", parsing.lvalues[0])
+                complain(name + " is already defined in this scope (curly brackets)", tree.lvalues[0])
             stack.append(name, result)
 
         else:
-            for index, lvalue in enumerate(parsing.lvalues):
+            for index, lvalue in enumerate(tree.lvalues):
                 name = lvalue.id
                 if stack.definedHere(name):
                     complain(name + " is already defined in this scope (curly brackets)", lvalue)
                 stack.append(name, Unpack(result, index))
 
-    elif isinstance(parsing, parsingtree.FcnCall):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.FcnCall):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.FcnDef):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.FcnDef):
+        raise ProgrammingError("missing implementation")
 
-    elif isinstance(parsing, parsingtree.IfChain):
-        raise NotImplementedError
+    elif isinstance(tree, parsingtree.IfChain):
+        raise ProgrammingError("missing implementation")
 
     else:
-        raise TypeError("unrecognized element in parsingtree: " + repr(parsing))
+        raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
     
+def typify(tree, schema, **options):
+    if isinstance(tree, Ref):
+        if schema.defined(tree.name):
+            return tree.typify(schema.get(tree.name))
+        else:
+            raise ProgrammingError("Ref created without input datum")
+
+    elif isinstance(tree, Literal):
+        if isinstance(tree.value, (int, long)):
+            return tree.typify(integer(min=tree.value, max=tree.value))
+        elif isinstance(tree.value, float):
+            return tree.typify(real(min=tree.value, max=tree.value))
+        else:
+            raise ProgrammingError("missing implementation")
+
+    elif isinstance(tree, Call):
+        return tree.typify(tree.fcn.typifyArgs(args, typify))
+
+    elif isinstance(tree, Def):
+        raise ProgrammingError("missing implementation")
+
+    elif isinstance(tree, Unpack):
+        raise ProgrammingError("missing implementation")
+
+    else:
+        raise ProgrammingError("unrecognized element in functiontree: " + repr(tree))
+
+
+
 
 
 
@@ -224,4 +253,4 @@ from femtocode.lib.standard import table
 stack = table.child()
 stack.append("hello", real)
 
-print convert(parse("x = 1; x + x"), table, stack.child())
+print typify(convert(parse("x = 1; x + x"), table, stack.child()), stack)

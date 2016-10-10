@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+class ProgrammingError(Exception): pass
+
 class BuiltinFunction(object):
     def name(self):
         return self.__class__.__name__
@@ -22,7 +24,10 @@ class BuiltinFunction(object):
         return self.name() + "()"
 
     def sortArgs(self, positional, named):
-        raise NotImplementedError
+        raise ProgrammingError("missing implementation")
+
+    def typifyArgs(self, args, typifyTree):
+        raise ProgrammingError("missing implementation")
 
 class SymbolTable(object):
     def __init__(self, parent=None):
