@@ -23,21 +23,29 @@ from femtocode.typesystem import *
 def complain(message, p):
     femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.fileName, 1)
 
-class FunctionTree(object): pass
+class FunctionTree(object):
+    def typify(self, schema):
+        raise NotImplementedError
 
 class Ref(FunctionTree):
-    def __init__(self, name, schema):
+    def __init__(self, name):
         self.name = name
-        self.schema = schema
     def __repr__(self):
-        return "Ref({0}, {1})".format(self.name, self.schema)
+        return "Ref({0})".format(self.name)
+    def typify(self, schema):
+        out = Ref(self.name)
+        out.schema = schema
+        return out
 
 class Literal(FunctionTree):
-    def __init__(self, value, schema):
+    def __init__(self, value):
         self.value = value
-        self.schema = schema
     def __repr__(self):
-        return "Literal({0}, {1})".format(self.value, self.schema)
+        return "Literal({0})".format(self.value)
+    def typify(self, schema):
+        out = Literal(self.value)
+        out.schema = schema
+        return out
 
 class Call(FunctionTree):
     def __init__(self, fcn, args):
@@ -45,6 +53,10 @@ class Call(FunctionTree):
         self.args = args
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
+    def typify(self, schema):
+        out = Call(self.fcn, self.args)
+        out.schema = schema
+        return out
 
 class Def(FunctionTree):
     def __init__(self, params, body):
@@ -52,6 +64,10 @@ class Def(FunctionTree):
         self.body = body
     def __repr__(self):
         return "Def({0}, {1})".format(self.params, self.body)
+    def typify(self, schema):
+        out = Def(self.params, self.body)
+        out.schema = schema
+        return out
 
 class Unpack(FunctionTree):
     def __init__(self, structure, index):
@@ -59,6 +75,10 @@ class Unpack(FunctionTree):
         self.index = index
     def __repr__(self):
         return "Unpack({0}, {1})".format(self.structure, self.index)
+    def typify(self, schema):
+        out = Unpack(self.structure, self.index)
+        out.schema = schema
+        return out
 
 def flatten(tree, op):
     if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
@@ -67,10 +87,7 @@ def flatten(tree, op):
         return [tree]
 
 def convert(parsing, builtin, stack, **options):
-    if isinstance(parsing, parsingtree.And):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Attribute):
+    if isinstance(parsing, parsingtree.Attribute):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.BinOp):
@@ -96,39 +113,32 @@ def convert(parsing, builtin, stack, **options):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.BoolOp):
+        if isinstance(parsing.op, parsingtree.And):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Or):
+            raise NotImplementedError
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Compare):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Eq):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.ExtSlice):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Gt):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.GtE):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.In):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Index):
+        if isinstance(parsing.op, parsingtree.Eq):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.NotEq):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Lt):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.LtE):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Gt):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.GtE):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.In):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.NotIn):
+            raise NotImplementedError
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.List):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Load):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Lt):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.LtE):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Name):
@@ -137,56 +147,34 @@ def convert(parsing, builtin, stack, **options):
         else:
             x = stack.get(parsing.id)
             if isinstance(x, Schema):
-                return Ref(parsing.id, x)
+                return Ref(parsing.id)
             else:
                 return x
 
-    elif isinstance(parsing, parsingtree.Not):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.NotEq):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.NotIn):
-        raise NotImplementedError
-
     elif isinstance(parsing, parsingtree.Num):
-        if isinstance(parsing.n, float):
-            t = Real(min=parsing.n, max=parsing.n)
-        elif isinstance(parsing.n, (int, long)):
-            t = Integer(min=parsing.n, max=parsing.n)
-        else:
-            raise TypeError("Num.n is {0}".format(parsing.n))
-        return Literal(parsing.n, t)
-
-    elif isinstance(parsing, parsingtree.Or):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Param):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Slice):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Store):
-        raise NotImplementedError
+        return Literal(parsing.n)
 
     elif isinstance(parsing, parsingtree.Str):
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Subscript):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.Tuple):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.UAdd):
-        raise NotImplementedError
-
-    elif isinstance(parsing, parsingtree.USub):
+        if isinstance(parsing.op, parsingtree.Slice):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.ExtSlice):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.Index):
+            raise NotImplementedError
+        elif isinstance(parsing, parsingtree.Tuple):
+            raise NotImplementedError
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.UnaryOp):
+        if isinstance(parsing.op, parsingtree.Not):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.UAdd):
+            raise NotImplementedError
+        elif isinstance(parsing.op, parsingtree.USub):
+            raise NotImplementedError
         raise NotImplementedError
 
     elif isinstance(parsing, parsingtree.Suite):
@@ -236,4 +224,4 @@ from femtocode.lib.standard import table
 stack = table.child()
 stack.append("hello", real)
 
-print convert(parse("x = 1; x + 1"), table, stack.child())
+print convert(parse("x = 1; x + x"), table, stack.child())
