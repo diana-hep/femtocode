@@ -39,7 +39,7 @@ class TestSemantics(unittest.TestCase):
         stack = table.child()
         stack.append("hello", real)
 
-        print convert(parse("x = 1; x + x"), table, stack.child())
+        print(convert(parse("x = 1; x + x"), table, stack.child()))
         result = typify(convert(parse("x = 1; x + 3.14"), table, stack.child()), stack)
-        print result.schema
-        print [x.schema for x in result.args]
+        print(result.schema)
+        print([x.schema for x in result.args])
