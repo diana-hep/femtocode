@@ -26,7 +26,7 @@ class BuiltinFunction(object):
     def sortArgs(self, positional, named):
         raise ProgrammingError("missing implementation")
 
-    def typifyArgs(self, args, typifyTree):
+    def typify(self, tree, typifyTree):
         raise ProgrammingError("missing implementation")
 
 class SymbolTable(object):

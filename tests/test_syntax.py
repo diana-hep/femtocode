@@ -28,7 +28,7 @@ if sys.version_info.major >= 3:
     long = int
     basestring = str
 
-class TestParser(unittest.TestCase):
+class TestSyntax(unittest.TestCase):
     def runTest(self):
         pass
 

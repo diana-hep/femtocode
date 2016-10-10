@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from defs import ProgrammingError
+
 inf = float("inf")
 
 class Schema(object):
@@ -205,3 +207,44 @@ class Function(Schema):
         return Function(*args, **kwds)
 
 function = Function
+
+def unify(first, *rest):
+    out = first
+    for t in rest:
+        if isinstance(t, Missing):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Boolean):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Integer):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Real):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, String):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Binary):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Record):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Collection):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Tensor):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Union):
+            raise ProgrammingError("missing implementation")
+
+        elif isinstance(t, Function):
+            raise ProgrammingError("missing implementation")
+
+        else:
+            raise ProgrammingError("unrecognized type: " + repr(t))
+
+    return out

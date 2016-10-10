@@ -53,8 +53,8 @@ class Call(FunctionTree):
         self.args = args
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
-    def typify(self, schema):
-        out = Call(self.fcn, self.args)
+    def typify(self, targs, schema):
+        out = Call(self.fcn, targs)
         out.schema = schema
         return out
 
@@ -213,11 +213,11 @@ def convert(tree, builtin, stack, **options):
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
-    
-def typify(tree, schema, **options):
+
+def typify(tree, inputSchema, **options):
     if isinstance(tree, Ref):
-        if schema.defined(tree.name):
-            return tree.typify(schema.get(tree.name))
+        if inputSchema.defined(tree.name):
+            return tree.typify(inputSchema.get(tree.name))
         else:
             raise ProgrammingError("Ref created without input datum")
 
@@ -230,7 +230,7 @@ def typify(tree, schema, **options):
             raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, Call):
-        return tree.typify(tree.fcn.typifyArgs(args, typify))
+        return tree.fcn.typify(tree, inputSchema)
 
     elif isinstance(tree, Def):
         raise ProgrammingError("missing implementation")
@@ -240,17 +240,3 @@ def typify(tree, schema, **options):
 
     else:
         raise ProgrammingError("unrecognized element in functiontree: " + repr(tree))
-
-
-
-
-
-
-
-from femtocode.parser import parse
-from femtocode.lib.standard import table
-
-stack = table.child()
-stack.append("hello", real)
-
-print typify(convert(parse("x = 1; x + x"), table, stack.child()), stack)
