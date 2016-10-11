@@ -22,31 +22,24 @@ def complain(message, p):
 class ProgrammingError(Exception): pass
 
 class BuiltinFunction(object):
-    def name(self):
-        return self.__class__.__name__
-
     def __repr__(self):
-        return self.name() + "()"
-
-    def argschema(self, index, args):
-        raise ProgrammingError("missing implementation")
-
-    def retschema(self, args):
-        raise ProgrammingError("missing implementation")
-
-    def sortargs(self, positional, named):
-        raise ProgrammingError("missing implementation")
+        return "BuiltinFunction[\"" + self.name + "\"]"
 
 class SymbolTable(object):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, init={}):
         self.parent = parent
-        self.symbols = {}
+        self.symbols = dict(init.items())
 
-    def fork(self, **init):
-        out = SymbolTable(self)
-        for name, value in init.items():
-            out[name] = value
-        return out
+    def fork(self, init={}):
+        return SymbolTable(self, init)
+
+    def frame(self, name):
+        if name in self.symbols:
+            return self
+        elif self.parent is not None:
+            return self.parent.frame(name)
+        else:
+            return None
 
     def getHere(self, name, default=None):
         trial = self.symbols.get(name)
@@ -70,55 +63,5 @@ class SymbolTable(object):
     def __getitem__(self, name):
         out = self.get(name)
         if out is None:
-            raise ProgrammingError("symbol \"{0}\" is absolutely required but is not in the SymbolTable".format(name))
+            raise ProgrammingError("symbol \"{0}\" is required but is not in the SymbolTable".format(name))
         return out
-
-
-# class BuiltinFunction(object):
-#     def name(self):
-#         return self.__class__.__name__
-
-#     def __repr__(self):
-#         return self.name() + "()"
-
-#     def sortArgs(self, positional, named):
-#         raise ProgrammingError("missing implementation")
-
-#     def typify(self, tree, typifyTree, **options):
-#         raise ProgrammingError("missing implementation")
-
-# class ParameterSymbol(object):
-#     def __init__(self, name):
-#         self.name = name
-
-#     def __repr__(self):
-#         return "ParameterSymbol({0})".format(self.name)
-
-# class SymbolTable(object):
-#     def __init__(self, parent=None):
-#         self.parent = parent
-#         self.symbols = {}
-
-#     def definedHere(self, name):
-#         return name in self.symbols
-
-#     def defined(self, name):
-#         return self.definedHere(name) or (self.parent is not None and self.parent.defined(name))
-
-#     def getHere(self, name):
-#         return self.symbols.get(name)
-
-#     def get(self, name):
-#         trial = self.getHere(name)
-#         if trial is not None:
-#             return trial
-#         elif self.parent is not None:
-#             return self.parent.get(name)
-#         else:
-#             return None
-
-#     def append(self, name, value):
-#         self.symbols[name] = value
-
-#     def child(self):
-#         return SymbolTable(self)

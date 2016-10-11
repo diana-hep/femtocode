@@ -20,6 +20,7 @@ import sys
 import unittest
 
 from femtocode.asts.functiontree import build
+from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.typesystem import *
@@ -35,30 +36,27 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        print(build(parse("x"), table.fork(x = integer)).schema)
+        p = build(parse("x"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        print(build(parse("x + 3"), table.fork(x = integer)).schema)
+        p = build(parse("x + 3"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        print(build(parse("y = x + 3; y + 1"), table.fork(x = integer)).schema)
+        p = build(parse("y = x + 3; y + 1"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        print(build(parse("{x => x + 3}"), table.fork()).schema)
+        p = build(parse("{x => x + 3}"), table)
+        print(p)
+        print(p.schema(SymbolTable()))
 
-        print(build(parse("def f(x): x + 3.14;\nf"), table.fork()).schema)
+        p = build(parse("def f(x): x + 3.14;\nf"), table)
+        print(p)
+        print(p.schema(SymbolTable()))
 
-        print(build(parse("def f(q): q + 3.14;  f(x)"), table.fork(x = integer)).schema)
+        p = build(parse("def f(q): q + 3;  f(x)"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        # print(build(parse("xs.map({x => x})"), table.fork(xs = collection(integer))))
-
-    #     stack = table.child()
-    #     result = convert(parse("x = 1; x + x"), table, stack.child())
-    #     print(result)
-    #     result = typify(result, stack)
-    #     print(result.schema)
-    #     print([x.schema for x in result.args])
-
-    # def test_simple2(self):
-    #     stack = table.child()
-    #     result = convert(parse("{x => x + 1}"), table, stack.child())
-    #     print(result)
-    #     result = typify(result, stack)
-    #     print result.schema

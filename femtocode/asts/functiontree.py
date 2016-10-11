@@ -20,80 +20,61 @@ from femtocode.py23 import *
 from femtocode.typesystem import *
 
 class FunctionTree(object):
-    def clone(self):
+    def schema(self, symbolFrame):
         raise ProgrammingError("missing implementation")
         
 class Ref(FunctionTree):
-    def __init__(self, name, symbolFrame):
+    def __init__(self, name):
         self.name = name
-        self.symbolFrame = symbolFrame
-    @property
-    def schema(self):
-        return self.symbolFrame[self.name]
-    # def clone(self):
-    #     return self          # will never change; don't need to replicate
     def __repr__(self):
-        return "Ref({0}, {1})".format(self.name, self.schema)
+        return "Ref({0})".format(self.name)
+    def schema(self, symbolFrame):
+        return symbolFrame[self.name]
 
 class Literal(FunctionTree):
-    def __init__(self, value, schema):
+    def __init__(self, value):
         self.value = value
-        self.schema = schema
-    # def clone(self):
-    #     return self          # will never change; don't need to replicate
     def __repr__(self):
         return "Literal({0})".format(self.value)
+    def schema(self, symbolFrame):
+        if isinstance(self.value, (int, long)):
+            return integer(min=self.value, max=self.value)
+        elif isinstance(self.value, float):
+            return real(min=self.value, max=self.value)
+        else:
+            raise ProgrammingError("missing implementation")
 
 class Call(FunctionTree):
     def __init__(self, fcn, args):
         self.fcn = fcn
         self.args = args
-    @property
-    def schema(self):
-        if isinstance(self.fcn, Def):
-            return self.fcn.body.schema
-        elif isinstance(self.fcn, BuiltinFunction):
-            return self.fcn.retschema(self.args)
-        else:
-            raise ProgrammingError("wrong Python type in Call.fcn: " + repr(self.fcn))
-    # def clone(self):
-    #     if isinstance(self.fcn, Def):               # Def (user-defined)
-    #         fcn = self.fcn.clone()
-    #     else:
-    #         fcn = self.fcn                          # BuiltinFunction
-    #     return Call(fcn, [x.clone() for x in self.args])
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
+    def schema(self, symbolFrame):
+        return self.fcn.retschema(symbolFrame, self.args)
 
 class Def(FunctionTree):
-    def __init__(self, pnames, symbolFrame, pdefaults, body):
-        self.pnames = pnames           # just strings
-        self.symbolFrame = symbolFrame # SymbolTable with the current knowledge of each parameter type
-        self.pdefaults = pdefaults     # expression or None for each parameter
-        self.body = body               # expression to be executed
-    @property
-    def schema(self):
-        return self.body.schema
-    # def clone(self):
-    #     return Def(self.pnames, list(self.pschemas), [None if x is None else x.clone() for x in self.pdefaults], self.body.clone())
+    def __init__(self, names, defaults, body):
+        self.names = names
+        self.defaults = defaults
+        self.body = body
     def __repr__(self):
-        return "Def({0}, {1}, {2})".format(self.pnames, self.pdefaults, self.body)
-
-def flatten(tree, op):
-    if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
-        return flatten(tree.left, op) + flatten(tree.right, op)
-    else:
-        return [tree]
+        return "Def({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+    def schema(self, symbolFrame):
+        return Function([Unknown() for x in self.names], Unknown())
+    def retschema(self, symbolFrame, args):
+        subframe = symbolFrame.fork()
+        for name, arg in zip(self.names, args):
+            subframe[name] = arg.schema(symbolFrame)
+        return self.body.schema(subframe)
 
 def build(tree, symbolFrame):
     if isinstance(tree, parsingtree.Attribute):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.BinOp):
-        args = flatten(tree, tree.op.__class__)
-
         if isinstance(tree.op, parsingtree.Add):
-            return Call(symbolFrame["+"](symbolFrame), [build(x, symbolFrame) for x in args])
+            return Call(symbolFrame["+"], [build(tree.left, symbolFrame), build(tree.right, symbolFrame)])
         elif isinstance(tree.op, parsingtree.Sub):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.Mult):
@@ -141,23 +122,10 @@ def build(tree, symbolFrame):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Name):
-        result = symbolFrame.get(tree.id, Unknown)
-        if result is None:
-            complain(tree.id + " is not defined in this scope (curly brackets)", tree)
-        elif isinstance(result, (Schema, Unknown)):
-            return Ref(tree.id, symbolFrame)
-        elif isinstance(result, (FunctionTree, BuiltinFunction)):
-            return result
-        else:
-            raise ProgrammingError("unexpected Python type in symbolFrame[" + tree.id + "]")
+        return symbolFrame.get(tree.id, Ref(tree.id))
 
     elif isinstance(tree, parsingtree.Num):
-        if isinstance(tree.n, (int, long)):
-            return Literal(tree.n, integer(min=tree.n, max=tree.n))
-        elif isinstance(tree.n, float):
-            return Literal(tree.n, real(min=tree.n, max=tree.n))
-        else:
-            raise ProgrammingError("non-numeric type in Num: " + repr(tree.n))
+        return Literal(tree.n)
 
     elif isinstance(tree, parsingtree.Str):
         raise ProgrammingError("missing implementation")
@@ -184,21 +152,10 @@ def build(tree, symbolFrame):
 
     elif isinstance(tree, parsingtree.Assignment):
         result = build(tree.expression, symbolFrame)
-
         if len(tree.lvalues) == 1:
-            name = tree.lvalues[0].id
-            if symbolFrame.get(name) is not None:
-                complain(name + " is already defined in this scope (curly brackets)", tree.lvalues[0])
-            symbolFrame[name] = result
-
+            symbolFrame[tree.lvalues[0].id] = result
         else:
             raise ProgrammingError("missing implementation")
-
-            # for index, lvalue in enumerate(tree.lvalues):
-            #     name = lvalue.id
-            #     if symbolFrame.definedHere(name):
-            #         complain(name + " is already defined in this scope (curly brackets)", lvalue)
-            #     symbolFrame[name] = Unpack(result, index)  # !!!
 
     elif isinstance(tree, parsingtree.AtArg):
         raise ProgrammingError("missing implementation")
@@ -209,15 +166,7 @@ def build(tree, symbolFrame):
         return Call(build(tree.function, symbolFrame), [build(x, symbolFrame) for x in tree.positional])
 
     elif isinstance(tree, parsingtree.FcnDef):
-        pnames = []
-        frame = symbolFrame.fork()
-        for name in tree.parameters:
-            if not isinstance(name, parsingtree.Name):
-                raise ProgrammingError("non-Name in FcnDef.parameters: " + repr(name))
-            pnames.append(name.id)
-            frame[pnames[-1]] = Unknown()
-
-        return Def(pnames, frame, [None if x is None else build(x, symbolFrame) for x in tree.defaults], build(tree.body, frame))
+        return Def([x.id for x in tree.parameters], [None if x is None else build(x, symbolFrame) for x in tree.defaults], build(tree.body, symbolFrame))
 
     elif isinstance(tree, parsingtree.IfChain):
         raise ProgrammingError("missing implementation")
@@ -233,223 +182,3 @@ def build(tree, symbolFrame):
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
-
-
-
-
-
-
-# class Ref(FunctionTree):
-#     def __init__(self, name):
-#         self.name = name
-#     def __repr__(self):
-#         return "Ref({0})".format(self.name)
-#     def typify(self, schema):
-#         out = Ref(self.name)
-#         out.schema = schema
-#         return out
-
-# class Literal(FunctionTree):
-#     def __init__(self, value):
-#         self.value = value
-#     def __repr__(self):
-#         return "Literal({0})".format(self.value)
-#     def typify(self, schema):
-#         out = Literal(self.value)
-#         out.schema = schema
-#         return out
-
-# class Call(FunctionTree):
-#     def __init__(self, fcn, args):
-#         self.fcn = fcn
-#         self.args = args
-#     def __repr__(self):
-#         return "Call({0}, {1})".format(self.fcn, self.args)
-#     def typify(self, targs, schema):
-#         out = Call(self.fcn, targs)
-#         out.schema = schema
-#         return out
-
-# class Def(FunctionTree):
-#     def __init__(self, params, defaults, body):
-#         self.params = params
-#         self.defaults = defaults
-#         self.body = body
-#     def __repr__(self):
-#         return "Def({0}, {1}, {2})".format(self.params, self.defaults, self.body)
-#     def typify(self, tparams, tbody, schema):
-#         out = Def(self.params, self.body)
-#         out.tparams = tparams
-#         out.schema = schema
-#         return out
-
-# def flatten(tree, op):
-#     if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
-#         return flatten(tree.left, op) + flatten(tree.right, op)
-#     else:
-#         return [tree]
-
-# def convert(tree, builtin, stack, **options):
-#     if isinstance(tree, parsingtree.Attribute):
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.BinOp):
-#         args = flatten(tree, tree.op.__class__)
-
-#         if isinstance(tree.op, parsingtree.Add):
-#             return Call(builtin.get("+"), [convert(a, builtin, stack, **options) for a in args])
-#         elif isinstance(tree.op, parsingtree.Sub):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Mult):
-#             return Call(builtin.get("*"), [convert(a, builtin, stack, **options) for a in args])
-#         elif isinstance(tree.op, parsingtree.Div):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Mod):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Pow):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.FloorDiv):
-#             raise ProgrammingError("missing implementation")
-#         else:
-#             raise ProgrammingError("unrecognized BinOp.op: " + repr(tree.op))
-
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.BoolOp):
-#         if isinstance(tree.op, parsingtree.And):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Or):
-#             raise ProgrammingError("missing implementation")
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.Compare):
-#         if isinstance(tree.op, parsingtree.Eq):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.NotEq):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Lt):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.LtE):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Gt):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.GtE):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.In):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.NotIn):
-#             raise ProgrammingError("missing implementation")
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.List):
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.Name):
-#         if not stack.defined(tree.id):
-#             complain(tree.id + " not defined in this scope (curly brackets)", tree)
-#         else:
-#             x = stack.get(tree.id)
-#             if isinstance(x, Schema):
-#                 return Ref(tree.id)
-#             else:
-#                 return x   # could be an expression tree or a ParameterSymbol
-
-#     elif isinstance(tree, parsingtree.Num):
-#         return Literal(tree.n)
-
-#     elif isinstance(tree, parsingtree.Str):
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.Subscript):
-#         if isinstance(tree.op, parsingtree.Slice):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.ExtSlice):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.Index):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree, parsingtree.Tuple):
-#             raise ProgrammingError("missing implementation")
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.UnaryOp):
-#         if isinstance(tree.op, parsingtree.Not):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.UAdd):
-#             raise ProgrammingError("missing implementation")
-#         elif isinstance(tree.op, parsingtree.USub):
-#             raise ProgrammingError("missing implementation")
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.Suite):
-#         if len(tree.assignments) > 0:
-#             for assignment in tree.assignments:
-#                 convert(assignment, builtin, stack, **options)
-#         return convert(tree.expression, builtin, stack, **options)
-
-#     elif isinstance(tree, parsingtree.AtArg):
-#         return ParameterSymbol(1 if tree.num is None else tree.num)
-
-#     elif isinstance(tree, parsingtree.Assignment):
-#         result = convert(tree.expression, builtin, stack, **options)
-
-#         if len(tree.lvalues) == 1:
-#             name = tree.lvalues[0].id
-#             if stack.definedHere(name):
-#                 complain(name + " is already defined in this scope (curly brackets)", tree.lvalues[0])
-#             stack.append(name, result)
-
-#         else:
-#             for index, lvalue in enumerate(tree.lvalues):
-#                 name = lvalue.id
-#                 if stack.definedHere(name):
-#                     complain(name + " is already defined in this scope (curly brackets)", lvalue)
-#                 stack.append(name, Unpack(result, index))
-
-#     elif isinstance(tree, parsingtree.FcnCall):
-#         raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, parsingtree.FcnDef):
-#         tparams = [x.id for x in tree.parameters]   # tree.parameters are all ast.Name
-#         tdefaults = [None if x is None else convert(x, builtin, stack, **options) for x in tree.defaults]
-#         frame = stack.child()
-#         for name in tree.parameters:
-#             frame.append(name.id, ParameterSymbol(name.id))
-#         return Def(tparams, tdefaults, convert(tree.body, builtin, frame, **options))
-
-#     elif isinstance(tree, parsingtree.IfChain):
-#         raise ProgrammingError("missing implementation")
-
-#     else:
-#         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
-
-# def typify(tree, stack, **options):
-#     if isinstance(tree, Ref):
-#         t = stack.get(tree.name)
-#         if not isinstance(t, Schema):
-#             raise ProgrammingError("Ref created without input datum")
-#         return tree.typify(t, **options)
-
-#     elif isinstance(tree, Literal):
-#         if isinstance(tree.value, (int, long)):
-#             return tree.typify(integer(min=tree.value, max=tree.value), **options)
-#         elif isinstance(tree.value, float):
-#             return tree.typify(real(min=tree.value, max=tree.value), **options)
-#         else:
-#             raise ProgrammingError("missing implementation")
-
-#     elif isinstance(tree, Call):
-#         return tree.fcn.typify(tree, stack, **options)
-
-#     elif isinstance(tree, Def):
-#         tbody = tree.body.typify()
-
-
-
-
-#         return tree.typify(tparams, tret)
-
-#     elif isinstance(tree, Unpack):
-#         raise ProgrammingError("missing implementation")
-
-#     else:
-#         raise ProgrammingError("unrecognized element in functiontree: " + repr(tree))
