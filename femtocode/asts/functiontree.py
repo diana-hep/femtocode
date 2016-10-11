@@ -58,17 +58,21 @@ class Call(FunctionTree):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
 class Def(FunctionTree):
-    def __init__(self, params, defaults, body):
-        self.params = params
-        self.defaults = defaults
-        self.body = body
+    def __init__(self, pnames, pschemas, pdefaults, body):
+        self.pnames = pnames           # just strings
+        self.pschemas = pschemas       # knowledge of each parameter type
+        self.pdefaults = pdefaults     # expression or None for each parameter
+        self.body = body               # expression to be executed
     @property
     def schema(self):
+        # HERE
+
+
         return self.body.schema
     def clone(self):
-        return Def(self.params, [x.clone() for x in self.defaults], self.body.clone())
+        return Def(self.pnames, list(self.pschemas), [x.clone() for x in self.pdefaults], self.body.clone())
     def __repr__(self):
-        return "Def({0}, {1}, {2})".format(self.params, self.defaults, self.body)
+        return "Def({0}, {1}, {2}, {3})".format(self.pnames, self.pschemas, self.pdefaults, self.body)
 
 def flatten(tree, op):
     if isinstance(tree, parsingtree.BinOp) and isinstance(tree.op, op):
@@ -137,6 +141,8 @@ def build(tree, stack):
             complain(tree.id + " is not defined in this scope (curly brackets)", tree)
         elif isinstance(result, Schema):
             return Ref(tree.id, result)   # this is an input field; add a reference
+        elif isinstance(result, Unknown):
+            return Ref(tree.id, result)   # this is a function parameter; add a reference
         elif isinstance(result, FunctionTree):
             return result.clone()         # copy assignment expressions (referential transparency)
         else:
@@ -198,7 +204,17 @@ def build(tree, stack):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.FcnDef):
-        raise ProgrammingError("missing implementation")
+        pnames = []
+        pschemas = []
+        subframe = stack.fork()
+        for name in tree.parameters:
+            if not isinstance(name, parsingtree.Name):
+                raise ProgrammingError("non-Name in FcnDef.parameters: " + repr(name))
+            pnames.append(name.id)
+            pschemas.append(Unknown())
+            subframe[pnames[-1]] = pschemas[-1]
+
+        return Def(pnames, pschemas, [None if x is None else build(x, stack) for x in tree.defaults], build(tree.body, subframe))
 
     elif isinstance(tree, parsingtree.IfChain):
         raise ProgrammingError("missing implementation")
