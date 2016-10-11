@@ -2,9 +2,9 @@
 
 // 3 shift/reduce conflicts resolved as shift, which is the right choice in each case.
 // 
-// WARNING: shift/reduce conflict for LPAR in state 112 resolved as shift
-// WARNING: shift/reduce conflict for EQUAL in state 214 resolved as shift
-// WARNING: shift/reduce conflict for COMMA in state 214 resolved as shift
+// WARNING: shift/reduce conflict for LPAR in state 97 resolved as shift
+// WARNING: shift/reduce conflict for EQUAL in state 224 resolved as shift
+// WARNING: shift/reduce conflict for COMMA in state 224 resolved as shift
 
 body: ';'* suite
 suite: (assignment ';'*)* expression ';'*
@@ -30,8 +30,11 @@ closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else'
 or_test: and_test ('or' and_test)*
 and_test: not_test ('and' not_test)*
 not_test: 'not' not_test | comparison
-comparison: arith_expr (comp_op arith_expr)*
+comparison: typecheck (comp_op typecheck)*
 comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
+
+typecheck: arith_expr ['is' ['not'] arith_expr]
+
 arith_expr: term (('+' | '-') term)*
 term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power

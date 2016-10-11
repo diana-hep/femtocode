@@ -715,3 +715,10 @@ class TestSyntax(unittest.TestCase):
         self.check("{=> ;;3.14;;}", Suite(assignments=[], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14)))))
         self.check("def pi(): 3.14; pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))
         self.check("def pi() {3.14} pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))
+
+        self.check("x is y", Suite(assignments=[], expression=IsType(value=Name(id='x', ctx=Load()), type=Name(id='y', ctx=Load()))))
+        self.check("x is not y", Suite(assignments=[], expression=UnaryOp(op=Not(), operand=IsType(value=Name(id='x', ctx=Load()), type=Name(id='y', ctx=Load())))))
+
+        self.check("x + y is integer", Suite(assignments=[], expression=IsType(value=BinOp(left=Name(id='x', ctx=Load()), op=Add(), right=Name(id='y', ctx=Load())), type=Name(id='integer', ctx=Load()))))
+        self.check("x == y is integer", Suite(assignments=[], expression=Compare(left=Name(id='x', ctx=Load()), ops=[Eq()], comparators=[IsType(value=Name(id='y', ctx=Load()), type=Name(id='integer', ctx=Load()))])))
+        self.check("x is integer == True", Suite(assignments=[], expression=Compare(left=IsType(value=Name(id='x', ctx=Load()), type=Name(id='integer', ctx=Load())), ops=[Eq()], comparators=[Name(id='True', ctx=Load())])))
