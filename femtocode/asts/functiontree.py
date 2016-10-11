@@ -19,12 +19,16 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class FunctionTree(object): pass
+class FunctionTree(object):
+    def clone(self):
+        raise ProgrammingError("missing implementation")
         
 class Ref(FunctionTree):
     def __init__(self, name, schema):
         self.name = name
         self.schema = schema
+    def clone(self):
+        return Ref(self.name, self.schema)
     def __repr__(self):
         return "Ref({0}, {1})".format(self.name, self.schema)
 
@@ -32,6 +36,8 @@ class Literal(FunctionTree):
     def __init__(self, value, schema):
         self.value = value
         self.schema = schema
+    def clone(self):
+        return self          # will never change; don't need to replicate
     def __repr__(self):
         return "Literal({0})".format(self.value)
 
@@ -42,6 +48,12 @@ class Call(FunctionTree):
     @property
     def schema(self):
         return self.fcn.retschema(self.args)
+    def clone(self):
+        if isinstance(self.fcn, Def):
+            fcn = self.fcn.clone()
+        else:
+            fcn = self.fcn   # don't need to replicate BuiltinFunction
+        return Call(fcn, [x.clone() for x in self.args])
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
@@ -53,6 +65,8 @@ class Def(FunctionTree):
     @property
     def schema(self):
         return self.body.schema
+    def clone(self):
+        return Def(self.params, [x.clone() for x in self.defaults], self.body.clone())
     def __repr__(self):
         return "Def({0}, {1}, {2})".format(self.params, self.defaults, self.body)
 
@@ -123,8 +137,10 @@ def build(tree, stack):
             complain(tree.id + " is not defined in this scope (curly brackets)", tree)
         elif isinstance(result, Schema):
             return Ref(tree.id, result)   # this is an input field; add a reference
+        elif isinstance(result, FunctionTree):
+            return result.clone()         # copy assignment expressions (referential transparency)
         else:
-            return result                 # this is an assignment; simply insert
+            return result                 # simply insert BuiltinFunctions
 
     elif isinstance(tree, parsingtree.Num):
         if isinstance(tree.n, (int, long)):

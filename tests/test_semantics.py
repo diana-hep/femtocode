@@ -39,8 +39,7 @@ class TestSemantics(unittest.TestCase):
 
         print(build(parse("x + 3"), table.fork(x = integer)).schema)
 
-        print(build(parse("y = x; y + 3"), table.fork(x = integer)).schema)
-
+        print(build(parse("y = x + 3; y + 1"), table.fork(x = integer)).schema)
 
         # print(build(parse("def f(q): q;  f(x)"), table.fork(x = integer)))
 
