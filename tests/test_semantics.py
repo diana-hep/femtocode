@@ -19,8 +19,7 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.functiontree import convert
-from femtocode.asts.functiontree import typify
+from femtocode.asts.functiontree import build
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.typesystem import *
@@ -36,16 +35,20 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        stack = table.child()
-        result = convert(parse("x = 1; x + x"), table, stack.child())
-        print(result)
-        result = typify(result, stack)
-        print(result.schema)
-        print([x.schema for x in result.args])
+        print(build(parse("x"), table.fork(x = integer)))
 
-    def test_simple2(self):
-        stack = table.child()
-        result = convert(parse("{x => x + 1}"), table, stack.child())
-        print(result)
-        result = typify(result, stack)
-        print result.schema
+        print(build(parse("x + x"), table.fork(x = integer)))
+
+    #     stack = table.child()
+    #     result = convert(parse("x = 1; x + x"), table, stack.child())
+    #     print(result)
+    #     result = typify(result, stack)
+    #     print(result.schema)
+    #     print([x.schema for x in result.args])
+
+    # def test_simple2(self):
+    #     stack = table.child()
+    #     result = convert(parse("{x => x + 1}"), table, stack.child())
+    #     print(result)
+    #     result = typify(result, stack)
+    #     print result.schema

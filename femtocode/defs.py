@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import femtocode.parser
+
+def complain(message, p):
+    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.fileName, 1)
+
 class ProgrammingError(Exception): pass
 
 class BuiltinFunction(object):
@@ -37,31 +42,36 @@ class SymbolTable(object):
         self.parent = parent
         self.symbols = {}
 
-    def definedHere(self, name):
-        return name in self.symbols
+    def fork(self, **init):
+        out = SymbolTable(self)
+        for name, value in init.items():
+            out[name] = value
+        return out
 
-    def defined(self, name):
-        return self.definedHere(name) or (self.parent is not None and self.parent.defined(name))
+    def getHere(self, name, default=None):
+        trial = self.symbols.get(name)
+        if trial is not None:
+            return trial
+        else:
+            return default
 
-    def getHere(self, name):
-        return self.symbols.get(name)
-
-    def get(self, name):
+    def get(self, name, default=None):
         trial = self.getHere(name)
         if trial is not None:
             return trial
         elif self.parent is not None:
-            return self.parent.get(name)
+            return self.parent.get(name, default)
         else:
-            return None
+            return default
 
-    def append(self, name, value):
+    def __setitem__(self, name, value):
         self.symbols[name] = value
 
-    def child(self):
-        return SymbolTable(self)
-
-
+    def __getitem__(self, name):
+        out = self.get(name)
+        if out is None:
+            raise ProgrammingError("symbol \"{0}\" is absolutely required but is not in the SymbolTable".format(name))
+        return out
 
 
 # class BuiltinFunction(object):

@@ -14,14 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import femtocode.parser
 from femtocode.asts import parsingtree
 from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
-
-def complain(message, p):
-    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.fileName, 1)
 
 class FunctionTree(object): pass
         
@@ -30,7 +26,7 @@ class Ref(FunctionTree):
         self.name = name
         self.schema = schema
     def __repr__(self):
-        return "Ref({0})".format(self.name)
+        return "Ref({0}, {1})".format(self.name, self.schema)
 
 class Literal(FunctionTree):
     def __init__(self, value, schema):
@@ -66,7 +62,7 @@ def flatten(tree, op):
     else:
         return [tree]
 
-def build(tree, stack, **options):
+def build(tree, stack):
     if isinstance(tree, parsingtree.Attribute):
         raise ProgrammingError("missing implementation")
 
@@ -74,7 +70,7 @@ def build(tree, stack, **options):
         args = flatten(tree, tree.op.__class__)
 
         if isinstance(tree.op, parsingtree.Add):
-            raise ProgrammingError("missing implementation")
+            return Call(stack["+"], [build(x, stack) for x in args])
         elif isinstance(tree.op, parsingtree.Sub):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.Mult):
@@ -122,7 +118,7 @@ def build(tree, stack, **options):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Name):
-        raise ProgrammingError("missing implementation")
+        return Ref(tree.id, stack.get(tree.id, Unknown))
 
     elif isinstance(tree, parsingtree.Num):
         raise ProgrammingError("missing implementation")
@@ -169,7 +165,9 @@ def build(tree, stack, **options):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Suite):
-        raise ProgrammingError("missing implementation")
+        if len(tree.assignments) > 0:
+            raise ProgrammingError("missing implementation")
+        return build(tree.expression, stack)
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))

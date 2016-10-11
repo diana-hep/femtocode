@@ -35,9 +35,9 @@ class Unknown(object):
     def __repr__(self):
         return "Unknown" + str(self.n)
 
-class UnknownRef(Unknown, NotAFunction):
+class UnknownVal(Unknown, NotAFunction):
     def __repr__(self):
-        return "UnknownRef" + str(self.n)
+        return "UnknownVal" + str(self.n)
 
 class UnknownFcn(Unknown, IsAFunction):
     def __repr__(self):
