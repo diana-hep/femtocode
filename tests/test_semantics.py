@@ -43,7 +43,9 @@ class TestSemantics(unittest.TestCase):
 
         print(build(parse("{x => x + 3}"), table.fork()).schema)
 
-        # print(build(parse("def f(q): q;  f(x)"), table.fork(x = integer)))
+        print(build(parse("def f(x): x + 3.14;\nf"), table.fork()).schema)
+
+        print(build(parse("def f(q): q + 3.14;  f(x)"), table.fork(x = integer)).schema)
 
         # print(build(parse("xs.map({x => x})"), table.fork(xs = collection(integer))))
 

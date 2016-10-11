@@ -47,12 +47,15 @@ class Call(FunctionTree):
         self.args = args
     @property
     def schema(self):
-        return self.fcn.retschema(self.args)
-    def clone(self):
         if isinstance(self.fcn, Def):
+            return self.fcn.body.schema             # Def (user-defined)
+        else:
+            return self.fcn.retschema(self.args)    # BuiltinFunction
+    def clone(self):
+        if isinstance(self.fcn, Def):               # Def (user-defined)
             fcn = self.fcn.clone()
         else:
-            fcn = self.fcn   # don't need to replicate BuiltinFunction
+            fcn = self.fcn                          # BuiltinFunction
         return Call(fcn, [x.clone() for x in self.args])
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
@@ -65,12 +68,9 @@ class Def(FunctionTree):
         self.body = body               # expression to be executed
     @property
     def schema(self):
-        # HERE
-
-
         return self.body.schema
     def clone(self):
-        return Def(self.pnames, list(self.pschemas), [x.clone() for x in self.pdefaults], self.body.clone())
+        return Def(self.pnames, list(self.pschemas), [None if x is None else x.clone() for x in self.pdefaults], self.body.clone())
     def __repr__(self):
         return "Def({0}, {1}, {2}, {3})".format(self.pnames, self.pschemas, self.pdefaults, self.body)
 
@@ -201,7 +201,9 @@ def build(tree, stack):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.FcnCall):
-        raise ProgrammingError("missing implementation")
+        if any(x is not None for x in tree.names):
+            raise ProgrammingError("missing implementation")
+        return Call(build(tree.function, stack), [build(x, stack) for x in tree.positional])
 
     elif isinstance(tree, parsingtree.FcnDef):
         pnames = []
