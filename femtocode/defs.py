@@ -23,18 +23,14 @@ class BuiltinFunction(object):
     def __repr__(self):
         return self.name() + "()"
 
-    def sortArgs(self, positional, named):
+    def argschema(self, index, args):
         raise ProgrammingError("missing implementation")
 
-    def typify(self, tree, typifyTree, **options):
+    def retschema(self, args):
         raise ProgrammingError("missing implementation")
 
-class ParameterSymbol(object):
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return "ParameterSymbol({0})".format(self.name)
+    def sortargs(self, positional, named):
+        raise ProgrammingError("missing implementation")
 
 class SymbolTable(object):
     def __init__(self, parent=None):
@@ -64,3 +60,55 @@ class SymbolTable(object):
 
     def child(self):
         return SymbolTable(self)
+
+
+
+
+# class BuiltinFunction(object):
+#     def name(self):
+#         return self.__class__.__name__
+
+#     def __repr__(self):
+#         return self.name() + "()"
+
+#     def sortArgs(self, positional, named):
+#         raise ProgrammingError("missing implementation")
+
+#     def typify(self, tree, typifyTree, **options):
+#         raise ProgrammingError("missing implementation")
+
+# class ParameterSymbol(object):
+#     def __init__(self, name):
+#         self.name = name
+
+#     def __repr__(self):
+#         return "ParameterSymbol({0})".format(self.name)
+
+# class SymbolTable(object):
+#     def __init__(self, parent=None):
+#         self.parent = parent
+#         self.symbols = {}
+
+#     def definedHere(self, name):
+#         return name in self.symbols
+
+#     def defined(self, name):
+#         return self.definedHere(name) or (self.parent is not None and self.parent.defined(name))
+
+#     def getHere(self, name):
+#         return self.symbols.get(name)
+
+#     def get(self, name):
+#         trial = self.getHere(name)
+#         if trial is not None:
+#             return trial
+#         elif self.parent is not None:
+#             return self.parent.get(name)
+#         else:
+#             return None
+
+#     def append(self, name, value):
+#         self.symbols[name] = value
+
+#     def child(self):
+#         return SymbolTable(self)

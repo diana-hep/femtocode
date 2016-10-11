@@ -18,11 +18,16 @@ from femtocode.defs import ProgrammingError
 
 inf = float("inf")
 
-class Schema(object):
-    def accepts(self, other):
-        raise NotImplementedError
+# we need to at least know if some slot is a function to elevate an
+# AtArgs expression into a function definition
 
-class Unknown(object):    # not a real Schema!
+class NotAFunction(object): pass
+class IsAFunction(object): pass
+
+# unknown types exist only while building a typed tree
+# more or less equivalent to template parameters
+
+class Unknown(object):
     counter = 0
     def __init__(self):
         self.n = Unknown.counter
@@ -30,7 +35,21 @@ class Unknown(object):    # not a real Schema!
     def __repr__(self):
         return "Unknown" + str(self.n)
 
-class Missing(Schema):
+class UnknownRef(Unknown, NotAFunction):
+    def __repr__(self):
+        return "UnknownRef" + str(self.n)
+
+class UnknownFcn(Unknown, IsAFunction):
+    def __repr__(self):
+        return "UnknownFcn" + str(self.n)
+
+# expressions must evaluate to concrete types, subclasses of Schema
+
+class Schema(object):
+    def accepts(self, other):
+        raise NotImplementedError
+
+class Missing(Schema, NotAFunction):
     def __repr__(self):
         return "missing"
     def accepts(self, other):
@@ -40,7 +59,7 @@ class Missing(Schema):
 
 missing = Missing()
 
-class Boolean(Schema):
+class Boolean(Schema, NotAFunction):
     def __repr__(self):
         return "boolean"
     def accepts(self, other):
@@ -50,7 +69,7 @@ class Boolean(Schema):
 
 boolean = Boolean()
 
-class Integer(Schema):
+class Integer(Schema, NotAFunction):
     def __init__(self, min=-inf, max=inf):
         self.min = min
         self.max = max
@@ -66,7 +85,7 @@ class Integer(Schema):
 
 integer = Integer()
 
-class Real(Schema):
+class Real(Schema, NotAFunction):
     def __init__(self, inf=None, sup=None, min=None, max=None):
         if min is None and inf is None:
             self.min = None
@@ -111,7 +130,7 @@ class Real(Schema):
 
 real = Real()
         
-class String(Schema):
+class String(Schema, NotAFunction):
     def __repr__(self):
         return "string"
     def accepts(self, other):
@@ -121,7 +140,7 @@ class String(Schema):
 
 string = String()
         
-class Binary(Schema):
+class Binary(Schema, NotAFunction):
     def __init__(self, size=None):
         self.size = size
     def __repr__(self):
@@ -136,7 +155,7 @@ class Binary(Schema):
 
 binary = Binary()
 
-class Record(Schema):
+class Record(Schema, NotAFunction):
     def __init__(self, **fields):
         self.fields = sorted(fields.items())
     def __repr__(self):
@@ -155,7 +174,7 @@ class Record(Schema):
 
 record = Record
 
-class Collection(Schema):
+class Collection(Schema, NotAFunction):
     def __init__(self, itemtype, min=0, max=None):
         self.itemtype = itemtype
         self.min = min
@@ -172,7 +191,7 @@ class Collection(Schema):
 
 collection = Collection
 
-class Tensor(Schema):
+class Tensor(Schema, NotAFunction):
     def __init__(self, itemtype, dimensions):
         self.itemtype = itemtype
         if isinstance(dimensions, (list, tuple)):
@@ -191,7 +210,7 @@ class Tensor(Schema):
 
 tensor = Tensor
 
-class Union(Schema):
+class Union(Schema, NotAFunction):
     def __init__(self, *types):
         self.types = types
     def __repr__(self):
@@ -203,7 +222,7 @@ class Union(Schema):
 
 union = Union
 
-class Function(Schema):
+class Function(Schema, IsAFunction):
     def __init__(self, args, ret):
         self.args = args
         self.ret = ret
