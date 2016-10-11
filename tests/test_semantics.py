@@ -35,9 +35,16 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        print(build(parse("x"), table.fork(x = integer)))
+        print(build(parse("x"), table.fork(x = integer)).schema)
 
-        print(build(parse("x + x"), table.fork(x = integer)))
+        print(build(parse("x + 3"), table.fork(x = integer)).schema)
+
+        print(build(parse("y = x; y + 3"), table.fork(x = integer)).schema)
+
+
+        # print(build(parse("def f(q): q;  f(x)"), table.fork(x = integer)))
+
+        # print(build(parse("xs.map({x => x})"), table.fork(xs = collection(integer))))
 
     #     stack = table.child()
     #     result = convert(parse("x = 1; x + x"), table, stack.child())

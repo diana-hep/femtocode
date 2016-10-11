@@ -118,10 +118,21 @@ def build(tree, stack):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Name):
-        return Ref(tree.id, stack.get(tree.id, Unknown))
+        result = stack.get(tree.id, Unknown)
+        if result is None:
+            complain(tree.id + " is not defined in this scope (curly brackets)", tree)
+        elif isinstance(result, Schema):
+            return Ref(tree.id, result)   # this is an input field; add a reference
+        else:
+            return result                 # this is an assignment; simply insert
 
     elif isinstance(tree, parsingtree.Num):
-        raise ProgrammingError("missing implementation")
+        if isinstance(tree.n, (int, long)):
+            return Literal(tree.n, integer(min=tree.n, max=tree.n))
+        elif isinstance(tree.n, float):
+            return Literal(tree.n, real(min=tree.n, max=tree.n))
+        else:
+            raise ProgrammingError("non-numeric type in Num: " + repr(tree.n))
 
     elif isinstance(tree, parsingtree.Str):
         raise ProgrammingError("missing implementation")
@@ -147,7 +158,22 @@ def build(tree, stack):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Assignment):
-        raise ProgrammingError("missing implementation")
+        result = build(tree.expression, stack)
+
+        if len(tree.lvalues) == 1:
+            name = tree.lvalues[0].id
+            if stack.get(name) is not None:
+                complain(name + " is already defined in this scope (curly brackets)", tree.lvalues[0])
+            stack[name] = result
+
+        else:
+            raise ProgrammingError("missing implementation")
+
+            # for index, lvalue in enumerate(tree.lvalues):
+            #     name = lvalue.id
+            #     if stack.definedHere(name):
+            #         complain(name + " is already defined in this scope (curly brackets)", lvalue)
+            #     stack[name] = Unpack(result, index)  # !!!
 
     elif isinstance(tree, parsingtree.AtArg):
         raise ProgrammingError("missing implementation")
@@ -166,7 +192,8 @@ def build(tree, stack):
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
-            raise ProgrammingError("missing implementation")
+            for assignment in tree.assignments:
+                build(assignment, stack)
         return build(tree.expression, stack)
 
     else:
