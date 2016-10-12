@@ -18,14 +18,7 @@ from femtocode.defs import ProgrammingError
 
 inf = float("inf")
 
-# we need to at least know if some slot is a function to elevate an
-# AtArgs expression into a function definition
-
-class NotAFunction(object): pass
-class IsAFunction(object): pass
-
 # unknown types exist only while building a typed tree
-# more or less equivalent to template parameters
 
 class Unknown(object):
     counter = 0
@@ -35,21 +28,13 @@ class Unknown(object):
     def __repr__(self):
         return "Unknown" + str(self.n)
 
-class UnknownVal(Unknown, NotAFunction):
-    def __repr__(self):
-        return "UnknownVal" + str(self.n)
-
-class UnknownFcn(Unknown, IsAFunction):
-    def __repr__(self):
-        return "UnknownFcn" + str(self.n)
-
 # expressions must evaluate to concrete types, subclasses of Schema
 
 class Schema(object):
     def accepts(self, other):
         raise NotImplementedError
 
-class Missing(Schema, NotAFunction):
+class Missing(Schema):
     def __repr__(self):
         return "missing"
     def accepts(self, other):
@@ -59,7 +44,7 @@ class Missing(Schema, NotAFunction):
 
 missing = Missing()
 
-class Boolean(Schema, NotAFunction):
+class Boolean(Schema):
     def __repr__(self):
         return "boolean"
     def accepts(self, other):
@@ -69,7 +54,7 @@ class Boolean(Schema, NotAFunction):
 
 boolean = Boolean()
 
-class Integer(Schema, NotAFunction):
+class Integer(Schema):
     def __init__(self, min=-inf, max=inf):
         self.min = min
         self.max = max
@@ -85,7 +70,7 @@ class Integer(Schema, NotAFunction):
 
 integer = Integer()
 
-class Real(Schema, NotAFunction):
+class Real(Schema):
     def __init__(self, inf=None, sup=None, min=None, max=None):
         if min is None and inf is None:
             self.min = None
@@ -130,7 +115,7 @@ class Real(Schema, NotAFunction):
 
 real = Real()
         
-class String(Schema, NotAFunction):
+class String(Schema):
     def __repr__(self):
         return "string"
     def accepts(self, other):
@@ -140,7 +125,7 @@ class String(Schema, NotAFunction):
 
 string = String()
         
-class Binary(Schema, NotAFunction):
+class Binary(Schema):
     def __init__(self, size=None):
         self.size = size
     def __repr__(self):
@@ -155,7 +140,7 @@ class Binary(Schema, NotAFunction):
 
 binary = Binary()
 
-class Record(Schema, NotAFunction):
+class Record(Schema):
     def __init__(self, **fields):
         self.fields = sorted(fields.items())
     def __repr__(self):
@@ -174,7 +159,7 @@ class Record(Schema, NotAFunction):
 
 record = Record
 
-class Collection(Schema, NotAFunction):
+class Collection(Schema):
     def __init__(self, itemtype, min=0, max=None):
         self.itemtype = itemtype
         self.min = min
@@ -191,7 +176,7 @@ class Collection(Schema, NotAFunction):
 
 collection = Collection
 
-class Tensor(Schema, NotAFunction):
+class Tensor(Schema):
     def __init__(self, itemtype, dimensions):
         self.itemtype = itemtype
         if isinstance(dimensions, (list, tuple)):
@@ -210,7 +195,7 @@ class Tensor(Schema, NotAFunction):
 
 tensor = Tensor
 
-class Union(Schema, NotAFunction):
+class Union(Schema):
     def __init__(self, *types):
         self.types = types
     def __repr__(self):
@@ -222,7 +207,7 @@ class Union(Schema, NotAFunction):
 
 union = Union
 
-class Function(Schema, IsAFunction):
+class Function(Schema):
     def __init__(self, args, ret):
         self.args = args
         self.ret = ret

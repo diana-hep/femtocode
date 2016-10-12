@@ -36,27 +36,33 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        p = build(parse("x"), table, SymbolTable(), None)
+        p = build(parse("x"), table)
         print(p)
         print(p.schema(SymbolTable({"x": integer})))
 
-        p = build(parse("x + 3"), table, SymbolTable(), None)
+        p = build(parse("x + 3"), table)
         print(p)
         print(p.schema(SymbolTable({"x": integer})))
 
-        p = build(parse("y = x + 3; y + 1"), table, SymbolTable(), None)
+        p = build(parse("y = x + 3; y + 1"), table)
         print(p)
         print(p.schema(SymbolTable({"x": integer})))
 
-        p = build(parse("{x => x + 3}"), table, SymbolTable(), None)
+        p = build(parse("{x => x + 3}"), table)
         print(p)
         print(p.schema(SymbolTable()))
 
-        p = build(parse("def f(x): x + 3.14;\nf"), table, SymbolTable(), None)
+        p = build(parse("def f(x): x + 3.14;\nf"), table)
         print(p)
         print(p.schema(SymbolTable()))
 
-        p = build(parse("def f(q): q + 3;  f(x)"), table, SymbolTable(), None)
+        p = build(parse("def f(q): q + 3;  f(x)"), table)
         print(p)
         print(p.schema(SymbolTable({"x": integer})))
+
+        p = build(parse("map(xs, {x => x})"), table)
+        print(p)
+
+        p = build(parse("map(xs, $1)"), table)
+        print(p)
 
