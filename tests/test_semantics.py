@@ -50,17 +50,18 @@ class TestSemantics(unittest.TestCase):
 
         p = build(parse("{x => x + 3}"), table)
         print(p)
-        print(p.schema(SymbolTable()))
 
         p = build(parse("def f(x): x + 3.14;\nf"), table)
         print(p)
-        print(p.schema(SymbolTable()))
 
         p = build(parse("def f(q): q + 3;  f(x)"), table)
         print(p)
-        print(p.schema(SymbolTable({"x": integer})))
 
         p = build(parse("xs.map({x => 3.14 + x})"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
+
+        p = build(parse("xs.map(x => 3.14 + x)"), table)
         print(p)
         print(p.schema(SymbolTable({"xs": collection(integer)})))
 
@@ -68,3 +69,25 @@ class TestSemantics(unittest.TestCase):
         print(p)
         print(p.schema(SymbolTable({"xs": collection(integer)})))
 
+        p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
+
+        try:
+            build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table)
+        except SyntaxError as err:
+            print(err)
+
+        try:
+            build(parse("xs.map()"), table)
+        except SyntaxError as err:
+            print(err)
+        
+        try:
+            build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table)
+        except SyntaxError as err:
+            print(err)
+
+        p = build(parse("xs.map(3.14)"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))

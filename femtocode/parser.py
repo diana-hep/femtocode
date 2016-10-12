@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-11T09:30:13 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-10-11T21:38:59 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -11,7 +11,7 @@ from femtocode.thirdparty.ply import yacc
 
 from femtocode.asts.parsingtree import *
 
-def complain(message, source, pos, lineno, col_offset, fileName, length):
+def complain(message, source, pos, lineno, col_offset, sourceName, length):
     start = source.rfind("\n", 0, pos)
     if start == -1: start = 0
     start = source.rfind("\n", 0, start)
@@ -23,10 +23,10 @@ def complain(message, source, pos, lineno, col_offset, fileName, length):
         snippet = source[start:end]
     snippet = "    " + snippet.replace("\n", "\n    ")
     indicator = "-" * col_offset + "^" * length
-    if fileName == "<string>":
+    if sourceName == "<string>":
         where = ""
     else:
-        where = "in file \"" + fileName + "\""
+        where = "in \"" + sourceName + "\""
     raise SyntaxError("%s\n    at line:col %d:%d (character %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
 
 reserved = {
@@ -233,7 +233,7 @@ def t_GREATER(t):
     return t
 
 def t_error(t):
-    complain("unrecognizable token \"" + t.value + "\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.fileName, t.value[1]["length"])
+    complain("unrecognizable token \"" + t.value + "\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.sourceName, t.value[1]["length"])
 
 def t_comment(t):
     r"[ ]*\043[^\n]*"  # \043 is # ; otherwise PLY thinks it is a regex comment
@@ -253,14 +253,14 @@ def inherit_lineno(p0, px, alt=True):
         p0.pos = px["pos"]
         p0.lineno = px["lineno"]
         p0.col_offset = px["col_offset"]
-        p0.fileName = px["fileName"]
+        p0.sourceName = px["sourceName"]
         p0.length = px["length"]
     else:
         p0.source = px.source
         p0.pos = px.pos
         p0.lineno = px.lineno
         p0.col_offset = px.col_offset
-        p0.fileName = px.fileName
+        p0.sourceName = px.sourceName
         p0.length = px.length
         if alt and hasattr(px, "alt"):
             p0.lineno = px.alt["lineno"]
@@ -1203,15 +1203,15 @@ def p_error(p):
     if p is None:
         raise SyntaxError("code block did not end with an expression")
     else:
-        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.fileName, 1)
+        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.sourceName, 1)
 
 def kwds(lexer, length):
-    return {"source": lexer.source, "pos": lexer.lexpos - length, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "fileName": lexer.fileName, "length": length}
+    return {"source": lexer.source, "pos": lexer.lexpos - length, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "sourceName": lexer.sourceName, "length": length}
 
-def parse(source, fileName="<string>"):
+def parse(source, sourceName="<string>"):
     lexer = lex.lex()
     lexer.source = source
-    lexer.fileName = fileName
+    lexer.sourceName = sourceName
     lexer.lineno = 1
     lexer.last_col0 = 1
     parser = yacc.yacc(debug=False, write_tables=True, tabmodule="parsertable", errorlog=yacc.NullLogger())

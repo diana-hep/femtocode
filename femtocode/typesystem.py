@@ -18,16 +18,6 @@ from femtocode.defs import ProgrammingError
 
 inf = float("inf")
 
-# unknown types exist only while building a typed tree
-
-class Unknown(object):
-    counter = 0
-    def __init__(self):
-        self.n = Unknown.counter
-        Unknown.counter += 1
-    def __repr__(self):
-        return "Unknown" + str(self.n)
-
 # expressions must evaluate to concrete types, subclasses of Schema
 
 class Schema(object):
@@ -207,19 +197,6 @@ class Union(Schema):
 
 union = Union
 
-class Function(Schema):
-    def __init__(self, args, ret):
-        self.args = args
-        self.ret = ret
-    def __repr__(self):
-        return "function({0}, {1})".format(self.args, self.ret)
-    def accepts(self, other):
-        return isinstance(other, Function) and all(other.accepts(t) for t in self.types) and self.ret.accepts(other.ret)
-    def __call__(self, *args, **kwds):
-        return Function(*args, **kwds)
-
-function = Function
-
 def unify(first, *rest):
     out = first
     for t in rest:
@@ -251,9 +228,6 @@ def unify(first, *rest):
             raise ProgrammingError("missing implementation")
 
         elif isinstance(t, Union):
-            raise ProgrammingError("missing implementation")
-
-        elif isinstance(t, Function):
             raise ProgrammingError("missing implementation")
 
         else:

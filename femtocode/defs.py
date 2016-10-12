@@ -17,13 +17,70 @@
 import femtocode.parser
 
 def complain(message, p):
-    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.fileName, 1)
+    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
 
 class ProgrammingError(Exception): pass
 
-class BuiltinFunction(object):
+class Function(object):
+    def argname(self, index):
+        raise ProgrammingError("missing implementation")
+
+    def arity(self, index):
+        raise ProgrammingError("missing implementation")
+
+    def retschema(self, symbolFrame, args):
+        raise ProgrammingError("missing implementation")
+
+    def sortargs(self, positional, named):
+        if len(named) > 0:
+            raise ProgrammingError(self.name + " function shouldn't get named arguments")
+        return positional
+
+    @staticmethod
+    def sortargsWithNames(positional, named, names):
+        positional = list(reversed(positional))
+        named = dict(named.items())
+        out = []
+        for name in names:
+            if name in named:
+                out.append(named.pop(name))
+            elif len(positional) > 0:
+                out.append(positional.pop())
+            else:
+                raise TypeError("too few arguments: missing \"{0}\"".format(name))
+        if len(named) > 0:
+            raise TypeError("unrecognized named arguments: " + ", ".join("\"" + x + "\"" for x in named))
+        if len(positional) > 0:
+            raise TypeError("too many positional arguments")
+        return out
+
+class BuiltinFunction(Function):
     def __repr__(self):
         return "BuiltinFunction[\"" + self.name + "\"]"
+
+class UserFunction(Function):
+    def __init__(self, names, defaults, body):
+        self.names = names
+        self.defaults = defaults
+        self.body = body
+
+    def __repr__(self):
+        return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+
+    def argname(self, index):
+        return self.names[index]
+
+    def arity(self, index):
+        return None
+
+    def retschema(self, symbolFrame, args):
+        subframe = symbolFrame.fork()
+        for name, arg in zip(self.names, args):
+            subframe[name] = arg.schema(symbolFrame)
+        return self.body.schema(subframe)
+
+    def sortargs(self, positional, named):
+        return Function.sortargsWithNames(positional, named, self.names)
 
 class SymbolTable(object):
     def __init__(self, parent=None, init={}):
