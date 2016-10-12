@@ -62,19 +62,21 @@ class Def(FunctionTree):
         return "Def({0}, {1}, {2})".format(self.names, self.defaults, self.body)
     def schema(self, symbolFrame):
         return Function([Unknown() for x in self.names], Unknown())
+    def arity(self, index):
+        return None  # TODO
     def retschema(self, symbolFrame, args):
         subframe = symbolFrame.fork()
         for name, arg in zip(self.names, args):
             subframe[name] = arg.schema(symbolFrame)
         return self.body.schema(subframe)
 
-def build(tree, symbolFrame):
+def build(tree, symbolFrame, paramFrame, arity):
     if isinstance(tree, parsingtree.Attribute):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.BinOp):
         if isinstance(tree.op, parsingtree.Add):
-            return Call(symbolFrame["+"], [build(tree.left, symbolFrame), build(tree.right, symbolFrame)])
+            return Call(symbolFrame["+"], [build(tree.left, symbolFrame, paramFrame, arity), build(tree.right, symbolFrame, paramFrame, arity)])
         elif isinstance(tree.op, parsingtree.Sub):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.Mult):
@@ -151,7 +153,7 @@ def build(tree, symbolFrame):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Assignment):
-        result = build(tree.expression, symbolFrame)
+        result = build(tree.expression, symbolFrame, paramFrame, arity)
         if len(tree.lvalues) == 1:
             symbolFrame[tree.lvalues[0].id] = result
         else:
@@ -163,10 +165,11 @@ def build(tree, symbolFrame):
     elif isinstance(tree, parsingtree.FcnCall):
         if any(x is not None for x in tree.names):
             raise ProgrammingError("missing implementation")
-        return Call(build(tree.function, symbolFrame), [build(x, symbolFrame) for x in tree.positional])
+        fcn = build(tree.function, symbolFrame, paramFrame, arity)
+        return Call(fcn, [build(x, symbolFrame, paramFrame, fcn.arity(i)) for i, x in enumerate(tree.positional)])
 
     elif isinstance(tree, parsingtree.FcnDef):
-        return Def([x.id for x in tree.parameters], [None if x is None else build(x, symbolFrame) for x in tree.defaults], build(tree.body, symbolFrame))
+        return Def([x.id for x in tree.parameters], [None if x is None else build(x, symbolFrame, paramFrame, arity) for x in tree.defaults], build(tree.body, symbolFrame, paramFrame, arity))
 
     elif isinstance(tree, parsingtree.IfChain):
         raise ProgrammingError("missing implementation")
@@ -177,8 +180,8 @@ def build(tree, symbolFrame):
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
             for assignment in tree.assignments:
-                build(assignment, symbolFrame)
-        return build(tree.expression, symbolFrame)
+                build(assignment, symbolFrame, paramFrame, arity)
+        return build(tree.expression, symbolFrame, paramFrame, arity)
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
