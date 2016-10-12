@@ -44,6 +44,14 @@ class Literal(FunctionTree):
         else:
             raise ProgrammingError("missing implementation")
 
+class Placeholder(FunctionTree):
+    def __init__(self, schema):
+        self.tpe = schema
+    def __repr__(self):
+        return "Placeholder({0})".format(self.tpe)
+    def schema(self, symbolFrame):
+        return self.tpe
+
 class Call(FunctionTree):
     def __init__(self, fcn, args):
         self.fcn = fcn

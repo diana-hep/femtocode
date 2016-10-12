@@ -60,9 +60,11 @@ class TestSemantics(unittest.TestCase):
         print(p)
         print(p.schema(SymbolTable({"x": integer})))
 
-        p = build(parse("map(xs, {x => x})"), table)
+        p = build(parse("map(xs, {x => x + 3.14})"), table)
         print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        p = build(parse("map(xs, $1)"), table)
+        p = build(parse("map(xs, $1 + 3.14)"), table)
         print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
