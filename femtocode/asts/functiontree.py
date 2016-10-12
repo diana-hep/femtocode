@@ -83,6 +83,13 @@ class Def(FunctionTree):
 def buildOrElevate(tree, symbolFrame, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef):
         return build(tree, symbolFrame)
+
+    elif isinstance(tree, parsingtree.Attribute):
+        fcn = symbolFrame["." + tree.attr]
+        params = list(xrange(arity))
+        args = map(Ref, params)
+        return Def(params, [None] * arity, Call(fcn, [build(tree.value, symbolFrame)] + args))
+        
     else:
         subframe = symbolFrame.fork()
         for i in xrange(1, arity + 1):
@@ -184,8 +191,13 @@ def build(tree, symbolFrame):
     elif isinstance(tree, parsingtree.FcnCall):
         if any(x is not None for x in tree.names):
             raise ProgrammingError("missing implementation")
-        fcn = build(tree.function, symbolFrame)
-        return Call(fcn, [buildOrElevate(x, symbolFrame, fcn.arity(i)) for i, x in enumerate(tree.positional)])
+
+        if isinstance(tree.function, parsingtree.Attribute):
+            fcn = symbolFrame["." + tree.function.attr]
+            return Call(fcn, [build(tree.function.value, symbolFrame)] + [buildOrElevate(x, symbolFrame, fcn.arity(i + 1)) for i, x in enumerate(tree.positional)])
+        else:
+            fcn = build(tree.function, symbolFrame)
+            return Call(fcn, [buildOrElevate(x, symbolFrame, fcn.arity(i)) for i, x in enumerate(tree.positional)])
 
     elif isinstance(tree, parsingtree.FcnDef):
         return Def([x.id for x in tree.parameters], [None if x is None else build(x, symbolFrame) for x in tree.defaults], build(tree.body, symbolFrame))
