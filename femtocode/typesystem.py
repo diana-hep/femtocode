@@ -198,11 +198,13 @@ class Integer(Schema):
     def union(self, other):
         if isinstance(other, Integer):
             a, b = sorted([self, other])
-            # if b.max + 1 < a.min:   #  or a.max < b.min - 1:
             if a.max < b.min - 1:
                 return Union(a, b)
             else:
                 return Integer(min(a.min, b.min), max(a.max, b.max))
+
+        elif isinstance(other, Real) and other.min <= self.min and self.max <= other.max:
+            return other
 
         elif isinstance(other, Union):
             ints = sorted([self] + [x for x in other.types if isinstance(x, Integer)])
@@ -265,11 +267,13 @@ class Real(Schema):
     def union(self, other):
         if isinstance(other, Real):
             a, b = sorted([self, other])
-            # if b.max + 1 < a.min:   #  or a.max < b.min - 1:
             if a.max < b.min - 1:
                 return Union(a, b)
             else:
                 return Real(min(a.min, b.min), max(a.max, b.max))
+
+        elif isinstance(other, Integer) and self.min <= other.min and other.max <= self.max:
+            return self
 
         elif isinstance(other, Union):
             reals = sorted([self] + [x for x in other.types if isinstance(x, Real)])
@@ -423,20 +427,25 @@ def union(*types):
     elif len(types) == 1:
         return types[0]
     else:
-        out = []
-        for o, ts in groupby(types, lambda t: t.order):
-            result = ts.next()
-            for t in ts:
-                result = result.union(t)
-            if isinstance(result, Union):
-                out.extend(result.types)
-            else:
-                out.append(result)
-        if len(out) == 1:
-            return out[0]
-        else:
-            out.sort()
-            return Union(*out)
+        out = types[0]
+        for t in types[1:]:
+            out = out.union(t)
+        return out
+
+        # out = []
+        # for o, ts in groupby(types, lambda t: t.order):
+        #     result = ts.next()
+        #     for t in ts:
+        #         result = result.union(t)
+        #     if isinstance(result, Union):
+        #         out.extend(result.types)
+        #     else:
+        #         out.append(result)
+        # if len(out) == 1:
+        #     return out[0]
+        # else:
+        #     out.sort()
+        #     return Union(*out)
 
 # def intersection(*types):
 #     raise NotImplementedError
