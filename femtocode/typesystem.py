@@ -167,18 +167,18 @@ boolean = Boolean()
 class Integer(Schema):
     order = 2
 
-    def __init__(self, min=-inf, max=inf):
+    def __init__(self, min=almost(-inf), max=almost(inf)):
         if min > max:
             raise FemtocodeError("min must not be greater than max")
-        if min != -inf and not isinstance(min, (int, long)):
-            raise FemtocodeError("min must be -inf or an integer")
-        if max != inf and not isinstance(max, (int, long)):
-            raise FemtocodeError("min must be inf or an integer")
+        if min != almost(-inf) and not isinstance(min, (int, long)):
+            raise FemtocodeError("min must be almost(-inf) or an integer")
+        if max != almost(inf) and not isinstance(max, (int, long)):
+            raise FemtocodeError("min must be almost(inf) or an integer")
         self.min = min
         self.max = max
 
     def __repr__(self):
-        if self.min == -inf and self.max == inf:
+        if self.min == almost(-inf) and self.max == almost(inf):
             return "integer"
         else:
             return "integer(min={0}, max={1})".format(self.min, self.max)
@@ -239,6 +239,8 @@ class Real(Schema):
     def __init__(self, min=-inf, max=inf):
         if min > max:
             raise FemtocodeError("min must not be greater than max")
+        if min == max and isinstance(min, almost):
+            raise FemtocodeError("min and max may only be equal to one another if they are closed endpoints (not 'almost')")
         if min != -inf and not isinstance(min, (int, long, float)):
             raise FemtocodeError("min must be -inf or a float/almost endpoint")
         if max != inf and not isinstance(max, (int, long, float)):
@@ -267,10 +269,10 @@ class Real(Schema):
     def union(self, other):
         if isinstance(other, Real):
             a, b = sorted([self, other])
-            if a.max < b.min - 1:
+            if a.max < b.min - 1 or (a.max == b.min and isinstance(a.max, almost)):
                 return Union(a, b)
             else:
-                return Real(min(a.min, b.min), max(a.max, b.max))
+                return Real(almost.min(a.min, b.min), almost.max(a.max, b.max))
 
         elif isinstance(other, Integer) and self.min <= other.min and other.max <= self.max:
             return self
@@ -431,21 +433,6 @@ def union(*types):
         for t in types[1:]:
             out = out.union(t)
         return out
-
-        # out = []
-        # for o, ts in groupby(types, lambda t: t.order):
-        #     result = ts.next()
-        #     for t in ts:
-        #         result = result.union(t)
-        #     if isinstance(result, Union):
-        #         out.extend(result.types)
-        #     else:
-        #         out.append(result)
-        # if len(out) == 1:
-        #     return out[0]
-        # else:
-        #     out.sort()
-        #     return Union(*out)
 
 # def intersection(*types):
 #     raise NotImplementedError
