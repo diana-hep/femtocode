@@ -56,8 +56,16 @@ class Function(object):
         return out
 
 class BuiltinFunction(Function):
+    order = 0
+
     def __repr__(self):
         return "BuiltinFunction[\"" + self.name + "\"]"
+
+    def __lt__(self, other):
+        if isinstance(other, BuiltinFunction):
+            return self.name < other.name
+        else:
+            return self.order < other.order
 
     def __eq__(self, other):
         return self.__class__ == other.__class__
@@ -66,6 +74,8 @@ class BuiltinFunction(Function):
         return hash(self.__class__)
 
 class UserFunction(Function):
+    order = 1
+
     def __init__(self, names, defaults, body):
         self.names = tuple(names)
         self.defaults = tuple(defaults)
@@ -73,6 +83,18 @@ class UserFunction(Function):
 
     def __repr__(self):
         return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+
+    def __lt__(self, other):
+        if isinstance(other, UserFunction):
+            if self.names == other.names:
+                if self.defaults == defaults:
+                    return self.body < other.body
+                else:
+                    return self.defaults < other.defaults
+            else:
+                return self.names < other.names
+        else:
+            return self.order < other.order
 
     def __eq__(self, other):
         if not isinstance(other, UserFunction):

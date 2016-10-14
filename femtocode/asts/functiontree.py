@@ -33,6 +33,12 @@ class Ref(FunctionTree):
     def __repr__(self):
         return "Ref({0})".format(self.name)
 
+    def __lt__(self, other):
+        if isinstance(other, Ref):
+            return self.name < other.name
+        else:
+            return self.order < other.order
+
     def __eq__(self, other):
         if not isinstance(other, Ref):
             return False
@@ -55,6 +61,12 @@ class Literal(FunctionTree):
 
     def __repr__(self):
         return "Literal({0})".format(self.value)
+
+    def __lt__(self, other):
+        if isinstance(other, Literal):
+            return self.value < other.value
+        else:
+            return self.order < other.order
 
     def __eq__(self, other):
         if not isinstance(other, Literal):
@@ -82,6 +94,15 @@ class Call(FunctionTree):
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
+    def __lt__(self, other):
+        if isinstance(other, Call):
+            if self.fcn == other.fcn:
+                return self.args < other.args
+            else:
+                return self.fcn < other.fcn
+        else:
+            return self.order < other.order
+
     def __eq__(self, other):
         if not isinstance(other, Call):
             return False
@@ -107,6 +128,12 @@ class Placeholder(FunctionTree):
 
     def __repr__(self):
         return "Placeholder({0})".format(self.tpe)
+
+    def __lt__(self, other):
+        if isinstance(other, Placeholder):
+            return self.tpe < other.tpe
+        else:
+            return self.order < other.order
 
     def __eq__(self, other):
         if not isinstance(other, Placeholder):
