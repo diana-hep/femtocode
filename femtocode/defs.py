@@ -67,8 +67,8 @@ class BuiltinFunction(Function):
 
 class UserFunction(Function):
     def __init__(self, names, defaults, body):
-        self.names = names
-        self.defaults = defaults
+        self.names = tuple(names)
+        self.defaults = tuple(defaults)
         self.body = body
 
     def __repr__(self):
@@ -99,42 +99,58 @@ class UserFunction(Function):
         return Function.sortargsWithNames(positional, named, self.names)
 
 class SymbolTable(object):
-    def __init__(self, parent=None, init={}):
+    def __init__(self, values={}, types={}, parent=None):
+        if isinstance(parent, dict):
+            raise Exception
+
         self.parent = parent
-        self.symbols = dict(init.items())
+        self.values = dict(values.items())
+        self.types = dict(types.items())
 
-    def fork(self, init={}):
-        return SymbolTable(self, init)
+    def fork(self, values={}, types={}):
+        return SymbolTable(values, types, self)
 
-    def frame(self, name):
-        if name in self.symbols:
-            return self
-        elif self.parent is not None:
-            return self.parent.frame(name)
+    def definedHere(self, x):
+        if isinstance(x, basestring):
+            return x in self.values
         else:
-            return None
+            return x in self.types
 
-    def getHere(self, name, default=None):
-        trial = self.symbols.get(name)
+    def defined(self, x):
+        if self.definedHere(x):
+            return True
+        elif self.parent is not None:
+            return self.parent.defined(x)
+        else:
+            return False
+
+    def getHere(self, x, default=None):
+        if isinstance(x, basestring):
+            trial = self.values.get(x)
+        else:
+            trial = self.types.get(x)
         if trial is not None:
             return trial
         else:
             return default
 
-    def get(self, name, default=None):
-        trial = self.getHere(name)
+    def get(self, x, default=None):
+        trial = self.getHere(x)
         if trial is not None:
             return trial
         elif self.parent is not None:
-            return self.parent.get(name, default)
+            return self.parent.get(x, default)
         else:
             return default
 
-    def __setitem__(self, name, value):
-        self.symbols[name] = value
+    def __setitem__(self, x, y):
+        if isinstance(x, basestring):
+            self.values[x] = y
+        else:
+            self.types[x] = y
 
-    def __getitem__(self, name):
-        out = self.get(name)
+    def __getitem__(self, x):
+        out = self.get(x)
         if out is None:
-            raise ProgrammingError("symbol \"{0}\" is required but is not in the SymbolTable".format(name))
+            raise ProgrammingError("symbol \"{0}\" is required but is not in the SymbolTable".format(x))
         return out

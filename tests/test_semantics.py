@@ -19,7 +19,7 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.functiontree import build
+from femtocode.asts.functiontree import *
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
@@ -91,3 +91,7 @@ class TestSemantics(unittest.TestCase):
         p = build(parse("xs.map(3.14)"), table)
         print(p)
         print(p.schema(SymbolTable({"xs": collection(integer)})))
+
+        p = build(parse("y = x + 3; y"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer}, {Call(table["+"], [Ref("x"), Literal(3)]): real})))

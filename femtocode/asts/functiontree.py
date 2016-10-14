@@ -26,34 +26,45 @@ class FunctionTree(object):
         raise ProgrammingError("missing implementation")
 
 class Ref(FunctionTree):
-    def __init__(self, name, original):
+    def __init__(self, name, original=None):
         self.name = name
         self.original = original
+
     def __repr__(self):
         return "Ref({0})".format(self.name)
+
     def __eq__(self, other):
         if not isinstance(other, Ref):
             return False
         else:
             return self.name == other.name
+
     def __hash__(self):
         return hash((Ref, self.name))
+
     def schema(self, symbolFrame):
-        return symbolFrame[self.name]
+        if symbolFrame.defined(self):
+            return symbolFrame[self]
+        else:
+            return symbolFrame[self.name]
 
 class Literal(FunctionTree):
-    def __init__(self, value, original):
+    def __init__(self, value, original=None):
         self.value = value
         self.original = original
+
     def __repr__(self):
         return "Literal({0})".format(self.value)
+
     def __eq__(self, other):
         if not isinstance(other, Literal):
             return False
         else:
             return self.value == other.value
+
     def __hash__(self):
         return hash((Literal, self.value))
+
     def schema(self, symbolFrame):
         if isinstance(self.value, (int, long)):
             return integer(min=self.value, max=self.value)
@@ -63,38 +74,49 @@ class Literal(FunctionTree):
             raise ProgrammingError("missing implementation")
 
 class Call(FunctionTree):
-    def __init__(self, fcn, args, original):
+    def __init__(self, fcn, args, original=None):
         self.fcn = fcn
         self.args = args
         self.original = original
+
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
+
     def __eq__(self, other):
         if not isinstance(other, Call):
             return False
         else:
             return self.fcn == other.fcn and self.args == other.args
+
     def __hash__(self):
-        return hash((Call, self.fcn, self.args))
+        return hash((Call, self.fcn, tuple(self.args)))
+
     def schema(self, symbolFrame):
-        try:
-            return self.fcn.retschema(symbolFrame, self.args)
-        except TypeError as err:
-            complain(str(err), self.original)
+        if symbolFrame.defined(self):
+            return symbolFrame[self]
+        else:
+            try:
+                return self.fcn.retschema(symbolFrame, self.args)
+            except TypeError as err:
+                complain(str(err), self.original)
 
 # these only live long enough to yield their schema; you won't find them in the tree
 class Placeholder(FunctionTree):
     def __init__(self, schema):
         self.tpe = schema
+
     def __repr__(self):
         return "Placeholder({0})".format(self.tpe)
+
     def __eq__(self, other):
         if not isinstance(other, Placeholder):
             return False
         else:
             return self.tpe == other.tpe
+
     def __hash__(self):
         return hash((Placeholder, self.tpe))
+
     def schema(self, symbolFrame):
         return self.tpe
 
