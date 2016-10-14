@@ -26,6 +26,8 @@ class FunctionTree(object):
         raise ProgrammingError("missing implementation")
 
 class Ref(FunctionTree):
+    order = 2
+
     def __init__(self, name, original=None):
         self.name = name
         self.original = original
@@ -55,6 +57,8 @@ class Ref(FunctionTree):
             return symbolFrame[self.name]
 
 class Literal(FunctionTree):
+    order = 3
+
     def __init__(self, value, original=None):
         self.value = value
         self.original = original
@@ -86,9 +90,14 @@ class Literal(FunctionTree):
             raise ProgrammingError("missing implementation")
 
 class Call(FunctionTree):
+    order = 4
+
     def __init__(self, fcn, args, original=None):
         self.fcn = fcn
-        self.args = args
+        if self.fcn.orderMatters():
+            self.args = tuple(args)
+        else:
+            self.args = tuple(sorted(args))
         self.original = original
 
     def __repr__(self):
@@ -110,7 +119,7 @@ class Call(FunctionTree):
             return self.fcn == other.fcn and self.args == other.args
 
     def __hash__(self):
-        return hash((Call, self.fcn, tuple(self.args)))
+        return hash((Call, self.fcn, self.args))
 
     def schema(self, symbolFrame):
         if symbolFrame.defined(self):
@@ -123,6 +132,8 @@ class Call(FunctionTree):
 
 # these only live long enough to yield their schema; you won't find them in the tree
 class Placeholder(FunctionTree):
+    order = 5
+
     def __init__(self, schema):
         self.tpe = schema
 

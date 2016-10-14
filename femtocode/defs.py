@@ -23,6 +23,9 @@ class ProgrammingError(Exception): pass   # my mistake, not the user's; user sho
 class FemtocodeError(Exception): pass     # error in the user's Femtocode
 
 class Function(object):
+    def orderMatters(self):
+        return True
+
     def argname(self, index):
         raise ProgrammingError("missing implementation")
 
