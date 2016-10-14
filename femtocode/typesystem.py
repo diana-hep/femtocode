@@ -337,8 +337,7 @@ class Real(Schema):
                 return Integer(max(a.min, b.min), min(a.max, b.max))
 
         elif isinstance(other, Union):
-            ts = [self.intersect(t) for t in other.types]
-            return union(*ts)
+            return union(*[self.intersect(t) for t in other.types])
 
         else:
             return impossible
@@ -425,22 +424,68 @@ record = Record
 class Collection(Schema):
     order = 8
 
-    def __init__(self, itemtype, min=0, max=None):
+    def __init__(self, itemtype, fewest=0, most=almost(inf)):
         self.itemtype = itemtype
-        self.min = min
-        self.max = max
+        if fewest > most:
+            raise FemtocodeError("fewest must not be greater than most")
+        if not isinstance(fewest, (int, long)) or fewest < 0:
+            raise FemtocodeError("fewest must be a non-negative integer")
+        if most != almost(inf) and not isinstance(most, (int, long)):
+            raise FemtocodeError("fewest must be almost(inf) or an integer")
+        self.fewest = fewest
+        self.most = most
 
     def __repr__(self):
-        if self.min == 0 and self.max is None:
+        if self.fewest == 0 and self.most == almost(inf):
             return "collection({0})".format(repr(self.itemtype))
         else:
-            return "collection({0}, {1}, {2})".format(repr(self.itemtype), self.min, self.max)
+            return "collection({0}, fewest={1}, most={2})".format(repr(self.itemtype), self.fewest, self.most)
 
     def __call__(self, *args, **kwds):
         return Collection(*args, **kwds)
 
     def __lt__(self, other):
         return self.order < other.order
+
+    def union(self, other):
+        if isinstance(other, Collection):
+            subtype = self.itemtype.union(other.itemtype)
+            if (self.itemtype == subtype and other.itemtype == subtype) or \
+                   (isinstance(subtype, (Integer, Real))) or \
+                   (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
+                size = Integer(self.fewest, self.most).union(Integer(other.fewest, other.most))
+                if isinstance(size, Union):
+                    if len(size.types) != 2:
+                        raise ProgrammingError("union of two integer intervals should be a union of at most two intervals")
+                    one, two = size.types
+                    size = Integer(almost.min(one.min, two.min), almost.max(one.max, two.max))
+                return Collection(subtype, size.min, size.max)
+            else:
+                return Union(self, other)
+        elif isinstance(other, Union):
+            return Union(self, *other.types)
+        else:
+            return Union(self, other)
+
+    def intersect(self, other):
+        if isinstance(other, Collection):
+            subtype = self.itemtype.intersect(other.itemtype)
+            if (self.itemtype == subtype and other.itemtype == subtype) or \
+                   (isinstance(subtype, (Integer, Real))) or \
+                   (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
+                size = Integer(self.fewest, self.most).intersect(Integer(other.fewest, other.most))
+                if not isinstance(size, (Integer, Impossible)):
+                    raise ProgrammingError("intersect of two integer intervals should be an interval integer or impossible")
+                if isinstance(subtype, Impossible) or isinstance(size, Impossible):
+                    return impossible
+                else:
+                    return Collection(subtype, size.min, size.max)
+            else:
+                return impossible
+        elif isinstance(other, Union):
+            return union(*[self.intersect(t) for t in other.types])
+        else:
+            return impossible
 
 collection = Collection
 
@@ -456,12 +501,40 @@ class Tensor(Schema):
 
     def __repr__(self):
         if len(self.dimensions) == 1:
-            return "tensor({0}, {1})".format(repr(self.itemtype), self.dimensions[0])
+            return "tensor({0}, dimensions={1})".format(repr(self.itemtype), self.dimensions[0])
         else:
-            return "tensor({0}, {1})".format(repr(self.itemtype), self.dimensions)
+            return "tensor({0}, dimensions={1})".format(repr(self.itemtype), self.dimensions)
 
     def __call__(self, *args, **kwds):
         return Tensor(*args, **kwds)
+
+    def union(self, other):
+        if isinstance(other, Tensor) and self.dimensions == other.dimensions:
+            subtype = self.itemtype.union(other.itemtype)
+            if (self.itemtype == subtype and other.itemtype == subtype) or \
+                   (isinstance(subtype, (Integer, Real))) or \
+                   (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
+                return Tensor(subtype, self.dimensions)
+            else:
+                return Union(self, other)
+        elif isinstance(other, Union):
+            return Union(self, *other.types)
+        else:
+            return Union(self, other)
+
+    def intersect(self, other):
+        if isinstance(other, Tensor) and self.dimensions == other.dimensions:
+            subtype = self.itemtype.intersect(other.itemtype)
+            if (self.itemtype == subtype and other.itemtype == subtype) or \
+                   (isinstance(subtype, (Integer, Real))) or \
+                   (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
+                return Tensor(subtype, self.dimensions)
+            else:
+                return Union(self, other)
+        elif isinstance(other, Union):
+            return union(*[self.intersect(t) for t in other.types])
+        else:
+            return impossible
 
 tensor = Tensor
 
@@ -471,7 +544,7 @@ class Union(Schema):
     def __init__(self, *types):
         if len(types) < 1:
             raise FemtocodeError("Union requires at least one type")
-        self.types = types
+        self.types = sorted(types)
 
     def __repr__(self):
         return "union(" + ", ".join(repr(t) for t in self.types) + ")"
