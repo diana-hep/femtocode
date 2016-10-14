@@ -59,7 +59,7 @@ class almost(float):
         else:
             return True
     def __hash__(self):
-        return hash((self.real,))
+        return hash((almost, self.real))
 
     def __repr__(self):
         return "almost(" + repr(self.real) + ")"
@@ -120,6 +120,15 @@ class Schema(object):
     def __lt__(self, other):
         return self.order < other.order
 
+    def __eq__(self, other):
+        return isinstance(other, self.__class__)
+
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def __call__(self, *args, **kwds):
+        return self.__class__(*args, **kwds)
+
     def union(self, other):
         if isinstance(other, self.__class__):
             return self
@@ -148,9 +157,6 @@ class Impossible(Schema):
     def __repr__(self):
         return "impossible"
 
-    def __call__(self, *args, **kwds):
-        return Impossible(*args, **kwds)
-
     def union(self, other):
         return other
 
@@ -164,9 +170,6 @@ class NA(Schema):
 
     def __repr__(self):
         return "na"
-
-    def __call__(self, *args, **kwds):
-        return NA(*args, **kwds)
         
 na = NA()
 
@@ -175,9 +178,6 @@ class Boolean(Schema):
 
     def __repr__(self):
         return "boolean"
-
-    def __call__(self, *args, **kwds):
-        return Boolean(*args, **kwds)
 
 boolean = Boolean()
 
@@ -200,9 +200,6 @@ class Integer(Schema):
         else:
             return "integer(min={0}, max={1})".format(self.min, self.max)
 
-    def __call__(self, *args, **kwds):
-        return Integer(*args, **kwds)
-
     def __lt__(self, other):
         if isinstance(other, Integer):
             if self.min == other.min:
@@ -211,6 +208,15 @@ class Integer(Schema):
                 return self.min < other.min
         else:
             return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Integer):
+            return False
+        else:
+            return self.min == other.min and self.max == other.max
+
+    def __hash__(self):
+        return hash((Integer, self.min, self.max))
 
     def union(self, other):
         if isinstance(other, Integer):
@@ -285,9 +291,6 @@ class Real(Schema):
         else:
             return "real(min={0}, max={1})".format(self.min, self.max)
 
-    def __call__(self, *args, **kwds):
-        return Real(*args, **kwds)
-
     def __lt__(self, other):
         if isinstance(other, Real):
             if self.min == other.min:
@@ -296,6 +299,15 @@ class Real(Schema):
                 return self.min < other.min
         else:
             return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Real):
+            return False
+        else:
+            return self.min == other.min and self.max == other.max
+
+    def __hash__(self):
+        return hash((Real, self.min, self.max))
 
     def union(self, other):
         if isinstance(other, Real):
@@ -350,9 +362,6 @@ class String(Schema):
     def __repr__(self):
         return "string"
 
-    def __call__(self, *args, **kwds):
-        return String(*args, **kwds)
-
 string = String()
         
 class Binary(Schema):
@@ -367,9 +376,6 @@ class Binary(Schema):
         else:
             return "binary({0})".format(self.size)
 
-    def __call__(self, *args, **kwds):
-        return Binary(*args, **kwds)
-
     def __lt__(self, other):
         if isinstance(other, Binary):
             if self.size is None and other.size is None:
@@ -382,6 +388,15 @@ class Binary(Schema):
                 return self.size < other.size
         else:
             return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Binary):
+            return False
+        else:
+            return self.size == other.size
+
+    def __hash__(self):
+        return hash((Binary, self.size))
 
     def union(self, other):
         if isinstance(other, Binary) and self.size == other.size:
@@ -416,8 +431,20 @@ class Record(Schema):
     def __repr__(self):
         return "record(" + ", ".join(n + "=" + repr(t) for n, t in self.fields) + ")"
 
-    def __call__(self, *args, **kwds):
-        return Record(*args, **kwds)
+    def __lt__(self, other):
+        if isinstance(other, Record):
+            return self.fields < other.fields
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Record):
+            return False
+        else:
+            return self.fields == other.fields
+
+    def __hash__(self):
+        return hash((Record, self.fields))
     
 record = Record
 
@@ -441,11 +468,26 @@ class Collection(Schema):
         else:
             return "collection({0}, fewest={1}, most={2})".format(repr(self.itemtype), self.fewest, self.most)
 
-    def __call__(self, *args, **kwds):
-        return Collection(*args, **kwds)
-
     def __lt__(self, other):
-        return self.order < other.order
+        if isinstance(other, Collection):
+            if self.itemtype == other.itemtype:
+                if self.fewest == other.fewest:
+                    return self.most < other.most
+                else:
+                    return self.fewest < other.fewest
+            else:
+                return self.itemtype < other.itemtype
+        else:
+            return self.order < other.order
+                
+    def __eq__(self, other):
+        if not isinstance(other, Collection):
+            return False
+        else:
+            return self.itemtype == other.itemtype and self.fewest == other.fewest and self.most == other.most
+
+    def __hash__(self):
+        return hash((Collection, self.itemtype, self.fewest, self.most))
 
     def union(self, other):
         if isinstance(other, Collection):
@@ -505,8 +547,23 @@ class Tensor(Schema):
         else:
             return "tensor({0}, dimensions={1})".format(repr(self.itemtype), self.dimensions)
 
-    def __call__(self, *args, **kwds):
-        return Tensor(*args, **kwds)
+    def __lt__(self, other):
+        if isinstance(other, Tensor):
+            if self.itemtype == other.itemtype:
+                return self.dimensions < other.dimensions
+            else:
+                return self.itemtype < other.itemtype
+        else:
+            return self.order < other.order
+                
+    def __eq__(self, other):
+        if not isinstance(other, Collection):
+            return False
+        else:
+            return self.itemtype == other.itemtype and self.dimensions == other.dimensions
+
+    def __hash__(self):
+        return hash((Tensor, self.itemtype, self.dimensions))
 
     def union(self, other):
         if isinstance(other, Tensor) and self.dimensions == other.dimensions:
@@ -549,8 +606,20 @@ class Union(Schema):
     def __repr__(self):
         return "union(" + ", ".join(repr(t) for t in self.types) + ")"
 
-    def __call__(self, *args, **kwds):
-        return Union(*args, **kwds)
+    def __lt__(self, other):
+        if isinstance(other, Union):
+            return self.types < other.types
+        else:
+            return self.order < other.order
+                
+    def __eq__(self, other):
+        if not isinstance(other, Union):
+            return False
+        else:
+            return self.types == other.types
+
+    def __hash__(self):
+        return hash((Union, self.types))
 
     def union(self, other):
         if isinstance(other, Union):

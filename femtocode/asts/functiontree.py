@@ -31,6 +31,13 @@ class Ref(FunctionTree):
         self.original = original
     def __repr__(self):
         return "Ref({0})".format(self.name)
+    def __eq__(self, other):
+        if not isinstance(other, Ref):
+            return False
+        else:
+            return self.name == other.name
+    def __hash__(self):
+        return hash((Ref, self.name))
     def schema(self, symbolFrame):
         return symbolFrame[self.name]
 
@@ -40,6 +47,13 @@ class Literal(FunctionTree):
         self.original = original
     def __repr__(self):
         return "Literal({0})".format(self.value)
+    def __eq__(self, other):
+        if not isinstance(other, Literal):
+            return False
+        else:
+            return self.value == other.value
+    def __hash__(self):
+        return hash((Literal, self.value))
     def schema(self, symbolFrame):
         if isinstance(self.value, (int, long)):
             return integer(min=self.value, max=self.value)
@@ -55,6 +69,13 @@ class Call(FunctionTree):
         self.original = original
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
+    def __eq__(self, other):
+        if not isinstance(other, Call):
+            return False
+        else:
+            return self.fcn == other.fcn and self.args == other.args
+    def __hash__(self):
+        return hash((Call, self.fcn, self.args))
     def schema(self, symbolFrame):
         try:
             return self.fcn.retschema(symbolFrame, self.args)
@@ -67,6 +88,13 @@ class Placeholder(FunctionTree):
         self.tpe = schema
     def __repr__(self):
         return "Placeholder({0})".format(self.tpe)
+    def __eq__(self, other):
+        if not isinstance(other, Placeholder):
+            return False
+        else:
+            return self.tpe == other.tpe
+    def __hash__(self):
+        return hash((Placeholder, self.tpe))
     def schema(self, symbolFrame):
         return self.tpe
 

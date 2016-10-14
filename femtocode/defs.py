@@ -59,6 +59,12 @@ class BuiltinFunction(Function):
     def __repr__(self):
         return "BuiltinFunction[\"" + self.name + "\"]"
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
+    def __hash__(self):
+        return hash(self.__class__)
+
 class UserFunction(Function):
     def __init__(self, names, defaults, body):
         self.names = names
@@ -67,6 +73,15 @@ class UserFunction(Function):
 
     def __repr__(self):
         return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+
+    def __eq__(self, other):
+        if not isinstance(other, UserFunction):
+            return False
+        else:
+            return self.names == other.names and self.defaults == other.defaults and self.body == other.body
+
+    def __hash__(self):
+        return hash((UserFunction, self.names, self.defaults, self.body))
 
     def argname(self, index):
         return self.names[index]
