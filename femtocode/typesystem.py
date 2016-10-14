@@ -127,34 +127,51 @@ class Schema(object):
             if any(isinstance(x, self.__class__) for x in other.types):
                 return other
             else:
-                return Union(self, other)
+                return Union(self, *other.types)
         else:
             return Union(self, other)
 
-class NA(Schema):
+    def intersect(self, other):
+        if isinstance(other, self.__class__):
+            return self
+        elif isinstance(other, Union):
+            if any(isinstance(x, self.__class__) for x in other.types):
+                return self
+            else:
+                return impossible
+        else:
+            return impossible
+
+class Impossible(Schema):
     order = 0
+
+    def __repr__(self):
+        return "impossible"
+
+    def __call__(self, *args, **kwds):
+        return Impossible(*args, **kwds)
+
+    def union(self, other):
+        return other
+
+    def intersect(self, other):
+        return impossible
+
+impossible = Impossible()
+
+class NA(Schema):
+    order = 1
 
     def __repr__(self):
         return "na"
 
     def __call__(self, *args, **kwds):
         return NA(*args, **kwds)
-
-    def union(self, other):
-        if isinstance(other, self.__class__):
-            return self
-        elif isinstance(other, Union):
-            if any(isinstance(x, self.__class__) for x in other.types):
-                return other
-            else:
-                return Union(self, other)
-        else:
-            return Union(self, other)
-
+        
 na = NA()
 
 class Boolean(Schema):
-    order = 1
+    order = 2
 
     def __repr__(self):
         return "boolean"
@@ -165,7 +182,7 @@ class Boolean(Schema):
 boolean = Boolean()
 
 class Integer(Schema):
-    order = 2
+    order = 3
 
     def __init__(self, min=almost(-inf), max=almost(inf)):
         if min > max:
@@ -224,17 +241,31 @@ class Integer(Schema):
         else:
             return Union(self, other)
 
-    # def intersection(self, other):
-    #     a, b = sorted([self, other])
-    #     if b.max < a.min or a.max < b.min:
-    #         return na
-    #     else:
-    #         return Integer(max(a.min, b.min), min(a.max, b.max))
+    def intersect(self, other):
+        if isinstance(other, (Integer, Real)):
+            othermin = other.min + 1 if isinstance(other.min, almost) else other.min
+            othermax = other.max - 1 if isinstance(other.max, almost) else other.max
+            if othermin > othermax:
+                return impossible
+            other2 = other.__class__(othermin, othermax)
+
+            a, b = sorted([self, other2])
+            if a.max < b.min:
+                return impossible
+            else:
+                return Integer(max(a.min, b.min), min(a.max, b.max))
+
+        elif isinstance(other, Union):
+            ts = [self.intersect(t) for t in other.types]
+            return union(*ts)
+
+        else:
+            return impossible
 
 integer = Integer()
 
 class Real(Schema):
-    order = 3
+    order = 4
 
     def __init__(self, min=-inf, max=inf):
         if min > max:
@@ -295,17 +326,27 @@ class Real(Schema):
         else:
             return Union(self, other)
 
-    # def intersection(self, other):
-    #     a, b = sorted([self, other])
-    #     if b.max < a.min or a.max < b.min:
-    #         return na
-    #     else:
-    #         return Real(max(a.min, b.min), min(a.max, b.max))
+    def intersect(self, other):
+        if isinstance(other, (Integer, Real)):
+            a, b = sorted([self, other])
+            if a.max < b.min:
+                return impossible
+            elif isinstance(other, Real):
+                return Real(max(a.min, b.min), min(a.max, b.max))
+            else:
+                return Integer(max(a.min, b.min), min(a.max, b.max))
+
+        elif isinstance(other, Union):
+            ts = [self.intersect(t) for t in other.types]
+            return union(*ts)
+
+        else:
+            return impossible
 
 real = Real()
         
 class String(Schema):
-    order = 4
+    order = 5
 
     def __repr__(self):
         return "string"
@@ -316,7 +357,7 @@ class String(Schema):
 string = String()
         
 class Binary(Schema):
-    order = 5
+    order = 6
 
     def __init__(self, size=None):
         self.size = size
@@ -343,10 +384,32 @@ class Binary(Schema):
         else:
             return self.order < other.order
 
+    def union(self, other):
+        if isinstance(other, Binary) and self.size == other.size:
+            return self
+        elif isinstance(other, Union):
+            if any(isinstance(x, Binary) and self.size == x.size for x in other.types):
+                return other
+            else:
+                return Union(self, *other.types)
+        else:
+            return Union(self, other)
+
+    def intersect(self, other):
+        if isinstance(other, self.Binary) and self.size == other.size:
+            return self
+        elif isinstance(other, Union):
+            if any(isinstance(x, self.Binary) and self.size == x.size for x in other.types):
+                return self
+            else:
+                return impossible
+        else:
+            return impossible
+
 binary = Binary()
 
 class Record(Schema):
-    order = 6
+    order = 7
 
     def __init__(self, **fields):
         self.fields = sorted(fields.items())
@@ -356,11 +419,11 @@ class Record(Schema):
 
     def __call__(self, *args, **kwds):
         return Record(*args, **kwds)
-
+    
 record = Record
 
 class Collection(Schema):
-    order = 7
+    order = 8
 
     def __init__(self, itemtype, min=0, max=None):
         self.itemtype = itemtype
@@ -382,7 +445,7 @@ class Collection(Schema):
 collection = Collection
 
 class Tensor(Schema):
-    order = 8
+    order = 9
 
     def __init__(self, itemtype, dimensions):
         self.itemtype = itemtype
@@ -403,7 +466,7 @@ class Tensor(Schema):
 tensor = Tensor
 
 class Union(Schema):
-    order = 9
+    order = 10
 
     def __init__(self, *types):
         if len(types) < 1:
@@ -434,5 +497,13 @@ def union(*types):
             out = out.union(t)
         return out
 
-# def intersection(*types):
-#     raise NotImplementedError
+def intersect(*types):
+    if len(types) == 0:
+        return impossible
+    elif len(types) == 1:
+        return types[0]
+    else:
+        out = types[0]
+        for t in types[1:]:
+            out = out.intersect(t)
+        return out
