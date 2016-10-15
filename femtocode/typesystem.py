@@ -21,6 +21,9 @@ from femtocode.py23 import *
 
 inf = float("inf")
 
+concrete = ("inf", "na", "boolean", "integer", "real", "string", "binary")
+parameterized = ("almost", "integer", "real", "binary", "record", "collection", "tensor", "union", "intersection", "complement")
+
 class almost(float):
     """almost(x) -> open end of an interval
 
@@ -141,7 +144,7 @@ class Schema(object):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, self.__class__):
             return self
         elif isinstance(other, Union):
@@ -161,7 +164,7 @@ class Impossible(Schema):
     def union(self, other):
         return other
 
-    def intersect(self, other):
+    def intersection(self, other):
         return impossible
 
 impossible = Impossible()
@@ -248,7 +251,7 @@ class Integer(Schema):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, (Integer, Real)):
             othermin = other.min + 1 if isinstance(other.min, almost) else other.min
             othermax = other.max - 1 if isinstance(other.max, almost) else other.max
@@ -263,7 +266,7 @@ class Integer(Schema):
                 return Integer(max(a.min, b.min), min(a.max, b.max))
 
         elif isinstance(other, Union):
-            ts = [self.intersect(t) for t in other.types]
+            ts = [self.intersection(t) for t in other.types]
             return union(*ts)
 
         else:
@@ -339,7 +342,7 @@ class Real(Schema):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, (Integer, Real)):
             a, b = sorted([self, other])
             if a.max < b.min:
@@ -350,7 +353,7 @@ class Real(Schema):
                 return Integer(max(a.min, b.min), min(a.max, b.max))
 
         elif isinstance(other, Union):
-            return union(*[self.intersect(t) for t in other.types])
+            return union(*[self.intersection(t) for t in other.types])
 
         else:
             return impossible
@@ -410,7 +413,7 @@ class Binary(Schema):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, self.Binary) and self.size == other.size:
             return self
         elif isinstance(other, Union):
@@ -510,15 +513,15 @@ class Collection(Schema):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, Collection):
-            subtype = self.itemtype.intersect(other.itemtype)
+            subtype = self.itemtype.intersection(other.itemtype)
             if (self.itemtype == subtype and other.itemtype == subtype) or \
                    (isinstance(subtype, (Integer, Real))) or \
                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
-                size = Integer(self.fewest, self.most).intersect(Integer(other.fewest, other.most))
+                size = Integer(self.fewest, self.most).intersection(Integer(other.fewest, other.most))
                 if not isinstance(size, (Integer, Impossible)):
-                    raise ProgrammingError("intersect of two integer intervals should be an interval integer or impossible")
+                    raise ProgrammingError("intersection of two integer intervals should be an interval integer or impossible")
                 if isinstance(subtype, Impossible) or isinstance(size, Impossible):
                     return impossible
                 else:
@@ -526,7 +529,7 @@ class Collection(Schema):
             else:
                 return impossible
         elif isinstance(other, Union):
-            return union(*[self.intersect(t) for t in other.types])
+            return union(*[self.intersection(t) for t in other.types])
         else:
             return impossible
 
@@ -580,9 +583,9 @@ class Tensor(Schema):
         else:
             return Union(self, other)
 
-    def intersect(self, other):
+    def intersection(self, other):
         if isinstance(other, Tensor) and self.dimensions == other.dimensions:
-            subtype = self.itemtype.intersect(other.itemtype)
+            subtype = self.itemtype.intersection(other.itemtype)
             if (self.itemtype == subtype and other.itemtype == subtype) or \
                    (isinstance(subtype, (Integer, Real))) or \
                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
@@ -590,7 +593,7 @@ class Tensor(Schema):
             else:
                 return Union(self, other)
         elif isinstance(other, Union):
-            return union(*[self.intersect(t) for t in other.types])
+            return union(*[self.intersection(t) for t in other.types])
         else:
             return impossible
 
@@ -640,7 +643,7 @@ def union(*types):
             out = out.union(t)
         return out
 
-def intersect(*types):
+def intersection(*types):
     if len(types) == 0:
         return impossible
     elif len(types) == 1:
@@ -648,5 +651,5 @@ def intersect(*types):
     else:
         out = types[0]
         for t in types[1:]:
-            out = out.intersect(t)
+            out = out.intersection(t)
         return out

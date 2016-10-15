@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
+
 from femtocode.asts import parsingtree
 from femtocode.defs import *
 from femtocode.py23 import *
@@ -158,6 +160,89 @@ class Placeholder(FunctionTree):
     def schema(self, symbolFrame):
         return self.tpe
 
+def pos(tree):
+    return {"lineno": tree.lineno, "col_offset": tree.col_offset}
+
+def buildSchema(tree):
+    if isinstance(tree, parsingtree.Attribute):
+        complain("dot ('.') not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.BinOp):
+        return ast.BinOp(buildSchema(tree.left), tree.op, buildSchema(tree.right), **pos(tree))
+
+    elif isinstance(tree, parsingtree.BoolOp):
+        if isinstance(tree.op, parsingtree.And):
+            op = "and"
+        elif isinstance(tree.op, parsingtree.Or):
+            op = "or"
+        complain(op + " not allowed in schema expression", tree)
+        
+    elif isinstance(tree, parsingtree.Compare):
+        raise ProgrammingError("shouldn't get here")
+
+    elif isinstance(tree, parsingtree.List):
+        complain("square brackets ('[' ']') not allowed in schema expression")
+
+    elif isinstance(tree, parsingtree.Name):
+        if tree.id in concrete:
+            return tree
+        elif tree.id in parameterized:
+            complain("type {0} in schema expression must be a function".format(tree.id))
+        else:
+            complain("unrecognized type \"{0}\" in schema expression".format(tree.id))
+
+    elif isinstance(tree, parsingtree.Num):
+        return tree
+
+    elif isinstance(tree, parsingtree.Str):
+        complain("quoted strings not allowed in schema expression")
+
+    elif isinstance(tree, parsingtree.Subscript):
+        complain("square brackets ('[' ']') not allowed in schema expression")
+
+    elif isinstance(tree, parsingtree.UnaryOp):
+        if isinstance(tree.op, parsingtree.Not):
+            complain("negation ('not') not allowed in schema expression")
+        elif isinstance(tree.op, parsingtree.UAdd):
+            return ast.UnaryOp(tree.op, buildSchema(tree.operand), **pos(tree))
+        elif isinstance(tree.op, parsingtree.USub):
+            return ast.UnaryOp(tree.op, buildSchema(tree.operand), **pos(tree))
+        raise ProgrammingError("unrecognized UnaryOp: " + repr(tree.op))
+
+    elif isinstance(tree, parsingtree.Assignment):
+        complain("assignment ('=') not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.AtArg):
+        complain("shortcut arguments ('$') not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.FcnCall):
+        if isinstance(tree.function, parsingtree.Name):
+            if tree.function.id in parameterized:
+                positional = [buildSchema(x) for x in tree.positional]
+                keywords = [ast.keyword(k, buildSchema(v), **pos(v)) for k, v in zip(tree.names, tree.named)]
+                return ast.Call(tree.function, positional, keywords, None, None, **pos(tree))
+            elif tree.function.id in concrete:
+                complain("type {0} in schema expression must not be a function".format(tree.function.id), tree)
+            else:
+                complain("unrecognized type function \"{0}\" in schema expression".format(tree.function.id), tree)
+        else:
+            complain("higher-order functions not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.FcnDef):
+        complain("function declarations ('=>') not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.IfChain):
+        complain("if-else not allowed in schema expression", tree)
+
+    elif isinstance(tree, parsingtree.Suite):
+        if len(tree.assignments) > 0:
+            complain("curly brackets ('{') not allowed in schema expression", tree)
+        else:
+            return buildSchema(tree.expression)
+
+    else:
+        raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
+
 def buildOrElevate(tree, symbolFrame, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef):
         return build(tree, symbolFrame)
@@ -296,12 +381,6 @@ def build(tree, symbolFrame):
             args.append(build(c, symbolFrame.fork()))
         args.append(tree.alternate, symbolFrame.fork())
         return Call(symbolFrame["if"], args, tree)
-
-    elif isinstance(tree, parsingtree.IsType):
-        try:
-            return Call(symbolFrame["is"], [build(tree.value, symbolFrame), buildSchema(tree.type)], tree)
-        except TypeError as err:
-            complain(str(err), tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:

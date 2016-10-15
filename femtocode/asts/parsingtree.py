@@ -102,10 +102,3 @@ class IfChain(expr):
         self.consequents = consequents
         self.alternate = alternate
         self.__dict__.update(kwds)
-
-class IsType(expr):
-    _fields = ("value", "type")
-    def __init__(self, value, type, **kwds):
-        self.value = value
-        self.type = type
-        self.__dict__.update(kwds)
