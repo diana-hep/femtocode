@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import femtocode.parser
+from femtocode.py23 import *
 
 def complain(message, p):
     femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
@@ -23,14 +24,11 @@ class ProgrammingError(Exception): pass   # my mistake, not the user's; user sho
 class FemtocodeError(Exception): pass     # error in the user's Femtocode
 
 class Function(object):
-    def orderMatters(self):
-        return True
-
-    def argname(self, index):
-        raise ProgrammingError("missing implementation")
+    def commutative(self):
+        return False
 
     def arity(self, index):
-        raise ProgrammingError("missing implementation")
+        return None
 
     def retschema(self, symbolFrame, args):
         raise ProgrammingError("missing implementation")
@@ -107,9 +105,6 @@ class UserFunction(Function):
 
     def __hash__(self):
         return hash((UserFunction, self.names, self.defaults, self.body))
-
-    def argname(self, index):
-        return self.names[index]
 
     def arity(self, index):
         return None

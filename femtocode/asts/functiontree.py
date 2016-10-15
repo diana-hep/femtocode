@@ -94,10 +94,10 @@ class Call(FunctionTree):
 
     def __init__(self, fcn, args, original=None):
         self.fcn = fcn
-        if self.fcn.orderMatters():
-            self.args = tuple(args)
-        else:
+        if self.fcn.commutative():
             self.args = tuple(sorted(args))
+        else:
+            self.args = tuple(args)
         self.original = original
 
     def __repr__(self):
@@ -290,10 +290,18 @@ def build(tree, symbolFrame):
         return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, symbolFrame) for x in tree.defaults], build(tree.body, symbolFrame))
 
     elif isinstance(tree, parsingtree.IfChain):
-        raise ProgrammingError("missing implementation")
+        args = []
+        for p, c in zip(tree.predicates, tree.consequents):
+            args.append(build(p, symbolFrame))
+            args.append(build(c, symbolFrame.fork()))
+        args.append(tree.alternate, symbolFrame.fork())
+        return Call(symbolFrame["if"], args, tree)
 
     elif isinstance(tree, parsingtree.IsType):
-        raise ProgrammingError("missing implementation")
+        try:
+            return Call(symbolFrame["is"], [build(tree.value, symbolFrame), buildSchema(tree.type)], tree)
+        except TypeError as err:
+            complain(str(err), tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:

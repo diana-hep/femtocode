@@ -30,11 +30,8 @@ closed_ifblock: ('if' expression exprsuite ('elif' expression exprsuite)* 'else'
 or_test: and_test ('or' and_test)*
 and_test: not_test ('and' not_test)*
 not_test: 'not' not_test | comparison
-comparison: typecheck (comp_op typecheck)*
+comparison: arith_expr (comp_op arith_expr)*
 comp_op: '<' | '>' | '==' | '>=' | '<=' | '!=' | 'in' | 'not' 'in'
-
-typecheck: arith_expr ['is' ['not'] arith_expr]
-
 arith_expr: term (('+' | '-') term)*
 term: factor (('*' | '/' | '%' | '//') factor)*
 factor: ('+' | '-') factor | power

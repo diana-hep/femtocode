@@ -17,6 +17,7 @@
 from itertools import groupby
 
 from femtocode.defs import FemtocodeError
+from femtocode.py23 import *
 
 inf = float("inf")
 

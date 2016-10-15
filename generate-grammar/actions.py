@@ -109,19 +109,15 @@ actions['''closed_expression : closed_ifblock'''] = '''    p[0] = p[1]'''
 actions['''closed_expression : fcndef'''] = '''    p[0] = p[1]'''
 actions['''closed_expression : or_test SEMI'''] = '''    p[0] = p[1]'''
 
-actions['''comparison : typecheck'''] = '''    p[0] = p[1]'''
-actions['''comparison : typecheck comparison_star'''] = '''    ops, exprs = p[2]
+actions['''comparison : arith_expr'''] = '''    p[0] = p[1]'''
+actions['''comparison : arith_expr comparison_star'''] = '''    ops, exprs = p[2]
     p[0] = Compare(p[1], ops, exprs)
     inherit_lineno(p[0], p[1])'''
-actions['''comparison_star : comp_op typecheck'''] = '''    inherit_lineno(p[1], p[2])
+actions['''comparison_star : comp_op arith_expr'''] = '''    inherit_lineno(p[1], p[2])
     p[0] = ([p[1]], [p[2]])'''
-actions['''comparison_star : comparison_star comp_op typecheck'''] = '''    ops, exprs = p[1]
+actions['''comparison_star : comparison_star comp_op arith_expr'''] = '''    ops, exprs = p[1]
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])'''
-
-actions['''typecheck : arith_expr'''] = '''    p[0] = p[1]'''
-actions['''typecheck : arith_expr IS arith_expr'''] = '''    p[0] = IsType(p[1], p[3], **p[2][1])'''
-actions['''typecheck : arith_expr IS NOT arith_expr'''] = '''    p[0] = UnaryOp(Not(**p[3][1]), IsType(p[1], p[4], **p[2][1]), **p[3][1])'''
 
 actions['''trailer : LPAR RPAR'''] = '''    p[0] = FcnCall(None, [], [], [], **p[1][1])'''
 

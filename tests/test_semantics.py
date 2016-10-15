@@ -95,3 +95,6 @@ class TestSemantics(unittest.TestCase):
         p = build(parse("y = x + 3; y"), table)
         print(p)
         print(p.schema(SymbolTable({"x": integer}, {Call(table["+"], [Literal(3), Ref("x")]): real})))
+
+        # p = build(parse("x is real"), table)
+        # print(p)
