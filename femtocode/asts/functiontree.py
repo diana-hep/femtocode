@@ -178,7 +178,7 @@ def buildSchema(tree):
         complain(op + " not allowed in schema expression", tree)
         
     elif isinstance(tree, parsingtree.Compare):
-        raise ProgrammingError("shouldn't get here")
+        complain("boolean logic not allowed in schema expression")
 
     elif isinstance(tree, parsingtree.List):
         complain("square brackets ('[' ']') not allowed in schema expression")
@@ -291,24 +291,32 @@ def build(tree, values):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Compare):
-        if isinstance(tree.op, parsingtree.Eq):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.NotEq):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.Lt):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.LtE):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.Gt):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.GtE):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.In):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.NotIn):
-            raise ProgrammingError("missing implementation")
-        raise ProgrammingError("missing implementation")
-
+        out = Call(values["and"], [], tree)
+        left = build(tree.left, values)
+        for op, right in zip(tree.ops, tree.comparators):
+            right = build(right, values)
+            if isinstance(op, parsingtree.Eq):
+                arg = Call(values["=="], [left, right], op)
+            elif isinstance(op, parsingtree.NotEq):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.Lt):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.LtE):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.Gt):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.GtE):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.In):
+                raise ProgrammingError("missing implementation")
+            elif isinstance(op, parsingtree.NotIn):
+                raise ProgrammingError("missing implementation")
+            else:
+                raise ProgrammingError("missing implementation")
+            left = right
+            out.args = out.args + (arg,)
+        return out
+            
     elif isinstance(tree, parsingtree.List):
         raise ProgrammingError("missing implementation")
 
