@@ -202,12 +202,15 @@ class Placeholder(FunctionTree):
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}
 
-def negate(tree, frame):
-    if isinstance(tree, Call) and tree.fcn == frame["not"]:
-        return tree.args[0]
-    else:
-        # TODO: other cases; de Morgan's law, etc.
-        return Call(frame["not"], [tree], tree.original)
+# def negate(tree, frame):
+#     if isinstance(tree, Call) and tree.fcn == frame["not"]:
+#         return tree.args[0]
+#     elif isinstance(tree, Call) and tree.fcn == frame["and"]:
+#         return Call(frame["or"], [negate(x, frame) for x in tree.args], tree.original)
+#     elif isinstance(tree, Call) and tree.fcn == frame["or"]:
+#         return Call(frame["and"], [negate(x, frame) for x in tree.args], tree.original)
+#     else:
+#         return Call(frame["not"], [tree], tree.original)
 
 def resolve(tree, frame):
     if isinstance(tree, BuiltinFunction):
@@ -376,10 +379,10 @@ def build(tree, frame):
             return out
 
         elif isinstance(tree.op, parsingtree.Or):
-            out = Call(frame["and"], [], tree)
+            out = Call(frame["or"], [], tree)
             for x in tree.values:
-                y = negate(build(x, frame), frame)
-                if isinstance(y, Call) and y.fcn == frame["and"]:
+                y = build(x, frame)
+                if isinstance(y, Call) and y.fcn == frame["or"]:
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
@@ -395,30 +398,26 @@ def build(tree, frame):
         for op, right in zip(tree.ops, tree.comparators):
             right = build(right, frame)
             if isinstance(op, parsingtree.Eq):
-                if left == right:
-                    pass
-                elif isinstance(left, Literal) and isinstance(right, Literal):
-                    return Literal(True, tree)
-                elif isinstance(left, Literal):
+                if isinstance(left, Literal) and not isinstance(right, Literal):
                     if left.value is None:
                         arg = TypeConstraint(right, null)
                     elif left.value is True:
                         arg = right
                     elif left.value is False:
-                        arg = negate(right, frame)
+                        arg = Call(frame["not"], [right], right.original)
                     elif isinstance(left.value, int):
                         arg = TypeConstraint(right, Integer(left.value, left.value))
                     elif isinstance(left.value, float):
                         arg = TypeConstraint(right, Real(left.value, left.value))
                     else:
                         ProgrammingError("missing implementation")
-                elif isinstance(right, Literal):
+                elif not isinstance(left, Literal) and isinstance(right, Literal):
                     if right.value is None:
                         arg = TypeConstraint(left, null)
                     elif right.value is True:
                         arg = left
                     elif right.value is False:
-                        arg = negate(left, frame)
+                        arg = Call(frame["not"], [left], left.original)
                     elif isinstance(right.value, int):
                         arg = TypeConstraint(left, Integer(right.value, right.value))
                     elif isinstance(right.value, float):
@@ -490,7 +489,7 @@ def build(tree, frame):
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
-            return negate(build(tree.operand, frame), frame)
+            return Call(frame["not"], [tree.operand], tree)
         elif isinstance(tree.op, parsingtree.UAdd):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.USub):
