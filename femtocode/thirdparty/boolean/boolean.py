@@ -990,8 +990,8 @@ class DualBase(Function):
     "|" for OR and "&" for AND.
     """
 
-    def __init__(self, arg1, arg2, *args):
-        super(DualBase, self).__init__(arg1, arg2, *args)
+    def __init__(self, *args):
+        super(DualBase, self).__init__(*args)
 
         # identity element for the specific operation.
         # This will be TRUE for the AND operation and FALSE for the OR operation.
@@ -1311,8 +1311,8 @@ class AND(DualBase):
 
     sort_order = 10
 
-    def __init__(self, arg1, arg2, *args):
-        super(AND, self).__init__(arg1, arg2, *args)
+    def __init__(self, *args):
+        super(AND, self).__init__(*args)
         self.identity = self.TRUE
         self.annihilator = self.FALSE
         self.dual = self.OR
@@ -1335,8 +1335,8 @@ class OR(DualBase):
 
     sort_order = 25
 
-    def __init__(self, arg1, arg2, *args):
-        super(OR, self).__init__(arg1, arg2, *args)
+    def __init__(self, *args):
+        super(OR, self).__init__(*args)
         self.identity = self.FALSE
         self.annihilator = self.TRUE
         self.dual = self.AND

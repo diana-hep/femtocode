@@ -115,17 +115,21 @@ class TestSemantics(unittest.TestCase):
         #         return repr(x)
 
         def dump(x):
-            if isinstance(x, Call) and x.fcn.name in ["not", "and", "or"]:
+            if isinstance(x, Call):
                 return x.fcn.name + "(" + ", ".join(dump(y) for y in x.args) + ")"
+            elif isinstance(x, Literal):
+                return repr(x.value)
             else:
                 return repr(x)
 
-        print(dump(build(parse("x and (y or z)"), table)))
+        print(dump(build(parse("if x or (y and z): 1 else: 0"), table)))
 
-        print(dump(build(parse("x and (y and z)"), table)))
+        # print(dump(build(parse("if x and (y or z): 1 else: 0"), table)))
 
-        print(dump(build(parse("x or (y and z)"), table)))
+        # print(dump(build(parse("if x and (y and z): 1 else: 0"), table)))
 
-        print(dump(build(parse("x or (y or z)"), table)))
+        # print(dump(build(parse("if x or (y and z): 1 else: 0"), table)))
 
-        print(dump(build(parse("a or ((b or c) and (d or e))"), table)))
+        # print(dump(build(parse("if x or (y or z): 1 else: 0"), table)))
+
+        # print(dump(build(parse("if a or ((b or c) and (d or e)): 1 else: 0"), table)))
