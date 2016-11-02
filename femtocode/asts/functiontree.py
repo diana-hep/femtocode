@@ -24,7 +24,7 @@ from femtocode.typesystem import *
 # this kind of AST can include FunctionTree instances and Function instances
         
 class FunctionTree(object):
-    def schema(self, types):
+    def schema(self, frame):
         raise ProgrammingError("missing implementation")
 
 class Ref(FunctionTree):
@@ -52,11 +52,11 @@ class Ref(FunctionTree):
     def __hash__(self):
         return hash((Ref, self.name))
 
-    def schema(self, types):
-        if types.defined(self):
-            return types[self]
+    def schema(self, frame):
+        if frame.defined(self):
+            return frame[self]
         else:
-            return types[self.name]
+            return frame[self.name]
 
 class Literal(FunctionTree):
     order = 3
@@ -83,7 +83,7 @@ class Literal(FunctionTree):
     def __hash__(self):
         return hash((Literal, self.value))
 
-    def schema(self, types):
+    def schema(self, frame):
         if isinstance(self.value, (int, long)):
             return integer(min=self.value, max=self.value)
         elif isinstance(self.value, float):
@@ -130,12 +130,12 @@ class Call(FunctionTree):
     def __hash__(self):
         return hash((Call, self.fcn, self.args))
 
-    def schema(self, types):
-        if types.defined(self):
-            return types[self]
+    def schema(self, frame):
+        if frame.defined(self):
+            return frame[self]
         else:
             try:
-                return self.fcn.retschema(types, self.args)
+                return self.fcn.retschema(frame, self.args)
             except TypeError as err:
                 complain(str(err), self.original)
 
@@ -168,7 +168,7 @@ class TypeConstraint(FunctionTree):
     def __hash__(self):
         return hash((TypeConstraint, self.instance, self.schema))
 
-    def schema(self, types):
+    def schema(self, frame):
         return boolean
 
 # these only live long enough to yield their schema; you won't find them in the tree
@@ -196,35 +196,35 @@ class Placeholder(FunctionTree):
     def __hash__(self):
         return hash((Placeholder, self.tpe))
 
-    def schema(self, types):
+    def schema(self, frame):
         return self.tpe
 
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}
 
-def negate(tree, values):
-    if isinstance(tree, Call) and tree.fcn == values["not"]:
+def negate(tree, frame):
+    if isinstance(tree, Call) and tree.fcn == frame["not"]:
         return tree.args[0]
     else:
         # TODO: other cases; de Morgan's law, etc.
-        return Call(values["not"], [tree], tree.original)
+        return Call(frame["not"], [tree], tree.original)
 
-def resolve(tree, values):
+def resolve(tree, frame):
     if isinstance(tree, BuiltinFunction):
         return tree
 
     elif isinstance(tree, UserFunction):
         names = tree.names
-        defaults = [None if x is None else resolve(x, values) for x in tree.defaults]
-        subframe = values.fork()
+        defaults = [None if x is None else resolve(x, frame) for x in tree.defaults]
+        subframe = frame.fork()
         for n, d in zip(names, defaults):
             subframe[n] = d
         body = resolve(tree.body, subframe)
         return UserFunction(names, defaults, body)
 
     elif isinstance(tree, Ref):
-        if values.get(tree.name) is not None:
-            return values[tree.name]
+        if frame.get(tree.name) is not None:
+            return frame[tree.name]
         else:
             return tree
 
@@ -232,10 +232,10 @@ def resolve(tree, values):
         return tree
 
     elif isinstance(tree, Call):
-        return Call.build(resolve(tree.fcn, values), [resolve(x, values) for x in tree.args], tree.original)
+        return Call.build(resolve(tree.fcn, frame), [resolve(x, frame) for x in tree.args], tree.original)
 
     elif isinstance(tree, TypeConstraint):
-        return TypeConstraint(resolve(tree.instance, values), tree.schema, tree.original)
+        return TypeConstraint(resolve(tree.instance, frame), tree.schema, tree.original)
 
     elif isinstance(tree, Placeholder):
         return tree
@@ -323,29 +323,29 @@ def buildSchema(tree):
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
 
-def buildOrElevate(tree, values, arity):
+def buildOrElevate(tree, frame, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef):
-        return build(tree, values)
+        return build(tree, frame)
 
     elif isinstance(tree, parsingtree.Attribute):
-        fcn = values["." + tree.attr]
+        fcn = frame["." + tree.attr]
         params = list(xrange(arity))
         args = map(Ref, params)
-        return UserFunction(params, [None] * arity, Call.build(fcn, [build(tree.value, values)] + args, tree))
+        return UserFunction(params, [None] * arity, Call.build(fcn, [build(tree.value, frame)] + args, tree))
         
     else:
-        subframe = values.fork()
+        subframe = frame.fork()
         for i in xrange(1, arity + 1):
             subframe[i] = Ref(i, tree)
         return UserFunction(list(range(1, arity + 1)), [None] * arity, build(tree, subframe))
     
-def build(tree, values):
+def build(tree, frame):
     if isinstance(tree, parsingtree.Attribute):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.BinOp):
         if isinstance(tree.op, parsingtree.Add):
-            return Call.build(values["+"], [build(tree.left, values), build(tree.right, values)], tree)
+            return Call.build(frame["+"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Sub):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.Mult):
@@ -365,10 +365,10 @@ def build(tree, values):
 
     elif isinstance(tree, parsingtree.BoolOp):
         if isinstance(tree.op, parsingtree.And):
-            out = Call(values["and"], [], tree)
+            out = Call(frame["and"], [], tree)
             for x in tree.values:
-                y = build(x, values)
-                if isinstance(y, Call) and y.fcn == values["and"]:
+                y = build(x, frame)
+                if isinstance(y, Call) and y.fcn == frame["and"]:
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
@@ -376,10 +376,10 @@ def build(tree, values):
             return out
 
         elif isinstance(tree.op, parsingtree.Or):
-            out = Call(values["and"], [], tree)
+            out = Call(frame["and"], [], tree)
             for x in tree.values:
-                y = negate(build(x, values), values)
-                if isinstance(y, Call) and y.fcn == values["and"]:
+                y = negate(build(x, frame), frame)
+                if isinstance(y, Call) and y.fcn == frame["and"]:
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
@@ -390,10 +390,10 @@ def build(tree, values):
             raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Compare):
-        out = Call(values["and"], [], tree)
-        left = build(tree.left, values)
+        out = Call(frame["and"], [], tree)
+        left = build(tree.left, frame)
         for op, right in zip(tree.ops, tree.comparators):
-            right = build(right, values)
+            right = build(right, frame)
             if isinstance(op, parsingtree.Eq):
                 if left == right:
                     pass
@@ -405,7 +405,7 @@ def build(tree, values):
                     elif left.value is True:
                         arg = right
                     elif left.value is False:
-                        arg = negate(right, values)
+                        arg = negate(right, frame)
                     elif isinstance(left.value, int):
                         arg = TypeConstraint(right, Integer(left.value, left.value))
                     elif isinstance(left.value, float):
@@ -418,7 +418,7 @@ def build(tree, values):
                     elif right.value is True:
                         arg = left
                     elif right.value is False:
-                        arg = negate(left, values)
+                        arg = negate(left, frame)
                     elif isinstance(right.value, int):
                         arg = TypeConstraint(left, Integer(right.value, right.value))
                     elif isinstance(right.value, float):
@@ -426,7 +426,7 @@ def build(tree, values):
                     else:
                         ProgrammingError("missing implementation")
                 else:
-                    arg = Call.build(values["=="], [left, right], op)
+                    arg = Call.build(frame["=="], [left, right], op)
 
             elif isinstance(op, parsingtree.NotEq):
                 raise ProgrammingError("missing implementation")
@@ -469,7 +469,7 @@ def build(tree, values):
         elif tree.id == "False":
             return Literal(False, tree)
         else:
-            return values.get(tree.id, Ref(tree.id, tree))
+            return frame.get(tree.id, Ref(tree.id, tree))
 
     elif isinstance(tree, parsingtree.Num):
         return Literal(tree.n, tree)
@@ -490,7 +490,7 @@ def build(tree, values):
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
-            return negate(build(tree.operand, values), values)
+            return negate(build(tree.operand, frame), frame)
         elif isinstance(tree.op, parsingtree.UAdd):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.USub):
@@ -498,29 +498,29 @@ def build(tree, values):
         raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.Assignment):
-        result = build(tree.expression, values)
+        result = build(tree.expression, frame)
         if len(tree.lvalues) == 1:
-            values[tree.lvalues[0].id] = result
+            frame[tree.lvalues[0].id] = result
         else:
             raise ProgrammingError("missing implementation")
 
     elif isinstance(tree, parsingtree.AtArg):
-        out = values.get(1 if tree.num is None else tree.num)
+        out = frame.get(1 if tree.num is None else tree.num)
         if out is None:
             complain("function shortcuts ($n) can only be used in a builtin functional (.map, .filter); write your function longhand (x => f(x))", tree)
         return out
 
     elif isinstance(tree, parsingtree.FcnCall):
         if isinstance(tree.function, parsingtree.Attribute):
-            fcn = values["." + tree.function.attr]
+            fcn = frame["." + tree.function.attr]
             try:
                 args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
             except TypeError as err:
                 complain(str(err), tree)
-            return Call.build(fcn, [build(tree.function.value, values)] + [buildOrElevate(x, values, fcn.arity(i + 1)) for i, x in enumerate(args)], tree)
+            return Call.build(fcn, [build(tree.function.value, frame)] + [buildOrElevate(x, frame, fcn.arity(i + 1)) for i, x in enumerate(args)], tree)
 
         else:
-            fcn = build(tree.function, values)
+            fcn = build(tree.function, frame)
             if not isinstance(fcn, Function):
                 complain("not a known function (declare in order of dependency; recursion is not allowed)", fcn.original)
 
@@ -529,7 +529,7 @@ def build(tree, values):
             except TypeError as err:
                 complain(str(err), tree)
 
-            builtArgs = [x if isinstance(x, (FunctionTree, Function)) else buildOrElevate(x, values, fcn.arity(i)) for i, x in enumerate(args)]
+            builtArgs = [x if isinstance(x, (FunctionTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
                 return resolve(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
@@ -537,15 +537,15 @@ def build(tree, values):
                 return Call.build(fcn, builtArgs, tree)
 
     elif isinstance(tree, parsingtree.FcnDef):
-        return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, values) for x in tree.defaults], build(tree.body, values))
+        return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, frame) for x in tree.defaults], build(tree.body, frame))
 
     elif isinstance(tree, parsingtree.IfChain):
         args = []
         for p, c in zip(tree.predicates, tree.consequents):
-            args.append(build(p, values))
-            args.append(build(c, values.fork()))
-        args.append(tree.alternate, values.fork())
-        return Call.build(values["if"], args, tree)
+            args.append(build(p, frame))
+            args.append(build(c, frame.fork()))
+        args.append(tree.alternate, frame.fork())
+        return Call.build(frame["if"], args, tree)
 
     elif isinstance(tree, parsingtree.TypeCheck):
         schema = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))
@@ -554,8 +554,8 @@ def build(tree, values):
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
             for assignment in tree.assignments:
-                build(assignment, values)
-        return build(tree.expression, values)
+                build(assignment, frame)
+        return build(tree.expression, frame)
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))

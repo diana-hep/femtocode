@@ -36,70 +36,72 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        # p = build(parse("x"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"x": integer})))
+        p = build(parse("x"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        # p = build(parse("x + 3"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"x": integer})))
+        p = build(parse("x + 3"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        # p = build(parse("y = x + 3; y + 1"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"x": integer})))
+        p = build(parse("y = x + 3; y + 1"), table)
+        print(p)
+        print(p.schema(SymbolTable({"x": integer})))
 
-        # p = build(parse("{x => x + 3}"), table)
-        # print(p)
+        p = build(parse("{x => x + 3}"), table)
+        print(p)
 
-        # p = build(parse("def f(x): x + 3.14;\nf"), table)
-        # print(p)
+        p = build(parse("def f(x): x + 3.14;\nf"), table)
+        print(p)
 
-        # p = build(parse("def f(q): q + 3;  f(x)"), table)
-        # print(p)
+        p = build(parse("def f(q): q + 3;  f(x)"), table)
+        print(p)
 
-        # p = build(parse("xs.map({x => 3.14 + x})"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map({x => 3.14 + x})"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        # p = build(parse("xs.map(x => 3.14 + x)"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(x => 3.14 + x)"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        # p = build(parse("xs.map(3.14 + $1)"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(3.14 + $1)"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        # p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        # try:
-        #     build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table)
-        # except SyntaxError as err:
-        #     print(err)
+        try:
+            build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table)
+        except SyntaxError as err:
+            print(err)
 
-        # try:
-        #     build(parse("xs.map()"), table)
-        # except SyntaxError as err:
-        #     print(err)
+        try:
+            build(parse("xs.map()"), table)
+        except SyntaxError as err:
+            print(err)
         
-        # try:
-        #     build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table)
-        # except SyntaxError as err:
-        #     print(err)
+        try:
+            build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table)
+        except SyntaxError as err:
+            print(err)
 
-        # p = build(parse("xs.map(3.14)"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(3.14)"), table)
+        print(p)
+        print(p.schema(SymbolTable({"xs": collection(integer)})))
 
-        # p = build(parse("y = x + 3; y"), table)
-        # print(p)
-        # print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
+        p = build(parse("y = x + 3; y"), table)
+        print(p)
+        print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
-        # print(build(parse("def f(x): {y => x + y}; f"), table))
+        print(build(parse("def f(x): {y => x + y}; f"), table))
 
-        # print(build(parse("def f(x): {y => x + y}; f(3)"), table))
+        print(build(parse("def f(x): {y => x + y}; f(3)"), table))
 
-        # print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
+        print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
+
+        print(build(parse("y == 2"), table))
 
         print(build(parse("def f(x): x + 0.1; y == f(2)"), table))
