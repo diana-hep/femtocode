@@ -94,6 +94,13 @@ class Literal(FunctionTree):
 class Call(FunctionTree):
     order = 4
 
+    @staticmethod
+    def build(fcn, args, original=None):
+        if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
+            return Literal(fcn.literaleval([x.value for x in args]), original)
+        else:
+            return Call(fcn, args, original)
+
     def __init__(self, fcn, args, original=None):
         self.fcn = fcn
         if self.fcn.commutative():
@@ -225,7 +232,7 @@ def resolve(tree, values):
         return tree
 
     elif isinstance(tree, Call):
-        return Call(resolve(tree.fcn, values), [resolve(x, values) for x in tree.args], tree.original)
+        return Call.build(resolve(tree.fcn, values), [resolve(x, values) for x in tree.args], tree.original)
 
     elif isinstance(tree, TypeConstraint):
         return TypeConstraint(resolve(tree.instance, values), tree.schema, tree.original)
@@ -324,7 +331,7 @@ def buildOrElevate(tree, values, arity):
         fcn = values["." + tree.attr]
         params = list(xrange(arity))
         args = map(Ref, params)
-        return UserFunction(params, [None] * arity, Call(fcn, [build(tree.value, values)] + args, tree))
+        return UserFunction(params, [None] * arity, Call.build(fcn, [build(tree.value, values)] + args, tree))
         
     else:
         subframe = values.fork()
@@ -338,7 +345,7 @@ def build(tree, values):
 
     elif isinstance(tree, parsingtree.BinOp):
         if isinstance(tree.op, parsingtree.Add):
-            return Call(values["+"], [build(tree.left, values), build(tree.right, values)], tree)
+            return Call.build(values["+"], [build(tree.left, values), build(tree.right, values)], tree)
         elif isinstance(tree.op, parsingtree.Sub):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.Mult):
@@ -365,6 +372,7 @@ def build(tree, values):
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
+            out.args = tuple(sorted(out.args))
             return out
 
         elif isinstance(tree.op, parsingtree.Or):
@@ -375,6 +383,7 @@ def build(tree, values):
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
+            out.args = tuple(sorted(out.args))
             return out
 
         else:
@@ -389,7 +398,7 @@ def build(tree, values):
                 if left == right:
                     pass
                 elif isinstance(left, Literal) and isinstance(right, Literal):
-                    return Call(values["and"], [], tree)
+                    return Literal(True, tree)
                 elif isinstance(left, Literal):
                     if left.value is None:
                         arg = TypeConstraint(right, null)
@@ -417,7 +426,7 @@ def build(tree, values):
                     else:
                         ProgrammingError("missing implementation")
                 else:
-                    arg = Call(values["=="], [left, right], op)
+                    arg = Call.build(values["=="], [left, right], op)
 
             elif isinstance(op, parsingtree.NotEq):
                 raise ProgrammingError("missing implementation")
@@ -446,6 +455,7 @@ def build(tree, values):
             left = right
             out.args = out.args + (arg,)
 
+        out.args = tuple(sorted(out.args))
         return out
             
     elif isinstance(tree, parsingtree.List):
@@ -507,7 +517,7 @@ def build(tree, values):
                 args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
             except TypeError as err:
                 complain(str(err), tree)
-            return Call(fcn, [build(tree.function.value, values)] + [buildOrElevate(x, values, fcn.arity(i + 1)) for i, x in enumerate(args)], tree)
+            return Call.build(fcn, [build(tree.function.value, values)] + [buildOrElevate(x, values, fcn.arity(i + 1)) for i, x in enumerate(args)], tree)
 
         else:
             fcn = build(tree.function, values)
@@ -519,10 +529,12 @@ def build(tree, values):
             except TypeError as err:
                 complain(str(err), tree)
 
+            builtArgs = [x if isinstance(x, (FunctionTree, Function)) else buildOrElevate(x, values, fcn.arity(i)) for i, x in enumerate(args)]
+
             if isinstance(fcn, UserFunction):
-                return resolve(fcn.body, SymbolTable(dict(zip(fcn.names, [build(x, values) for x in args]))))
+                return resolve(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
             else:
-                return Call(fcn, [buildOrElevate(x, values, fcn.arity(i)) for i, x in enumerate(args)], tree)
+                return Call.build(fcn, builtArgs, tree)
 
     elif isinstance(tree, parsingtree.FcnDef):
         return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, values) for x in tree.defaults], build(tree.body, values))
@@ -533,7 +545,7 @@ def build(tree, values):
             args.append(build(p, values))
             args.append(build(c, values.fork()))
         args.append(tree.alternate, values.fork())
-        return Call(values["if"], args, tree)
+        return Call.build(values["if"], args, tree)
 
     elif isinstance(tree, parsingtree.TypeCheck):
         schema = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))

@@ -39,15 +39,18 @@ class Function(object):
         return positional
 
     @staticmethod
-    def sortargsWithNames(positional, named, names):
+    def sortargsWithNames(positional, named, names, defaults):
         positional = list(reversed(positional))
         named = dict(named.items())
         out = []
-        for name in names:
+
+        for name, default in zip(names, defaults):
             if name in named:
                 out.append(named.pop(name))
             elif len(positional) > 0:
                 out.append(positional.pop())
+            elif default is not None:
+                out.append(default)
             else:
                 raise TypeError("too few arguments: missing \"{0}\"".format(name))
         if len(named) > 0:
@@ -116,7 +119,7 @@ class UserFunction(Function):
         return self.body.schema(subframe)
 
     def sortargs(self, positional, named):
-        return Function.sortargsWithNames(positional, named, self.names)
+        return Function.sortargsWithNames(positional, named, self.names, self.defaults)
         
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):

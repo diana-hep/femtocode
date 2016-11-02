@@ -96,9 +96,10 @@ class TestSemantics(unittest.TestCase):
         # print(p)
         # print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
-        print(build(parse("def f(x): {y => x + y}; f(3)"), table))
+        # print(build(parse("def f(x): {y => x + y}; f"), table))
 
+        # print(build(parse("def f(x): {y => x + y}; f(3)"), table))
 
+        # print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
 
-        # p = build(parse("f(2) == y"), table)
-        # print(p)
+        print(build(parse("def f(x): x + 0.1; y == f(2)"), table))
