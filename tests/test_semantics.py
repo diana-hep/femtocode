@@ -96,7 +96,9 @@ class TestSemantics(unittest.TestCase):
         # print(p)
         # print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
-        p = build(parse("type(x) == real"), table)
-        print(p)
+        print(build(parse("def f(x): {y => x + y}; f(3)"), table))
 
-        print(eval(compile(ast.Expression(buildSchema(parse("integer(min=2, max=2)"))), "<schema expression>", "eval")))
+
+
+        # p = build(parse("f(2) == y"), table)
+        # print(p)

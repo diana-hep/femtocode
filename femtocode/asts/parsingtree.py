@@ -102,3 +102,11 @@ class IfChain(expr):
         self.consequents = consequents
         self.alternate = alternate
         self.__dict__.update(kwds)
+
+class TypeCheck(expr):
+    _fields = ("expr", "schema", "negate")
+    def __init__(self, expr, schema, negate, **kwds):
+        self.expr = expr
+        self.schema = schema
+        self.negate = negate
+        self.__dict__.update(kwds)

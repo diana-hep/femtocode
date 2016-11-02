@@ -553,7 +553,7 @@ class TestSyntax(unittest.TestCase):
         self.check('''x ** y // z ** w''')
         self.check('''x.y**2''')
 
-    def test_zzzNewForms(self):
+    def test_NewForms(self):
         self.check('{x => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param())], defaults=[None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
         self.check('{x, y => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param())], defaults=[None, None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
         self.check('{x, y, z => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param()), Name(id='z', ctx=Param())], defaults=[None, None, None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
@@ -715,3 +715,6 @@ class TestSyntax(unittest.TestCase):
         self.check("{=> ;;3.14;;}", Suite(assignments=[], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14)))))
         self.check("def pi(): 3.14; pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))
         self.check("def pi() {3.14} pi()", Suite(assignments=[Assignment(lvalues=[Name(id='pi', ctx=Store())], expression=FcnDef(parameters=[], defaults=[], body=Suite(assignments=[], expression=Num(n=3.14))))], expression=FcnCall(function=Name(id='pi', ctx=Load()), positional=[], names=[], named=[])))
+
+        self.check("x is integer", Suite(assignments=[], expression=TypeCheck(expr=Name(id='x', ctx=Load()), schema=Name(id='integer', ctx=Load()), negate=False)))
+        self.check("x is not real", Suite(assignments=[], expression=TypeCheck(expr=Name(id='x', ctx=Load()), schema=Name(id='real', ctx=Load()), negate=True)))

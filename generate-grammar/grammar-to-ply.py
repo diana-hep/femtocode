@@ -61,6 +61,7 @@ literal_to_name = {
     "or": "OR",
     "not": "NOT",
     "in": "IN",
+    "is": "IS",
     "if": "IF",
     "elif": "ELIF",
     "else": "ELSE",

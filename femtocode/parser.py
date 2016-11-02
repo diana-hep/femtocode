@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-11-02T07:36:17 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-11-02T09:47:04 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -32,6 +32,7 @@ def complain(message, source, pos, lineno, col_offset, sourceName, length):
 reserved = {
   'and': 'AND',
   'elif': 'ELIF',
+  'is': 'IS',
   'else': 'ELSE',
   'in': 'IN',
   'not': 'NOT',
@@ -40,7 +41,7 @@ reserved = {
   'def': 'DEF',
   }
 
-tokens = ['AND', 'ELIF', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
+tokens = ['AND', 'ELIF', 'IS', 'ELSE', 'IN', 'NOT', 'IF', 'OR', 'DEF']
 
 def t_MULTILINESTRING(t):
     r'(\'\'\'[^\\]*(\\.[^\\]*)*\'\'\'|"""[^\\]*(\\.[^\\]*)*""")'
@@ -733,26 +734,26 @@ def p_not_test_2(p):
     #                      1
     p[0] = p[1]
 
-# comparison: arith_expr (comp_op arith_expr)*
+# comparison: typecheck (comp_op typecheck)*
 def p_comparison_1(p):
-    '''comparison : arith_expr'''
-    #                        1
+    '''comparison : typecheck'''
+    #                       1
     p[0] = p[1]
 def p_comparison_2(p):
-    '''comparison : arith_expr comparison_star'''
-    #                        1               2
+    '''comparison : typecheck comparison_star'''
+    #                       1               2
     ops, exprs = p[2]
     p[0] = Compare(p[1], ops, exprs)
     inherit_lineno(p[0], p[1])
 
 def p_comparison_star_1(p):
-    '''comparison_star : comp_op arith_expr'''
-    #                          1          2
+    '''comparison_star : comp_op typecheck'''
+    #                          1         2
     inherit_lineno(p[1], p[2])
     p[0] = ([p[1]], [p[2]])
 def p_comparison_star_2(p):
-    '''comparison_star : comparison_star comp_op arith_expr'''
-    #                                  1       2          3
+    '''comparison_star : comparison_star comp_op typecheck'''
+    #                                  1       2         3
     ops, exprs = p[1]
     inherit_lineno(p[2], p[3])
     p[0] = (ops + [p[2]], exprs + [p[3]])
@@ -790,6 +791,22 @@ def p_comp_op_8(p):
     '''comp_op : NOT IN'''
     #              1  2
     p[0] = NotIn()
+
+# typecheck: arith_expr ['is' arith_expr | 'is' 'not' arith_expr]
+def p_typecheck_1(p):
+    '''typecheck : arith_expr'''
+    #                       1
+    p[0] = p[1]
+def p_typecheck_2(p):
+    '''typecheck : arith_expr IS arith_expr'''
+    #                       1  2          3
+    p[0] = TypeCheck(p[1], p[3], False)
+    inherit_lineno(p[0], p[1])
+def p_typecheck_3(p):
+    '''typecheck : arith_expr IS NOT arith_expr'''
+    #                       1  2   3          4
+    p[0] = TypeCheck(p[1], p[4], True)
+    inherit_lineno(p[0], p[1])
 
 # arith_expr: term (('+' | '-') term)*
 def p_arith_expr_1(p):

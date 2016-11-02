@@ -117,7 +117,7 @@ class UserFunction(Function):
 
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names)
-
+        
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):
         if isinstance(parent, dict):
@@ -125,6 +125,12 @@ class SymbolTable(object):
 
         self.parent = parent
         self.values = dict(values.items())
+
+    def __repr__(self):
+        if self.parent is None:
+            return "SymbolTable({0})".format(self.values)
+        else:
+            return "SymbolTable({0}, {1})".format(self.values, repr(self.parent))
 
     def fork(self, values={}):
         return SymbolTable(values, self)

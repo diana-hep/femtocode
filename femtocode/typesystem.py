@@ -19,7 +19,7 @@ from femtocode.py23 import *
 
 inf = float("inf")
 
-concrete = ("inf", "na", "boolean", "integer", "real", "string", "binary")
+concrete = ("inf", "null", "boolean", "integer", "real", "string", "binary")
 parameterized = ("almost", "integer", "real", "binary", "record", "collection", "tensor", "union", "intersection", "complement")
 
 class almost(float):
@@ -167,13 +167,13 @@ class Impossible(Schema):
 
 impossible = Impossible()
 
-class NA(Schema):
+class Null(Schema):
     order = 1
 
     def __repr__(self):
-        return "na"
+        return "null"
         
-na = NA()
+null = Null()
 
 class Boolean(Schema):
     order = 2
@@ -632,7 +632,7 @@ class Union(Schema):
 
 def union(*types):
     if len(types) == 0:
-        return na
+        return null
     elif len(types) == 1:
         return types[0]
     else:
