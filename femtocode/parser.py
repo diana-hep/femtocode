@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# generated at 2016-10-14T17:26:42 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
+# generated at 2016-11-02T07:36:17 by "python generate-grammar/femtocode.g generate-grammar/actions.py femtocode/parser.py"
 
 import re
 import sys
@@ -27,7 +27,7 @@ def complain(message, source, pos, lineno, col_offset, sourceName, length):
         where = ""
     else:
         where = "in \"" + sourceName + "\""
-    raise SyntaxError("%s\n    at line:col %d:%d (character %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+    raise SyntaxError("%s\n    at line:col %d:%d (pos %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
 
 reserved = {
   'and': 'AND',

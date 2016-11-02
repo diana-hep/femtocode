@@ -346,7 +346,7 @@ W('''def complain(message, source, pos, lineno, col_offset, sourceName, length):
         where = ""
     else:
         where = "in \\"" + sourceName + "\\""
-    raise SyntaxError("%s\\n    at line:col %d:%d (character %d)%s\\n\\n%s\\n----%s\\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+    raise SyntaxError("%s\\n    at line:col %d:%d (pos %d)%s\\n\\n%s\\n----%s\\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
 ''')
 
 W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
