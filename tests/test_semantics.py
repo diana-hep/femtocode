@@ -94,7 +94,7 @@ class TestSemantics(unittest.TestCase):
 
         p = build(parse("y = x + 3; y"), table)
         print(p)
-        print(p.schema(SymbolTable({"x": integer}, {Call(table["+"], [Literal(3), Ref("x")]): real})))
+        print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
         # p = build(parse("type(x) == real"), table)
         # print(p)

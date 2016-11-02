@@ -30,7 +30,7 @@ class Function(object):
     def arity(self, index):
         return None
 
-    def retschema(self, symbolFrame, args):
+    def retschema(self, types, args):
         raise ProgrammingError("missing implementation")
 
     def sortargs(self, positional, named):
@@ -109,32 +109,28 @@ class UserFunction(Function):
     def arity(self, index):
         return None
 
-    def retschema(self, symbolFrame, args):
-        subframe = symbolFrame.fork()
+    def retschema(self, types, args):
+        subframe = types.fork()
         for name, arg in zip(self.names, args):
-            subframe[name] = arg.schema(symbolFrame)
+            subframe[name] = arg.schema(types)
         return self.body.schema(subframe)
 
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names)
 
 class SymbolTable(object):
-    def __init__(self, values={}, types={}, parent=None):
+    def __init__(self, values={}, parent=None):
         if isinstance(parent, dict):
             raise Exception
 
         self.parent = parent
         self.values = dict(values.items())
-        self.types = dict(types.items())
 
-    def fork(self, values={}, types={}):
-        return SymbolTable(values, types, self)
+    def fork(self, values={}):
+        return SymbolTable(values, self)
 
     def definedHere(self, x):
-        if isinstance(x, basestring):
-            return x in self.values
-        else:
-            return x in self.types
+        return x in self.values
 
     def defined(self, x):
         if self.definedHere(x):
@@ -145,10 +141,7 @@ class SymbolTable(object):
             return False
 
     def getHere(self, x, default=None):
-        if isinstance(x, basestring):
-            trial = self.values.get(x)
-        else:
-            trial = self.types.get(x)
+        trial = self.values.get(x)
         if trial is not None:
             return trial
         else:
@@ -164,10 +157,7 @@ class SymbolTable(object):
             return default
 
     def __setitem__(self, x, y):
-        if isinstance(x, basestring):
-            self.values[x] = y
-        else:
-            self.types[x] = y
+        self.values[x] = y
 
     def __getitem__(self, x):
         out = self.get(x)
