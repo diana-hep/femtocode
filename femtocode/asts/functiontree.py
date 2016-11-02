@@ -219,7 +219,7 @@ def buildSchema(tree):
         if isinstance(tree.function, parsingtree.Name):
             if tree.function.id in parameterized:
                 positional = [buildSchema(x) for x in tree.positional]
-                keywords = [ast.keyword(k, buildSchema(v), **pos(v)) for k, v in zip(tree.names, tree.named)]
+                keywords = [ast.keyword(k.id, buildSchema(v), **pos(v)) for k, v in zip(tree.names, tree.named)]
                 return ast.Call(tree.function, positional, keywords, None, None, **pos(tree))
             elif tree.function.id in concrete:
                 complain("type {0} in schema expression must not be a function".format(tree.function.id), tree)
@@ -243,18 +243,18 @@ def buildSchema(tree):
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
 
-def buildOrElevate(tree, symbolFrame, arity):
+def buildOrElevate(tree, values, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef):
-        return build(tree, symbolFrame)
+        return build(tree, values)
 
     elif isinstance(tree, parsingtree.Attribute):
-        fcn = symbolFrame["." + tree.attr]
+        fcn = values["." + tree.attr]
         params = list(xrange(arity))
         args = map(Ref, params)
-        return UserFunction(params, [None] * arity, Call(fcn, [build(tree.value, symbolFrame)] + args, tree))
+        return UserFunction(params, [None] * arity, Call(fcn, [build(tree.value, values)] + args, tree))
         
     else:
-        subframe = symbolFrame.fork()
+        subframe = values.fork()
         for i in xrange(1, arity + 1):
             subframe[i] = Ref(i, tree)
         return UserFunction(list(range(1, arity + 1)), [None] * arity, build(tree, subframe))
