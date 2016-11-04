@@ -30,7 +30,7 @@ class Function(object):
     def arity(self, index):
         return None
 
-    def typeConstraints(self, frame, args, negation=False):
+    def typeConstraints(self, frame, args):
         return {}
 
     def retschema(self, types, args):

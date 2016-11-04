@@ -123,8 +123,7 @@ class TestSemantics(unittest.TestCase):
         #     else:
         #         return repr(x)
 
-        # p = build(parse("x is integer or x == 5"), table)
-        # print(p)
-        # print(p.fcn.typeConstraints(SymbolTable({"x": Union(boolean, integer, string)}), p.args))
+        p = build(parse("x is integer and y == x"), table)
+        print(p)
+        print(p.fcn.typeConstraints(SymbolTable({"x": Union(boolean, integer, string), "y": Union(boolean, integer, string)}), p.args))
 
-        print(conjunctiveNormalForm(build(parse("x == 1 or x == 2"), table)))
