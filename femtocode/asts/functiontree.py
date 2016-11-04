@@ -454,8 +454,13 @@ def build(tree, frame):
             left = right
             out.args = out.args + (arg,)
 
-        out.args = tuple(sorted(out.args))
-        return out
+        if len(out.args) == 0:
+            return Literal(True, tree)
+        elif len(out.args) == 1:
+            return out.args[0]
+        else:
+            out.args = tuple(sorted(out.args))
+            return out
             
     elif isinstance(tree, parsingtree.List):
         raise ProgrammingError("missing implementation")
