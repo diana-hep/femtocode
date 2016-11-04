@@ -24,6 +24,7 @@ from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.typesystem import *
+from femtocode.inference import *
 
 import sys
 
@@ -114,22 +115,15 @@ class TestSemantics(unittest.TestCase):
         #     else:
         #         return repr(x)
 
-        def dump(x):
-            if isinstance(x, Call):
-                return x.fcn.name + "(" + ", ".join(dump(y) for y in x.args) + ")"
-            elif isinstance(x, Literal):
-                return repr(x.value)
-            else:
-                return repr(x)
+        # def dump(x):
+        #     if isinstance(x, Call):
+        #         return x.fcn.name + "(" + ", ".join(dump(y) for y in x.args) + ")"
+        #     elif isinstance(x, Literal):
+        #         return repr(x.value)
+        #     else:
+        #         return repr(x)
 
-        print(dump(build(parse("if x or (y and z): 1 else: 0"), table)))
+        p = build(parse("x is integer or x == 5"), table)
+        print(p)
+        print(p.fcn.typeConstraints(SymbolTable({"x": Union(boolean, integer, string)}), p.args))
 
-        # print(dump(build(parse("if x and (y or z): 1 else: 0"), table)))
-
-        # print(dump(build(parse("if x and (y and z): 1 else: 0"), table)))
-
-        # print(dump(build(parse("if x or (y and z): 1 else: 0"), table)))
-
-        # print(dump(build(parse("if x or (y or z): 1 else: 0"), table)))
-
-        # print(dump(build(parse("if a or ((b or c) and (d or e)): 1 else: 0"), table)))

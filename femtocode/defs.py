@@ -30,6 +30,9 @@ class Function(object):
     def arity(self, index):
         return None
 
+    def typeConstraints(self, frame, args, negation=False):
+        return {}
+
     def retschema(self, types, args):
         raise ProgrammingError("missing implementation")
 
@@ -140,6 +143,12 @@ class SymbolTable(object):
 
     def definedHere(self, x):
         return x in self.values
+
+    def lenHere(self):
+        return len(self.values)
+
+    def itemsHere(self):
+        return self.values.items()
 
     def defined(self, x):
         if self.definedHere(x):

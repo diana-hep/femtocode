@@ -142,18 +142,18 @@ class Call(FunctionTree):
 class TypeConstraint(FunctionTree):
     order = 5
 
-    def __init__(self, instance, schema, original=None):
+    def __init__(self, instance, oftype, original=None):
         self.instance = instance
-        self.schema = schema
+        self.oftype = oftype
         self.original = original
 
     def __repr__(self):
-        return "TypeConstraint({0}, {1})".format(self.instance, self.schema)
+        return "TypeConstraint({0}, {1})".format(self.instance, self.oftype)
 
     def __lt__(self, other):
         if isinstance(other, TypeConstraint):
             if self.instance == other.instance:
-                return self.schema < other.schema
+                return self.oftype < other.oftype
             else:
                 return self.instance < other.instance
         else:
@@ -163,10 +163,10 @@ class TypeConstraint(FunctionTree):
         if not isinstance(other, TypeConstraint):
             return False
         else:
-            return self.instance == other.instance and self.schema == other.schema
+            return self.instance == other.instance and self.oftype == other.oftype
 
     def __hash__(self):
-        return hash((TypeConstraint, self.instance, self.schema))
+        return hash((TypeConstraint, self.instance, self.oftype))
 
     def schema(self, frame):
         return boolean
@@ -541,21 +541,15 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.IfChain):
         args = []
         for pred, cons in zip(tree.predicates, tree.consequents):
-            pred = build(pred, frame)
-            cons = build(cons, frame)
-
-            pred = disjunctiveNormalForm(pred, frame)
-
-            args.append(pred)
-            args.append(cons)
-
+            args.append(build(pred, frame))
+            args.append(build(cons, frame))
         args.append(build(tree.alternate, frame))
 
         return Call.build(frame["if"], args, tree)
 
     elif isinstance(tree, parsingtree.TypeCheck):
         schema = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))
-        return TypeConstraint(tree.expr, schema, tree)
+        return TypeConstraint(build(tree.expr, frame), schema, tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
@@ -565,56 +559,3 @@ def build(tree, frame):
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
-
-def disjunctiveNormalForm(tree, frame):
-    from femtocode.thirdparty.boolean.boolean import BooleanAlgebra
-    from femtocode.thirdparty.boolean.boolean import Symbol
-    from femtocode.thirdparty.boolean.boolean import AND
-    from femtocode.thirdparty.boolean.boolean import OR
-    from femtocode.thirdparty.boolean.boolean import NOT
-    alg = BooleanAlgebra()
-
-    def wrap(x):
-        if isinstance(x, Call):
-            if x.fcn == frame["and"]:
-                out = alg.AND(*[wrap(y) for y in x.args])
-            elif x.fcn == frame["or"]:
-                out = alg.OR(*[wrap(y) for y in x.args])
-            elif x.fcn == frame["not"] and len(x.args) == 1:
-                out = alg.NOT(wrap(x.args[0]))
-            else:
-                out = Symbol(x)
-            out.original = x.original
-            return out
-
-        elif isinstance(x, Literal):
-            if x.value is True:
-                return alg.TRUE
-            elif x.value is False:
-                return alg.FALSE
-            else:
-                out = Symbol(x)
-                out.original = x.original
-                return out
-        else:
-            out = Symbol(x)
-            out.original = x.original
-            return out
-
-    def unwrap(x):
-        if x == alg.TRUE:
-            return Literal(True, tree)
-        elif x == alg.FALSE:
-            return Literal(False, tree)
-        elif isinstance(x, AND):
-            return Call(frame["and"], [unwrap(y) for y in x.args], tree)
-        elif isinstance(x, OR):
-            return Call(frame["or"], [unwrap(y) for y in x.args], tree)
-        elif isinstance(x, NOT):
-            return Call(frame["not"], [unwrap(y) for y in x.args], tree)
-        elif isinstance(x, Symbol):
-            return x.obj
-        else:
-            raise ProgrammingError("unrecognized element from boolean package: " + repr(x))
-
-    return unwrap(alg.cnf(wrap(tree)))
