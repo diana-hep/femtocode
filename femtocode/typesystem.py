@@ -592,8 +592,21 @@ class Union(Schema):
             if not isinstance(p, (Schema,) + string_types):
                 raise FemtocodeError("all possibilities ({0}) must be Schemas or alias strings".format(p))
 
-        self.possibilities = tuple(sorted(possibilities))
+        # flatten Union of Unions
+        ps = []
+        aliases = set()
+        def merge(p):
+            if isinstance(p, Union):
+                for pi in p:
+                    merge(pi)
+                aliases.update(p.aliases)
+            else:
+                ps.append(p)
+        merge(possibilities)
+
+        self.possibilities = tuple(sorted(ps))
         super(Union, self).__init__(alias)
+        self.aliases.update(aliases)
 
     def __repr__(self):
         return "union({0})".format(", ".join(map(repr, possibilities)))
@@ -638,19 +651,19 @@ class Union(Schema):
     def __call__(self, *possibilities):
         return self.__class__(possibilities)
     
-def union(*possibilities):
-    if len(possibilities) == 0:
+def union(*types):
+    if len(types) == 0:
         raise TypeError("union() takes at least 1 argument (0 given)")
 
-    elif len(possibilities) == 1:
-        return possibilities[0]
+    elif len(types) == 1:
+        return types[0]
 
-    elif len(possibilities) > 2:
+    elif len(types) > 2:
         # combine them in the order given by the user for more comprehensible error messages
-        return union(union(possibilities[0], possibilities[1]), possibilities[2:])
+        return union(union(types[0], types[1]), types[2:])
 
     else:
-        one, two = possibilities
+        one, two = types
 
         if isinstance(one, Union) and isinstance(two, Union):
             out = union(*(one.possibilities + two.possibilities))
@@ -666,35 +679,35 @@ def union(*possibilities):
             out = Union(one, two)
             
         elif isinstance(one, Impossible) and isinstance(two, Impossible):
-            out = impossible
+            out = impossible()
         
         elif isinstance(one, Null) and isinstance(two, Null):
-            out = null
+            out = null()
 
         elif isinstance(one, Boolean) and isinstance(two, Boolean):
-            out = boolean
+            out = boolean()
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if one in two:
                 # two is the superset, it contains one
-                out = two
+                out = two()
 
             elif two in one:
                 # one is the superset, it contains two
-                out = one
+                out = one()
 
             elif one.whole and two.whole:
                 # both integer: they can be glued if there's 1 unit gap or less
                 low, high = sorted([one, two])
                 if low.max >= high.min - 1:
-                    out = Number(min(low.min, high.min), max(low.max, high.max), True)
+                    out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), True)
                 else:
                     out = Union(one, two)
 
             elif one.whole or two.whole:
                 # one integer, other not and neither is contained: they can be glued if they extend the interval from open to closed
                 if one.min.real == two.min.real or one.max.real == two.max.real:
-                    out = Number(min(one.min, two.min), max(one.max, two.max), False)
+                    out = Number(almost.min(one.min, two.min), almost.max(one.max, two.max), False)
                 else:
                     out = Union(one, two)
 
@@ -706,15 +719,31 @@ def union(*possibilities):
                         # they just touch and they're both open intervals; can't glue
                         out = Union(one, two)
                     else:
-                        out = Number(min(low.min, high.min), max(low.max, high.max), False)
+                        out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 elif low.max >= high.min:
-                    out = Number(min(low.min, high.min), max(low.max, high.max), False)
+                    out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 else:
                     out = Union(one, two)
 
         elif isinstance(one, String) and isinstance(two, String):
-            pass  # HERE
+            if one.charset == two.charset:
+                # string size tracking isn't as fine-grained as integer tracking
+                out = String(min(one.fewest, two.fewest), max(one.most, two.most), one.charset)
+            else:
+                out = Union(one, two)
 
+        elif isinstance(one, Collection) and isinstance(two, Collection):
+            # collection size tracking isn't as fine-grained as integer tracking
+            out = Collection(union(one.items, two.items),
+                             min(one.fewest, two.fewest),
+                             max(one.most, two.most),
+                             one.ordered and two.ordered)
+
+        elif isinstance(one, Record) and isinstance(two, Record):
+            if one == two:
+                out = one()
+            else:
+                out = Union(one, two)
 
         else:
             raise ProgrammingError("unhandled case")
@@ -723,4 +752,70 @@ def union(*possibilities):
         out.aliases.update(one.aliases)
         out.aliases.update(two.aliases)
         return out
+        
+def intersection(*types):
+    if len(types) == 0:
+        raise TypeError("intersection() takes at least 1 argument (0 given)")
+
+    elif len(types) == 1:
+        return types[0]
+
+    elif len(types) > 2:
+        # combine them in the order given by the user for more comprehensible error messages
+        return intersection(intersection(types[0], types[1]), types[2:])
+
+    else:
+        one, two = types
+            
+        if isinstance(one, Union) and not isinstance(two, Union):
+            out = union(*(intersection(p, two) for p in one.possibilities))
+
+        elif isinstance(two, Union):
+            # includes the case when one and two are both Unions
+            out = union(*(intersection(one, p) for p in two.possibilities))
+
+        elif one.order != two.order:
+            # there is no overlap among different kinds
+            out = impossible
+
+        elif isinstance(one, Impossible) and isinstance(two, Impossible):
+            out = impossible()
+
+        elif isinstance(one, Null) and isinstance(two, Null):
+            out = null()
+
+        elif isinstance(one, Boolean) and isinstance(two, Boolean):
+            out = boolean()
+
+        elif isinstance(one, Number) and isinstance(two, Number):
+            if one in two:
+                # one is the subset, contained within two
+                out = one()
+
+            elif two in one:
+                # two is the subset, contained within one
+                out = two()
+
+            else:
+                low, high = sorted([one, two])
+
+                if low.max.real == high.min.real:
+                    if not isinstance(low.max, almost) and not isinstance(high.min, almost):
+                        out = Number(low.max.real, low.max.real, round(low.max.real) == low.max.real)
+                    else:
+                        out = impossible()
+
+                elif low.max < high.min:
+                    out = impossible()
+
+                else:
+                    out = Number(max(low.min, high.min), min(low.max, high.max), low.whole or high.whole)
+
+        elif isinstance(one, String) and isinstance(two, String):
+            if one.charset == two.charset:
+                # string size tracking isn't as fine-grained as integer tracking
+                out = String(max(one.fewest, two.fewest), min(one.most, two.most), one.charset)
+            else:
+                out = impossible()
+
         
