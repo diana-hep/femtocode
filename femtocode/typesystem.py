@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import sys
+import json
+import math
 
 from femtocode.defs import FemtocodeError
 from femtocode.py23 import *
@@ -121,99 +123,164 @@ class almost(float):
 # expressions must evaluate to concrete types, subclasses of Schema
 
 class Schema(object):
+    def __init__(self, alias=None):
+        if alias is not None and not isinstance(alias, basestring):
+            raise FemtocodeError("alias {0} must be None or a string".format(alias))
+        self.alias = alias
+
+    def __contains__(self, other):
+        raise NotImplementedError
+
     def __lt__(self, other):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         return self.order < other.order
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__)
+        if not isinstance(other, Schema):
+            return False
+        return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash(self.__class__)
+        return hash((self.order,))
 
-    def __call__(self, *args, **kwds):
-        return self.__class__(*args, **kwds)
+    def __call__(self, alias=None):
+        return self.__class__(alias)
 
-    def includes(self, value):
-        raise NotImplementedError
+class Impossible(Schema):   # results in a compilation error
+    order = -1
 
-class Impossible(Schema):    # bottom type; no values are possible
-    order = 0
-    
     def __repr__(self):
         return "impossible"
 
-    def includes(self, value):
+    def __contains__(self, other):
         return False
 
 impossible = Impossible()
 
-class Null(Schema):          # singleton type; only one possible value ("None", like Python)
-    order = 1
+class Null(Schema):
+    order = 0
 
     def __repr__(self):
         return "null"
 
-    def includes(self, value):
-        return value is None
+    def __contains__(self, other):
+        return isinstance(other, Null) or other is None
 
 null = Null()
 
 class Boolean(Schema):
-    order = 2
+    order = 1
 
     def __repr__(self):
         return "boolean"
 
-    def includes(self, value):
-        return isinstance(value, bool)
+    def __contains__(self, other):
+        return isinstance(other, Boolean) or other is True or other is False
 
 boolean = Boolean()
 
 class Number(Schema):
-    order = 3
+    order = 2
 
-    def __init__(self, min=almost(-inf), max=almost(inf), whole=False):
+    def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):
         if not isinstance(min, (int, long, float)):
-            raise FemtocodeError("min ({0}) must be a number (or 'almost')".format(min))
+            raise FemtocodeError("min ({0}) must be a number (or an almost(number))".format(min))
         if not isinstance(max, (int, long, float)):
-            raise FemtocodeError("max ({0}) must be a number (or 'almost')".format(max))
+            raise FemtocodeError("max ({0}) must be a number (or an almost(number))".format(max))
         if not isinstance(whole, bool):
             raise FemtocodeError("whole ({0}) must be boolean".format(whole))
-        if min > max:
-            raise FemtocodeError("min ({0}) must not be greater than max ({1})".format(min, max))
-        if min == max and isinstance(min, almost):
-            raise FemtocodeError("min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not 'almost')", min, max)
+
         if whole:
-            if isinstance(min, almost) and min != almost(-inf):
-                raise FemtocodeError("for whole numbered intervals, min ({0}) may only be 'almost' if it is almost(-inf)", min)
-            if isinstance(max, almost) and max != almost(inf):
-                raise FemtocodeError("for whole numbered intervals, max ({0}) may only be 'almost' if it is almost(inf)", max)
             if min == -inf:
-                raise FemtocodeError("for whole numbered intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))
+                raise FemtocodeError("for whole-numbered intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))
             if max == inf:
-                raise FemtocodeError("for whole numbered intervals, max ({0}) cannot be inf; try almost(inf)".format(max))
+                raise FemtocodeError("for whole-numbered intervals, max ({0}) cannot be inf; try almost(inf)".format(max))
+            if isinstance(min, almost) and min != almost(-inf) and round(min) == min.real:
+                min = min.real + 1
+            if isinstance(max, almost) and max != almost(inf) and round(max) == max.real:
+                max = max.real - 1
+            if round(min) != min.real:
+                min = math.ceil(min)
+            if round(max) != max.real:
+                max = math.floor(max)
+
+        if min > max:
+            raise FemtocodeError("min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
+        if min == max and isinstance(min, almost):
+            raise FemtocodeError("min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not almost(endpoint))".format(min, max))
+            
         self.min = min
         self.max = max
         self.whole = whole
+        super(Number, self).__init__(alias)
 
     def __repr__(self):
-        if self.whole and (self.min == -inf or self.min == almost(-inf)) and (self.max == inf or self.max == almost(inf)):
+        if self.whole and self.min == almost(-inf) and self.max == almost(inf):
             return "integer"
         elif self.whole:
             return "integer(min={0}, max={1})".format(self.min, self.max)
         elif self.min == -inf and self.max == inf:
             return "extended"
-        elif self.min == -inf:
-            return "extended(min=-inf, max={0})".format(self.max)
-        elif self.max == inf:
-            return "extended(min={0}, max=inf)".format(self.min)
+        elif self.min == -inf or self.max == inf:
+            return "extended(min={0}, max={1})".format(self.min, self.max)
         elif self.min == almost(-inf) and self.max == almost(inf):
             return "real"
         else:
             return "real(min={0}, max={1})"
 
-    def __lt__(self, other):
+    def __contains__(self, other):
         if isinstance(other, Number):
+            ok = True
+
+            if isinstance(self.min, almost) and not isinstance(other.min, almost):
+                # for self to be the superset, its open min must be strictly below other's closed min
+                ok = ok and self.min < other.min
+            else:
+                # any other case permits equality
+                ok = ok and self.min <= other.min
+
+            if isinstance(self.max, almost) and not isinstance(other.max, almost):
+                # for self to be the superset, its open max must be strictly above other's closed max
+                ok = ok and other.max < self.max
+            else:
+                # any other case permits equality
+                ok = ok and other.max <= self.max
+
+            if self.whole:
+                # since self is only whole numbers, other must be whole numbers or a single whole value
+                ok = ok and other.whole or (other.min == other.max and round(other.min) == other.min)
+
+            return ok
+
+        elif isinstance(other, Schema):
+            return False
+
+        elif isinstance(other, (int, long, float)):
+            ok = True
+
+            if isinstance(self.min, almost):
+                ok = ok and self.min < other
+            else:
+                ok = ok and self.min <= other
+
+            if isinstance(self.max, almost):
+                ok = ok and other < self.max
+            else:
+                ok = ok and other <= self.max
+
+            if self.whole:
+                ok = ok and round(other) == other
+
+            return ok
+
+        else:
+            return False
+
+    def __lt__(self, other):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
             if self.min == other.min:
                 if self.max == other.max:
                     return self.whole < other.whole
@@ -225,674 +292,310 @@ class Number(Schema):
             return self.order < other.order
 
     def __eq__(self, other):
-        if isinstance(other, Number):
-            return self.min == other.min and self.max == other.max and self.whole == other.whole
-        else:
+        if not isinstance(other, Schema):
             return False
+        return self.__class__ == other.__class__ and \
+               self.min == other.min and \
+               self.max == other.max and \
+               self.whole == other.whole
 
     def __hash__(self):
-        return hash((Number, self.min, self.max, self.whole))
+        return hash((self.order, self.min, self.max, self.whole))
 
-    def includes(self, value):
-        if isinstance(value, (int, long, float)):
-            ok = True
-            if isinstance(self.min, almost):
-                ok = ok and (value > self.min):
-            else:
-                ok = ok and (value >= self.min)
-            if isinstance(self.max, almost):
-                ok = ok and (value < self.max)
-            else:
-                ok = ok and (value <= self.max)
-            if self.whole:
-                ok = ok and (round(value) == value)
-            return ok
+    def __call__(self, min=None, max=None, whole=None, alias=None):
+        return self.__class__(self.min if min is None else min,
+                              self.max if max is None else max,
+                              self.whole if whole is None else whole,
+                              alias)
 
-    def __call__(self, min=None, max=None, whole=None):
-        return Number(self.min if min is None else min, self.max if max is None else max, self.whole if whole is None else whole)
-                
-integer = Number(min=almost(-inf), max=almost(inf), whole=True)
+integer = Number(almost(-inf), almost(inf), True)
 
-real = Number(min=almost(-inf), max=almost(inf), whole=False)
+real = Number(almost(-inf), almost(inf), False)
 
-extended = Number(min=-inf, max=inf, whole=False)
+extended = Number(-inf, inf, False)
 
 class String(Schema):
-    order = 4
+    order = 3
 
-    def __init__(self, fewest=0, most=almost(inf), charset="bytes"):
+    def __init__(self, fewest=0, most=almost(inf), charset="bytes", alias=None):
         if not isinstance(fewest, (int, long)) or fewest < 0:
-            raise FemtocodeError("fewest {0} must be a nonnegative integer".format(fewest))
-        if not (most == almost(inf) or isinstance(most, (int, long))) or most < 0:
-            raise FemtocodeError("most {0} must be a nonnegative integer or almost(inf)".format(most))
+            raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
+        if not isinstance(most, (int, long)) and most != almost(inf):
+            raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
             raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
         if charset not in ("bytes", "unicode"):
-            raise FemtocodeError("charset {0} not recognized".format(charset))
+            raise FemtocodeError("charset {0} not recognized".format(json.dumps(charset)))
+
         self.fewest = fewest
         self.most = most
         self.charset = charset
+        super(String, self).__init__(alias)
 
     def __repr__(self):
         args = []
-
-        if not (self.fewest == 0 and self.most == almost(inf)):
-            args.append("fewest={0}, most={1}".format(self.fewest, self.most))
-
-        if charset != "bytes":
-            args.append("charset=\"bytes\"")
-
+        if not self.fewest == 0:
+            args.append("fewest={0}".format(self.fewest))
+        if not self.most == almost(inf):
+            args.append("most={0}".format(self.most))
+        if self.charset != "bytes":
+            args.append("charset={0}".format(json.dumps(self.charset)))
         if len(args) == 0:
             return "string"
         else:
-            return "string(" + ", ".join(args) + ")"
+            return "string({0})".format(", ".join(args))
 
-    def includes(self, value):
-        ok = True
-        ok = ok and (len(value) >= self.fewest)
-        ok = ok and (len(value) <= self.most)
-
-        if self.charset == "bytes":
-            ok = ok and isinstance(value, bytes)
-        elif self.charset == "unicode":
-            if sys.version_info[0] > 2:
-                ok = ok and isinstance(value, str)
-            else:
-                ok = ok and isinstance(value, unicode)
-
-        return ok
-
-    def __call__(self, fewest=None, most=None, charset=None):
-        return String(self.fewest if fewest is None else fewest, self.most if most is None else most, self.charset if charset is None else charset)
+    # def __contains__(self, other):
+    #     if isinstance(other, String):
 
 
 
 
 
-class Record(Schema):
-    order = 7
-
-    def __init__(self, **fields):
-        self.fields = sorted(fields.items())
-
-    def __repr__(self):
-        return "record(" + ", ".join(n + "=" + repr(t) for n, t in self.fields) + ")"
 
     def __lt__(self, other):
-        if isinstance(other, Record):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
+            if self.fewest == other.fewest:
+                if self.most == other.most:
+                    return self.charset < other.charset
+                else:
+                    return self.most < other.most
+            else:
+                return self.fewest < other.fewest
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.order == other.order and \
+               self.fewest == other.fewest and \
+               self.most == other.most and \
+               self.charset == other.charset
+
+    def __hash__(self):
+        return hash((self.order, self.fewest, self.most, self.charset))
+
+    def __call__(self, fewest=None, most=None, charset=None, alias=None):
+        return self.__class__(self.fewest if fewest is None else fewest,
+                              self.most if most is None else most,
+                              self.charset if charset is None else charset,
+                              alias)
+
+string = String(0, almost(inf), "bytes")
+
+class Tensor(Schema):
+    order = 4
+
+    def __init__(self, items, dimensions, alias=None):
+        if not isinstance(items, (Schema, basestring)):
+            raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
+        if isinstance(dimensions, (list, tuple)):
+            dimensions = tuple(dimensions)
+        else:
+            dimensions = (dimensions,)
+        if not all(isinstance(x, (int, long)) and x > 0 for x in dimensions):
+            raise FemtocodeError("all elements of dimensions ({0}) must be positive integers".format(dimensions))
+
+        self.items = items
+        self.dimensions = dimensions
+        super(Tensor, self).__init__(alias)
+
+    def __repr__(self):
+        return "tensor({0}, {1})".format(self.items, ", ".join(map(repr, self.dimensions)))
+
+    def __lt__(self, other):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
+            if self.items == other.items:
+                return self.dimensions < other.dimensions
+            else:
+                return self.items < other.items
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.order == other.order and \
+               self.items == other.items and \
+               self.dimensions == other.dimensions
+
+    def __hash__(self):
+        return hash((self.order, self.items, self.dimensions))
+
+    def __call__(self, items=None, *dimensions):
+        if len(dimensions) > 0 and isinstance(dimensions[-1], (Schema, basestring)):
+            alias = alias[-1]
+            dimensions = dimensions[:-1]
+        else:
+            alias = None
+        return self.__class__(self.items if items is None else items,
+                              self.dimensions if dimensions is None else dimensions,
+                              alias)
+
+def tensor(items, *dimensions):
+    if len(dimensions) > 0 and isinstance(dimensions[-1], (Schema, basestring)):
+        alias = alias[-1]
+        dimensions = dimensions[:-1]
+    else:
+        alias = None
+    return Tensor(items, dimensions, alias)
+    
+class Collection(Schema):
+    order = 5
+
+    def __init__(self, items, fewest=0, most=almost(inf), alias=None):
+        if not isinstance(items, (Schema, basestring)):
+            raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
+        if not isinstance(fewest, (int, long)) or fewest < 0:
+            raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
+        if not isinstance(most, (int, long)) and most != almost(inf):
+            raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
+        if fewest > most:
+            raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
+
+        self.items = items
+        self.fewest = fewest
+        self.most = most
+        super(Collection, self).__init__(alias)
+
+    def __repr__(self):
+        args = [repr(self.items)]
+        if not self.fewest == 0:
+            args.append("fewest={0}".format(self.fewest))
+        if not self.most == almost(inf):
+            args.append("most={0}".format(self.most))
+        return "collection({0})".format(", ".join(args))
+
+    def __lt__(self, other):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
+            if self.items == other.items:
+                if self.fewest == other.fewest:
+                    return self.most < other.most
+                else:
+                    return self.fewest < other.fewest
+            else:
+                return self.items < other.items
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.order == other.order and \
+               self.items == other.items and \
+               self.fewest == other.fewest and \
+               self.most == other.most
+
+    def __hash__(self):
+        return hash((self.order, self.items, self.fewest, self.most))
+
+    def __call__(self, items=None, fewest=None, most=None, alias=None):
+        return self.__class__(self.items if items is None else items,
+                              self.fewest if fewest is None else fewest,
+                              self.most if most is None else most,
+                              alias)
+
+def collection(items, fewest=0, most=almost(inf), alias=None):
+    return Collection(items, fewest, most)
+
+class Record(Schema):
+    order = 6
+
+    def __init__(self, fields, alias=None):
+        if not isinstance(fields, dict):
+            raise FemtocodeError("fields ({0}) must be a dictionary".format(fields))
+        for n, t in fields.items():
+            if not isinstance(n, basestring) or not isinstance(t, (Schema, basestring)):
+                raise FemtocodeError("all fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
+
+        self.fields = fields
+        super(Record, self).__init__(alias)
+
+    def __repr__(self):
+        return "record({0})".format(", ".join(n + " = " + repr(t) for n, t in self.fields.items()))
+
+    def __lt__(self):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
             return self.fields < other.fields
         else:
             return self.order < other.order
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class Schema(object):
-#     def __lt__(self, other):
-#         return self.order < other.order
-
-#     def __eq__(self, other):
-#         return isinstance(other, self.__class__)
-
-#     def __hash__(self):
-#         return hash(self.__class__)
-
-#     def __call__(self, *args, **kwds):
-#         return self.__class__(*args, **kwds)
-
-#     def union(self, other):
-#         if isinstance(other, self.__class__):
-#             return self
-#         elif isinstance(other, Union):
-#             if any(isinstance(x, self.__class__) for x in other.types):
-#                 return other
-#             else:
-#                 return Union(self, *other.types)
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, self.__class__):
-#             return self
-#         elif isinstance(other, Union):
-#             if any(isinstance(x, self.__class__) for x in other.types):
-#                 return self
-#             else:
-#                 return impossible
-#         else:
-#             return impossible
-
-# class Impossible(Schema):
-#     order = 0
-
-#     def __repr__(self):
-#         return "impossible"
-
-#     def union(self, other):
-#         return other
-
-#     def intersection(self, other):
-#         return impossible
-
-# impossible = Impossible()
-
-# class Null(Schema):
-#     order = 1
-
-#     def __repr__(self):
-#         return "null"
-        
-# null = Null()
-
-# class Boolean(Schema):
-#     order = 2
-
-#     def __repr__(self):
-#         return "boolean"
-
-# boolean = Boolean()
-
-# class Integer(Schema):
-#     order = 3
-
-#     def __init__(self, min=almost(-inf), max=almost(inf)):
-#         if min > max:
-#             raise FemtocodeError("min must not be greater than max")
-#         if min != almost(-inf) and not isinstance(min, (int, long)):
-#             raise FemtocodeError("min must be almost(-inf) or an integer")
-#         if max != almost(inf) and not isinstance(max, (int, long)):
-#             raise FemtocodeError("min must be almost(inf) or an integer")
-#         self.min = min
-#         self.max = max
-
-#     def __repr__(self):
-#         if self.min == almost(-inf) and self.max == almost(inf):
-#             return "integer"
-#         else:
-#             return "integer(min={0}, max={1})".format(self.min, self.max)
-
-#     def __lt__(self, other):
-#         if isinstance(other, Integer):
-#             if self.min == other.min:
-#                 return self.max < other.max
-#             else:
-#                 return self.min < other.min
-#         else:
-#             return self.order < other.order
-
-#     def __eq__(self, other):
-#         if not isinstance(other, Integer):
-#             return False
-#         else:
-#             return self.min == other.min and self.max == other.max
-
-#     def __hash__(self):
-#         return hash((Integer, self.min, self.max))
-
-#     def union(self, other):
-#         if isinstance(other, Integer):
-#             a, b = sorted([self, other])
-#             if a.max < b.min - 1:
-#                 return Union(a, b)
-#             else:
-#                 return Integer(min(a.min, b.min), max(a.max, b.max))
-
-#         elif isinstance(other, Real) and other.min <= self.min and self.max <= other.max:
-#             return other
-
-#         elif isinstance(other, Union):
-#             ints = sorted([self] + [x for x in other.types if isinstance(x, Integer)])
-#             out = [ints[0]]
-#             for b in ints[1:]:
-#                 if out[-1].max < b.min - 1:
-#                     out.append(b)
-#                 elif out[-1].max == b.min or out[-1].max == b.min - 1:
-#                     out[-1] = Integer(out[-1].min, b.max)
-
-#             nonints = sorted([x for x in other.types if not isinstance(x, Integer)])
-#             if len(out) == 1 and len(nonints) == 0:
-#                 return out[0]
-#             else:
-#                 return Union(*sorted(out + nonints))
-
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, (Integer, Real)):
-#             othermin = other.min + 1 if isinstance(other.min, almost) else other.min
-#             othermax = other.max - 1 if isinstance(other.max, almost) else other.max
-#             if othermin > othermax:
-#                 return impossible
-#             other2 = other.__class__(othermin, othermax)
-
-#             a, b = sorted([self, other2])
-#             if a.max < b.min:
-#                 return impossible
-#             else:
-#                 return Integer(max(a.min, b.min), min(a.max, b.max))
-
-#         elif isinstance(other, Union):
-#             ts = [self.intersection(t) for t in other.types]
-#             return union(*ts)
-
-#         else:
-#             return impossible
-
-# integer = Integer()
-
-# class Real(Schema):
-#     order = 4
-
-#     def __init__(self, min=-inf, max=inf):
-#         if min > max:
-#             raise FemtocodeError("min must not be greater than max")
-#         if min == max and isinstance(min, almost):
-#             raise FemtocodeError("min and max may only be equal to one another if they are closed endpoints (not 'almost')")
-#         if min != -inf and not isinstance(min, (int, long, float)):
-#             raise FemtocodeError("min must be -inf or a float/almost endpoint")
-#         if max != inf and not isinstance(max, (int, long, float)):
-#             raise FemtocodeError("min must be inf or a float/almost endpoint")
-#         self.min = min
-#         self.max = max
-
-#     def __repr__(self):
-#         if self.min == -inf and self.max == inf:
-#             return "real"
-#         else:
-#             return "real(min={0}, max={1})".format(self.min, self.max)
-
-#     def __lt__(self, other):
-#         if isinstance(other, Real):
-#             if self.min == other.min:
-#                 return self.max < other.max
-#             else:
-#                 return self.min < other.min
-#         else:
-#             return self.order < other.order
-
-#     def __eq__(self, other):
-#         if not isinstance(other, Real):
-#             return False
-#         else:
-#             return self.min == other.min and self.max == other.max
-
-#     def __hash__(self):
-#         return hash((Real, self.min, self.max))
-
-#     def union(self, other):
-#         if isinstance(other, Real):
-#             a, b = sorted([self, other])
-#             if a.max < b.min - 1 or (a.max == b.min and isinstance(a.max, almost)):
-#                 return Union(a, b)
-#             else:
-#                 return Real(almost.min(a.min, b.min), almost.max(a.max, b.max))
-
-#         elif isinstance(other, Integer) and self.min <= other.min and other.max <= self.max:
-#             return self
-
-#         elif isinstance(other, Union):
-#             reals = sorted([self] + [x for x in other.types if isinstance(x, Real)])
-#             out = [reals[0]]
-#             for b in reals[1:]:
-#                 if out[-1].max < b.min:
-#                     out.append(b)
-#                 elif out[-1].max == b.min:
-#                     out[-1] = Real(out[-1].min, b.max)
-
-#             nonreals = sorted([x for x in other.types if not isinstance(x, Real)])
-#             if len(out) == 1 and len(nonreals) == 0:
-#                 return out[0]
-#             else:
-#                 return Union(*sorted(out + nonreals))
-
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, (Integer, Real)):
-#             a, b = sorted([self, other])
-#             if a.max < b.min:
-#                 return impossible
-#             elif isinstance(other, Real):
-#                 return Real(max(a.min, b.min), min(a.max, b.max))
-#             else:
-#                 return Integer(max(a.min, b.min), min(a.max, b.max))
-
-#         elif isinstance(other, Union):
-#             return union(*[self.intersection(t) for t in other.types])
-
-#         else:
-#             return impossible
-
-# real = Real()
-        
-# class String(Schema):
-#     order = 5
-
-#     def __repr__(self):
-#         return "string"
-
-# string = String()
-        
-# class Binary(Schema):
-#     order = 6
-
-#     def __init__(self, size=None):
-#         self.size = size
-
-#     def __repr__(self):
-#         if size is None:
-#             return "binary"
-#         else:
-#             return "binary({0})".format(self.size)
-
-#     def __lt__(self, other):
-#         if isinstance(other, Binary):
-#             if self.size is None and other.size is None:
-#                 return False
-#             elif self.size is None:
-#                 return False
-#             elif other.size is None:
-#                 return True
-#             else:
-#                 return self.size < other.size
-#         else:
-#             return self.order < other.order
-
-#     def __eq__(self, other):
-#         if not isinstance(other, Binary):
-#             return False
-#         else:
-#             return self.size == other.size
-
-#     def __hash__(self):
-#         return hash((Binary, self.size))
-
-#     def union(self, other):
-#         if isinstance(other, Binary) and self.size == other.size:
-#             return self
-#         elif isinstance(other, Union):
-#             if any(isinstance(x, Binary) and self.size == x.size for x in other.types):
-#                 return other
-#             else:
-#                 return Union(self, *other.types)
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, self.Binary) and self.size == other.size:
-#             return self
-#         elif isinstance(other, Union):
-#             if any(isinstance(x, self.Binary) and self.size == x.size for x in other.types):
-#                 return self
-#             else:
-#                 return impossible
-#         else:
-#             return impossible
-
-# binary = Binary()
-
-# class Record(Schema):
-#     order = 7
-
-#     def __init__(self, **fields):
-#         self.fields = sorted(fields.items())
-
-#     def __repr__(self):
-#         return "record(" + ", ".join(n + "=" + repr(t) for n, t in self.fields) + ")"
-
-#     def __lt__(self, other):
-#         if isinstance(other, Record):
-#             return self.fields < other.fields
-#         else:
-#             return self.order < other.order
-
-#     def __eq__(self, other):
-#         if not isinstance(other, Record):
-#             return False
-#         else:
-#             return self.fields == other.fields
-
-#     def __hash__(self):
-#         return hash((Record, self.fields))
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.order == other.order and \
+               self.fields == other.fields
+
+    def __hash__(self):
+        return hash((self.order, tuple(sorted(self.fields.items()))))
+
+    def __call__(self, __alias__=None, **fields):
+        return self.__class__(dict(self.fields, **fields), __alias__)
+
+def record(__alias__=None, **fields):
+    return Record(fields, __alias__)
+
+class Union(Schema):
+    order = 7
+
+    def __init__(self, possibilities, alias=None):
+        if not isinstance(possibilities, (list, tuple)):
+            raise FemtocodeError("possibilities ({0}) must be a list or tuple".format(possibilities))
+        for p in possibilities:
+            if not isinstance(p, (Schema, basestring)):
+                raise FemtocodeError("all possibilities ({0}) must be Schemas or alias strings".format(p))
+
+        self.possibilities = tuple(possibilities)
+        super(Union, self).__init__(alias)
+
+    def __repr__(self):
+        return "union({0})".format(", ".join(map(repr, possibilities)))
+
+    def __lt__(self, other):
+        if not isinstance(other, Schema):
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+        if self.order == other.order:
+            return self.possibilities < other.possibilities
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.order == other.order and \
+               self.possibilities == other.possibilities
+
+    def __hash__(self):
+        return hash((self.order, self.possibilities))
+
+    def __call__(self, *possibilities):
+        return self.__class__(possibilities)
     
-# record = Record
+def union(*possibilities):
+    if len(possibilities) == 0:
+        raise TypeError("union() takes at least 1 argument (0 given)")
 
-# class Collection(Schema):
-#     order = 8
+    elif len(possibilities) == 1:
+        return possibilities[0]
 
-#     def __init__(self, itemtype, fewest=0, most=almost(inf)):
-#         self.itemtype = itemtype
-#         if fewest > most:
-#             raise FemtocodeError("fewest must not be greater than most")
-#         if not isinstance(fewest, (int, long)) or fewest < 0:
-#             raise FemtocodeError("fewest must be a non-negative integer")
-#         if most != almost(inf) and not isinstance(most, (int, long)):
-#             raise FemtocodeError("fewest must be almost(inf) or an integer")
-#         self.fewest = fewest
-#         self.most = most
+    elif len(possibilities) > 2:
+        # combine them in the order given by the user for more comprehensible error messages
+        return union(union(possibilities[0], possibilities[1]), possibilities[2:])
 
-#     def __repr__(self):
-#         if self.fewest == 0 and self.most == almost(inf):
-#             return "collection({0})".format(repr(self.itemtype))
-#         else:
-#             return "collection({0}, fewest={1}, most={2})".format(repr(self.itemtype), self.fewest, self.most)
+    else:
+        one, two = possibilities
 
-#     def __lt__(self, other):
-#         if isinstance(other, Collection):
-#             if self.itemtype == other.itemtype:
-#                 if self.fewest == other.fewest:
-#                     return self.most < other.most
-#                 else:
-#                     return self.fewest < other.fewest
-#             else:
-#                 return self.itemtype < other.itemtype
-#         else:
-#             return self.order < other.order
-                
-#     def __eq__(self, other):
-#         if not isinstance(other, Collection):
-#             return False
-#         else:
-#             return self.itemtype == other.itemtype and self.fewest == other.fewest and self.most == other.most
+        if isinstance(one, Impossible) or isinstance(two, Impossible):
+            return impossible
 
-#     def __hash__(self):
-#         return hash((Collection, self.itemtype, self.fewest, self.most))
-
-#     def union(self, other):
-#         if isinstance(other, Collection):
-#             subtype = self.itemtype.union(other.itemtype)
-#             if (self.itemtype == subtype and other.itemtype == subtype) or \
-#                    (isinstance(subtype, (Integer, Real))) or \
-#                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
-#                 size = Integer(self.fewest, self.most).union(Integer(other.fewest, other.most))
-#                 if isinstance(size, Union):
-#                     if len(size.types) != 2:
-#                         raise ProgrammingError("union of two integer intervals should be a union of at most two intervals")
-#                     one, two = size.types
-#                     size = Integer(almost.min(one.min, two.min), almost.max(one.max, two.max))
-#                 return Collection(subtype, size.min, size.max)
-#             else:
-#                 return Union(self, other)
-#         elif isinstance(other, Union):
-#             return Union(self, *other.types)
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, Collection):
-#             subtype = self.itemtype.intersection(other.itemtype)
-#             if (self.itemtype == subtype and other.itemtype == subtype) or \
-#                    (isinstance(subtype, (Integer, Real))) or \
-#                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
-#                 size = Integer(self.fewest, self.most).intersection(Integer(other.fewest, other.most))
-#                 if not isinstance(size, (Integer, Impossible)):
-#                     raise ProgrammingError("intersection of two integer intervals should be an interval integer or impossible")
-#                 if isinstance(subtype, Impossible) or isinstance(size, Impossible):
-#                     return impossible
-#                 else:
-#                     return Collection(subtype, size.min, size.max)
-#             else:
-#                 return impossible
-#         elif isinstance(other, Union):
-#             return union(*[self.intersection(t) for t in other.types])
-#         else:
-#             return impossible
-
-# collection = Collection
-
-# class Tensor(Schema):
-#     order = 9
-
-#     def __init__(self, itemtype, dimensions):
-#         self.itemtype = itemtype
-#         if isinstance(dimensions, (list, tuple)):
-#             self.dimensions = tuple(dimensions)
-#         else:
-#             self.dimensions = (dimensions,)
-
-#     def __repr__(self):
-#         if len(self.dimensions) == 1:
-#             return "tensor({0}, dimensions={1})".format(repr(self.itemtype), self.dimensions[0])
-#         else:
-#             return "tensor({0}, dimensions={1})".format(repr(self.itemtype), self.dimensions)
-
-#     def __lt__(self, other):
-#         if isinstance(other, Tensor):
-#             if self.itemtype == other.itemtype:
-#                 return self.dimensions < other.dimensions
-#             else:
-#                 return self.itemtype < other.itemtype
-#         else:
-#             return self.order < other.order
-                
-#     def __eq__(self, other):
-#         if not isinstance(other, Collection):
-#             return False
-#         else:
-#             return self.itemtype == other.itemtype and self.dimensions == other.dimensions
-
-#     def __hash__(self):
-#         return hash((Tensor, self.itemtype, self.dimensions))
-
-#     def union(self, other):
-#         if isinstance(other, Tensor) and self.dimensions == other.dimensions:
-#             subtype = self.itemtype.union(other.itemtype)
-#             if (self.itemtype == subtype and other.itemtype == subtype) or \
-#                    (isinstance(subtype, (Integer, Real))) or \
-#                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
-#                 return Tensor(subtype, self.dimensions)
-#             else:
-#                 return Union(self, other)
-#         elif isinstance(other, Union):
-#             return Union(self, *other.types)
-#         else:
-#             return Union(self, other)
-
-#     def intersection(self, other):
-#         if isinstance(other, Tensor) and self.dimensions == other.dimensions:
-#             subtype = self.itemtype.intersection(other.itemtype)
-#             if (self.itemtype == subtype and other.itemtype == subtype) or \
-#                    (isinstance(subtype, (Integer, Real))) or \
-#                    (isinstance(subtype, Union) and all(isinstance(t, (Integer, Real)) for t in subtype.types)):
-#                 return Tensor(subtype, self.dimensions)
-#             else:
-#                 return Union(self, other)
-#         elif isinstance(other, Union):
-#             return union(*[self.intersection(t) for t in other.types])
-#         else:
-#             return impossible
-
-# tensor = Tensor
-
-# class Union(Schema):
-#     order = 10
-
-#     def __init__(self, *types):
-#         if len(types) < 1:
-#             raise FemtocodeError("Union requires at least one type")
-#         self.types = sorted(types)
-
-#     def __repr__(self):
-#         return "union(" + ", ".join(repr(t) for t in self.types) + ")"
-
-#     def __lt__(self, other):
-#         if isinstance(other, Union):
-#             return self.types < other.types
-#         else:
-#             return self.order < other.order
-                
-#     def __eq__(self, other):
-#         if not isinstance(other, Union):
-#             return False
-#         else:
-#             return self.types == other.types
-
-#     def __hash__(self):
-#         return hash((Union, self.types))
-
-#     def union(self, other):
-#         if isinstance(other, Union):
-#             types = self.types + other.types
-#         else:
-#             types = list(self.types) + [other]
-#         return union(*types)
-
-# def union(*types):
-#     if len(types) == 0:
-#         return null
-#     elif len(types) == 1:
-#         return types[0]
-#     else:
-#         out = types[0]
-#         for t in types[1:]:
-#             out = out.union(t)
-#         return out
-
-# def intersection(*types):
-#     if len(types) == 0:
-#         return impossible
-#     elif len(types) == 1:
-#         return types[0]
-#     else:
-#         out = types[0]
-#         for t in types[1:]:
-#             out = out.intersection(t)
-#         return out
+        
+        
