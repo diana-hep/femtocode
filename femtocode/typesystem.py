@@ -124,7 +124,7 @@ class almost(float):
 
 class Schema(object):
     def __init__(self, alias=None):
-        if alias is not None and not isinstance(alias, basestring):
+        if alias is not None and not isinstance(alias, string_types):
             raise FemtocodeError("alias {0} must be None or a string".format(alias))
         self.alias = alias
 
@@ -148,7 +148,7 @@ class Schema(object):
         return self.__class__(alias)
 
 class Impossible(Schema):   # results in a compilation error
-    order = -1
+    order = 0
 
     def __repr__(self):
         return "impossible"
@@ -159,7 +159,7 @@ class Impossible(Schema):   # results in a compilation error
 impossible = Impossible()
 
 class Null(Schema):
-    order = 0
+    order = 1
 
     def __repr__(self):
         return "null"
@@ -170,7 +170,7 @@ class Null(Schema):
 null = Null()
 
 class Boolean(Schema):
-    order = 1
+    order = 2
 
     def __repr__(self):
         return "boolean"
@@ -181,7 +181,7 @@ class Boolean(Schema):
 boolean = Boolean()
 
 class Number(Schema):
-    order = 2
+    order = 3
 
     def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):
         if not isinstance(min, (int, long, float)):
@@ -315,7 +315,7 @@ real = Number(almost(-inf), almost(inf), False)
 extended = Number(-inf, inf, False)
 
 class String(Schema):
-    order = 3
+    order = 4
 
     def __init__(self, fewest=0, most=almost(inf), charset="bytes", alias=None):
         if not isinstance(fewest, (int, long)) or fewest < 0:
@@ -345,13 +345,28 @@ class String(Schema):
         else:
             return "string({0})".format(", ".join(args))
 
-    # def __contains__(self, other):
-    #     if isinstance(other, String):
+    def __contains__(self, other):
+        if isinstance(other, String):
+            return self.charset == other.charset and \
+                   integer(other.fewest, other.most) in integer(self.fewest, self.most)
 
+        elif isinstance(other, string_types):
+            ok = False
+            if sys.version_info[0] >= 3:
+                if self.charset == "bytes" and isinstance(other, bytes):
+                    ok = True
+                if self.charset == "unicode" and isinstance(other, str):
+                    ok = True
+            else:
+                if self.charset == "bytes" and isinstance(other, str):
+                    ok = True
+                if self.charset == "unicode" and isinstance(other, unicode):
+                    ok = True
 
+            return ok and (self.fewest <= len(other) <= self.most)
 
-
-
+        else:
+            return False
 
     def __lt__(self, other):
         if not isinstance(other, Schema):
@@ -385,71 +400,12 @@ class String(Schema):
                               alias)
 
 string = String(0, almost(inf), "bytes")
-
-class Tensor(Schema):
-    order = 4
-
-    def __init__(self, items, dimensions, alias=None):
-        if not isinstance(items, (Schema, basestring)):
-            raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
-        if isinstance(dimensions, (list, tuple)):
-            dimensions = tuple(dimensions)
-        else:
-            dimensions = (dimensions,)
-        if not all(isinstance(x, (int, long)) and x > 0 for x in dimensions):
-            raise FemtocodeError("all elements of dimensions ({0}) must be positive integers".format(dimensions))
-
-        self.items = items
-        self.dimensions = dimensions
-        super(Tensor, self).__init__(alias)
-
-    def __repr__(self):
-        return "tensor({0}, {1})".format(self.items, ", ".join(map(repr, self.dimensions)))
-
-    def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            if self.items == other.items:
-                return self.dimensions < other.dimensions
-            else:
-                return self.items < other.items
-        else:
-            return self.order < other.order
-
-    def __eq__(self, other):
-        if not isinstance(other, Schema):
-            return False
-        return self.order == other.order and \
-               self.items == other.items and \
-               self.dimensions == other.dimensions
-
-    def __hash__(self):
-        return hash((self.order, self.items, self.dimensions))
-
-    def __call__(self, items=None, *dimensions):
-        if len(dimensions) > 0 and isinstance(dimensions[-1], (Schema, basestring)):
-            alias = alias[-1]
-            dimensions = dimensions[:-1]
-        else:
-            alias = None
-        return self.__class__(self.items if items is None else items,
-                              self.dimensions if dimensions is None else dimensions,
-                              alias)
-
-def tensor(items, *dimensions):
-    if len(dimensions) > 0 and isinstance(dimensions[-1], (Schema, basestring)):
-        alias = alias[-1]
-        dimensions = dimensions[:-1]
-    else:
-        alias = None
-    return Tensor(items, dimensions, alias)
     
 class Collection(Schema):
     order = 5
 
-    def __init__(self, items, fewest=0, most=almost(inf), alias=None):
-        if not isinstance(items, (Schema, basestring)):
+    def __init__(self, items, fewest=0, most=almost(inf), ordered=False, alias=None):
+        if not isinstance(items, (Schema,) + string_types):
             raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
         if not isinstance(fewest, (int, long)) or fewest < 0:
             raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
@@ -457,19 +413,58 @@ class Collection(Schema):
             raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
             raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
+        if not isinstance(ordered, bool):
+            raise FemtocodeError("ordered ({0}) must be boolean".format(ordered))
 
         self.items = items
         self.fewest = fewest
         self.most = most
+        self.ordered = ordered
         super(Collection, self).__init__(alias)
 
     def __repr__(self):
+        dimensions = []
+        items = self
+        while isinstance(items, Collection) and items.ordered and items.fewest == items.most:
+            dimensions.append(items.fewest)
+            items = items.items
+        if len(dimensions) == 1:
+            return "vector({0}, {1})".format(items, dimensions[0])
+        elif len(dimensions) == 2:
+            return "matrix({0}, {1}, {2})".format(items, dimensions[0], dimensions[1])
+        elif len(dimensions) > 2:
+            return "tensor({0}, {1})".format(items, ", ".join(map(repr, dimensions[0])))
+
         args = [repr(self.items)]
         if not self.fewest == 0:
             args.append("fewest={0}".format(self.fewest))
         if not self.most == almost(inf):
             args.append("most={0}".format(self.most))
+        if self.ordered:
+            args.append("ordered={0}".format(self.ordered))
         return "collection({0})".format(", ".join(args))
+
+    def __contains__(self, other):
+        if isinstance(other, Collection):
+            ok = True
+            if self.ordered:
+                ok = ok and other.ordered               # ordered is more specific than unordered
+
+            ok = ok and integer(other.fewest, other.most) in integer(self.fewest, self.most)
+
+            return ok and other.items in self.items     # Collections are covariant
+            
+        elif isinstance(other, (list, tuple, set)):
+            ok = True
+            if self.ordered:
+                ok = ok and isinstance(other, (list, tuple))
+
+            ok = ok and self.fewest <= len(other) <= self.most
+
+            return ok and all(x in self.items for x in other)
+
+        else:
+            return False
 
     def __lt__(self, other):
         if not isinstance(other, Schema):
@@ -477,7 +472,10 @@ class Collection(Schema):
         if self.order == other.order:
             if self.items == other.items:
                 if self.fewest == other.fewest:
-                    return self.most < other.most
+                    if self.most == other.most:
+                        return self.ordered < other.ordered
+                    else:
+                        return self.most < other.most
                 else:
                     return self.fewest < other.fewest
             else:
@@ -491,19 +489,40 @@ class Collection(Schema):
         return self.order == other.order and \
                self.items == other.items and \
                self.fewest == other.fewest and \
-               self.most == other.most
+               self.most == other.most and \
+               self.ordered == other.ordered
 
     def __hash__(self):
-        return hash((self.order, self.items, self.fewest, self.most))
+        return hash((self.order, self.items, self.fewest, self.most self.ordered))
 
-    def __call__(self, items=None, fewest=None, most=None, alias=None):
+    def __call__(self, items=None, fewest=None, most=None, ordered=None, alias=None):
         return self.__class__(self.items if items is None else items,
                               self.fewest if fewest is None else fewest,
                               self.most if most is None else most,
+                              self.ordered if ordered is None else ordered,
                               alias)
 
-def collection(items, fewest=0, most=almost(inf), alias=None):
-    return Collection(items, fewest, most)
+def collection(items, fewest=0, most=almost(inf), ordered=False, alias=None):
+    return Collection(items, fewest, most, ordered, alias)
+
+def vector(items, dimension0, alias=None):
+    return Collection(items, dimension0, dimension0, True, alias)
+
+def matrix(items, dimension0, dimension1, alias=None):
+    return Collection(Collection(items, dimension1, dimension1, True), dimension0, dimension0, True, alias)
+
+def tensor(items, *dimensions):
+    if len(dimensions) > 0 and isinstance(dimensions[-1], string_types):
+        alias = alias[-1]
+        dimensions = dimensions[:-1]
+    else:
+        alias = None
+
+    out = items
+    for d in reversed(dimensions):
+        out = Collection(out, d, d, True)
+    out.alias = alias
+    return out
 
 class Record(Schema):
     order = 6
@@ -512,7 +531,7 @@ class Record(Schema):
         if not isinstance(fields, dict):
             raise FemtocodeError("fields ({0}) must be a dictionary".format(fields))
         for n, t in fields.items():
-            if not isinstance(n, basestring) or not isinstance(t, (Schema, basestring)):
+            if not isinstance(n, string_types) or not isinstance(t, (Schema,) + string_types):
                 raise FemtocodeError("all fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
 
         self.fields = fields
@@ -520,6 +539,23 @@ class Record(Schema):
 
     def __repr__(self):
         return "record({0})".format(", ".join(n + " = " + repr(t) for n, t in self.fields.items()))
+
+    def __contains__(self, other):
+        if isinstance(other, Record):
+            # other only needs to have fields that self requires; it may have more
+            for n, t in self.fields.items():
+                if n not in other.fields or other.fields[n] not in t
+                    return False
+            return True
+
+        elif isinstance(other, Schema):
+            return False
+
+        else:
+            for n, t in self.fields.items():
+                if not hasattr(other, n) or getattr(other, n) not in t:
+                    return False
+            return True
 
     def __lt__(self):
         if not isinstance(other, Schema):
@@ -551,7 +587,7 @@ class Union(Schema):
         if not isinstance(possibilities, (list, tuple)):
             raise FemtocodeError("possibilities ({0}) must be a list or tuple".format(possibilities))
         for p in possibilities:
-            if not isinstance(p, (Schema, basestring)):
+            if not isinstance(p, (Schema,) + string_types):
                 raise FemtocodeError("all possibilities ({0}) must be Schemas or alias strings".format(p))
 
         self.possibilities = tuple(possibilities)
@@ -559,6 +595,26 @@ class Union(Schema):
 
     def __repr__(self):
         return "union({0})".format(", ".join(map(repr, possibilities)))
+
+    def __contains__(self, other):
+        if isinstance(other, Union):
+            # everything that other can be must also be allowed for self
+            for other_t in other.possibilities:
+                if not any(other_t in self_t for self_t in self.possibilities):
+                    return False
+            return True
+
+        elif isinstance(other, Schema):
+            # other is a single type, not a Union
+            if not any(other in self_t for self_t in self.possibilities):
+                return False
+            return True
+
+        else:
+            # other is an instance (same code, but repeated for clarity)
+            if not any(other in self_t for self_t in self.possibilities):
+                return False
+            return True
 
     def __lt__(self, other):
         if not isinstance(other, Schema):

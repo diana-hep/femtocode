@@ -17,6 +17,8 @@
 import sys
 
 if sys.version_info[0] > 2:
-    basestring = str
+    string_types = (str, bytes)
     xrange = range
     long = int
+else:
+    string_types = (unicode, str)
