@@ -958,5 +958,27 @@ def difference(universal, excluded):
     out.aliases.update(two.aliases)
     return out
 
+def infer(schema, operator, value):
+    if operator == "==":
+        if value in schema:
+            return schema
+        else:
+            return impossible
+
+    elif operator == "!=":
+        if value in schema:
+            if isinstance(schema, (Impossible, Null)):
+                return impossible
+
+            elif isinstance(schema, Boolean):
+                return schema
+
+            elif isinstance(schema, Number):
+                pass
 
 
+        else:
+            return schema
+
+    else:
+        raise ProgrammingError("unhandled operator")
