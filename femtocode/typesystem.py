@@ -54,6 +54,15 @@ class almost(float):
         else:
             return b
 
+    @staticmethod
+    def complement(a):
+        if isinstance(a, almost):
+            return a.real
+        elif isinstance(a, (int, long, float)):
+            return almost(a)
+        else:
+            raise TypeError
+
     def __eq__(self, other):
         if isinstance(other, almost):
             return self.real == other.real
@@ -676,7 +685,7 @@ def union(*types):
 
         elif one.order != two.order:
             # there is no overlap among different kinds
-            out = Union(one, two)
+            out = Union([one, two])
             
         elif isinstance(one, Impossible) and isinstance(two, Impossible):
             out = impossible()
@@ -702,14 +711,14 @@ def union(*types):
                 if low.max >= high.min - 1:
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), True)
                 else:
-                    out = Union(one, two)
+                    out = Union([one, two])
 
             elif one.whole or two.whole:
                 # one integer, other not and neither is contained: they can be glued if they extend the interval from open to closed
                 if one.min.real == two.min.real or one.max.real == two.max.real:
                     out = Number(almost.min(one.min, two.min), almost.max(one.max, two.max), False)
                 else:
-                    out = Union(one, two)
+                    out = Union([one, two])
 
             else:
                 # neither integer: they can be glued if there's no gap
@@ -717,20 +726,20 @@ def union(*types):
                 if low.max.real == high.min.real:
                     if isinstance(low.max, almost) and isinstance(high.min, almost):
                         # they just touch and they're both open intervals; can't glue
-                        out = Union(one, two)
+                        out = Union([one, two])
                     else:
                         out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 elif low.max >= high.min:
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 else:
-                    out = Union(one, two)
+                    out = Union([one, two])
 
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
                 # string size tracking isn't as fine-grained as integer tracking
                 out = String(min(one.fewest, two.fewest), max(one.most, two.most), one.charset)
             else:
-                out = Union(one, two)
+                out = Union([one, two])
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
             # collection size tracking isn't as fine-grained as integer tracking
@@ -743,7 +752,7 @@ def union(*types):
             if one == two:
                 out = one()
             else:
-                out = Union(one, two)
+                out = Union([one, two])
 
         else:
             raise ProgrammingError("unhandled case")
@@ -776,7 +785,7 @@ def intersection(*types):
 
         elif one.order != two.order:
             # there is no overlap among different kinds
-            out = impossible
+            out = impossible()
 
         elif isinstance(one, Impossible) and isinstance(two, Impossible):
             out = impossible()
@@ -814,8 +823,140 @@ def intersection(*types):
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
                 # string size tracking isn't as fine-grained as integer tracking
-                out = String(max(one.fewest, two.fewest), min(one.most, two.most), one.charset)
+                fewest = max(one.fewest, two.fewest)
+                most = min(one.most, two.most)
+                if fewest <= most:
+                    out = String(fewest, most, one.charset)
+                else:
+                    out = impossible()
             else:
                 out = impossible()
 
-        
+        elif isinstance(one, Collection) and isinstance(two, Collection):
+            # collection size tracking isn't as fine-grained as integer tracking
+            items = intersection(one.items, two.items)
+            fewest = max(one.fewest, two.fewest)
+            most = min(one.most, two.most)
+
+            if fewest <= most and not isinstance(items, Impossible):
+                out = Collection(items, fewest, most, one.ordered and two.ordered)
+            else:
+                out = impossible()
+
+        elif isinstance(one, Record) and isinstance(two, Record):
+            if one == two:
+                out = one()
+            else:
+                out = impossible()
+
+        else:
+            raise ProgrammingError("unhandled case")
+            
+        # don't lose any aliases because one and two have been replaced by their union
+        out.aliases.update(one.aliases)
+        out.aliases.update(two.aliases)
+        return out
+
+def difference(universal, excluded):
+    if isinstance(universal, Union):
+        out = union(*(difference(p, excluded) for p in universal.possibilities))
+
+    elif isinstance(excluded, Union):
+        out = universal
+        for p in excluded.possibilities:
+            out = difference(out, p)
+
+    elif universal.order != excluded.order:
+        out = universal()
+
+    elif isinstance(universal, Impossible) and isinstance(excluded, Impossible):
+        out = impossible()
+
+    elif isinstance(universal, Null) and isinstance(excluded, Null):
+        out = impossible()
+
+    elif isinstance(universal, Boolean) and isinstance(excluded, Boolean):
+        out = impossible()
+
+    elif isinstance(universal, Number) and isinstance(excluded, Number):
+        if not universal.whole and excluded.whole:
+            # do not attempt to remove integers from a continuous interval;
+            # returning too inclusive a set is okay
+            out = universal()
+        else:
+            if almost.min(universal.min, excluded.min) == excluded.min:
+                # excluded starts below universal
+                if almost.max(universal.max, excluded.max) == excluded.max:
+                    out = impossible()
+                else:
+                    out = Number(almost.complement(excluded.max), universal.max, universal.whole)
+
+            elif almost.max(universal.max, excluded.max) == excluded.max:
+                # excluded ends above universal
+                if almost.min(universal.min, excluded.min) == excluded.min:
+                    out = impossible()
+                else:
+                    out = Number(universal.min, almost.complement(excluded.min), universal.whole)
+
+            else:
+                # excluded is in the middle of universal
+                out = Union([Number(universal.min, almost.complement(excluded.min), universal.whole),
+                             Number(almost.complement(excluded.max), universal.max, universal.whole)])
+
+    elif isinstance(universal, String) and isinstance(excluded, String):
+        if universal.charset == excluded.charset:
+            number = Number(universal.fewest, universal.most, True).difference(Number(excluded.fewest, excluded.most, True))
+
+            if isinstance(number, Impossible):
+                out = impossible()
+
+            elif isinstance(number, Union):
+                assert len(number.possibilities) == 2
+                one = number.possibilities[0]
+                two = number.possibilities[1]
+                assert isinstance(one, Number) and one.whole
+                assert isinstance(two, Number) and two.whole
+
+                out = Union([String(one.min, one.max, universal.charset), String(two.min, two.max, universal.charset)])
+
+            else:
+                out = String(number.min, number.max, universal.charset)
+
+        else:
+            out = universal()
+
+    elif isinstance(universal, Collection) and isinstance(excluded, Collection):
+        items = universal.items.difference(excluded.items)
+        number = Number(universal.fewest, universal.most, True).difference(Number(excluded.fewest, excluded.most, True))
+
+        if isinstance(items, Impossible) or isinstance(number, Impossible):
+            out = impossible()
+
+        elif isinstance(number, Union):
+            assert len(number.possibilities) == 2
+            one = number.possibilities[0]
+            two = number.possibilities[1]
+            assert isinstance(one, Number) and one.whole
+            assert isinstance(two, Number) and two.whole
+
+            out = Union([Collection(items, one.min, one.max, universal.ordered), Collection(items, two.min, two.max, universal.ordered)])
+
+        else:
+            out = Collection(items, number.min, number.max, universal.ordered)
+
+    elif isinstance(universal, Record) isinstance(exception, Record):
+        if universal == exception:
+            out = impossible()
+        else:
+            out = universal()
+
+    else:
+        raise ProgrammingError("unhandled case")
+
+    # don't lose any aliases because one and two have been replaced by their union
+    out.aliases.update(one.aliases)
+    out.aliases.update(two.aliases)
+    return out
+
+
+
