@@ -124,9 +124,12 @@ class almost(float):
 
 class Schema(object):
     def __init__(self, alias=None):
-        if alias is not None and not isinstance(alias, string_types):
+        if alias is None:
+            self.aliases = set()
+        elif isinstance(alias, string_types):
+            self.aliases = set((alias, self))
+        else:
             raise FemtocodeError("alias {0} must be None or a string".format(alias))
-        self.alias = alias
 
     def __contains__(self, other):
         raise NotImplementedError
@@ -517,11 +520,10 @@ def tensor(items, *dimensions):
         dimensions = dimensions[:-1]
     else:
         alias = None
-
     out = items
     for d in reversed(dimensions):
         out = Collection(out, d, d, True)
-    out.alias = alias
+    super(Collection, out).__init__(alias)
     return out
 
 class Record(Schema):
@@ -590,7 +592,7 @@ class Union(Schema):
             if not isinstance(p, (Schema,) + string_types):
                 raise FemtocodeError("all possibilities ({0}) must be Schemas or alias strings".format(p))
 
-        self.possibilities = tuple(possibilities)
+        self.possibilities = tuple(sorted(possibilities))
         super(Union, self).__init__(alias)
 
     def __repr__(self):
@@ -650,8 +652,75 @@ def union(*possibilities):
     else:
         one, two = possibilities
 
-        if isinstance(one, Impossible) or isinstance(two, Impossible):
-            return impossible
+        if isinstance(one, Union) and isinstance(two, Union):
+            out = union(*(one.possibilities + two.possibilities))
 
+        elif isinstance(one, Union):
+            out = union(*(one.possibilities + (two,)))
+
+        elif isinstance(two, Union):
+            out = union(*((one,) + two.possibilities))
+
+        elif one.order != two.order:
+            # there is no overlap among different kinds
+            out = Union(one, two)
+            
+        elif isinstance(one, Impossible) and isinstance(two, Impossible):
+            out = impossible
         
+        elif isinstance(one, Null) and isinstance(two, Null):
+            out = null
+
+        elif isinstance(one, Boolean) and isinstance(two, Boolean):
+            out = boolean
+
+        elif isinstance(one, Number) and isinstance(two, Number):
+            if one in two:
+                # two is the superset, it contains one
+                out = two
+
+            elif two in one:
+                # one is the superset, it contains two
+                out = one
+
+            elif one.whole and two.whole:
+                # both integer: they can be glued if there's 1 unit gap or less
+                low, high = sorted([one, two])
+                if low.max >= high.min - 1:
+                    out = Number(min(low.min, high.min), max(low.max, high.max), True)
+                else:
+                    out = Union(one, two)
+
+            elif one.whole or two.whole:
+                # one integer, other not and neither is contained: they can be glued if they extend the interval from open to closed
+                if one.min.real == two.min.real or one.max.real == two.max.real:
+                    out = Number(min(one.min, two.min), max(one.max, two.max), False)
+                else:
+                    out = Union(one, two)
+
+            else:
+                # neither integer: they can be glued if there's no gap
+                low, high = sorted([one, two])
+                if low.max.real == high.min.real:
+                    if isinstance(low.max, almost) and isinstance(high.min, almost):
+                        # they just touch and they're both open intervals; can't glue
+                        out = Union(one, two)
+                    else:
+                        out = Number(min(low.min, high.min), max(low.max, high.max), False)
+                elif low.max >= high.min:
+                    out = Number(min(low.min, high.min), max(low.max, high.max), False)
+                else:
+                    out = Union(one, two)
+
+        elif isinstance(one, String) and isinstance(two, String):
+            pass  # HERE
+
+
+        else:
+            raise ProgrammingError("unhandled case")
+            
+        # don't lose any aliases because one and two have been replaced by their union
+        out.aliases.update(one.aliases)
+        out.aliases.update(two.aliases)
+        return out
         
