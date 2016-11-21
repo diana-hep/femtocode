@@ -974,11 +974,145 @@ def infer(schema, operator, value):
                 return schema
 
             elif isinstance(schema, Number):
-                pass
+                return Union(Number(schema.min, almost(value), schema.whole), Number(almost(value), schema.max, schema.whole))
 
+            elif isinstance(schema, String):
+                if value == "":
+                    if schema.most == 0:
+                        return impossible
+                    else:
+                        return String(min(1, schema.fewest), schema.most, schema.charset)
+                else:
+                    return schema
+
+            elif isinstance(schema, Collection):
+                if value == []:
+                    if schema.most == 0:
+                        return impossible
+                    else:
+                        return Collection(schema.items, min(1, schema.fewest), schema.most, schema.ordered)
+                else:
+                    return schema
+
+            elif isinstance(schema, Record):
+                return schema
+
+            elif isinstance(schema, Union):
+                if value is None:
+                    nonnullable = [x for x in schema.possibilities if not isinstance(x, Null)]
+                    if len(nonnullable) < len(schema.possibilities):
+                        if len(schema.possibilities) == 1:
+                            return schema.possibilities[0]
+                        else:
+                            return Union(schema.possibilities)
+                    else:
+                        return schema
+
+                else:
+                    return Union([infer(x, operator, value) for x in schema.possibilities])
+
+            else:
+                ProgrammingError("unhandled kind")
 
         else:
             return schema
+
+    elif operator in (">", ">=", "<", "<=", "size>", "size>=", "size<", "size<="):
+        if isinstance(schema, Union):
+            possibilities = []
+            for x in [infer(x, operator, value) for x in schema.possibilities]:
+                if not isinstance(x, Impossible):
+                    possibilities.append(x)
+            if len(possibilities) == 0:
+                return impossible
+            elif len(possibilities) == 1:
+                return possibilities[0]
+            else:
+                return Union(*possibilities)
+
+        elif isinstance(schema, Number):
+            if operator == ">":
+                if almost.max(almost(value), schema.min) == almost(value):
+                    return Number(almost(max(value, schema.min.real)), schema.max, schema.whole)
+                else:
+                    return impossible
+
+            elif operator == ">=":
+                if almost.max(value, schema.min) == value:
+                    return Number(max(value, schema.min.real), schema.max, schema.whole)
+                else:
+                    return impossible
+
+            elif operator == "<":
+                if almost.min(almost(value), schema.max) == almost(value):
+                    return Number(schema.min, almost(min(value, schema.max.real)), schema.whole)
+                else:
+                    return impossible
+
+            elif operator == "<=":
+                if almost.min(value, schema.max) == value:
+                    return Number(schema.min, min(value, schema.max.real), schema.whole)
+                else:
+                    return impossible
+
+            else:
+                raise ProgrammingError("unhandled operator")
+
+        elif isinstance(schema, String):
+            if operator == "size>":
+                if schema.most >= value + 1:
+                    return String(max(value + 1, schema.fewest), schema.most, schema.charset)
+                else:
+                    return impossible
+
+            elif operator == "size>=":
+                if schema.most >= value:
+                    return String(max(value, schema.fewest), schema.most, schema.charset)
+                else:
+                    return impossible
+
+            elif operator == "size<":
+                if schema.fewest <= value - 1:
+                    return String(schema.fewest, min(value - 1, schema.most), schema.charset)
+                else:
+                    return impossible
+
+            elif operator == "size<=":
+                if schema.fewest <= value:
+                    return String(schema.fewest, min(value, schema.most), schema.charset)
+                else:
+                    return impossible
+
+            else:
+                raise ProgrammingError("unhandled operator")
+
+        elif isinstance(schema, Collection):
+            if operator == "size>":
+                if schema.most >= value + 1:
+                    return Collection(schema.items, max(value + 1, schema.fewest), schema.most, schema.ordered)
+                else:
+                    return impossible
+
+            elif operator == "size>=":
+                if schema.most >= value:
+                    return Collection(schema.items, max(value, schema.fewest), schema.most, schema.ordered)
+                else:
+                    return impossible
+
+            elif operator == "size<":
+                if schema.fewest <= value - 1:
+                    return Collection(schema.items, schema.fewest, min(value - 1, schema.most), schema.ordered)
+                else:
+                    return impossible
+
+            elif operator == "size<=":
+                if schema.fewest <= value:
+                    return Collection(schema.items, schema.fewest, min(value, schema.most), schema.ordered)
+                else:
+                    return impossible
+
+        else:
+            raise ProgrammingError("unhandled kind")
 
     else:
         raise ProgrammingError("unhandled operator")
