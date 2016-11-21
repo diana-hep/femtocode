@@ -298,48 +298,20 @@ class Number(Schema):
 
     def __contains__(self, other):
         if isinstance(other, Number):
-            ok = True
-
-            if isinstance(self.min, almost) and not isinstance(other.min, almost):
-                # for self to be the superset, its open min must be strictly below other's closed min
-                ok = ok and self.min < other.min
-            else:
-                # any other case permits equality
-                ok = ok and self.min <= other.min
-
-            if isinstance(self.max, almost) and not isinstance(other.max, almost):
-                # for self to be the superset, its open max must be strictly above other's closed max
-                ok = ok and other.max < self.max
-            else:
-                # any other case permits equality
-                ok = ok and other.max <= self.max
-
-            if self.whole:
-                # since self is only whole numbers, other must be whole numbers or a single whole value
-                ok = ok and other.whole or (other.min == other.max and round(other.min) == other.min)
-
-            return ok
+            return almost.min(self.min, other.min) == self.min and \
+                   almost.max(self.max, other.max) == self.max and \
+                   (not self.whole or other.whole or (other.min == other.max and round(other.min) == other.min))
 
         elif isinstance(other, Schema):
             return False
 
         elif isinstance(other, (int, long, float)):
-            ok = True
-
-            if isinstance(self.min, almost):
-                ok = ok and self.min < other
+            if math.isnan(other):
+                return False
             else:
-                ok = ok and self.min <= other
-
-            if isinstance(self.max, almost):
-                ok = ok and other < self.max
-            else:
-                ok = ok and other <= self.max
-
-            if self.whole:
-                ok = ok and round(other) == other
-
-            return ok
+                return almost.min(self.min, other) == self.min and \
+                       almost.max(self.max, other) == self.max and \
+                       (not self.whole or round(other) == other)
 
         else:
             return False
@@ -982,7 +954,7 @@ def union(*types):
 
     elif len(types) > 2:
         # combine them in the order given by the user for more comprehensible error messages
-        return union(union(types[0], types[1]), types[2:])
+        return union(union(types[0], types[1]), *types[2:])
 
     else:
         one, two = types
@@ -1001,13 +973,15 @@ def union(*types):
 
         elif isinstance(two, Union):
             out = union(*((one,) + two.possibilities))
+            
+        elif isinstance(one, Impossible) or isinstance(two, Impossible):
+            # in a language that permits runtime errors, union(impossible, X) == X
+            # but in Femtocode, union(impossible, X) == impossible
+            out = impossible()
 
         elif one.order != two.order:
             # there is no overlap among different kinds
             out = Union([one, two])
-            
-        elif isinstance(one, Impossible) and isinstance(two, Impossible):
-            out = impossible()
         
         elif isinstance(one, Null) and isinstance(two, Null):
             out = null()
@@ -1017,10 +991,12 @@ def union(*types):
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if one in two:
+                print "UNO"
                 # two is the superset, it contains one
                 out = two()
 
             elif two in one:
+                print "DOS"
                 # one is the superset, it contains two
                 out = one()
 
@@ -1028,15 +1004,19 @@ def union(*types):
                 # both integer: they can be glued if there's 1 unit gap or less
                 low, high = sorted([one, two])
                 if low.max >= high.min - 1:
+                    print "TRES"
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), True)
                 else:
+                    print "QUATRO"
                     out = Union([one, two])
 
             elif one.whole or two.whole:
                 # one integer, other not and neither is contained: they can be glued if they extend the interval from open to closed
                 if one.min.real == two.min.real or one.max.real == two.max.real:
+                    print "CINQUO"
                     out = Number(almost.min(one.min, two.min), almost.max(one.max, two.max), False)
                 else:
+                    print "SES"
                     out = Union([one, two])
 
             else:
@@ -1044,13 +1024,17 @@ def union(*types):
                 low, high = sorted([one, two])
                 if low.max.real == high.min.real:
                     if isinstance(low.max, almost) and isinstance(high.min, almost):
+                        print "SIETE"
                         # they just touch and they're both open intervals; can't glue
                         out = Union([one, two])
                     else:
+                        print "OCHO"
                         out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 elif low.max >= high.min:
+                    print "NUEVE"
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 else:
+                    print "DIES"
                     out = Union([one, two])
 
         elif isinstance(one, String) and isinstance(two, String):

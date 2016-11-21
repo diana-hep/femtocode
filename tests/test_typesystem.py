@@ -274,6 +274,7 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(namedtuple("tmp", ["one", "two", "three", "four"])(1, 2.2, "3", "4") in record(one=integer, two=real, three=string))
         self.assertTrue(namedtuple("tmp", ["one", "two"])(1, 2.2) not in record(one=integer, two=real, three=string))
 
+    def test_recursive(self):
         self.assertEqual(repr(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), "record(a=integer(alias=\"placeholder\"), b=\"placeholder\")")
         self.assertEqual(pretty(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), """record(
   a=integer(alias="placeholder"),
@@ -296,6 +297,7 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(one, un.items)
         self.assertEqual(hash(one), hash(un.items))
 
+        self.assertEqual(repr(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0]), "record(\"tree\", left=union(null, \"tree\"), right=union(null, \"tree\"))")
         self.assertEqual(pretty(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0]), """record("tree", 
   left=union(
     null,
@@ -306,3 +308,40 @@ class TestTypesystem(unittest.TestCase):
     "tree"
     )
   )""")
+
+    def test_sets(self):
+        print
+
+        self.assertEqual(impossible, union(impossible))
+        self.assertEqual(impossible, union(impossible, impossible))
+        self.assertEqual(impossible, union(impossible, impossible, impossible))
+
+        self.assertEqual(null, union(null))
+        self.assertEqual(null, union(null, null))
+        self.assertEqual(null, union(null, null, null))
+        self.assertEqual(impossible, union(null, impossible))
+
+        self.assertEqual(boolean, union(boolean))
+        self.assertEqual(boolean, union(boolean, boolean))
+        self.assertEqual(boolean, union(boolean, boolean, boolean))
+        self.assertEqual(impossible, union(boolean, impossible))
+        self.assertEqual(Union([null, boolean]), union(null, boolean))
+
+        self.assertEqual(Union([integer, boolean]), union(boolean, integer))
+        counter = 0
+        for amin in almost(-inf), 3:
+            for bmin in almost(-inf), 2, 3, 4, 10:
+                for amax in 3, 4, 9, 10, 11, almost(inf):
+                    for bmax in 2, 3, 4, 8, 9, 10, 11, 12, almost(inf):
+                        if amin <= amax and bmin <= bmax:
+                            a = integer(amin, amax)
+                            b = integer(bmin, bmax)
+                            c = union(a, b)
+                            print counter, "union({}, {}) == {}".format(a, b, c)
+                            counter += 1
+                            for value in range(1, 14):
+                                print "    ", value, value in a, value in b, value in c
+                                if value in a or value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
