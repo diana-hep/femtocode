@@ -23,8 +23,8 @@ from femtocode.py23 import *
 
 inf = float("inf")
 
-# concrete = ("inf", "null", "boolean", "integer", "real", "string", "binary")
-# parameterized = ("almost", "integer", "real", "binary", "record", "collection", "tensor", "union", "intersection", "complement")
+concrete = ("inf", "null", "boolean", "integer", "real", "extended", "string")
+parameterized = ("almost", "integer", "real", "extended", "string", "collection", "vector", "matrix", "tensor", "record", "union", "intersection", "difference")
 
 class almost(float):
     """almost(x) -> open end of an interval
@@ -239,7 +239,7 @@ class Number(Schema):
         elif self.min == almost(-inf) and self.max == almost(inf):
             return "real"
         else:
-            return "real(min={0}, max={1})"
+            return "real(min={0}, max={1})".format(self.min, self.max)
 
     def __contains__(self, other):
         if isinstance(other, Number):
@@ -329,29 +329,29 @@ extended = Number(-inf, inf, False)
 class String(Schema):
     order = 4
 
-    def __init__(self, fewest=0, most=almost(inf), charset="bytes", alias=None):
+    def __init__(self, charset="bytes", fewest=0, most=almost(inf), alias=None):
+        if charset not in ("bytes", "unicode"):
+            raise FemtocodeError("charset {0} not recognized".format(json.dumps(charset)))
         if not isinstance(fewest, (int, long)) or fewest < 0:
             raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
         if not isinstance(most, (int, long)) and most != almost(inf):
             raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
             raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
-        if charset not in ("bytes", "unicode"):
-            raise FemtocodeError("charset {0} not recognized".format(json.dumps(charset)))
 
+        self.charset = charset
         self.fewest = fewest
         self.most = most
-        self.charset = charset
         super(String, self).__init__(alias)
 
     def __repr__(self):
         args = []
+        if self.charset != "bytes":
+            args.append("{0}".format(json.dumps(self.charset)))
         if not self.fewest == 0:
             args.append("fewest={0}".format(self.fewest))
         if not self.most == almost(inf):
             args.append("most={0}".format(self.most))
-        if self.charset != "bytes":
-            args.append("charset={0}".format(json.dumps(self.charset)))
         if len(args) == 0:
             return "string"
         else:
@@ -384,13 +384,13 @@ class String(Schema):
         if not isinstance(other, Schema):
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         if self.order == other.order:
-            if self.fewest == other.fewest:
-                if self.most == other.most:
-                    return self.charset < other.charset
-                else:
+            if self.charset == other.charset:
+                if self.fewest == other.fewest:
                     return self.most < other.most
+                else:
+                    return self.fewest < other.fewest
             else:
-                return self.fewest < other.fewest
+                return self.charset < other.charset
         else:
             return self.order < other.order
 
@@ -398,20 +398,20 @@ class String(Schema):
         if not isinstance(other, Schema):
             return False
         return self.order == other.order and \
+               self.charset == other.charset and \
                self.fewest == other.fewest and \
-               self.most == other.most and \
-               self.charset == other.charset
+               self.most == other.most
 
     def __hash__(self):
-        return hash((self.order, self.fewest, self.most, self.charset))
+        return hash((self.order, self.charset, self.fewest, self.most))
 
-    def __call__(self, fewest=None, most=None, charset=None, alias=None):
-        return self.__class__(self.fewest if fewest is None else fewest,
+    def __call__(self, charset=None, fewest=None, most=None, alias=None):
+        return self.__class__(self.charset if charset is None else charset,
+                              self.fewest if fewest is None else fewest,
                               self.most if most is None else most,
-                              self.charset if charset is None else charset,
                               alias)
 
-string = String(0, almost(inf), "bytes")
+string = String("bytes", 0, almost(inf))
     
 class Collection(Schema):
     order = 5
@@ -435,27 +435,33 @@ class Collection(Schema):
         super(Collection, self).__init__(alias)
 
     def __repr__(self):
+        def generic():
+            args = [repr(self.items)]
+            if not self.fewest == 0:
+                args.append("fewest={0}".format(self.fewest))
+            if not self.most == almost(inf):
+                args.append("most={0}".format(self.most))
+            if self.ordered:
+                args.append("ordered={0}".format(self.ordered))
+            return "collection({0})".format(", ".join(args))
+
         dimensions = []
         items = self
         while isinstance(items, Collection) and items.ordered and items.fewest == items.most:
+            if not items.ordered:
+                return generic()
             dimensions.append(items.fewest)
             items = items.items
+
         if len(dimensions) == 1:
             return "vector({0}, {1})".format(items, dimensions[0])
         elif len(dimensions) == 2:
             return "matrix({0}, {1}, {2})".format(items, dimensions[0], dimensions[1])
         elif len(dimensions) > 2:
-            return "tensor({0}, {1})".format(items, ", ".join(map(repr, dimensions[0])))
-
-        args = [repr(self.items)]
-        if not self.fewest == 0:
-            args.append("fewest={0}".format(self.fewest))
-        if not self.most == almost(inf):
-            args.append("most={0}".format(self.most))
-        if self.ordered:
-            args.append("ordered={0}".format(self.ordered))
-        return "collection({0})".format(", ".join(args))
-
+            return "tensor({0}, {1})".format(items, ", ".join(map(repr, dimensions)))
+        else:
+            return generic()
+        
     def __contains__(self, other):
         if isinstance(other, Collection):
             ok = True
@@ -505,7 +511,7 @@ class Collection(Schema):
                self.ordered == other.ordered
 
     def __hash__(self):
-        return hash((self.order, self.items, self.fewest, self.most self.ordered))
+        return hash((self.order, self.items, self.fewest, self.most, self.ordered))
 
     def __call__(self, items=None, fewest=None, most=None, ordered=None, alias=None):
         return self.__class__(self.items if items is None else items,
@@ -541,6 +547,8 @@ class Record(Schema):
     def __init__(self, fields, alias=None):
         if not isinstance(fields, dict):
             raise FemtocodeError("fields ({0}) must be a dictionary".format(fields))
+        if len(fields) == 0:
+            raise FemtocodeError("fields ({0}) must contain at least one field-type pair".format(fields))
         for n, t in fields.items():
             if not isinstance(n, string_types) or not isinstance(t, (Schema,) + string_types):
                 raise FemtocodeError("all fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
@@ -549,13 +557,13 @@ class Record(Schema):
         super(Record, self).__init__(alias)
 
     def __repr__(self):
-        return "record({0})".format(", ".join(n + " = " + repr(t) for n, t in self.fields.items()))
+        return "record({0})".format(", ".join(n + "=" + repr(t) for n, t in self.fields.items()))
 
     def __contains__(self, other):
         if isinstance(other, Record):
             # other only needs to have fields that self requires; it may have more
             for n, t in self.fields.items():
-                if n not in other.fields or other.fields[n] not in t
+                if n not in other.fields or other.fields[n] not in t:
                     return False
             return True
 
@@ -737,7 +745,7 @@ def union(*types):
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
                 # string size tracking isn't as fine-grained as integer tracking
-                out = String(min(one.fewest, two.fewest), max(one.most, two.most), one.charset)
+                out = String(one.charset, min(one.fewest, two.fewest), max(one.most, two.most))
             else:
                 out = Union([one, two])
 
@@ -826,7 +834,7 @@ def intersection(*types):
                 fewest = max(one.fewest, two.fewest)
                 most = min(one.most, two.most)
                 if fewest <= most:
-                    out = String(fewest, most, one.charset)
+                    out = String(one.charset, fewest, most)
                 else:
                     out = impossible()
             else:
@@ -917,10 +925,10 @@ def difference(universal, excluded):
                 assert isinstance(one, Number) and one.whole
                 assert isinstance(two, Number) and two.whole
 
-                out = Union([String(one.min, one.max, universal.charset), String(two.min, two.max, universal.charset)])
+                out = Union([String(universal.charset, one.min, one.max), String(universal.charset, two.min, two.max)])
 
             else:
-                out = String(number.min, number.max, universal.charset)
+                out = String(universal.charset, number.min, number.max)
 
         else:
             out = universal()
@@ -944,7 +952,7 @@ def difference(universal, excluded):
         else:
             out = Collection(items, number.min, number.max, universal.ordered)
 
-    elif isinstance(universal, Record) isinstance(exception, Record):
+    elif isinstance(universal, Record) and isinstance(exception, Record):
         if universal == exception:
             out = impossible()
         else:
@@ -981,7 +989,7 @@ def infer(schema, operator, value):
                     if schema.most == 0:
                         return impossible
                     else:
-                        return String(min(1, schema.fewest), schema.most, schema.charset)
+                        return String(schema.charset, min(1, schema.fewest), schema.most)
                 else:
                     return schema
 
@@ -1061,25 +1069,25 @@ def infer(schema, operator, value):
         elif isinstance(schema, String):
             if operator == "size>":
                 if schema.most >= value + 1:
-                    return String(max(value + 1, schema.fewest), schema.most, schema.charset)
+                    return String(schema.charset, max(value + 1, schema.fewest), schema.most)
                 else:
                     return impossible
 
             elif operator == "size>=":
                 if schema.most >= value:
-                    return String(max(value, schema.fewest), schema.most, schema.charset)
+                    return String(schema.charset, max(value, schema.fewest), schema.most)
                 else:
                     return impossible
 
             elif operator == "size<":
                 if schema.fewest <= value - 1:
-                    return String(schema.fewest, min(value - 1, schema.most), schema.charset)
+                    return String(schema.charset, schema.fewest, min(value - 1, schema.most))
                 else:
                     return impossible
 
             elif operator == "size<=":
                 if schema.fewest <= value:
-                    return String(schema.fewest, min(value, schema.most), schema.charset)
+                    return String(schema.charset, schema.fewest, min(value, schema.most))
                 else:
                     return impossible
 
