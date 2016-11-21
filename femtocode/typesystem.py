@@ -131,12 +131,19 @@ class almost(float):
 
 class Schema(object):
     def __init__(self, alias=None):
+        self.alias = alias
         if alias is None:
-            self.aliases = set()
+            self._aliases = set()
         elif isinstance(alias, string_types):
-            self.aliases = set((alias, self))
+            self._aliases = set([(alias, self)])
         else:
             raise FemtocodeError("alias {0} must be None or a string".format(alias))
+
+    def _repr_memo(self, memo):
+        raise NotImplementedError
+
+    def __repr__(self):
+        return self._repr_memo(set())
 
     def __contains__(self, other):
         raise NotImplementedError
@@ -160,8 +167,14 @@ class Schema(object):
 class Impossible(Schema):   # results in a compilation error
     order = 0
 
-    def __repr__(self):
-        return "impossible"
+    def __init__(self, alias=None):
+        super(Impossible, self).__init__(alias)
+
+    def _repr_memo(self, memo):
+        if self.alias is not None:
+            return "impossible(alias={0})".format(json.dumps(self.alias))
+        else:
+            return "impossible"
 
     def __contains__(self, other):
         return False
@@ -171,8 +184,14 @@ impossible = Impossible()
 class Null(Schema):
     order = 1
 
-    def __repr__(self):
-        return "null"
+    def __init__(self, alias=None):
+        super(Null, self).__init__(alias)
+
+    def _repr_memo(self, memo):
+        if self.alias is not None:
+            return "null(alias={0})".format(json.dumps(self.alias))
+        else:
+            return "null"
 
     def __contains__(self, other):
         return isinstance(other, Null) or other is None
@@ -182,8 +201,14 @@ null = Null()
 class Boolean(Schema):
     order = 2
 
-    def __repr__(self):
-        return "boolean"
+    def __init__(self, alias=None):
+        super(Boolean, self).__init__(alias)
+
+    def _repr_memo(self, memo):
+        if self.alias is not None:
+            return "boolean(alias={0})".format(json.dumps(self.alias))
+        else:
+            return "boolean"
 
     def __contains__(self, other):
         return isinstance(other, Boolean) or other is True or other is False
@@ -225,19 +250,33 @@ class Number(Schema):
         self.whole = whole
         super(Number, self).__init__(alias)
 
-    def __repr__(self):
+    def _repr_memo(self, memo):
         if self.whole and self.min == almost(-inf) and self.max == almost(inf):
-            return "integer"
+            base = "integer"
+            args = []
         elif self.whole:
-            return "integer(min={0}, max={1})".format(self.min, self.max)
+            base = "integer"
+            args = ["min={0}".format(self.min), "max={0}".format(self.max)]
         elif self.min == -inf and self.max == inf:
-            return "extended"
+            base = "extended"
+            args = []
         elif self.min == -inf or self.max == inf:
-            return "extended(min={0}, max={1})".format(self.min, self.max)
+            base = "extended"
+            args = ["min={0}".format(self.min), "max={0}".format(self.max)]
         elif self.min == almost(-inf) and self.max == almost(inf):
-            return "real"
+            base = "real"
+            args = []
         else:
-            return "real(min={0}, max={1})".format(self.min, self.max)
+            base = "real"
+            args = ["min={0}".format(self.min), "max={0}".format(self.max)]
+
+        if self.alias is not None:
+            args.append("alias={0}".format(json.dumps(self.alias)))
+
+        if len(args) == 0:
+            return base
+        else:
+            return "{0}({1})".format(base, ", ".join(args))
 
     def __contains__(self, other):
         if isinstance(other, Number):
@@ -342,7 +381,7 @@ class String(Schema):
         self.most = most
         super(String, self).__init__(alias)
 
-    def __repr__(self):
+    def _repr_memo(self, memo):
         args = []
         if self.charset != "bytes":
             args.append("{0}".format(json.dumps(self.charset)))
@@ -432,7 +471,7 @@ class Collection(Schema):
         self.ordered = ordered
         super(Collection, self).__init__(alias)
 
-    def __repr__(self):
+    def _repr_memo(self, memo):
         def generic():
             args = [repr(self.items)]
             if self.fewest != 0:
@@ -554,7 +593,7 @@ class Record(Schema):
         self.fields = fields
         super(Record, self).__init__(alias)
 
-    def __repr__(self):
+    def _repr_memo(self, memo):
         return "record({0})".format(", ".join(n + "=" + repr(t) for n, t in sorted(self.fields.items())))
 
     def __contains__(self, other):
@@ -574,7 +613,7 @@ class Record(Schema):
                     return False
             return True
 
-    def __lt__(self):
+    def __lt__(self, other):
         if not isinstance(other, Schema):
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         if self.order == other.order:
@@ -600,7 +639,7 @@ def record(__alias__=None, **fields):
 class Union(Schema):
     order = 7
 
-    def __init__(self, possibilities, alias=None):
+    def __init__(self, possibilities):
         if not isinstance(possibilities, (list, tuple)):
             raise FemtocodeError("possibilities ({0}) must be a list or tuple".format(possibilities))
         for p in possibilities:
@@ -612,19 +651,21 @@ class Union(Schema):
         aliases = set()
         def merge(p):
             if isinstance(p, Union):
-                for pi in p:
+                for pi in p.possibilities:
                     merge(pi)
-                aliases.update(p.aliases)
+                aliases.update(p._aliases)
             else:
                 ps.append(p)
-        merge(possibilities)
+        
+        for p in possibilities:
+            merge(p)
 
         self.possibilities = tuple(sorted(ps))
-        super(Union, self).__init__(alias)
-        self.aliases.update(aliases)
+        super(Union, self).__init__(None)   # Unions can't have aliases because of an unresolvable reference
+        self._aliases.update(aliases)
 
-    def __repr__(self):
-        return "union({0})".format(", ".join(map(repr, possibilities)))
+    def _repr_memo(self, memo):
+        return "union({0})".format(", ".join(map(repr, self.possibilities)))
 
     def __contains__(self, other):
         if isinstance(other, Union):
@@ -666,17 +707,90 @@ class Union(Schema):
     def __call__(self, *possibilities):
         return self.__class__(possibilities)
 
-def resolve(schema, aliases=None):
-    if aliases is None:
-        aliases = {}
+def _collectAliases(schema, aliases):
+    for n, t in schema._aliases:
+        if n in aliases and t != aliases[n]:
+            raise FemtocodeError("type alias {0} redefined:\n\n{1}".format(json.dumps(n), compare(t, aliases[n], header=("original", "redefinition"))))
+        aliases[n] = t
 
-    # for n, t in schema.aliases:
+    if isinstance(schema, Collection):
+        if isinstance(schema.items, Schema):
+            _collectAliases(schema.items, aliases)
+
+    elif isinstance(schema, Record):
+        for x in schema.fields.values():
+            if isinstance(x, Schema):
+                _collectAliases(x, aliases)
+
+    elif isinstance(schema, Union):
+        for x in schema.possibilities:
+            if isinstance(x, Schema):
+                _collectAliases(x, aliases)
+
+    schema._aliases = aliases
+
+def _getAlias(alias, aliases, top):
+    if alias in aliases:
+        return aliases[alias]
+    else:
+        raise FemtocodeError("type alias {0} not defined in any schemas of this Femtocode group:\n\n{1}".format(json.dumps(alias), pretty(top, lambda t: "-->" if t == alias else "   ")))
+
+def _applyAliases(schema, aliases, top):
+    if isinstance(schema, Collection):
+        if isinstance(schema.items, string_types):
+            schema.items = _getAlias(schema.items, aliases, top)
+        else:
+            schema.items = _applyAliases(schema.items, aliases, top)
+
+    elif isinstance(schema, Record):
+        for n, t in schema.fields.items():
+            if isinstance(t, string_types):
+                schema.fields[n] = _getAlias(t, aliases, top)
+            else:
+                schema.fields[n] = _applyAliases(t, aliases, top)
+
+    elif isinstance(schema, Union):
+        possibilities = []
+        for p in schema.possibilities:
+            if isinstance(p, string_types):
+                possibilities.append(_getAlias(p, aliases, top))
+            else:
+                possibilities.append(_applyAliases(p, aliases, top))
+        # reevaluate whether this ought to be a Union
+        schema = union(*possibilities)
         
+    return schema
 
+def resolve(schemas):
+    aliases = {}
+    for schema in schemas:
+        if isinstance(schema, Schema):
+            _collectAliases(schema, aliases)
 
+    # although it returns a list, it also changes the schemas in-place (only way to make circular references)
+    out = []
+    for schema in schemas:
+        if isinstance(schema, Schema):
+            out.append(_applyAliases(schema, aliases, schema))
+        else:
+            if schema in aliases:
+                out.append(aliases[schema])
+            else:
+                raise FemtocodeError("type alias {0} not defined anywhere in this Femtocode group".format(json.dumps(schema)))
 
-def _pretty(schema, depth, comma):
-    if isinstance(schema, (Impossible, Null, Boolean, Number, String)):
+    return out
+
+def _pretty(schema, depth, comma, memo):
+    if isinstance(schema, Schema) and schema.alias is not None:
+        if schema.alias in memo:
+            return [(depth, json.dumps(schema.alias) + comma, schema)]
+        else:
+            memo.add(schema.alias)
+
+    if isinstance(schema, string_types):
+        return [(depth, json.dumps(schema) + comma, schema)]
+
+    elif isinstance(schema, (Impossible, Null, Boolean, Number, String)):
         return [(depth, repr(schema) + comma, schema)]
 
     elif isinstance(schema, Collection):
@@ -710,12 +824,12 @@ def _pretty(schema, depth, comma):
 
         before, items, after = specific(schema)
 
-        return [(depth, before, schema)] + _pretty(items, depth + 1, "" if after == ")" else ",") + [(depth + 1, after + comma, schema)]
+        return [(depth, before, schema)] + _pretty(items, depth + 1, "" if after == ")" else ",", memo) + [(depth + 1, after + comma, schema)]
 
     elif isinstance(schema, Record):
         fields = []
         for i, (n, t) in enumerate(sorted(schema.fields.items())):
-            sub = _pretty(t, depth + 1, "," if i < len(schema.fields) - 1 else "")
+            sub = _pretty(t, depth + 1, "," if i < len(schema.fields) - 1 else "", memo)
             fields.extend([(sub[0][0], n + "=" + sub[0][1], sub[0][2])] + sub[1:])
 
         return [(depth, "record(", schema)] + fields + [(depth + 1, "){0}".format(comma), schema)]
@@ -723,7 +837,7 @@ def _pretty(schema, depth, comma):
     elif isinstance(schema, Union):
         types = []
         for i, t in enumerate(schema.possibilities):
-            sub = _pretty(t, depth + 1, "," if i < len(schema.possibilities) - 1 else "")
+            sub = _pretty(t, depth + 1, "," if i < len(schema.possibilities) - 1 else "", memo)
             types.extend(sub)
 
         return [(depth, "union(", schema)] + types + [(depth + 1, "){0}".format(comma), schema)]
@@ -732,7 +846,7 @@ def _pretty(schema, depth, comma):
         raise ProgrammerError("unhandled kind")
 
 def pretty(schema, highlight=lambda t: "", indent="  "):
-    return "\n".join("{0}{1}{2}".format(highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, ""))
+    return "\n".join("{0}{1}{2}".format(highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
 
 def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", width=None):
     one = _pretty(one, 0, "")
@@ -787,7 +901,13 @@ def union(*types):
     else:
         one, two = types
 
-        if isinstance(one, Union) and isinstance(two, Union):
+        if isinstance(one, string_types) or isinstance(two, string_types):
+            if one == two:
+                return one
+            else:
+                return Union([one, two])
+
+        elif isinstance(one, Union) and isinstance(two, Union):
             out = union(*(one.possibilities + two.possibilities))
 
         elif isinstance(one, Union):
@@ -871,8 +991,8 @@ def union(*types):
             raise ProgrammingError("unhandled case")
             
         # don't lose any aliases because one and two have been replaced by their union
-        out.aliases.update(one.aliases)
-        out.aliases.update(two.aliases)
+        out._aliases.update(one._aliases)
+        out._aliases.update(two._aliases)
         return out
         
 def intersection(*types):
@@ -966,8 +1086,8 @@ def intersection(*types):
             raise ProgrammingError("unhandled case")
             
         # don't lose any aliases because one and two have been replaced by their union
-        out.aliases.update(one.aliases)
-        out.aliases.update(two.aliases)
+        out._aliases.update(one._aliases)
+        out._aliases.update(two._aliases)
         return out
 
 def difference(universal, excluded):
@@ -1067,8 +1187,8 @@ def difference(universal, excluded):
         raise ProgrammingError("unhandled case")
 
     # don't lose any aliases because one and two have been replaced by their union
-    out.aliases.update(one.aliases)
-    out.aliases.update(two.aliases)
+    out._aliases.update(one._aliases)
+    out._aliases.update(two._aliases)
     return out
 
 def infer(schema, operator, value):

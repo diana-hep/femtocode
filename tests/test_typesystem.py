@@ -273,3 +273,23 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(namedtuple("tmp", ["one", "two", "three"])(1, 2.2, "3") in record(one=integer, two=real, three=string))
         self.assertTrue(namedtuple("tmp", ["one", "two", "three", "four"])(1, 2.2, "3", "4") in record(one=integer, two=real, three=string))
         self.assertTrue(namedtuple("tmp", ["one", "two"])(1, 2.2) not in record(one=integer, two=real, three=string))
+
+        print repr(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0])
+
+        self.assertTrue(pretty(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), """record(
+  a=integer,
+  b="placeholder"
+  )
+""")    # (reversed the order)
+
+        one, two = resolve([record(a="placeholder", b=integer(alias="placeholder")), record(a="placeholder", b="placeholder")])
+        self.assertTrue(one == two)
+
+        one = resolve([collection("recursive", alias="recursive")])[0]
+        # print one == one
+
+
+
+
+
+        # print pretty(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0])
