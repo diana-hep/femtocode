@@ -26,11 +26,13 @@ class TestTypesystem(unittest.TestCase):
     def test_constructors(self):
         self.assertEqual(impossible, Impossible())
         self.assertEqual(repr(impossible), "impossible")
+        self.assertEqual(pretty(impossible), "impossible")
         self.assertTrue(impossible not in impossible)
         self.assertTrue(3.14 not in impossible)
 
         self.assertEqual(null, Null())
         self.assertEqual(repr(null), "null")
+        self.assertEqual(pretty(null), "null")
         self.assertTrue(null in null)
         self.assertTrue(impossible not in null)
         self.assertTrue(None in null)
@@ -38,6 +40,7 @@ class TestTypesystem(unittest.TestCase):
 
         self.assertEqual(boolean, Boolean())
         self.assertEqual(repr(boolean), "boolean")
+        self.assertEqual(pretty(boolean), "boolean")
         self.assertTrue(boolean in boolean)
         self.assertTrue(null not in boolean)
         self.assertTrue(True in boolean)
@@ -59,6 +62,15 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(repr(extended), "extended")
         self.assertEqual(repr(extended(3)), "extended(min=3, max=inf)")
         self.assertEqual(repr(extended(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(pretty(integer), "integer")
+        self.assertEqual(pretty(integer(3)), "integer(min=3, max=almost(inf))")
+        self.assertEqual(pretty(integer(3, 10)), "integer(min=3, max=10)")
+        self.assertEqual(pretty(real), "real")
+        self.assertEqual(pretty(real(3)), "real(min=3, max=almost(inf))")
+        self.assertEqual(pretty(real(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(pretty(extended), "extended")
+        self.assertEqual(pretty(extended(3)), "extended(min=3, max=inf)")
+        self.assertEqual(pretty(extended(3, 10)), "real(min=3, max=10)")
         self.assertTrue(null not in integer)
         self.assertTrue(boolean not in integer)
         self.assertTrue(integer in integer)
@@ -106,6 +118,11 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(repr(string(most=5)), "string(most=5)")
         self.assertEqual(repr(string("unicode")), "string(\"unicode\")")
         self.assertEqual(repr(string("unicode", 1, 5)), "string(\"unicode\", fewest=1, most=5)")
+        self.assertEqual(pretty(string), "string")
+        self.assertEqual(pretty(string(fewest=1)), "string(fewest=1)")
+        self.assertEqual(pretty(string(most=5)), "string(most=5)")
+        self.assertEqual(pretty(string("unicode")), "string(\"unicode\")")
+        self.assertEqual(pretty(string("unicode", 1, 5)), "string(\"unicode\", fewest=1, most=5)")
         self.assertTrue(null not in string)
         self.assertTrue(string in string)
         self.assertTrue(string("unicode") not in string)
@@ -144,6 +161,43 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(repr(collection(real, 3, 3, False)), "collection(real, fewest=3, most=3)")
         self.assertEqual(repr(collection(collection(real, 3, 3, False), 2, 2, True)), "vector(collection(real, fewest=3, most=3), 2)")
         self.assertEqual(repr(collection(collection(collection(real, 3, 3, False), 2, 2, True), 1, 1, True)), "matrix(collection(real, fewest=3, most=3), 1, 2)")
+
+
+        self.assertEqual(pretty(collection(real)), """collection(
+  real
+  )""")
+        self.assertEqual(pretty(vector(real, 3)), """vector(
+  real,
+  3)""")
+        self.assertEqual(pretty(matrix(real, 2, 3)), """matrix(
+  real,
+  2, 3)""")
+        self.assertEqual(pretty(tensor(real, 1, 2, 3)), """tensor(
+  real,
+  1, 2, 3)""")
+        self.assertEqual(pretty(collection(real, 3, 3, True)), """vector(
+  real,
+  3)""")
+        self.assertEqual(pretty(collection(collection(real, 3, 3, True), 2, 2, True)), """matrix(
+  real,
+  2, 3)""")
+        self.assertEqual(pretty(collection(collection(collection(real, 3, 3, True), 2, 2, True), 1, 1, True)), """tensor(
+  real,
+  1, 2, 3)""")
+        self.assertEqual(pretty(collection(real, 3, 3, False)), """collection(
+  real,
+  fewest=3, most=3)""")
+        self.assertEqual(pretty(collection(collection(real, 3, 3, False), 2, 2, True)), """vector(
+  collection(
+    real,
+    fewest=3, most=3),
+  2)""")
+        self.assertEqual(pretty(collection(collection(collection(real, 3, 3, False), 2, 2, True), 1, 1, True)), """matrix(
+  collection(
+    real,
+    fewest=3, most=3),
+  1, 2)""")
+
         self.assertTrue(null not in collection(real))
         self.assertTrue(collection(real) in collection(real))
         self.assertTrue(collection(real, ordered=True) in collection(real))
@@ -203,7 +257,12 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue([[[99]]] in tensor(real, 1, 1, 1))
 
         self.assertEqual(record(one=integer, two=real, three=string), Record({"one": integer, "two": real, "three": string}))
-        self.assertEqual(repr(record(one=integer, two=real, three=string)), "record(three=string, two=real, one=integer)")
+        self.assertEqual(repr(record(one=integer, two=real, three=string)), "record(one=integer, three=string, two=real)")
+        self.assertEqual(pretty(record(one=integer, two=real, three=string)), """record(
+  one=integer,
+  three=string,
+  two=real
+  )""")
         self.assertTrue(null not in record(one=integer, two=real, three=string))
         self.assertTrue(record(one=integer, two=real, three=string) in record(one=integer, two=real, three=string))
         self.assertTrue(record(one=integer, two=real, three=string) in record(one=integer, two=real))

@@ -129,8 +129,6 @@ class almost(float):
         a, b = divmod(self, other.real)
         return (almost(a), almost(b))
 
-# expressions must evaluate to concrete types, subclasses of Schema
-
 class Schema(object):
     def __init__(self, alias=None):
         if alias is None:
@@ -158,7 +156,7 @@ class Schema(object):
 
     def __call__(self, alias=None):
         return self.__class__(alias)
-
+    
 class Impossible(Schema):   # results in a compilation error
     order = 0
 
@@ -437,9 +435,9 @@ class Collection(Schema):
     def __repr__(self):
         def generic():
             args = [repr(self.items)]
-            if not self.fewest == 0:
+            if self.fewest != 0:
                 args.append("fewest={0}".format(self.fewest))
-            if not self.most == almost(inf):
+            if self.most != almost(inf):
                 args.append("most={0}".format(self.most))
             if self.ordered:
                 args.append("ordered={0}".format(self.ordered))
@@ -557,7 +555,7 @@ class Record(Schema):
         super(Record, self).__init__(alias)
 
     def __repr__(self):
-        return "record({0})".format(", ".join(n + "=" + repr(t) for n, t in self.fields.items()))
+        return "record({0})".format(", ".join(n + "=" + repr(t) for n, t in sorted(self.fields.items())))
 
     def __contains__(self, other):
         if isinstance(other, Record):
@@ -667,6 +665,113 @@ class Union(Schema):
 
     def __call__(self, *possibilities):
         return self.__class__(possibilities)
+
+def resolve(schema, aliases=None):
+    if aliases is None:
+        aliases = {}
+
+    # for n, t in schema.aliases:
+        
+
+
+
+def _pretty(schema, depth, comma):
+    if isinstance(schema, (Impossible, Null, Boolean, Number, String)):
+        return [(depth, repr(schema) + comma, schema)]
+
+    elif isinstance(schema, Collection):
+        def generic(schema):
+            args = []
+            if schema.fewest != 0:
+                args.append("fewest={0}".format(schema.fewest))
+            if schema.most != almost(inf):
+                args.append("most={0}".format(schema.most))
+            if schema.ordered:
+                args.append("ordered={0}".format(schema.ordered))
+            return "collection(", schema.items, ", ".join(args) + ")"
+
+        def specific(schema):
+            dimensions = []
+            items = schema
+            while isinstance(items, Collection) and items.ordered and items.fewest == items.most:
+                if not items.ordered:
+                    return generic(schema)
+                dimensions.append(items.fewest)
+                items = items.items
+
+            if len(dimensions) == 1:
+                return "vector(", items, repr(dimensions[0]) + ")"
+            elif len(dimensions) == 2:
+                return "matrix(", items, repr(dimensions[0]) + ", " + repr(dimensions[1]) + ")"
+            elif len(dimensions) > 2:
+                return "tensor(", items, ", ".join(map(repr, dimensions)) + ")"
+            else:
+                return generic(schema)
+
+        before, items, after = specific(schema)
+
+        return [(depth, before, schema)] + _pretty(items, depth + 1, "" if after == ")" else ",") + [(depth + 1, after + comma, schema)]
+
+    elif isinstance(schema, Record):
+        fields = []
+        for i, (n, t) in enumerate(sorted(schema.fields.items())):
+            sub = _pretty(t, depth + 1, "," if i < len(schema.fields) - 1 else "")
+            fields.extend([(sub[0][0], n + "=" + sub[0][1], sub[0][2])] + sub[1:])
+
+        return [(depth, "record(", schema)] + fields + [(depth + 1, "){0}".format(comma), schema)]
+
+    elif isinstance(schema, Union):
+        types = []
+        for i, t in enumerate(schema.possibilities):
+            sub = _pretty(t, depth + 1, "," if i < len(schema.possibilities) - 1 else "")
+            types.extend(sub)
+
+        return [(depth, "union(", schema)] + types + [(depth + 1, "){0}".format(comma), schema)]
+
+    else:
+        raise ProgrammerError("unhandled kind")
+
+def pretty(schema, highlight=lambda t: "", indent="  "):
+    return "\n".join("{0}{1}{2}".format(highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, ""))
+
+def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", width=None):
+    one = _pretty(one, 0, "")
+    two = _pretty(two, 0, "")
+    i1 = 0
+    i2 = 0
+    if width is None:
+        width = max(max([len(indent)*depth + len(line) for depth, line, _ in one]), max([len(indent)*depth + len(line) for depth, line, _ in two]))
+
+    if header is not None:
+        left, right = header   # assuming header is a 2-tuple of strings
+        out = [("{0:%d} {1:%d} {2:%d}" % (width, len(between(None, None)), width)).format(left[:width], "|", right[:width]),
+               ("-" * width) + "-+-" + ("-" * width)]
+    else:
+        out = []
+
+    while i1 < len(one) or i2 < len(two):
+        d1, line1, t1 = one[i1] if i1 < len(one) else (d1, "", None)
+        d2, line2, t2 = two[i2] if i2 < len(two) else (d2, "", None)
+
+        if d1 >= d2:
+            line1 = indent * d1 + line1
+            line1 = ("{0:%d}" % width).format(line1[:width])
+        if d2 >= d1:
+            line2 = indent * d2 + line2
+            line2 = ("{0:%d}" % width).format(line2[:width])
+        
+        if d1 == d2:
+            out.append(line1 + " " + between(t1, t2) + " " + line2)
+            i1 += 1
+            i2 += 1
+        elif d1 > d2:
+            out.append(line1 + " " + between(t1, None) + " " + (" " * width))
+            i1 += 1
+        elif d2 > d1:
+            out.append((" " * width) + " " + between(None, t2) + " " + line2)
+            i2 += 1
+
+    return "\n".join(out)
     
 def union(*types):
     if len(types) == 0:
