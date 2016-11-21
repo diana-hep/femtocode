@@ -139,14 +139,8 @@ class Schema(object):
         else:
             raise FemtocodeError("alias {0} must be None or a string".format(alias))
 
-    def _repr_memo(self, memo):
-        raise NotImplementedError
-
     def __repr__(self):
         return self._repr_memo(set())
-
-    def __contains__(self, other):
-        raise NotImplementedError
 
     def __lt__(self, other):
         if not isinstance(other, Schema):
@@ -172,6 +166,12 @@ class Impossible(Schema):   # results in a compilation error
 
     def _repr_memo(self, memo):
         if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
+        if self.alias is not None:
             return "impossible(alias={0})".format(json.dumps(self.alias))
         else:
             return "impossible"
@@ -189,6 +189,12 @@ class Null(Schema):
 
     def _repr_memo(self, memo):
         if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
+        if self.alias is not None:
             return "null(alias={0})".format(json.dumps(self.alias))
         else:
             return "null"
@@ -205,6 +211,12 @@ class Boolean(Schema):
         super(Boolean, self).__init__(alias)
 
     def _repr_memo(self, memo):
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
         if self.alias is not None:
             return "boolean(alias={0})".format(json.dumps(self.alias))
         else:
@@ -251,6 +263,12 @@ class Number(Schema):
         super(Number, self).__init__(alias)
 
     def _repr_memo(self, memo):
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
         if self.whole and self.min == almost(-inf) and self.max == almost(inf):
             base = "integer"
             args = []
@@ -382,6 +400,12 @@ class String(Schema):
         super(String, self).__init__(alias)
 
     def _repr_memo(self, memo):
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
         args = []
         if self.charset != "bytes":
             args.append("{0}".format(json.dumps(self.charset)))
@@ -389,6 +413,9 @@ class String(Schema):
             args.append("fewest={0}".format(self.fewest))
         if not self.most == almost(inf):
             args.append("most={0}".format(self.most))
+        if self.alias is not None:
+            args.append("alias={0}".format(json.dumps(self.alias)))
+
         if len(args) == 0:
             return "string"
         else:
@@ -472,14 +499,22 @@ class Collection(Schema):
         super(Collection, self).__init__(alias)
 
     def _repr_memo(self, memo):
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
         def generic():
-            args = [repr(self.items)]
+            args = [self.items._repr_memo(memo)]
             if self.fewest != 0:
                 args.append("fewest={0}".format(self.fewest))
             if self.most != almost(inf):
                 args.append("most={0}".format(self.most))
             if self.ordered:
                 args.append("ordered={0}".format(self.ordered))
+            if self.alias is not None:
+                args.append("alias={0}".format(json.dumps(self.alias)))
             return "collection({0})".format(", ".join(args))
 
         dimensions = []
@@ -490,12 +525,17 @@ class Collection(Schema):
             dimensions.append(items.fewest)
             items = items.items
 
+        args = []
+        if self.alias is not None:
+            args.append("alias={0}".format(json.dumps(self.alias)))
+        args.extend(map(repr, dimensions))
+
         if len(dimensions) == 1:
-            return "vector({0}, {1})".format(items, dimensions[0])
+            return "vector({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
         elif len(dimensions) == 2:
-            return "matrix({0}, {1}, {2})".format(items, dimensions[0], dimensions[1])
+            return "matrix({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
         elif len(dimensions) > 2:
-            return "tensor({0}, {1})".format(items, ", ".join(map(repr, dimensions)))
+            return "tensor({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
         else:
             return generic()
         
@@ -521,11 +561,17 @@ class Collection(Schema):
         else:
             return False
 
+    def _items(self):
+        if isinstance(self.items, Schema) and self.items.alias is not None:
+            return self.items.alias
+        else:
+            return self.items
+
     def __lt__(self, other):
         if not isinstance(other, Schema):
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         if self.order == other.order:
-            if self.items == other.items:
+            if self._items() == other._items():
                 if self.fewest == other.fewest:
                     if self.most == other.most:
                         return self.ordered < other.ordered
@@ -534,7 +580,7 @@ class Collection(Schema):
                 else:
                     return self.fewest < other.fewest
             else:
-                return self.items < other.items
+                return self._items() < other._items()
         else:
             return self.order < other.order
 
@@ -542,13 +588,13 @@ class Collection(Schema):
         if not isinstance(other, Schema):
             return False
         return self.order == other.order and \
-               self.items == other.items and \
+               self._items() == other._items() and \
                self.fewest == other.fewest and \
                self.most == other.most and \
                self.ordered == other.ordered
 
     def __hash__(self):
-        return hash((self.order, self.items, self.fewest, self.most, self.ordered))
+        return hash((self.order, self._items(), self.fewest, self.most, self.ordered))
 
     def __call__(self, items=None, fewest=None, most=None, ordered=None, alias=None):
         return self.__class__(self.items if items is None else items,
@@ -594,7 +640,18 @@ class Record(Schema):
         super(Record, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        return "record({0})".format(", ".join(n + "=" + repr(t) for n, t in sorted(self.fields.items())))
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+
+        if self.alias is not None:
+            alias = json.dumps(self.alias) + ", "
+        else:
+            alias = ""
+
+        return "record({0}{1})".format(alias, ", ".join(n + "=" + t._repr_memo(memo) for n, t in sorted(self.fields.items())))
 
     def __contains__(self, other):
         if isinstance(other, Record):
@@ -613,11 +670,17 @@ class Record(Schema):
                     return False
             return True
 
+    def _field(self, name):
+        if isinstance(self.fields[name], Schema) and self.fields[name].alias is not None:
+            return self.fields[name].alias
+        else:
+            return self.fields[name]
+
     def __lt__(self, other):
         if not isinstance(other, Schema):
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         if self.order == other.order:
-            return self.fields < other.fields
+            return [self._field(n) for n in sorted(self.fields)] < [other._field(n) for n in sorted(other.fields)]
         else:
             return self.order < other.order
 
@@ -625,10 +688,10 @@ class Record(Schema):
         if not isinstance(other, Schema):
             return False
         return self.order == other.order and \
-               self.fields == other.fields
+               [self._field(n) for n in sorted(self.fields)] == [other._field(n) for n in sorted(other.fields)]
 
     def __hash__(self):
-        return hash((self.order, tuple(sorted(self.fields.items()))))
+        return hash((self.order, tuple(self._field(n) for n in sorted(self.fields))))
 
     def __call__(self, __alias__=None, **fields):
         return self.__class__(dict(self.fields, **fields), __alias__)
@@ -640,6 +703,7 @@ class Union(Schema):
     order = 7
 
     def __init__(self, possibilities):
+        # Unions can't have aliases because of a case that would lead to unresolvable references
         if not isinstance(possibilities, (list, tuple)):
             raise FemtocodeError("possibilities ({0}) must be a list or tuple".format(possibilities))
         for p in possibilities:
@@ -661,11 +725,11 @@ class Union(Schema):
             merge(p)
 
         self.possibilities = tuple(sorted(ps))
-        super(Union, self).__init__(None)   # Unions can't have aliases because of an unresolvable reference
+        super(Union, self).__init__(None)
         self._aliases.update(aliases)
 
     def _repr_memo(self, memo):
-        return "union({0})".format(", ".join(map(repr, self.possibilities)))
+        return "union({0})".format(", ".join(x._repr_memo(memo) for x in self.possibilities))
 
     def __contains__(self, other):
         if isinstance(other, Union):
@@ -687,11 +751,17 @@ class Union(Schema):
                 return False
             return True
 
+    def _possibility(self, index):
+        if isinstance(self.possibilities[index], Schema) and self.possibilities[index].alias is not None:
+            return self.possibilities[index].alias
+        else:
+            return self.possibilities[index]
+
     def __lt__(self, other):
         if not isinstance(other, Schema):
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
         if self.order == other.order:
-            return self.possibilities < other.possibilities
+            return [self._possibility(i) for i in xrange(len(self.possibilities))] < [other._possibility(i) for i in xrange(len(other.possibilities))]
         else:
             return self.order < other.order
 
@@ -699,10 +769,10 @@ class Union(Schema):
         if not isinstance(other, Schema):
             return False
         return self.order == other.order and \
-               self.possibilities == other.possibilities
+               [self._possibility(i) for i in xrange(len(self.possibilities))] == [other._possibility(i) for i in xrange(len(other.possibilities))]
 
     def __hash__(self):
-        return hash((self.order, self.possibilities))
+        return hash((self.order, tuple(self._possibility(i) for i in xrange(len(self.possibilities)))))
 
     def __call__(self, *possibilities):
         return self.__class__(possibilities)
@@ -726,8 +796,6 @@ def _collectAliases(schema, aliases):
         for x in schema.possibilities:
             if isinstance(x, Schema):
                 _collectAliases(x, aliases)
-
-    schema._aliases = aliases
 
 def _getAlias(alias, aliases, top):
     if alias in aliases:
@@ -781,19 +849,19 @@ def resolve(schemas):
     return out
 
 def _pretty(schema, depth, comma, memo):
-    if isinstance(schema, Schema) and schema.alias is not None:
-        if schema.alias in memo:
-            return [(depth, json.dumps(schema.alias) + comma, schema)]
-        else:
-            memo.add(schema.alias)
-
     if isinstance(schema, string_types):
         return [(depth, json.dumps(schema) + comma, schema)]
 
     elif isinstance(schema, (Impossible, Null, Boolean, Number, String)):
-        return [(depth, repr(schema) + comma, schema)]
+        return [(depth, schema._repr_memo(memo) + comma, schema)]
 
     elif isinstance(schema, Collection):
+        if schema.alias is not None:
+            if schema.alias in memo:
+                return [(depth, json.dumps(schema.alias) + comma, schema)]
+            else:
+                memo.add(schema.alias)
+
         def generic(schema):
             args = []
             if schema.fewest != 0:
@@ -802,6 +870,8 @@ def _pretty(schema, depth, comma, memo):
                 args.append("most={0}".format(schema.most))
             if schema.ordered:
                 args.append("ordered={0}".format(schema.ordered))
+            if schema.alias is not None:
+                args.append("alias={0}".format(json.dumps(schema.alias)))
             return "collection(", schema.items, ", ".join(args) + ")"
 
         def specific(schema):
@@ -813,12 +883,17 @@ def _pretty(schema, depth, comma, memo):
                 dimensions.append(items.fewest)
                 items = items.items
 
+            args = []
+            if schema.alias is not None:
+                args.append("alias={0}".format(json.dumps(schema.alias)))
+            args.extend(map(repr, dimensions))
+
             if len(dimensions) == 1:
-                return "vector(", items, repr(dimensions[0]) + ")"
+                return "vector(", items, ", ".join(args) + ")"
             elif len(dimensions) == 2:
-                return "matrix(", items, repr(dimensions[0]) + ", " + repr(dimensions[1]) + ")"
+                return "matrix(", items, ", ".join(args) + ")"
             elif len(dimensions) > 2:
-                return "tensor(", items, ", ".join(map(repr, dimensions)) + ")"
+                return "tensor(", items, ", ".join(args) + ")"
             else:
                 return generic(schema)
 
@@ -827,12 +902,23 @@ def _pretty(schema, depth, comma, memo):
         return [(depth, before, schema)] + _pretty(items, depth + 1, "" if after == ")" else ",", memo) + [(depth + 1, after + comma, schema)]
 
     elif isinstance(schema, Record):
+        if schema.alias is not None:
+            if schema.alias in memo:
+                return [(depth, json.dumps(schema.alias) + comma, schema)]
+            else:
+                memo.add(schema.alias)
+
         fields = []
         for i, (n, t) in enumerate(sorted(schema.fields.items())):
             sub = _pretty(t, depth + 1, "," if i < len(schema.fields) - 1 else "", memo)
             fields.extend([(sub[0][0], n + "=" + sub[0][1], sub[0][2])] + sub[1:])
 
-        return [(depth, "record(", schema)] + fields + [(depth + 1, "){0}".format(comma), schema)]
+        if schema.alias is not None:
+            alias = json.dumps(schema.alias) + ", "
+        else:
+            alias = ""
+
+        return [(depth, "record(" + alias, schema)] + fields + [(depth + 1, "){0}".format(comma), schema)]
 
     elif isinstance(schema, Union):
         types = []

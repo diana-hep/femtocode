@@ -274,22 +274,35 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(namedtuple("tmp", ["one", "two", "three", "four"])(1, 2.2, "3", "4") in record(one=integer, two=real, three=string))
         self.assertTrue(namedtuple("tmp", ["one", "two"])(1, 2.2) not in record(one=integer, two=real, three=string))
 
-        print repr(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0])
-
-        self.assertTrue(pretty(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), """record(
-  a=integer,
+        self.assertEqual(repr(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), "record(a=integer(alias=\"placeholder\"), b=\"placeholder\")")
+        self.assertEqual(pretty(resolve([record(a="placeholder", b=integer(alias="placeholder"))])[0]), """record(
+  a=integer(alias="placeholder"),
   b="placeholder"
-  )
-""")    # (reversed the order)
+  )""")
 
-        one, two = resolve([record(a="placeholder", b=integer(alias="placeholder")), record(a="placeholder", b="placeholder")])
-        self.assertTrue(one == two)
+        un, deux = record(a="placeholder", b=integer(alias="placeholder")), record(a="placeholder", b="placeholder")
+        one, two = resolve([un, deux])
+        self.assertEqual(one, two)
+        self.assertEqual(hash(one), hash(two))
+        self.assertEqual(one, un)
+        self.assertEqual(hash(one), hash(un))
 
-        one = resolve([collection("recursive", alias="recursive")])[0]
-        # print one == one
+        un = collection("recursive", alias="recursive")
+        one = resolve([un])[0]
+        self.assertEqual(one, one)
+        self.assertEqual(one, one.items)
+        self.assertEqual(hash(one), hash(one.items))
+        self.assertEqual(one, un)
+        self.assertEqual(one, un.items)
+        self.assertEqual(hash(one), hash(un.items))
 
-
-
-
-
-        # print pretty(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0])
+        self.assertEqual(pretty(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0]), """record("tree", 
+  left=union(
+    null,
+    "tree"
+    ),
+  right=union(
+    null,
+    "tree"
+    )
+  )""")
