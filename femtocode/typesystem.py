@@ -359,16 +359,16 @@ class String(Schema):
     def __init__(self, charset="bytes", fewest=0, most=almost(inf), alias=None):
         if charset not in ("bytes", "unicode"):
             raise FemtocodeError("charset {0} not recognized".format(json.dumps(charset)))
-        if not isinstance(fewest, (int, long)) or fewest < 0:
+        if not (isinstance(fewest, (int, long, float)) and not isinstance(fewest, almost) and fewest >= 0 and round(fewest) == fewest):
             raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
-        if not isinstance(most, (int, long)) and most != almost(inf):
+        if not (isinstance(most, (int, long, float)) and (most == almost(inf) or (not isinstance(most, almost) and round(most) == most))):
             raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
             raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
 
         self.charset = charset
-        self.fewest = fewest
-        self.most = most
+        self.fewest = int(fewest)
+        self.most = int(most) if most != almost(inf) else most
         super(String, self).__init__(alias)
 
     def _repr_memo(self, memo):
@@ -455,9 +455,9 @@ class Collection(Schema):
     def __init__(self, items, fewest=0, most=almost(inf), ordered=False, alias=None):
         if not isinstance(items, (Schema,) + string_types):
             raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
-        if not isinstance(fewest, (int, long)) or fewest < 0:
+        if not (isinstance(fewest, (int, long, float)) and not isinstance(fewest, almost) and fewest >= 0 and round(fewest) == fewest):
             raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
-        if not isinstance(most, (int, long)) and most != almost(inf):
+        if not (isinstance(most, (int, long, float)) and (most == almost(inf) or (not isinstance(most, almost) and round(most) == most))):
             raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
             raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
@@ -465,8 +465,8 @@ class Collection(Schema):
             raise FemtocodeError("ordered ({0}) must be boolean".format(ordered))
 
         self.items = items
-        self.fewest = fewest
-        self.most = most
+        self.fewest = int(fewest)
+        self.most = int(most) if most != almost(inf) else most
         self.ordered = ordered
         super(Collection, self).__init__(alias)
 
@@ -1069,7 +1069,7 @@ def intersection(*types):
 
     elif len(types) > 2:
         # combine them in the order given by the user for more comprehensible error messages
-        return intersection(intersection(types[0], types[1]), types[2:])
+        return intersection(intersection(types[0], types[1]), *types[2:])
 
     else:
         one, two = types
@@ -1081,11 +1081,11 @@ def intersection(*types):
             # includes the case when one and two are both Unions
             out = union(*(intersection(one, p) for p in two.possibilities))
 
-        elif one.order != two.order:
-            # there is no overlap among different kinds
+        elif isinstance(one, Impossible) or isinstance(two, Impossible):
             out = impossible()
 
-        elif isinstance(one, Impossible) and isinstance(two, Impossible):
+        elif one.order != two.order:
+            # there is no overlap among different kinds
             out = impossible()
 
         elif isinstance(one, Null) and isinstance(two, Null):
@@ -1169,11 +1169,11 @@ def difference(universal, excluded):
         for p in excluded.possibilities:
             out = difference(out, p)
 
+    elif isinstance(universal, Impossible) or isinstance(excluded, Impossible):
+        out = impossible()
+
     elif universal.order != excluded.order:
         out = universal()
-
-    elif isinstance(universal, Impossible) and isinstance(excluded, Impossible):
-        out = impossible()
 
     elif isinstance(universal, Null) and isinstance(excluded, Null):
         out = impossible()
@@ -1208,7 +1208,7 @@ def difference(universal, excluded):
 
     elif isinstance(universal, String) and isinstance(excluded, String):
         if universal.charset == excluded.charset:
-            number = Number(universal.fewest, universal.most, True).difference(Number(excluded.fewest, excluded.most, True))
+            number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
 
             if isinstance(number, Impossible):
                 out = impossible()
