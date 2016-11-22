@@ -105,6 +105,18 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(-3 in real)
         self.assertTrue(-3.14 in real)
         self.assertTrue(-3.14 not in real(0))
+        self.assertTrue(2.9 not in real(3, 10))
+        self.assertTrue(3 in real(3, 10))
+        self.assertTrue(3.1 in real(3, 10))
+        self.assertTrue(9.9 in real(3, 10))
+        self.assertTrue(10 in real(3, 10))
+        self.assertTrue(10.1 not in real(3, 10))
+        self.assertTrue(2.9 not in real(almost(3), almost(10)))
+        self.assertTrue(3 not in real(almost(3), almost(10)))
+        self.assertTrue(3.1 in real(almost(3), almost(10)))
+        self.assertTrue(9.9 in real(almost(3), almost(10)))
+        self.assertTrue(10 not in real(almost(3), almost(10)))
+        self.assertTrue(10.1 not in real(almost(3), almost(10)))
         self.assertTrue(-3 in extended)
         self.assertTrue(-3.14 in extended)
         self.assertTrue(-3.14 not in extended(0))
@@ -328,7 +340,7 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(Union([null, boolean]), union(null, boolean))
 
         self.assertEqual(Union([integer, boolean]), union(boolean, integer))
-        counter = 0
+
         for amin in almost(-inf), 3:
             for bmin in almost(-inf), 2, 3, 4, 10:
                 for amax in 3, 4, 9, 10, 11, almost(inf):
@@ -337,11 +349,26 @@ class TestTypesystem(unittest.TestCase):
                             a = integer(amin, amax)
                             b = integer(bmin, bmax)
                             c = union(a, b)
-                            print counter, "union({}, {}) == {}".format(a, b, c)
-                            counter += 1
                             for value in range(1, 14):
-                                print "    ", value, value in a, value in b, value in c
                                 if value in a or value in b:
                                     self.assertTrue(value in c)
                                 else:
                                     self.assertTrue(value not in c)
+
+        # counter = 0
+        # for amin in almost(-inf), 3:
+        #     for bmin in almost(-inf), 2, 3, 4, 10:
+        #         for amax in 3, 4, 9, 10, 11, almost(inf):
+        #             for bmax in 2, 3, 4, 8, 9, 10, 11, 12, almost(inf):
+        #                 if amin <= amax and bmin <= bmax:
+        #                     a = integer(amin, amax)
+        #                     b = integer(bmin, bmax)
+        #                     c = union(a, b)
+        #                     print counter, "union({}, {}) == {}".format(a, b, c)
+        #                     counter += 1
+        #                     for value in range(1, 14):
+        #                         print "    ", value, value in a, value in b, value in c
+        #                         if value in a or value in b:
+        #                             self.assertTrue(value in c)
+        #                         else:
+        #                             self.assertTrue(value not in c)
