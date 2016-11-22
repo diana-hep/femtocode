@@ -1229,8 +1229,8 @@ def difference(universal, excluded):
             out = universal()
 
     elif isinstance(universal, Collection) and isinstance(excluded, Collection):
-        items = universal.items.difference(excluded.items)
-        number = Number(universal.fewest, universal.most, True).difference(Number(excluded.fewest, excluded.most, True))
+        items = difference(universal.items, excluded.items)
+        number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
 
         if isinstance(items, Impossible) or isinstance(number, Impossible):
             out = impossible()

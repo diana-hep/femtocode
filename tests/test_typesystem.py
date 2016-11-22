@@ -361,103 +361,103 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(boolean, difference(boolean, integer))
         self.assertEqual(integer, difference(integer, boolean))
 
-        # for amin in almost(-inf), 3:
-        #     for bmin in almost(-inf), 2, 3, 4, 10:
-        #         for amax in 3, 4, 9, 10, 11, almost(inf):
-        #             for bmax in 2, 3, 4, 8, 9, 10, 11, 12, almost(inf):
-        #                 if amin <= amax and bmin <= bmax:
-        #                     a = integer(amin, amax)
-        #                     b = integer(bmin, bmax)
+        for amin in almost(-inf), 3:
+            for bmin in almost(-inf), 2, 3, 4, 10:
+                for amax in 3, 4, 9, 10, 11, almost(inf):
+                    for bmax in 2, 3, 4, 8, 9, 10, 11, 12, almost(inf):
+                        if amin <= amax and bmin <= bmax:
+                            a = integer(amin, amax)
+                            b = integer(bmin, bmax)
 
-        #                     c = union(a, b)
-        #                     for value in range(1, 14):
-        #                         if value in a or value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = union(a, b)
+                            for value in range(1, 14):
+                                if value in a or value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = intersection(a, b)
-        #                     for value in range(1, 14):
-        #                         if value in a and value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = intersection(a, b)
+                            for value in range(1, 14):
+                                if value in a and value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = difference(a, b)
-        #                     for value in range(1, 14):
-        #                         if value in a and value not in b:
-        #                             self.assertTrue(value in c)
+                            c = difference(a, b)
+                            for value in range(1, 14):
+                                if value in a and value not in b:
+                                    self.assertTrue(value in c)
 
-        #                     c = difference(b, a)
-        #                     for value in range(1, 14):
-        #                         if value in b and value not in a:
-        #                             self.assertTrue(value in c)
+                            c = difference(b, a)
+                            for value in range(1, 14):
+                                if value in b and value not in a:
+                                    self.assertTrue(value in c)
 
-        # for amin in almost(-inf), -inf, almost(3), 3:
-        #     for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
-        #         for amax in almost(3), 3, 4, 9, almost(10), 10, 11, almost(inf), inf:
-        #             for bmax in 2, 3, 4, 8, 9, almost(10), 10, 11, 12, almost(inf), inf:
-        #                 if amin <= amax and not ((isinstance(amin, almost) or isinstance(amax, almost)) and amin.real == amax.real) and \
-        #                    bmin <= bmax and not ((isinstance(bmin, almost) or isinstance(bmax, almost)) and bmin.real == bmax.real):
-        #                     a = real(amin, amax)
-        #                     b = real(bmin, bmax)
+        for amin in almost(-inf), -inf, almost(3), 3:
+            for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
+                for amax in almost(3), 3, 4, 9, almost(10), 10, 11, almost(inf), inf:
+                    for bmax in 2, 3, 4, 8, 9, almost(10), 10, 11, 12, almost(inf), inf:
+                        if amin <= amax and not ((isinstance(amin, almost) or isinstance(amax, almost)) and amin.real == amax.real) and \
+                           bmin <= bmax and not ((isinstance(bmin, almost) or isinstance(bmax, almost)) and bmin.real == bmax.real):
+                            a = real(amin, amax)
+                            b = real(bmin, bmax)
 
-        #                     c = union(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a or value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = union(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a or value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = intersection(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a and value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = intersection(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a and value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = difference(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a and value not in b:
-        #                             self.assertTrue(value in c)
+                            c = difference(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a and value not in b:
+                                    self.assertTrue(value in c)
 
-        #                     c = difference(b, a)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in b and value not in a:
-        #                             self.assertTrue(value in c)
+                            c = difference(b, a)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in b and value not in a:
+                                    self.assertTrue(value in c)
 
-        # for amin in almost(-inf), 3:
-        #     for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
-        #         for amax in 3, 4, 9, 10, 11, almost(inf):
-        #             for bmax in 2, 3, 4, 8, 9, almost(10), 10, 11, 12, almost(inf), inf:
-        #                 if amin <= amax and \
-        #                    bmin <= bmax and not ((isinstance(bmin, almost) or isinstance(bmax, almost)) and bmin.real == bmax.real):
-        #                     a = integer(amin, amax)
-        #                     b = real(bmin, bmax)
+        for amin in almost(-inf), 3:
+            for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
+                for amax in 3, 4, 9, 10, 11, almost(inf):
+                    for bmax in 2, 3, 4, 8, 9, almost(10), 10, 11, 12, almost(inf), inf:
+                        if amin <= amax and \
+                           bmin <= bmax and not ((isinstance(bmin, almost) or isinstance(bmax, almost)) and bmin.real == bmax.real):
+                            a = integer(amin, amax)
+                            b = real(bmin, bmax)
 
-        #                     c = union(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a or value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = union(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a or value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = intersection(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a and value in b:
-        #                             self.assertTrue(value in c)
-        #                         else:
-        #                             self.assertTrue(value not in c)
+                            c = intersection(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a and value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
-        #                     c = difference(a, b)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in a and value not in b:
-        #                             self.assertTrue(value in c)
+                            c = difference(a, b)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in a and value not in b:
+                                    self.assertTrue(value in c)
 
-        #                     c = difference(b, a)
-        #                     for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
-        #                         if value in b and value not in a:
-        #                             self.assertTrue(value in c)
+                            c = difference(b, a)
+                            for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
+                                if value in b and value not in a:
+                                    self.assertTrue(value in c)
 
         self.assertEqual(Union([string("bytes"), string("unicode")]), union(string("bytes"), string("unicode")))
         self.assertEqual(impossible, intersection(string("bytes"), string("unicode")))
@@ -473,32 +473,32 @@ class TestTypesystem(unittest.TestCase):
                             b = string(fewest=bmin, most=bmax)
 
                             c = union(a, b)
-                            print "union({}, {}) == {}".format(a, b, c)
                             self.assertFalse(isinstance(c, Union))
                             for value in ["x" * x for x in range(1, 14)]:
-                                print "    ", value, value in a, value in b, value in c
                                 if value in a or value in b:
                                     self.assertTrue(value in c)
 
                             c = intersection(a, b)
-                            print "intersection({}, {}) == {}".format(a, b, c)
                             self.assertFalse(isinstance(c, Union))
                             for value in ["x" * x for x in range(1, 14)]:
-                                print "    ", value, value in a, value in b, value in c
                                 if value in a and value in b:
                                     self.assertTrue(value in c)
 
                             c = difference(a, b)
-                            print "difference({}, {}) == {}".format(a, b, c)
                             for value in ["x" * x for x in range(1, 14)]:
-                                print "    ", value, value in a, value not in b, value in c
                                 if value in a and value not in b:
                                     self.assertTrue(value in c)
 
                             c = difference(b, a)
-                            print "difference({}, {}) == {}".format(b, a, c)
                             for value in ["x" * x for x in range(1, 14)]:
-                                print "    ", value, value in b, value not in a, value in c
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
 
+        self.assertEqual(collection(union(integer, string)), union(collection(integer), collection(string)))
+        self.assertEqual(collection(union(integer, string), 3, 10), union(collection(integer, 5, 10), collection(string, 3, 6)))
+        self.assertEqual(collection(union(integer, string), ordered=False), union(collection(integer, ordered=True), collection(string, ordered=False)))
+
+        self.assertEqual(impossible, intersection(collection(integer), collection(string)))
+        self.assertEqual(collection(integer(5, 6)), intersection(collection(integer(5, 10)), collection(integer(3, 6))))
+        self.assertEqual(collection(integer(5, 6), 5, 6), intersection(collection(integer(5, 10), 5, 10), collection(integer(3, 6), 3, 6)))
+        self.assertEqual(collection(integer(5, 6), ordered=False), intersection(collection(integer(5, 10), ordered=True), collection(integer(3, 6), ordered=False)))
