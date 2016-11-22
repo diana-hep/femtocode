@@ -254,7 +254,7 @@ class Number(Schema):
 
         if min > max:
             raise FemtocodeError("min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
-        if min == max and isinstance(min, almost):
+        if min.real == max.real and (isinstance(min, almost) or isinstance(max, almost)):
             raise FemtocodeError("min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not almost(endpoint))".format(min, max))
             
         self.min = min
@@ -991,12 +991,10 @@ def union(*types):
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if one in two:
-                print "UNO"
                 # two is the superset, it contains one
                 out = two()
 
             elif two in one:
-                print "DOS"
                 # one is the superset, it contains two
                 out = one()
 
@@ -1004,19 +1002,20 @@ def union(*types):
                 # both integer: they can be glued if there's 1 unit gap or less
                 low, high = sorted([one, two])
                 if low.max >= high.min - 1:
-                    print "TRES"
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), True)
                 else:
-                    print "QUATRO"
                     out = Union([one, two])
 
             elif one.whole or two.whole:
                 # one integer, other not and neither is contained: they can be glued if they extend the interval from open to closed
-                if one.min.real == two.min.real or one.max.real == two.max.real:
-                    print "CINQUO"
+                if one.whole:
+                    inty, realy = one, two
+                else:
+                    inty, realy = two, one
+
+                if inty in Number(realy.min.real, realy.max.real, False):
                     out = Number(almost.min(one.min, two.min), almost.max(one.max, two.max), False)
                 else:
-                    print "SES"
                     out = Union([one, two])
 
             else:
@@ -1024,17 +1023,13 @@ def union(*types):
                 low, high = sorted([one, two])
                 if low.max.real == high.min.real:
                     if isinstance(low.max, almost) and isinstance(high.min, almost):
-                        print "SIETE"
                         # they just touch and they're both open intervals; can't glue
                         out = Union([one, two])
                     else:
-                        print "OCHO"
                         out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 elif low.max >= high.min:
-                    print "NUEVE"
                     out = Number(almost.min(low.min, high.min), almost.max(low.max, high.max), False)
                 else:
-                    print "DIES"
                     out = Union([one, two])
 
         elif isinstance(one, String) and isinstance(two, String):
@@ -1121,7 +1116,12 @@ def intersection(*types):
                     out = impossible()
 
                 else:
-                    out = Number(max(low.min, high.min), min(low.max, high.max), low.whole or high.whole)
+                    try:
+                        out = Number(almost.complement(almost.max(almost.complement(low.min), almost.complement(high.min))),
+                                     almost.complement(almost.min(almost.complement(low.max), almost.complement(high.max))),
+                                     low.whole or high.whole)
+                    except FemtocodeError:
+                        out = impossible()
 
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
@@ -1256,9 +1256,9 @@ def difference(universal, excluded):
     else:
         raise ProgrammingError("unhandled case")
 
-    # don't lose any aliases because one and two have been replaced by their union
-    out._aliases.update(one._aliases)
-    out._aliases.update(two._aliases)
+    # don't lose any aliases because universal and excluded have been replaced by their union
+    out._aliases.update(universal._aliases)
+    out._aliases.update(excluded._aliases)
     return out
 
 def infer(schema, operator, value):
