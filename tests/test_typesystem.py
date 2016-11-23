@@ -463,6 +463,8 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(impossible, intersection(string("bytes"), string("unicode")))
         self.assertEqual(string("bytes"), difference(string("bytes"), string("unicode")))
         self.assertEqual(string("unicode"), difference(string("unicode"), string("bytes")))
+        self.assertEqual(impossible, difference(string, string))
+        self.assertEqual(impossible, difference(string("unicode"), string("unicode")))
 
         for amin in 0, 3:
             for bmin in 0, 2, 3, 4, 10:
@@ -473,16 +475,18 @@ class TestTypesystem(unittest.TestCase):
                             b = string(fewest=bmin, most=bmax)
 
                             c = union(a, b)
-                            self.assertFalse(isinstance(c, Union))
                             for value in ["x" * x for x in range(1, 14)]:
                                 if value in a or value in b:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
                             c = intersection(a, b)
-                            self.assertFalse(isinstance(c, Union))
                             for value in ["x" * x for x in range(1, 14)]:
                                 if value in a and value in b:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
                             c = difference(a, b)
                             for value in ["x" * x for x in range(1, 14)]:
@@ -494,11 +498,59 @@ class TestTypesystem(unittest.TestCase):
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
 
-        self.assertEqual(collection(union(integer, string)), union(collection(integer), collection(string)))
-        self.assertEqual(collection(union(integer, string), 3, 10), union(collection(integer, 5, 10), collection(string, 3, 6)))
-        self.assertEqual(collection(union(integer, string), ordered=False), union(collection(integer, ordered=True), collection(string, ordered=False)))
+        self.assertEqual(Union([collection(integer), collection(string)]), union(collection(integer), collection(string)))
+        self.assertEqual(Union([collection(integer(3, 10)), collection(integer(2, 6))]), union(collection(integer(3, 10)), collection(integer(2, 6))))
+        self.assertEqual(Union([collection(integer(3, 10), 3, 10), collection(integer(2, 6), 2, 6)]), union(collection(integer(3, 10), 3, 10), collection(integer(2, 6), 2, 6)))
+        self.assertEqual(Union([collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)]), union(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)))
+        self.assertEqual(collection(integer, ordered=False), union(collection(integer, ordered=True), collection(integer, ordered=False)))
+        self.assertEqual(collection(integer, ordered=True), union(collection(integer, ordered=True), collection(integer, ordered=True)))
+        self.assertEqual(Union([collection(integer), collection(integer(3, 10))]), union(collection(integer), collection(integer(3, 10))))
 
         self.assertEqual(impossible, intersection(collection(integer), collection(string)))
-        self.assertEqual(collection(integer(5, 6)), intersection(collection(integer(5, 10)), collection(integer(3, 6))))
-        self.assertEqual(collection(integer(5, 6), 5, 6), intersection(collection(integer(5, 10), 5, 10), collection(integer(3, 6), 3, 6)))
-        self.assertEqual(collection(integer(5, 6), ordered=False), intersection(collection(integer(5, 10), ordered=True), collection(integer(3, 6), ordered=False)))
+        self.assertEqual(collection(integer(3, 6)), intersection(collection(integer(3, 10)), collection(integer(2, 6))))
+        self.assertEqual(collection(integer(3, 6), 3, 6), intersection(collection(integer(3, 10), 3, 10), collection(integer(2, 6), 2, 6)))
+        self.assertEqual(collection(integer(3, 6), ordered=False), intersection(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)))
+        self.assertEqual(collection(integer(3, 6), ordered=True), intersection(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=True)))
+
+        self.assertEqual(collection(integer), difference(collection(integer), collection(string)))
+        self.assertEqual(collection(string), difference(collection(string), collection(integer)))
+        self.assertEqual(impossible, difference(collection(integer), collection(integer)))
+        self.assertEqual(collection(integer(7, 10)), difference(collection(integer(3, 10)), collection(integer(2, 6))))
+        self.assertEqual(Union([collection(integer(7, 10), 3, 10), collection(integer(3, 6), 7, 10)]), difference(collection(integer(3, 10), 3, 10), collection(integer(2, 6), 2, 6)))
+        self.assertEqual(Union([collection(integer(min=23, max=27), most=2), collection(integer(min=23, max=27), fewest=8, most=10), collection(union(integer(min=20, max=22), integer(min=28, max=30)), most=10)]), difference(collection(integer(20, 30), 0, 10), collection(integer(23, 27), 3, 7)))
+        self.assertEqual(collection(integer(7, 10), ordered=False), difference(collection(integer(3, 10), ordered=False), collection(integer(2, 6), ordered=True)))
+        self.assertEqual(collection(integer(7, 10), ordered=True), difference(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=True)))
+        self.assertEqual(collection(integer(7, 10), ordered=True), difference(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)))
+
+        for amin in 0, 3:
+            for bmin in 0, 2, 3, 4, 10:
+                for amax in 3, 4, 9, 10, 11, almost(inf):
+                    for bmax in 2, 3, 4, 8, 9, 10, 11, 12, almost(inf):
+                        if amin <= amax and bmin <= bmax:
+                            a = collection(string(fewest=amin, most=amax), fewest=amin, most=amax)
+                            b = collection(string(fewest=bmin, most=bmax), fewest=bmin, most=bmax)
+
+                            c = union(a, b)
+                            for value in [["x" * x] * x for x in range(1, 14)]:
+                                if value in a or value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
+
+                            c = intersection(a, b)
+                            for value in [["x" * x] * x for x in range(1, 14)]:
+                                if value in a and value in b:
+                                    self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
+
+                            c = difference(a, b)
+                            for value in [["x" * x] * x for x in range(1, 14)]:
+                                if value in a and value not in b:
+                                    self.assertTrue(value in c)
+
+                            c = difference(b, a)
+                            for value in [["x" * x] * x for x in range(1, 14)]:
+                                if value in b and value not in a:
+                                    self.assertTrue(value in c)
+

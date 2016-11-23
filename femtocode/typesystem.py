@@ -18,7 +18,7 @@ import sys
 import json
 import math
 
-from femtocode.defs import FemtocodeError
+from femtocode.defs import FemtocodeError, ProgrammingError
 from femtocode.py23 import *
 
 inf = float("inf")
@@ -243,14 +243,18 @@ class Number(Schema):
                 raise FemtocodeError("for whole-numbered intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))
             if max == inf:
                 raise FemtocodeError("for whole-numbered intervals, max ({0}) cannot be inf; try almost(inf)".format(max))
-            if isinstance(min, almost) and min != almost(-inf) and round(min) == min.real:
-                min = min.real + 1
-            if isinstance(max, almost) and max != almost(inf) and round(max) == max.real:
-                max = max.real - 1
-            if round(min) != min.real:
-                min = math.ceil(min)
-            if round(max) != max.real:
-                max = math.floor(max)
+            if min != almost(-inf):
+                if isinstance(min, almost) and round(min.real) == min.real:
+                    min = min.real + 1
+                if round(min.real) != min.real:
+                    min = math.ceil(min)
+                min = int(min)
+            if max != almost(inf):
+                if isinstance(max, almost) and round(max.real) == max.real:
+                    max = max.real - 1
+                if round(max.real) != max.real:
+                    max = math.floor(max)
+                max = int(max)
 
         if min > max:
             raise FemtocodeError("min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
@@ -1034,17 +1038,28 @@ def union(*types):
 
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
-                # string size tracking isn't as fine-grained as integer tracking
-                out = String(one.charset, min(one.fewest, two.fewest), max(one.most, two.most))
+                number = union(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
+                if isinstance(number, Number) and number.whole:
+                    out = String(one.charset, number.min, number.max)
+                elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities):
+                    out = Union([String(one.charset, p.min, p.max) for p in number.possibilities])
+                else:
+                    raise ProgrammingError("union(Number, Number) is {0}".format(number))
             else:
                 out = Union([one, two])
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
-            # collection size tracking isn't as fine-grained as integer tracking
-            out = Collection(union(one.items, two.items),
-                             min(one.fewest, two.fewest),
-                             max(one.most, two.most),
-                             one.ordered and two.ordered)
+            if one.items == two.items:
+                number = union(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
+                if isinstance(number, Number) and number.whole:
+                    out = Collection(one.items, number.min, number.max, one.ordered and two.ordered)
+                elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities):
+                    out = Union([Collection(one.items, p.min, p.max, one.ordered and two.ordered) for p in number.possibilities])
+                else:
+                    raise ProgrammingError("union(Number, Number) is {0}".format(number))
+                
+            else:
+                out = Union([one, two])
 
         elif isinstance(one, Record) and isinstance(two, Record):
             if one == two:
@@ -1125,24 +1140,26 @@ def intersection(*types):
 
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
-                # string size tracking isn't as fine-grained as integer tracking
-                fewest = max(one.fewest, two.fewest)
-                most = min(one.most, two.most)
-                if fewest <= most:
-                    out = String(one.charset, fewest, most)
-                else:
+                number = intersection(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
+                if isinstance(number, Number) and number.whole:
+                    out = String(one.charset, number.min, number.max)
+                elif isinstance(number, Impossible):
                     out = impossible()
+                else:
+                    raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
             else:
                 out = impossible()
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
-            # collection size tracking isn't as fine-grained as integer tracking
             items = intersection(one.items, two.items)
-            fewest = max(one.fewest, two.fewest)
-            most = min(one.most, two.most)
-
-            if fewest <= most and not isinstance(items, Impossible):
-                out = Collection(items, fewest, most, one.ordered and two.ordered)
+            if not isinstance(items, Impossible):
+                number = intersection(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
+                if isinstance(number, Number) and number.whole:
+                    out = Collection(items, number.min, number.max, one.ordered and two.ordered)
+                elif isinstance(number, Impossible):
+                    out = impossible()
+                else:
+                    raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
             else:
                 out = impossible()
 
@@ -1209,43 +1226,48 @@ def difference(universal, excluded):
     elif isinstance(universal, String) and isinstance(excluded, String):
         if universal.charset == excluded.charset:
             number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
-
-            if isinstance(number, Impossible):
-                out = impossible()
-
-            elif isinstance(number, Union):
-                assert len(number.possibilities) == 2
+            if isinstance(number, Number):
+                out = String(universal.charset, number.min, number.max)
+            elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities) and len(number.possibilities) == 2:
                 one = number.possibilities[0]
                 two = number.possibilities[1]
-                assert isinstance(one, Number) and one.whole
-                assert isinstance(two, Number) and two.whole
-
                 out = Union([String(universal.charset, one.min, one.max), String(universal.charset, two.min, two.max)])
-
+            elif isinstance(number, Impossible):
+                out = impossible()
             else:
-                out = String(universal.charset, number.min, number.max)
-
+                raise ProgrammingError("difference(Number, Number) is {0}".format(number))
         else:
             out = universal()
 
     elif isinstance(universal, Collection) and isinstance(excluded, Collection):
-        items = difference(universal.items, excluded.items)
-        number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
+        possibilities = []
 
-        if isinstance(items, Impossible) or isinstance(number, Impossible):
+        items1 = difference(universal.items, excluded.items)
+        if not isinstance(items1, Impossible):
+            possibilities.append(Collection(items1, universal.fewest, universal.most, universal.ordered))
+
+        items2 = intersection(universal.items, excluded.items)
+        if not isinstance(items2, Impossible):
+            number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
+
+            if isinstance(number, Number):
+                possibilities.append(Collection(items2, number.min, number.max, universal.ordered))
+            elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities) and len(number.possibilities) == 2:
+                one = number.possibilities[0]
+                two = number.possibilities[1]
+                possibilities.append(Collection(items2, one.min, one.max, universal.ordered))
+                possibilities.append(Collection(items2, two.min, two.max, universal.ordered))
+            elif isinstance(number, Impossible):
+                pass
+            else:
+                raise ProgrammingError("difference(Number, Number) is {0}".format(number))
+
+        if len(possibilities) == 0:
             out = impossible()
-
-        elif isinstance(number, Union):
-            assert len(number.possibilities) == 2
-            one = number.possibilities[0]
-            two = number.possibilities[1]
-            assert isinstance(one, Number) and one.whole
-            assert isinstance(two, Number) and two.whole
-
-            out = Union([Collection(items, one.min, one.max, universal.ordered), Collection(items, two.min, two.max, universal.ordered)])
-
+        elif len(possibilities) == 1:
+            out = possibilities[0]
         else:
-            out = Collection(items, number.min, number.max, universal.ordered)
+            out = Union(possibilities)
 
     elif isinstance(universal, Record) and isinstance(exception, Record):
         if universal == exception:
