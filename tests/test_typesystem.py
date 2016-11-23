@@ -554,3 +554,22 @@ class TestTypesystem(unittest.TestCase):
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
 
+        self.assertEqual(record(one=integer, two=real, three=string), union(record(one=integer, two=real, three=string), record(one=integer, two=real, three=string)))
+        self.assertEqual(Union([record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode"))]), union(record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode"))))
+        self.assertEqual(Union([record(one=integer(0, 7), two=real, three=string), record(one=integer(3, 10), two=real, three=string)]), union(record(one=integer(0, 7), two=real, three=string), record(one=integer(3, 10), two=real, three=string)))
+        self.assertEqual(Union([record(one=integer, two=real, three=string), record(one=integer, two=real, three=string, four=string)]), union(record(one=integer, two=real, three=string), record(one=integer, two=real, three=string, four=string)))
+
+        self.assertEqual(record(one=integer, two=real, three=string), intersection(record(one=integer, two=real, three=string), record(one=integer, two=real, three=string)))
+        self.assertEqual(record(one=integer(3, 7), two=real, three=string), intersection(record(one=integer(3, 10), two=real, three=string), record(one=integer(0, 7), two=real, three=string)))
+        self.assertEqual(record(one=integer(3, 7), two=real(3, 7), three=string), intersection(record(one=integer(3, 10), two=real(3, 10), three=string), record(one=integer(0, 7), two=real(0, 7), three=string)))
+        self.assertEqual(impossible, intersection(record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode"))))
+
+        self.assertEqual(impossible, difference(record(one=integer, two=real, three=string), record(one=integer, two=real, three=string)))
+        self.assertEqual(record(one=integer, two=real, three=string("bytes")), difference(record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode"))))
+        self.assertEqual(record(one=integer, two=real, three=string("unicode")), difference(record(one=integer, two=real, three=string("unicode")), record(one=integer, two=real, three=string("bytes"))))
+        self.assertEqual(record(one=integer(0, 5), two=real, three=string), difference(record(one=integer(0, 5), two=real, three=string), record(one=integer(6, 10), two=real, three=string)))
+        self.assertEqual(record(one=integer(0, 5), two=real, three=string("bytes")), difference(record(one=integer(0, 5), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("unicode"))))
+        self.assertEqual(record(one=integer(6, 10), two=real, three=string("unicode")), difference(record(one=integer(6, 10), two=real, three=string("unicode")), record(one=integer(0, 5), two=real, three=string("bytes"))))
+        self.assertEqual(record(one=integer(0, 5), two=real, three=string), difference(record(one=integer(0, 10), two=real, three=string), record(one=integer(6, 10), two=real, three=string)))
+        self.assertEqual(Union([record(one=integer(0, 5), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("bytes"))]), difference(record(one=integer(0, 10), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("unicode"))))
+        self.assertEqual(Union([record(one=integer(min=0, max=5), three=string, two=real(min=0, max=10)), record(one=integer(min=6, max=10), three=string, two=real(min=0, max=almost(6.0)))]), difference(record(one=integer(0, 10), two=real(0, 10), three=string), record(one=integer(6, 10), two=real(6, 10), three=string)))

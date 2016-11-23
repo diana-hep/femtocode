@@ -1062,8 +1062,13 @@ def union(*types):
                 out = Union([one, two])
 
         elif isinstance(one, Record) and isinstance(two, Record):
-            if one == two:
-                out = one()
+            if set(one.fields) == set(two.fields):
+                if all(one.fields[n] in two.fields[n] for n in one.fields):
+                    out = two()
+                elif all(two.fields[n] in one.fields[n] for n in one.fields):
+                    out = one()
+                else:
+                    out = Union([one, two])
             else:
                 out = Union([one, two])
 
@@ -1164,8 +1169,16 @@ def intersection(*types):
                 out = impossible()
 
         elif isinstance(one, Record) and isinstance(two, Record):
-            if one == two:
-                out = one()
+            if set(one.fields) == set(two.fields):
+                fields = {}
+                out = None
+                for n in one.fields:
+                    fields[n] = intersection(one.fields[n], two.fields[n])
+                    if isinstance(fields[n], Impossible):
+                        out = impossible()
+                        break
+                if out is None:
+                    out = Record(fields)
             else:
                 out = impossible()
 
@@ -1182,7 +1195,7 @@ def difference(universal, excluded):
         out = union(*(difference(p, excluded) for p in universal.possibilities))
 
     elif isinstance(excluded, Union):
-        out = universal
+        out = universal()
         for p in excluded.possibilities:
             out = difference(out, p)
 
@@ -1269,9 +1282,24 @@ def difference(universal, excluded):
         else:
             out = Union(possibilities)
 
-    elif isinstance(universal, Record) and isinstance(exception, Record):
-        if universal == exception:
-            out = impossible()
+    elif isinstance(universal, Record) and isinstance(excluded, Record):
+        if set(universal.fields) == set(excluded.fields):
+            fields = universal.fields
+            possibilities = []
+            for n in sorted(universal.fields):
+                fields = dict(fields)
+                fields[n] = difference(universal.fields[n], excluded.fields[n])
+                if not any(isinstance(t, Impossible) for t in fields.values()):
+                    possibilities.append(Record(dict(fields)))
+                fields[n] = intersection(universal.fields[n], excluded.fields[n])
+
+            if len(possibilities) == 0:
+                out = impossible()
+            elif len(possibilities) == 1:
+                out = possibilities[0]
+            else:
+                out = Union(possibilities)
+
         else:
             out = universal()
 
