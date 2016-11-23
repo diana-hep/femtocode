@@ -23,9 +23,6 @@ from femtocode.py23 import *
 
 inf = float("inf")
 
-concrete = ("inf", "null", "boolean", "integer", "real", "extended", "string")
-parameterized = ("almost", "integer", "real", "extended", "string", "collection", "vector", "matrix", "tensor", "record", "union", "intersection", "difference")
-
 class almost(float):
     """almost(x) -> open end of an interval
 
@@ -179,8 +176,6 @@ class Impossible(Schema):   # results in a compilation error
     def __contains__(self, other):
         return False
 
-impossible = Impossible()
-
 class Null(Schema):
     order = 1
 
@@ -202,8 +197,6 @@ class Null(Schema):
     def __contains__(self, other):
         return isinstance(other, Null) or other is None
 
-null = Null()
-
 class Boolean(Schema):
     order = 2
 
@@ -224,8 +217,6 @@ class Boolean(Schema):
 
     def __contains__(self, other):
         return isinstance(other, Boolean) or other is True or other is False
-
-boolean = Boolean()
 
 class Number(Schema):
     order = 3
@@ -255,6 +246,15 @@ class Number(Schema):
                 if round(max.real) != max.real:
                     max = math.floor(max)
                 max = int(max)
+        else:
+            if isinstance(min, almost):
+                min = almost(float(min.real))
+            else:
+                min = float(min)
+            if isinstance(max, almost):
+                max = almost(float(max.real))
+            else:
+                max = float(max)
 
         if min > max:
             raise FemtocodeError("min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
@@ -351,12 +351,6 @@ class Number(Schema):
                               self.whole if whole is None else whole,
                               alias)
 
-integer = Number(almost(-inf), almost(inf), True)
-
-real = Number(almost(-inf), almost(inf), False)
-
-extended = Number(-inf, inf, False)
-
 class String(Schema):
     order = 4
 
@@ -451,8 +445,6 @@ class String(Schema):
                               self.most if most is None else most,
                               alias)
 
-string = String("bytes", 0, almost(inf))
-    
 class Collection(Schema):
     order = 5
 
@@ -468,11 +460,33 @@ class Collection(Schema):
         if not isinstance(ordered, bool):
             raise FemtocodeError("ordered ({0}) must be boolean".format(ordered))
 
-        self.items = items
-        self.fewest = int(fewest)
-        self.most = int(most) if most != almost(inf) else most
-        self.ordered = ordered
+        if most == 0:
+            self.items = null
+            self.fewest = int(fewest)
+            self.most = 0
+            self.ordered = True
+        else:
+            self.items = items
+            self.fewest = int(fewest)
+            self.most = int(most) if most != almost(inf) else most
+            self.ordered = ordered
+
         super(Collection, self).__init__(alias)
+
+        if most == 0:
+            # we drop items if most == 0, but don't lose its aliases
+            def getaliases(x):
+                if isinstance(x, Schema):
+                    self._aliases.update(x._aliases)
+                if isinstance(x, Collection):
+                    getaliases(x.items)
+                elif isinstance(x, Record):
+                    for t in x.fields.values():
+                        getaliases(t)
+                elif isinstance(x, Union):
+                    for p in x.possibilities:
+                        getaliases(p)
+            getaliases(items)
 
     def _repr_memo(self, memo):
         if self.alias is not None:
@@ -480,6 +494,12 @@ class Collection(Schema):
                 return json.dumps(self.alias)
             else:
                 memo.add(self.alias)
+
+        if self.most == 0:
+            if self.alias is None:
+                return "empty"
+            else:
+                return "empty(alias={0})".format(json.dumps(self.alias))
 
         def generic():
             args = [self.items._repr_memo(memo)]
@@ -495,7 +515,7 @@ class Collection(Schema):
 
         dimensions = []
         items = self
-        while isinstance(items, Collection) and items.ordered and items.fewest == items.most:
+        while isinstance(items, Collection) and items.ordered and items.fewest == items.most and items.fewest != 0:
             if not items.ordered:
                 return generic()
             dimensions.append(items.fewest)
@@ -523,7 +543,11 @@ class Collection(Schema):
 
             ok = ok and integer(other.fewest, other.most) in integer(self.fewest, self.most)
 
-            return ok and other.items in self.items     # Collections are covariant
+            if self.most == 0 or other.most == 0:
+                return ok
+            else:
+                # contents only matter if either of the collections can be nonempty
+                return ok and other.items in self.items
             
         elif isinstance(other, (list, tuple, set)):
             ok = True
@@ -578,27 +602,6 @@ class Collection(Schema):
                               self.most if most is None else most,
                               self.ordered if ordered is None else ordered,
                               alias)
-
-def collection(items, fewest=0, most=almost(inf), ordered=False, alias=None):
-    return Collection(items, fewest, most, ordered, alias)
-
-def vector(items, dimension0, alias=None):
-    return Collection(items, dimension0, dimension0, True, alias)
-
-def matrix(items, dimension0, dimension1, alias=None):
-    return Collection(Collection(items, dimension1, dimension1, True), dimension0, dimension0, True, alias)
-
-def tensor(items, *dimensions):
-    if len(dimensions) > 0 and isinstance(dimensions[-1], string_types):
-        alias = alias[-1]
-        dimensions = dimensions[:-1]
-    else:
-        alias = None
-    out = items
-    for d in reversed(dimensions):
-        out = Collection(out, d, d, True)
-    super(Collection, out).__init__(alias)
-    return out
 
 class Record(Schema):
     order = 6
@@ -671,9 +674,6 @@ class Record(Schema):
 
     def __call__(self, __alias__=None, **fields):
         return self.__class__(dict(self.fields, **fields), __alias__)
-
-def record(__alias__=None, **fields):
-    return Record(fields, __alias__)
 
 class Union(Schema):
     order = 7
@@ -838,13 +838,16 @@ def _pretty(schema, depth, comma, memo):
             else:
                 memo.add(schema.alias)
 
+        if schema.most == 0:
+            return [(depth, schema._repr_memo(memo) + comma, schema)]
+
         def generic(schema):
             args = []
             if schema.fewest != 0:
                 args.append("fewest={0}".format(schema.fewest))
             if schema.most != almost(inf):
                 args.append("most={0}".format(schema.most))
-            if schema.ordered:
+            if schema.most != 0 and schema.ordered:
                 args.append("ordered={0}".format(schema.ordered))
             if schema.alias is not None:
                 args.append("alias={0}".format(json.dumps(schema.alias)))
@@ -949,6 +952,48 @@ def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 
 
     return "\n".join(out)
     
+concrete = ("inf", "null", "boolean", "integer", "real", "extended", "string", "empty")
+parameterized = ("almost", "null", "boolean", "integer", "real", "extended", "string", "empty", "collection", "vector", "matrix", "tensor", "record", "union", "intersection", "difference")
+
+impossible = Impossible()
+null = Null()
+boolean = Boolean()
+integer = Number(almost(-inf), almost(inf), True)
+real = Number(almost(-inf), almost(inf), False)
+extended = Number(-inf, inf, False)
+string = String("bytes", 0, almost(inf))
+empty = Collection(null, 0, 0, True)
+
+def collection(items, fewest=0, most=almost(inf), ordered=False, alias=None):
+    return Collection(items, fewest, most, ordered, alias)
+
+def vector(items, dimension0, alias=None):
+    if dimension0 <= 0:
+        raise FemtocodeError("vector dimension ({0}) must be positive".format(dimension0))
+    return Collection(items, dimension0, dimension0, True, alias)
+
+def matrix(items, dimension0, dimension1, alias=None):
+    if dimension0 <= 0 or dimension1 <= 0:
+        raise FemtocodeError("matrix dimensions ({0}, {1}) must be positive".format(dimension0, dimension1))
+    return Collection(Collection(items, dimension1, dimension1, True), dimension0, dimension0, True, alias)
+
+def tensor(items, *dimensions):
+    if len(dimensions) > 0 and isinstance(dimensions[-1], string_types):
+        alias = alias[-1]
+        dimensions = dimensions[:-1]
+    else:
+        alias = None
+    out = items
+    if any(d <= 0 for d in dimensions):
+        raise FemtocodeError("tensor dimensions ({0}) must be positive".format(", ".join(map(repr, dimensions))))
+    for d in reversed(dimensions):
+        out = Collection(out, d, d, True)
+    super(Collection, out).__init__(alias)
+    return out
+
+def record(__alias__=None, **fields):
+    return Record(fields, __alias__)
+
 def union(*types):
     if len(types) == 0:
         raise TypeError("union() takes at least 1 argument (0 given)")
@@ -1049,12 +1094,23 @@ def union(*types):
                 out = Union([one, two])
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
-            if one.items == two.items:
+            if one.most == 0 or two.most == 0 or one.items == two.items:
+                if one.most == 0:
+                    items = two.items
+                    ordered = two.ordered
+                elif two.most == 0:
+                    items = one.items
+                    ordered = one.ordered
+                else:
+                    items = one.items
+                    ordered = one.ordered and two.ordered
+
                 number = union(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
+
                 if isinstance(number, Number) and number.whole:
-                    out = Collection(one.items, number.min, number.max, one.ordered and two.ordered)
+                    out = Collection(items, number.min, number.max, ordered)
                 elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities):
-                    out = Union([Collection(one.items, p.min, p.max, one.ordered and two.ordered) for p in number.possibilities])
+                    out = Union([Collection(items, p.min, p.max, ordered) for p in number.possibilities])
                 else:
                     raise ProgrammingError("union(Number, Number) is {0}".format(number))
                 
@@ -1156,11 +1212,23 @@ def intersection(*types):
                 out = impossible()
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
-            items = intersection(one.items, two.items)
+            if one.most == 0 and two.most == 0:
+                items = null
+                ordered = True
+            elif one.most == 0:
+                items = two.items
+                ordered = two.ordered
+            elif two.most == 0:
+                items = one.items
+                ordered = one.ordered
+            else:
+                items = intersection(one.items, two.items)
+                ordered = one.ordered and two.ordered
+
             if not isinstance(items, Impossible):
                 number = intersection(Number(one.fewest, one.most, True), Number(two.fewest, two.most, True))
                 if isinstance(number, Number) and number.whole:
-                    out = Collection(items, number.min, number.max, one.ordered and two.ordered)
+                    out = Collection(items, number.min, number.max, ordered)
                 elif isinstance(number, Impossible):
                     out = impossible()
                 else:
@@ -1253,34 +1321,45 @@ def difference(universal, excluded):
             out = universal()
 
     elif isinstance(universal, Collection) and isinstance(excluded, Collection):
-        possibilities = []
-
-        items1 = difference(universal.items, excluded.items)
-        if not isinstance(items1, Impossible):
-            possibilities.append(Collection(items1, universal.fewest, universal.most, universal.ordered))
-
-        items2 = intersection(universal.items, excluded.items)
-        if not isinstance(items2, Impossible):
-            number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
-
-            if isinstance(number, Number):
-                possibilities.append(Collection(items2, number.min, number.max, universal.ordered))
-            elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities) and len(number.possibilities) == 2:
-                one = number.possibilities[0]
-                two = number.possibilities[1]
-                possibilities.append(Collection(items2, one.min, one.max, universal.ordered))
-                possibilities.append(Collection(items2, two.min, two.max, universal.ordered))
-            elif isinstance(number, Impossible):
-                pass
+        if universal.most == 0:
+            if excluded.most == 0:
+                out = impossible()
             else:
-                raise ProgrammingError("difference(Number, Number) is {0}".format(number))
+                out = universal()
 
-        if len(possibilities) == 0:
-            out = impossible()
-        elif len(possibilities) == 1:
-            out = possibilities[0]
+        elif excluded.most == 0:
+            number = difference(Number(universal.fewest, universal.most, True), Number(0, 0, True))
+            out = Collection(universal.items, number.min, number.max, universal.ordered)
+
         else:
-            out = Union(possibilities)
+            possibilities = []
+
+            items1 = difference(universal.items, excluded.items)
+            if not isinstance(items1, Impossible):
+                possibilities.append(Collection(items1, universal.fewest, universal.most, universal.ordered))
+
+            items2 = intersection(universal.items, excluded.items)
+            if not isinstance(items2, Impossible):
+                number = difference(Number(universal.fewest, universal.most, True), Number(excluded.fewest, excluded.most, True))
+
+                if isinstance(number, Number):
+                    possibilities.append(Collection(items2, number.min, number.max, universal.ordered))
+                elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities) and len(number.possibilities) == 2:
+                    one = number.possibilities[0]
+                    two = number.possibilities[1]
+                    possibilities.append(Collection(items2, one.min, one.max, universal.ordered))
+                    possibilities.append(Collection(items2, two.min, two.max, universal.ordered))
+                elif isinstance(number, Impossible):
+                    pass
+                else:
+                    raise ProgrammingError("difference(Number, Number) is {0}".format(number))
+
+            if len(possibilities) == 0:
+                out = impossible()
+            elif len(possibilities) == 1:
+                out = possibilities[0]
+            else:
+                out = Union(possibilities)
 
     elif isinstance(universal, Record) and isinstance(excluded, Record):
         if set(universal.fields) == set(excluded.fields):
@@ -1312,63 +1391,79 @@ def difference(universal, excluded):
     return out
 
 def infer(schema, operator, value):
-    if operator == "==":
-        if value in schema:
-            return schema
-        else:
-            return impossible
+    if operator in ("==", "!=", "whole", "size==", "size!=", "ordered"):
+        if isinstance(schema, Union):
+            possibilities = []
+            for p in schema.possibilities:
+                result = infer(p, operator, value)
+                if not isinstance(result, Impossible):
+                    possibilities.append(result)
 
-    elif operator == "!=":
-        if value in schema:
-            if isinstance(schema, (Impossible, Null)):
+            if len(possibilities) == 0:
                 return impossible
+            elif len(possibilities) == 1:
+                return possibilities[0]
+            else:
+                return Union(possibilities)
+
+        elif operator == "==":
+            if isinstance(schema, (Impossible, Null, Boolean)):
+                if value in schema:
+                    return schema
+                else:
+                    return impossible
+
+            elif isinstance(schema, Number):
+                if value in schema:
+                    return intersection(schema, Number(value, value, schema.whole and round(value) == value))
+                else:
+                    return impossible
+
+            elif isinstance(schema, String):
+                if value in schema:
+                    return intersection(schema, String("bytes" if isinstance(value, bytes) else "unicode", len(value), len(value)))
+                else:
+                    return impossible
+
+            elif isinstance(schema, Collection):
+                if value in schema:
+                    if len(value) == 0:
+                        return intersection(schema, empty)
+                    else:
+                        return intersection(schema, Collection(union(*[infer(schema.items, operator, x) for x in value]), len(value), len(value), True))
+                else:
+                    return impossible
+
+            elif isinstance(schema, Record):
+                if value in schema:
+                    return intersection(schema, Record(dict((n, infer(t, operator, getattr(value, n))) for n, t in schema.fields.items())))
+                else:
+                    return impossible
+
+        elif operator == "!=":
+            if isinstance(schema, (Impossible, Null)):
+                if value in schema:
+                    return impossible
+                else:
+                    return schema
 
             elif isinstance(schema, Boolean):
                 return schema
 
             elif isinstance(schema, Number):
-                return Union(Number(schema.min, almost(value), schema.whole), Number(almost(value), schema.max, schema.whole))
-
-            elif isinstance(schema, String):
-                if value == "":
-                    if schema.most == 0:
-                        return impossible
-                    else:
-                        return String(schema.charset, min(1, schema.fewest), schema.most)
+                if value in schema:
+                    return difference(schema, Number(value, value, schema.whole and round(value) == value))
                 else:
                     return schema
 
-            elif isinstance(schema, Collection):
-                if value == []:
-                    if schema.most == 0:
-                        return impossible
-                    else:
-                        return Collection(schema.items, min(1, schema.fewest), schema.most, schema.ordered)
-                else:
-                    return schema
-
-            elif isinstance(schema, Record):
+            elif isinstance(schema, (String, Collection, Record)):
                 return schema
-
-            elif isinstance(schema, Union):
-                if value is None:
-                    nonnullable = [x for x in schema.possibilities if not isinstance(x, Null)]
-                    if len(nonnullable) < len(schema.possibilities):
-                        if len(schema.possibilities) == 1:
-                            return schema.possibilities[0]
-                        else:
-                            return Union(schema.possibilities)
-                    else:
-                        return schema
-
-                else:
-                    return Union([infer(x, operator, value) for x in schema.possibilities])
-
+            
             else:
-                ProgrammingError("unhandled kind")
+                raise ProgrammingError("unhandled kind")
 
         else:
-            return schema
+            raise ProgrammingError("unhandled operator")
 
     elif operator in (">", ">=", "<", "<=", "size>", "size>=", "size<", "size<="):
         if isinstance(schema, Union):

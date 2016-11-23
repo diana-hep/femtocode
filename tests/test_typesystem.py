@@ -57,20 +57,20 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(repr(integer(3)), "integer(min=3, max=almost(inf))")
         self.assertEqual(repr(integer(3, 10)), "integer(min=3, max=10)")
         self.assertEqual(repr(real), "real")
-        self.assertEqual(repr(real(3)), "real(min=3, max=almost(inf))")
-        self.assertEqual(repr(real(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(repr(real(3)), "real(min=3.0, max=almost(inf))")
+        self.assertEqual(repr(real(3, 10)), "real(min=3.0, max=10.0)")
         self.assertEqual(repr(extended), "extended")
-        self.assertEqual(repr(extended(3)), "extended(min=3, max=inf)")
-        self.assertEqual(repr(extended(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(repr(extended(3)), "extended(min=3.0, max=inf)")
+        self.assertEqual(repr(extended(3, 10)), "real(min=3.0, max=10.0)")
         self.assertEqual(pretty(integer), "integer")
         self.assertEqual(pretty(integer(3)), "integer(min=3, max=almost(inf))")
         self.assertEqual(pretty(integer(3, 10)), "integer(min=3, max=10)")
         self.assertEqual(pretty(real), "real")
-        self.assertEqual(pretty(real(3)), "real(min=3, max=almost(inf))")
-        self.assertEqual(pretty(real(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(pretty(real(3)), "real(min=3.0, max=almost(inf))")
+        self.assertEqual(pretty(real(3, 10)), "real(min=3.0, max=10.0)")
         self.assertEqual(pretty(extended), "extended")
-        self.assertEqual(pretty(extended(3)), "extended(min=3, max=inf)")
-        self.assertEqual(pretty(extended(3, 10)), "real(min=3, max=10)")
+        self.assertEqual(pretty(extended(3)), "extended(min=3.0, max=inf)")
+        self.assertEqual(pretty(extended(3, 10)), "real(min=3.0, max=10.0)")
         self.assertTrue(null not in integer)
         self.assertTrue(boolean not in integer)
         self.assertTrue(integer in integer)
@@ -155,7 +155,9 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(u"hello" in string("unicode"))
         self.assertTrue(b"hello" in string("bytes", 5, 5))
         self.assertTrue(b"hello" not in string("bytes", 4, 4))
-
+        
+        self.assertEqual(collection(real, most=0), empty)
+        self.assertEqual(collection(string, most=0), empty)
         self.assertEqual(collection(real), Collection(real, 0, almost(inf), False))
         self.assertEqual(collection(real, 1), Collection(real, 1, almost(inf), False))
         self.assertEqual(collection(real, 1, 10), Collection(real, 1, 10, False))
@@ -163,6 +165,8 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(vector(real, 3), Collection(real, 3, 3, True))
         self.assertEqual(matrix(real, 2, 3), Collection(Collection(real, 3, 3, True), 2, 2, True))
         self.assertEqual(tensor(real, 1, 2, 3), Collection(Collection(Collection(real, 3, 3, True), 2, 2, True), 1, 1, True))
+        self.assertEqual(repr(empty), "empty")
+        self.assertEqual(repr(collection(real, most=0)), "empty")
         self.assertEqual(repr(collection(real)), "collection(real)")
         self.assertEqual(repr(vector(real, 3)), "vector(real, 3)")
         self.assertEqual(repr(matrix(real, 2, 3)), "matrix(real, 2, 3)")
@@ -174,7 +178,8 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(repr(collection(collection(real, 3, 3, False), 2, 2, True)), "vector(collection(real, fewest=3, most=3), 2)")
         self.assertEqual(repr(collection(collection(collection(real, 3, 3, False), 2, 2, True), 1, 1, True)), "matrix(collection(real, fewest=3, most=3), 1, 2)")
 
-
+        self.assertEqual(pretty(empty), """empty""")
+        self.assertEqual(pretty(collection(real, most=0)), """empty""")
         self.assertEqual(pretty(collection(real)), """collection(
   real
   )""")
@@ -505,12 +510,18 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(collection(integer, ordered=False), union(collection(integer, ordered=True), collection(integer, ordered=False)))
         self.assertEqual(collection(integer, ordered=True), union(collection(integer, ordered=True), collection(integer, ordered=True)))
         self.assertEqual(Union([collection(integer), collection(integer(3, 10))]), union(collection(integer), collection(integer(3, 10))))
+        self.assertEqual(collection(integer), union(collection(integer), empty))
+        self.assertEqual(Union([collection(integer, 3, 10), empty]), union(collection(integer, 3, 10), empty))
+        self.assertEqual(collection(integer, ordered=True), union(collection(integer, ordered=True), empty))
+        self.assertEqual(collection(integer, ordered=False), union(collection(integer, ordered=False), empty))
 
         self.assertEqual(impossible, intersection(collection(integer), collection(string)))
         self.assertEqual(collection(integer(3, 6)), intersection(collection(integer(3, 10)), collection(integer(2, 6))))
         self.assertEqual(collection(integer(3, 6), 3, 6), intersection(collection(integer(3, 10), 3, 10), collection(integer(2, 6), 2, 6)))
         self.assertEqual(collection(integer(3, 6), ordered=False), intersection(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)))
         self.assertEqual(collection(integer(3, 6), ordered=True), intersection(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=True)))
+        self.assertEqual(empty, intersection(collection(integer), empty))
+        self.assertEqual(impossible, intersection(collection(integer, 3, 10), empty))
 
         self.assertEqual(collection(integer), difference(collection(integer), collection(string)))
         self.assertEqual(collection(string), difference(collection(string), collection(integer)))
@@ -521,6 +532,9 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(collection(integer(7, 10), ordered=False), difference(collection(integer(3, 10), ordered=False), collection(integer(2, 6), ordered=True)))
         self.assertEqual(collection(integer(7, 10), ordered=True), difference(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=True)))
         self.assertEqual(collection(integer(7, 10), ordered=True), difference(collection(integer(3, 10), ordered=True), collection(integer(2, 6), ordered=False)))
+        self.assertEqual(impossible, difference(empty, empty))
+        self.assertEqual(empty, difference(empty, collection(integer)))
+        self.assertEqual(collection(integer, fewest=1), difference(collection(integer), empty))
 
         for amin in 0, 3:
             for bmin in 0, 2, 3, 4, 10:
@@ -573,3 +587,67 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(record(one=integer(0, 5), two=real, three=string), difference(record(one=integer(0, 10), two=real, three=string), record(one=integer(6, 10), two=real, three=string)))
         self.assertEqual(Union([record(one=integer(0, 5), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("bytes"))]), difference(record(one=integer(0, 10), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("unicode"))))
         self.assertEqual(Union([record(one=integer(min=0, max=5), three=string, two=real(min=0, max=10)), record(one=integer(min=6, max=10), three=string, two=real(min=0, max=almost(6.0)))]), difference(record(one=integer(0, 10), two=real(0, 10), three=string), record(one=integer(6, 10), two=real(6, 10), three=string)))
+
+    def test_inference(self):
+        self.assertEqual(infer(impossible, "==", 5), impossible)
+        self.assertEqual(infer(impossible, "!=", 5), impossible)
+
+        self.assertEqual(infer(null, "==", None), null)
+        self.assertEqual(infer(null, "==", 5), impossible)
+        self.assertEqual(infer(null, "!=", None), impossible)
+        self.assertEqual(infer(null, "!=", 5), null)
+
+        # no intervals on booleans: "x == True" will be converted into "x" before typecheck
+        self.assertEqual(infer(boolean, "==", True), boolean)
+        self.assertEqual(infer(boolean, "==", False), boolean)
+        self.assertEqual(infer(boolean, "!=", True), boolean)
+        self.assertEqual(infer(boolean, "!=", False), boolean)
+        self.assertEqual(infer(boolean, "==", 5), impossible)
+        self.assertEqual(infer(boolean, "!=", 5), boolean)
+
+        self.assertEqual(infer(union(null, boolean), "==", True), boolean)
+        self.assertEqual(infer(union(null, boolean), "==", False), boolean)
+        self.assertEqual(infer(union(null, boolean), "==", None), null)
+        self.assertEqual(infer(union(null, boolean), "==", 5), impossible)
+
+        self.assertEqual(infer(union(null, boolean), "!=", True), union(null, boolean))
+        self.assertEqual(infer(union(null, boolean), "!=", False), union(null, boolean))
+        self.assertEqual(infer(union(null, boolean), "!=", None), boolean)
+        self.assertEqual(infer(union(null, boolean), "!=", 5), union(null, boolean))
+
+        self.assertEqual(infer(integer, "==", 5), integer(5, 5))
+
+
+        self.assertEqual(infer(integer, "!=", 5), union(integer(max=4), integer(min=6)))
+
+
+
+# impossible
+# null
+# boolean
+# union(null, boolean)
+# integer
+# real
+# extended
+# union(integer(-5, 5), integer(10, 20))
+# union(real(-5, 5), real(10, 20))
+# union(real(0, almost(5)), real(almost(5), 10))
+# union(integer(-5, 5), real(10, 20))
+# string
+# string("unicode")
+# union(string("bytes"), string("unicode"))
+# string(fewest=5, most=10)
+# union(string(fewest=0, most=5), string(fewest=10, most=20))
+# collection(real)
+# collection(union(integer, string))
+# collection(real, fewest=5, most=10)
+# union(collection(real, fewest=0, most=5), collection(real, fewest=10, most=20))
+# collection(real, ordered=True)
+# vector(real, 3)
+# matrix(real, 2, 2)
+# tensor(real, 1, 2, 3)
+# union(vector(real, 3), vector(real, 4))
+# record(one=integer, two=real, three=string)
+# union(record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode")))
+# record("tree", left=union(null, "tree"), right=union(null, "tree"))
+
