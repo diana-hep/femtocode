@@ -1415,7 +1415,7 @@ def infer(schema, operator, value):
 
             elif isinstance(schema, Number):
                 if value in schema:
-                    return intersection(schema, Number(value, value, schema.whole and round(value) == value))
+                    return intersection(schema, Number(value, value, round(value) == value))
                 else:
                     return impossible
 
@@ -1452,7 +1452,7 @@ def infer(schema, operator, value):
 
             elif isinstance(schema, Number):
                 if value in schema:
-                    return difference(schema, Number(value, value, schema.whole and round(value) == value))
+                    return difference(schema, Number(value, value, False))
                 else:
                     return schema
 

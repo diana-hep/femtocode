@@ -616,9 +616,23 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(infer(union(null, boolean), "!=", 5), union(null, boolean))
 
         self.assertEqual(infer(integer, "==", 5), integer(5, 5))
-
-
+        self.assertEqual(infer(integer(0, 10), "==", 5), integer(5, 5))
+        self.assertEqual(infer(integer(10, 20), "==", 5), impossible)
         self.assertEqual(infer(integer, "!=", 5), union(integer(max=4), integer(min=6)))
+        self.assertEqual(infer(integer(0, 10), "!=", 5), union(integer(0, 4), integer(6, 10)))
+        self.assertEqual(infer(integer(10, 20), "!=", 5), integer(10, 20))
+
+        self.assertEqual(infer(real, "==", 5), integer(5, 5))
+        self.assertEqual(infer(real, "==", 3.14), real(3.14, 3.14))
+        self.assertEqual(infer(real(0, 10), "==", 5), integer(5, 5))
+        self.assertEqual(infer(real(0, 10), "==", 3.14), real(3.14, 3.14))
+        self.assertEqual(infer(real(10, 20), "==", 5), impossible)
+
+        self.assertEqual(infer(real, "!=", 5), union(real(max=almost(5)), real(min=almost(5))))
+        self.assertEqual(infer(real, "!=", 3.14), union(real(max=almost(3.14)), real(min=almost(3.14))))
+        self.assertEqual(infer(real(0, 10), "!=", 5), union(real(0, almost(5)), real(almost(5), 10)))
+        self.assertEqual(infer(real(0, 10), "!=", 3.14), union(real(0, almost(3.14)), real(almost(3.14), 10)))
+        self.assertEqual(infer(real(10, 20), "!=", 5), real(10, 20))
 
 
 
