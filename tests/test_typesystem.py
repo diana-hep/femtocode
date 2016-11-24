@@ -606,3 +606,57 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(intersection(union(integer, string), integer), integer)
         self.assertEqual(intersection(record(f=integer), record(f=union(integer, string))), record(f=integer))
         self.assertEqual(intersection(record(f=union(integer, string)), record(f=integer)), record(f=integer))
+
+    def test_almost(self):
+        self.assertTrue( (3.14) ==  (3.14))
+        self.assertTrue(almost(3.14) !=  (3.14))
+        self.assertTrue( (3.14) != almost(3.14))
+        self.assertTrue(almost(3.14) == almost(3.14))
+        self.assertTrue(hash(3.14) != hash(almost(3.14)))
+
+        self.assertTrue(repr(almost(-3.1)) == almost(-3.1).__repr__() == "almost(-3.1)")
+        self.assertTrue(str(almost(-3.1)) == almost(-3.1).__str__() == "almost(-3.1)")
+
+        self.assertTrue(abs(almost(-3.1)) == almost(-3.1).__abs__() == almost(3.1))
+        self.assertTrue(-(almost(-3.1)) == almost(-3.1).__neg__() == almost(3.1))
+        self.assertTrue(+(almost(-3.1)) == almost(-3.1).__pos__() == almost(-3.1))
+
+        self.assertTrue( (-3.1) +  (-3.0) ==  (-6.1))
+        self.assertTrue(almost(-3.1) +  (-3.0) == almost(-6.1))
+        self.assertTrue( (-3.1) + almost(-3.0) == almost(-6.1))
+        self.assertTrue(almost(-3.1) + almost(-3.0) == almost(-6.1))
+
+        self.assertTrue( (-3.1) -  (3.0) ==  (-6.1))
+        self.assertTrue(almost(-3.1) -  (3.0) == almost(-6.1))
+        self.assertTrue( (-3.1) - almost(3.0) == almost(-6.1))
+        self.assertTrue(almost(-3.1) - almost(3.0) == almost(-6.1))
+
+        self.assertTrue( (-3.1) *  (3.0) ==  (-9.3))
+        self.assertTrue(almost(-3.1) *  (3.0) == almost(-9.3))
+        self.assertTrue( (-3.1) * almost(3.0) == almost(-9.3))
+        self.assertTrue(almost(-3.1) * almost(3.0) == almost(-9.3))
+
+        self.assertTrue( (-3.5) **  (2.0) ==  (12.25))
+        self.assertTrue(almost(-3.5) **  (2.0) == almost(12.25))
+        self.assertTrue( (-3.5) ** almost(2.0) == almost(12.25))
+        self.assertTrue(almost(-3.5) ** almost(2.0) == almost(12.25))
+
+        self.assertTrue( (-4.4) /  (1.1) ==  (-4.0))
+        self.assertTrue(almost(-4.4) /  (1.1) == almost(-4.0))
+        self.assertTrue( (-4.4) / almost(1.1) == almost(-4.0))
+        self.assertTrue(almost(-4.4) / almost(1.1) == almost(-4.0))
+
+        self.assertTrue( (-4.4) //  (1.1) ==  (-4.0))
+        self.assertTrue(almost(-4.4) //  (1.1) == almost(-4.0))
+        self.assertTrue( (-4.4) // almost(1.1) == almost(-4.0))
+        self.assertTrue(almost(-4.4) // almost(1.1) == almost(-4.0))
+
+        self.assertTrue( (4.5) %  (4.0) ==  (0.5))
+        self.assertTrue(almost(4.5) %  (4.0) == almost(0.5))
+        self.assertTrue( (4.5) % almost(4.0) == almost(0.5))
+        self.assertTrue(almost(4.5) % almost(4.0) == almost(0.5))
+
+        self.assertTrue(divmod( (4.5) ,  (4.0)) == ( (1.0),  (0.5)))
+        self.assertTrue(divmod(almost(4.5) ,  (4.0)) == (almost(1.0), almost(0.5)))
+        self.assertTrue(divmod( (4.5) , almost(4.0)) == (almost(1.0), almost(0.5)))
+        self.assertTrue(divmod(almost(4.5) , almost(4.0)) == (almost(1.0), almost(0.5)))

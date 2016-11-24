@@ -30,27 +30,43 @@ class almost(float):
     """
 
     @staticmethod
-    def min(a, b):
-        if a < b:
-            return a
-        elif b < a:
-            return b
-        elif not isinstance(a, almost):
-            return a
+    def min(*args):
+        if len(args) == 0:
+            raise TypeError("almost.min() takes at least 1 argument")
+        elif len(args) == 1:
+            return args[0]
+        elif len(args) == 2:
+            a, b = args
+            if a < b:
+                return a
+            elif b < a:
+                return b
+            elif not isinstance(a, almost):
+                return a
+            else:
+                return b
         else:
-            return b
+            return almost.min(*((almost.min(args[0], args[1]),) + args[2:]))
 
     @staticmethod
-    def max(a, b):
-        if a > b:
-            return a
-        elif b > a:
-            return b
-        elif not isinstance(a, almost):
-            return a
+    def max(*args):
+        if len(args) == 0:
+            raise TypeError("almost.max() takes at least 1 argument")
+        elif len(args) == 1:
+            return args[0]
+        elif len(args) == 2:
+            a, b = args
+            if a > b:
+                return a
+            elif b > a:
+                return b
+            elif not isinstance(a, almost):
+                return a
+            else:
+                return b
         else:
-            return b
-
+            return almost.max(*((almost.max(args[0], args[1]),) + args[2:]))
+            
     @staticmethod
     def complement(a):
         if isinstance(a, almost):

@@ -264,60 +264,6 @@ class TestInference(unittest.TestCase):
 
     # ## open-ended interval arithmetic
 
-    # assert  (3.14) ==  (3.14)
-    # assert almost(3.14) !=  (3.14)
-    # assert  (3.14) != almost(3.14)
-    # assert almost(3.14) == almost(3.14)
-    # assert hash(3.14) != hash(almost(3.14))
-    # assert hash((3.14,)) == hash(almost(3.14))
-
-    # assert repr(almost(-3.1)) == almost(-3.1).__repr__() == "almost(-3.1)"
-    # assert str(almost(-3.1)) == almost(-3.1).__str__() == "almost(-3.1)"
-
-    # assert abs(almost(-3.1)) == almost(-3.1).__abs__() == almost(3.1)
-    # assert -(almost(-3.1)) == almost(-3.1).__neg__() == almost(3.1)
-    # assert +(almost(-3.1)) == almost(-3.1).__pos__() == almost(-3.1)
-
-    # assert  (-3.1) +  (-3.0) ==  (-6.1)
-    # assert almost(-3.1) +  (-3.0) == almost(-6.1)
-    # assert  (-3.1) + almost(-3.0) == almost(-6.1)
-    # assert almost(-3.1) + almost(-3.0) == almost(-6.1)
-
-    # assert  (-3.1) -  (3.0) ==  (-6.1)
-    # assert almost(-3.1) -  (3.0) == almost(-6.1)
-    # assert  (-3.1) - almost(3.0) == almost(-6.1)
-    # assert almost(-3.1) - almost(3.0) == almost(-6.1)
-
-    # assert  (-3.1) *  (3.0) ==  (-9.3)
-    # assert almost(-3.1) *  (3.0) == almost(-9.3)
-    # assert  (-3.1) * almost(3.0) == almost(-9.3)
-    # assert almost(-3.1) * almost(3.0) == almost(-9.3)
-
-    # assert  (-3.5) **  (2.0) ==  (12.25)
-    # assert almost(-3.5) **  (2.0) == almost(12.25)
-    # assert  (-3.5) ** almost(2.0) == almost(12.25)
-    # assert almost(-3.5) ** almost(2.0) == almost(12.25)
-
-    # assert  (-4.4) /  (1.1) ==  (-4.0)
-    # assert almost(-4.4) /  (1.1) == almost(-4.0)
-    # assert  (-4.4) / almost(1.1) == almost(-4.0)
-    # assert almost(-4.4) / almost(1.1) == almost(-4.0)
-
-    # assert  (-4.4) //  (1.1) ==  (-4.0)
-    # assert almost(-4.4) //  (1.1) == almost(-4.0)
-    # assert  (-4.4) // almost(1.1) == almost(-4.0)
-    # assert almost(-4.4) // almost(1.1) == almost(-4.0)
-
-    # assert  (4.5) %  (4.0) ==  (0.5)
-    # assert almost(4.5) %  (4.0) == almost(0.5)
-    # assert  (4.5) % almost(4.0) == almost(0.5)
-    # assert almost(4.5) % almost(4.0) == almost(0.5)
-
-    # assert divmod( (4.5) ,  (4.0)) == ( (1.0),  (0.5))
-    # assert divmod(almost(4.5) ,  (4.0)) == (almost(1.0), almost(0.5))
-    # assert divmod( (4.5) , almost(4.0)) == (almost(1.0), almost(0.5))
-    # assert divmod(almost(4.5) , almost(4.0)) == (almost(1.0), almost(0.5))
-
     # ## BooleanType acceptance
 
     # BooleanType()

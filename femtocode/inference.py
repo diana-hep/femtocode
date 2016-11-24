@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+
 from femtocode.typesystem import *
 
 def literal(schema, operator, value):
@@ -193,9 +195,79 @@ def literal(schema, operator, value):
     else:
         raise ProgrammingError("unhandled schema: {0}".format(schema))
 
+def _combineTwoUnions(one, two, operation):
+    possibilities = []
+    for p1 in one.possibilities:
+        for p2 in two.possibilities:
+            result = operation(one, two)
+            if not isinstance(result, Impossible):
+                possibilities.append(result)
 
+    if len(possibilities) == 0:
+        return impossible
+    elif len(possibilities) == 1:
+        return possibilities[0]
+    else:
+        return Union(possibilities)
 
+def _combineOneUnion(one, other, operation):
+    possibilities = []
+    for p in one.possibilities:
+        result = operation(p, other)
+        if not isinstance(result, Impossible):
+            possibilities.append(result)
 
+    if len(possibilities) == 0:
+        return impossible
+    elif len(possibilities) == 1:
+        return possibilities[0]
+    else:
+        return Union(possibilities)
+        
+def add(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, add)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, add)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, add)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        if (one.min == -inf and two.min == inf) or \
+           (one.min == -inf and two.max == inf) or \
+           (one.max == -inf and two.min == inf) or \
+           (one.max == -inf and two.max == inf) or \
+           (one.min == inf and two.min == -inf) or \
+           (one.min == inf and two.max == -inf) or \
+           (one.max == inf and two.min == -inf) or \
+           (one.max == inf and two.max == -inf):
+            return impossible
+
+        else:
+            if one.min == -inf or two.min == -inf:
+                newmin = -inf
+            elif one.min == inf or two.min == inf:
+                newmin = inf
+            elif one.min == almost(-inf) or two.min == almost(-inf):
+                newmin = almost(-inf)
+            else:
+                newmin = one.min + two.min
+
+            if one.max == -inf or two.max == -inf:
+                newmax = -inf
+            elif one.max == inf or two.max == inf:
+                newmax = inf
+            elif one.max == almost(inf) or two.max == almost(inf):
+                newmax = almost(inf)
+            else:
+                newmax = one.max + two.max
+
+            return Number(newmin, newmax, one.whole and two.whole)
+
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
 
 # def __add__(self, other):
 #     if not isinstance(other, NumberType):
@@ -231,6 +303,51 @@ def literal(schema, operator, value):
 
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
 
+def subtract(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, subtract)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, subtract)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, subtract)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        if (one.min == -inf and two.min == -inf) or \
+           (one.min == -inf and two.max == -inf) or \
+           (one.max == -inf and two.min == -inf) or \
+           (one.max == -inf and two.max == -inf) or \
+           (one.min == inf and two.min == inf) or \
+           (one.min == inf and two.max == inf) or \
+           (one.max == inf and two.min == inf) or \
+           (one.max == inf and two.max == inf):
+            return impossible
+
+        else:
+            if one.min == -inf or two.max == inf:
+                newmin = -inf
+            elif one.min == inf or two.max == -inf:
+                newmin = inf
+            elif one.min == almost(-inf) or two.max == almost(inf):
+                newmin = almost(-inf)
+            else:
+                newmin = one.min - two.min
+
+            if one.max == -inf or two.min == inf:
+                newmax = -inf
+            elif one.max == inf or two.min == -inf:
+                newmax = inf
+            elif one.max == almost(inf) or two.min == almost(-inf):
+                newmax = almost(inf)
+            else:
+                newmax = one.max - two.min
+
+            return Number(newmin, newmax, one.whole and two.whole)
+
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+
 # def __sub__(self, other):
 #     if not isinstance(other, NumberType):
 #         raise TypeError("cannot subtract %r and %r" % (self, other))
@@ -265,49 +382,47 @@ def literal(schema, operator, value):
 
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
 
-# @staticmethod
-# def __expandMinusPlus(interval):
-#     if interval.min < 0.0 and 0.0 not in interval:
-#         if interval.min == float("-inf") and interval.max == float("-inf"):
-#             intervalMinus = [interval.min]
-#         elif interval.min == float("-inf"):
-#             intervalMinus = [interval.min, almost("-inf"), interval.max.real - 1.0, interval.max]
-#         elif interval.min == almost("-inf"):
-#             intervalMinus = [interval.min, interval.max.real - 1.0, interval.max]
-#         else:
-#             intervalMinus = [interval.min, (interval.min.real + interval.max.real)/2.0, interval.max]
-#     elif interval.min < 0.0:
-#         if interval.min.real == float("-inf"):
-#             intervalMinus = [interval.min, -1.0, almost(0.0), 0.0]
-#         else:
-#             intervalMinus = [interval.min, interval.min.real/2.0, almost(0.0), 0.0]
-#     elif interval.min == 0.0:
-#         intervalMinus = [0.0]
-#     else:
-#         intervalMinus = []  # interval.min == almost(0.0) goes here
+def _expandMinusPlus(interval):
+    if interval.min < 0.0 and 0.0 not in interval:
+        if interval.min == -inf and interval.max == -inf:
+            intervalMinus = (interval.min,)
+        elif interval.min == -inf:
+            intervalMinus = (interval.min, almost(-inf), interval.max.real - 1.0, interval.max)
+        elif interval.min == almost(-inf):
+            intervalMinus = (interval.min, interval.max.real - 1.0, interval.max)
+        else:
+            intervalMinus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+    elif interval.min < 0.0:
+        if interval.min.real == -inf:
+            intervalMinus = (interval.min, -1.0, almost(0.0), 0.0)
+        else:
+            intervalMinus = (interval.min, interval.min.real/2.0, almost(0.0), 0.0)
+    elif interval.min == 0.0:
+        intervalMinus = (0.0,)
+    else:
+        intervalMinus = ()  # interval.min == almost(0.0) goes here
 
-#     if interval.max > 0.0 and 0.0 not in interval:
-#         if interval.max == float("inf") and interval.min == float("inf"):
-#             intervalPlus = [interval.max]
-#         elif interval.max == float("inf"):
-#             intervalPlus = [interval.min, interval.min.real + 1.0, almost("inf"), interval.max]
-#         elif interval.max == almost("inf"):
-#             intervalPlus = [interval.min, interval.min.real + 1.0, interval.max]
-#         else:
-#             intervalPlus = [interval.min, (interval.min.real + interval.max.real)/2.0, interval.max]
-#     elif interval.max > 0.0:
-#         if interval.max.real == float("inf"):
-#             intervalPlus = [0.0, almost(0.0), 1.0, interval.max]
-#         else:
-#             intervalPlus = [0.0, almost(0.0), interval.max.real/2.0, interval.max]
-#     elif interval.max == 0.0:
-#         intervalPlus = [0.0]
-#     else:
-#         intervalPlus = []  # interval.max == almost(0.0) goes here
+    if interval.max > 0.0 and 0.0 not in interval:
+        if interval.max == inf and interval.min == inf:
+            intervalPlus = (interval.max,)
+        elif interval.max == inf:
+            intervalPlus = (interval.min, interval.min.real + 1.0, almost(inf), interval.max)
+        elif interval.max == almost(inf):
+            intervalPlus = (interval.min, interval.min.real + 1.0, interval.max)
+        else:
+            intervalPlus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+    elif interval.max > 0.0:
+        if interval.max.real == inf:
+            intervalPlus = (0.0, almost(0.0), 1.0, interval.max)
+        else:
+            intervalPlus = (0.0, almost(0.0), interval.max.real/2.0, interval.max)
+    elif interval.max == 0.0:
+        intervalPlus = (0.0,)
+    else:
+        intervalPlus = ()  # interval.max == almost(0.0) goes here
 
-#     return intervalMinus, intervalPlus
+    return intervalMinus, intervalPlus
 
-# @staticmethod
 # def __minmaxFromCases(cases):
 #     def compareMin(a, b):
 #         if a.real < b.real:
@@ -338,6 +453,151 @@ def literal(schema, operator, value):
 #     newMax = max(cases, key=functools.cmp_to_key(compareMax))
 
 #     return newMin, newMax
+
+def multiply(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, multiply)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, multiply)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, multiply)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
+        twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
+
+        cases = []
+        for a in oneIntervalMinus:
+            for b in twoIntervalMinus:
+                if a == -inf and b == 0.0:
+                    return impossible
+
+                if a == 0.0 and b == -inf:
+                    return impossible
+
+                elif a == -inf:
+                    cases.append(inf)
+
+                elif b == -inf:
+                    cases.append(inf)
+
+                elif a == almost(-inf) and b == 0.0:
+                    cases.append(0.0)
+
+                elif a == almost(-inf) and b == almost(0.0):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                elif a == 0.0 and b == almost(-inf):
+                    cases.append(0.0)
+
+                elif a == almost(0.0) and b == almost(-inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                else:
+                    cases.append(a * b)
+
+            for b in twoIntervalPlus:
+                if a == -inf and b == 0.0:
+                    return impossible
+
+                if a == 0.0 and b == inf:
+                    return impossible
+
+                elif a == -inf:
+                    cases.append(-inf)
+
+                elif b == inf:
+                    cases.append(-inf)
+
+                elif a == almost(-inf) and b == 0.0:
+                    cases.append(0.0)
+
+                elif a == almost(-inf) and b == almost(0.0):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                elif a == 0.0 and b == almost(inf):
+                    cases.append(0.0)
+
+                elif a == almost(0.0) and b == almost(inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                else:
+                    cases.append(a * b)
+
+        for a in oneIntervalPlus:
+            for b in twoIntervalMinus:
+                if a == inf and b == 0.0:
+                    return impossible
+
+                if a == 0.0 and b == -inf:
+                    return impossible
+
+                elif a == inf:
+                    cases.append(-inf)
+
+                elif b == -inf:
+                    cases.append(-inf)
+
+                elif a == almost(inf) and b == 0.0:
+                    cases.append(0.0)
+
+                elif a == almost(inf) and b == almost(0.0):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                elif a == 0.0 and b == almost(-inf):
+                    cases.append(0.0)
+
+                elif a == almost(0.0) and b == almost(-inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                else:
+                    cases.append(a * b)
+
+            for b in twoIntervalPlus:
+                if a == inf and b == 0.0:
+                    return impossible
+
+                if a == 0.0 and b == inf:
+                    return impossible
+
+                elif a == inf:
+                    cases.append(inf)
+
+                elif b == inf:
+                    cases.append(inf)
+
+                elif a == almost(inf) and b == 0.0:
+                    cases.append(0.0)
+
+                elif a == almost(inf) and b == almost(0.0):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                elif a == 0.0 and b == almost(inf):
+                    cases.append(0.0)
+
+                elif a == almost(0.0) and b == almost(inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                else:
+                    cases.append(a * b)
+
+        if any(math.isnan(x) for x in cases):
+            raise ProgrammingError("nan encountered in multiply cases: {0}".format(cases))
+
+        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
+
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
 
 # def __mul__(self, other):
 #     if not isinstance(other, NumberType):
@@ -474,6 +734,139 @@ def literal(schema, operator, value):
 #     newMin, newMax = self.__minmaxFromCases(cases)
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
 
+def divide(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, divide)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, divide)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, divide)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
+        twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
+
+        cases = []
+        for a in oneIntervalMinus:
+            for b in twoIntervalMinus:
+                if a == -inf and b == -inf:
+                    return impossible
+
+                elif a == -inf and b == 0.0:
+                    # cases.append(-inf)   # according to Java, but arguably an error
+                    return impossible
+
+                elif a == -inf:
+                    cases.append(inf)
+
+                elif a == almost(-inf) and b == -inf:
+                    cases.append(0.0)
+
+                elif a == almost(-inf) and b == almost(-inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                elif b == almost(0.0):
+                    cases.append(almost(inf))
+
+                elif b == 0.0:
+                    cases.append(inf)
+
+                else:
+                    cases.append(a / b)
+
+            for b in twoIntervalPlus:
+                if a == -inf and b == inf:
+                    return impossible
+
+                elif a == -inf and b == 0.0:
+                    # cases.append(-inf)   # according to Java, but arguably an error
+                    return impossible
+
+                elif a == -inf:
+                    cases.append(-inf)
+
+                elif a == almost(-inf) and b == inf:
+                    cases.append(0.0)
+
+                elif a == almost(-inf) and b == almost(inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                elif b == almost(0.0):
+                    cases.append(almost(-inf))
+
+                elif b == 0.0:
+                    cases.append(-inf)
+
+                else:
+                    cases.append(a / b)
+
+        for a in oneIntervalPlus:
+            for b in twoIntervalMinus:
+                if a == inf and b == -inf:
+                    return impossible
+
+                elif a == inf and b == 0.0:
+                    # cases.append(inf)   # according to Java, but arguably an error
+                    return impossible
+
+                elif a == inf:
+                    cases.append(-inf)
+
+                elif a == almost(inf) and b == -inf:
+                    cases.append(0.0)
+
+                elif a == almost(inf) and b == almost(-inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(-inf))
+
+                elif b == almost(0.0):
+                    cases.append(almost(-inf))
+
+                elif b == 0.0:
+                    cases.append(-inf)
+
+                else:
+                    cases.append(a / b)
+
+            for b in twoIntervalPlus:
+                if a == inf and b == inf:
+                    return impossible
+
+                elif a == inf and b == 0.0:
+                    # cases.append(inf)   # according to Java, but arguably an error
+                    return impossible
+
+                elif a == inf:
+                    cases.append(inf)
+
+                elif a == almost(inf) and b == inf:
+                    cases.append(0.0)
+
+                elif a == almost(inf) and b == almost(inf):
+                    cases.append(almost(0.0))
+                    cases.append(almost(inf))
+
+                elif b == almost(0.0):
+                    cases.append(almost(inf))
+
+                elif b == 0.0:
+                    cases.append(inf)
+
+                else:
+                    cases.append(a / b)
+
+        if any(math.isnan(x) for x in cases):
+            raise ProgrammingError("nan encountered in divide cases: {0}".format(cases))
+
+        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
+
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+
 # def __div__(self, other):
 #     if not isinstance(other, NumberType):
 #         raise TypeError("cannot divide %r and %r" % (self, other))
@@ -596,6 +989,177 @@ def literal(schema, operator, value):
 
 #     newMin, newMax = self.__minmaxFromCases(cases)
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
+
+def power(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, power)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, power)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, power)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        def hasNegative(interval):
+            if interval.whole:
+                if not isinstance(interval.min, almost):
+                    return interval.min <= -1
+                else:
+                    return interval.min < -1
+            else:
+                return interval.min < 0.0
+
+        def hasFiniteNegative(interval):
+            return hasNegative(interval) and interval.max != -inf
+
+        def hasPositive(interval):
+            if interval.whole:
+                if not isinstance(interval.max, almost):
+                    return interval.max >= 1
+                else:
+                    return interval.max > 1
+            else:
+                return interval.max > 0.0
+
+        def hasFinitePositive(interval):
+            return hasPositive(interval) and interval.min != inf
+
+        def hasInsideOfOne(interval):
+            if interval.min <= -1.0:
+                return interval.max > -1.0
+            else:
+                return interval.min < 1.0
+
+        def hasOutsideOfOne(interval):
+            return interval.min < -1.0 or interval.max > 1.0
+
+        def hasPositiveOddInteger(interval):
+            if interval.max.real == inf and interval.min.real == inf:
+                return False
+            elif interval.max.real == inf:
+                return True
+            elif interval.min.real == -inf:
+                if not isinstance(interval.max, almost):
+                    return interval.max >= 1.0
+                else:
+                    return interval.max > 1.0
+            else:
+                assert not math.isinf(interval.min) and not math.isinf(interval.max)
+                if interval.whole:
+                    for x in xrange(max(0, int(interval.min)), max(0, int(interval.max) + 1)):
+                        if isinstance(interval.min, almost) and x <= interval.min.real:
+                            continue
+                        if isinstance(interval.max, almost) and x >= interval.max.real:
+                            continue
+                        if x % 2 == 1:
+                            return True
+                    return False
+                else:
+                    for x in xrange(max(0, int(math.ceil(interval.min))), max(0, int(math.floor(interval.max)) + 1)):
+                        if isinstance(interval.min, almost) and x <= interval.min.real:
+                            continue
+                        if isinstance(interval.max, almost) and x >= interval.max.real:
+                            continue
+                        if x % 2 == 1:
+                            return True
+                    return False
+
+        def hasPositiveEvenInteger(interval):
+            if interval.max.real == inf and interval.min.real == inf:
+                return False
+            elif interval.max.real == inf:
+                return True
+            elif interval.min.real == -inf:
+                if not isinstance(interval.max, almost):
+                    return interval.max >= 2.0
+                else:
+                    return interval.max > 2.0
+            else:
+                assert not math.isinf(interval.min) and not math.isinf(interval.max)
+                if interval.whole:
+                    for x in xrange(max(0, int(interval.min)), max(0, int(interval.max) + 1)):
+                        if isinstance(interval.min, almost) and x <= interval.min.real:
+                            continue
+                        if isinstance(interval.max, almost) and x >= interval.max.real:
+                            continue
+                        if x % 2 == 0:
+                            return True
+                    return False
+                else:
+                    for x in xrange(max(1, int(math.ceil(interval.min))), max(1, int(math.floor(interval.max)) + 1)):
+                        if isinstance(interval.min, almost) and x <= interval.min.real:
+                            continue
+                        if isinstance(interval.max, almost) and x >= interval.max.real:
+                            continue
+                        if x % 2 == 0:
+                            return True
+                    return False
+
+        def hasNonInteger(interval):
+            return not interval.whole and (interval.max > interval.min or not interval.min.is_integer()) and (not math.isinf(interval.min) or not math.isinf(interval.max))
+
+        def hasPositiveNonInteger(interval):
+            return hasPositive(interval) and hasNonInteger(interval)
+
+        cases = []
+
+        if 0.0 in one and hasNegative(two):
+            cases.append(inf)            # Java's behavior; Python raises ValueError
+
+        if inf in two or -inf in two:
+            if 1.0 in one or -1.0 in one:
+                # Java returns NaN; Python says it's 1 (math.pow) or -1 (** with negative base) for some reason
+                return impossible
+            if hasInsideOfOne(one):
+                if inf in two:
+                    cases.append(0.0)    # Python and Java
+                if -inf in two:
+                    cases.append(inf)    # Python and Java
+            if hasOutsideOfOne(one):
+                if inf in two:
+                    cases.append(inf)    # Python and Java
+                if -inf in two:
+                    cases.append(0.0)    # Python and Java
+
+        if inf in one or -inf in one:
+            if 0.0 in two:
+                cases.append(1.0)        # Python and Java
+            if hasFiniteNegative(two):
+                cases.append(0.0)        # Python and Java
+            if -inf in one and hasPositiveOddInteger(two):
+                cases.append(-inf)       # Python and Java
+            if inf in one and hasFinitePositive(two):
+                cases.append(inf)        # Python and Java
+            if hasPositiveEvenInteger(two) or hasPositiveNonInteger(two):
+                cases.append(inf)        # Python and Java
+
+        if hasFiniteNegative(one) and hasNonInteger(two):
+            # Python raises ValueError; Java returns NaN
+            return impossible
+
+        oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
+        twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
+
+        for x in oneIntervalMinus + oneIntervalPlus:
+            for y in twoIntervalMinus + twoIntervalPlus:
+                try:
+                    cases.append(x ** y)
+                except ZeroDivisionError:
+                    pass   # handled above
+                except OverflowError:
+                    if (abs(x) > 1.0 and y < 0.0) or (abs(x) < 1.0 and y > 0.0):
+                        cases.append(0.0)
+                    else:
+                        cases.append(inf)
+
+        if any(math.isnan(x) for x in cases):
+            raise ProgrammingError("nan encountered in power cases: {0}".format(cases))
+
+        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole and two.min >= 0.0)
+    
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
 
 # def __pow__(self, other):
 #     if not isinstance(other, NumberType):
@@ -757,6 +1321,71 @@ def literal(schema, operator, value):
 
 #     newMin, newMax = self.__minmaxFromCases(cases)
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
+
+def modulo(one, two):
+    if isinstance(one, Union) and isinstance(two, Union):
+        return _combineTwoUnions(one, two, modulo)
+
+    elif isinstance(one, Union):
+        return _combineOneUnion(one, two, modulo)
+
+    elif isinstance(two, Union):
+        return _combineOneUnion(two, one, modulo)
+
+    elif isinstance(one, Number) and isinstance(two, Number):
+        if inf in one or -inf in one:
+            return impossible
+
+        if 0.0 in two:
+            return impossible
+
+        cases = []
+
+        if two.min >= 0.0:
+            if inf in two:
+                cases.append(one.max)
+                if one.min >= 0.0:
+                    cases.append(one.min)
+                else:
+                    cases.append(0.0)
+                    cases.append(inf)
+            if two.min < inf:
+                if one.min >= 0.0 and one.max < two.min:
+                    cases.append(one.min)
+                    cases.append(one.max)
+                elif one.max <= 0.0 and one.min > -two.min:
+                    cases.append(one.min + two.min)
+                    cases.append(one.max + two.min)
+                else:
+                    cases.append(0.0)
+                    cases.append(almost(two.max.real))
+
+        if two.max <= 0.0:
+            if -inf in two:
+                cases.append(one.min)
+                if one.max <= 0.0:
+                    cases.append(one.max)
+                else:
+                    cases.append(0.0)
+                    cases.append(-inf)
+            if two.max > -inf:
+                if one.max <= 0.0 and one.min > two.max:
+                    cases.append(one.max)
+                    cases.append(one.min)
+                elif one.min >= 0.0 and one.max < -two.max:
+                    cases.append(one.max + two.max)
+                    cases.append(one.min + two.min)
+                else:
+                    cases.append(0.0)
+                    cases.append(almost(two.min.real))
+
+        if any(math.isnan(x) for x in cases):
+            raise ProgrammingError("nan encountered in modulo cases: {0}".format(cases))
+
+        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
+
+    else:
+        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
 
 # def __mod__(self, other):
 #     if not isinstance(other, NumberType):
