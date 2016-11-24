@@ -287,8 +287,8 @@ class TestTypesystem(unittest.TestCase):
         self.assertTrue(record(one=integer, two=real, THREE=string) not in record(one=integer, two=real, three=string))
         self.assertTrue(record(one=integer, two=real, THREE=string, three=string) in record(one=integer, two=real, three=string))
         self.assertTrue(None not in record(one=integer, two=real, three=string))
-        self.assertTrue(namedtuple("tmp", ["one", "two", "three"])(1, 2.2, "3") in record(one=integer, two=real, three=string))
-        self.assertTrue(namedtuple("tmp", ["one", "two", "three", "four"])(1, 2.2, "3", "4") in record(one=integer, two=real, three=string))
+        self.assertTrue(namedtuple("tmp", ["one", "two", "three"])(1, 2.2, b"3") in record(one=integer, two=real, three=string))
+        self.assertTrue(namedtuple("tmp", ["one", "two", "three", "four"])(1, 2.2, b"3", b"4") in record(one=integer, two=real, three=string))
         self.assertTrue(namedtuple("tmp", ["one", "two"])(1, 2.2) not in record(one=integer, two=real, three=string))
 
     def test_recursive(self):
@@ -602,6 +602,12 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(Union([record(one=integer(0, 5), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("bytes"))]), difference(record(one=integer(0, 10), two=real, three=string("bytes")), record(one=integer(6, 10), two=real, three=string("unicode"))))
         self.assertEqual(Union([record(one=integer(min=0, max=5), three=string, two=real(min=0, max=10)), record(one=integer(min=6, max=10), three=string, two=real(min=0, max=almost(6.0)))]), difference(record(one=integer(0, 10), two=real(0, 10), three=string), record(one=integer(6, 10), two=real(6, 10), three=string)))
 
+        self.assertEqual(intersection(integer, union(integer, string)), integer)
+        self.assertEqual(intersection(union(integer, string), integer), integer)
+        self.assertEqual(intersection(record(f=integer), record(f=union(integer, string))), record(f=integer))
+        self.assertEqual(intersection(record(f=union(integer, string)), record(f=integer)), record(f=integer))
+
+
     def test_inference(self):
         self.assertEqual(infer(impossible, "==", 5), impossible)
         self.assertEqual(infer(impossible, "!=", 5), impossible)
@@ -657,6 +663,42 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(infer(string, "==", b"hello"), string("bytes", 5, 5))
         self.assertEqual(infer(string, "==", u"hello"), impossible)
         self.assertEqual(infer(string("unicode"), "==", u"hello"), string("unicode", 5, 5))
+        self.assertEqual(infer(string, "!=", b"hello"), string)
+        self.assertEqual(infer(string, "!=", u"hello"), string)
+        self.assertEqual(infer(string("unicode"), "!=", u"hello"), string("unicode"))
+
+        self.assertEqual(infer(collection(real), "==", []), empty)
+        self.assertEqual(infer(collection(real), "==", [3.14]), collection(real(3.14, 3.14), 1, 1))
+        self.assertEqual(infer(collection(real), "==", [2.71, 3.14]), collection(union(real(2.71, 2.71), real(3.14, 3.14)), 2, 2))
+        self.assertEqual(infer(collection(real), "==", [1, 2, 3]), collection(integer(1, 3), 3, 3))
+        self.assertEqual(infer(collection(real), "==", [2, 4, 6]), collection(union(integer(2, 2), integer(4, 4), integer(6, 6)), 3, 3))
+        self.assertEqual(infer(collection(real(0, 5)), "==", [2.71, 3.14]), collection(union(real(2.71, 2.71), real(3.14, 3.14)), 2, 2))
+        self.assertEqual(infer(collection(real(3, 5)), "==", [2.71, 3.14]), impossible)
+        self.assertEqual(infer(collection(real, 0, 5), "==", [2.71, 3.14]), collection(union(real(2.71, 2.71), real(3.14, 3.14)), 2, 2))
+        self.assertEqual(infer(collection(real, 3, 5), "==", [2.71, 3.14]), impossible)
+
+        self.assertEqual(infer(collection(real), "!=", []), collection(real, fewest=1))
+        self.assertEqual(infer(collection(real), "!=", [3.14]), collection(real))
+        self.assertEqual(infer(collection(real), "!=", [2.71, 3.14]), collection(real))
+        self.assertEqual(infer(collection(real(0, 5)), "!=", [2.71, 3.14]), collection(real(0, 5)))
+        self.assertEqual(infer(collection(real(3, 5)), "!=", [2.71, 3.14]), collection(real(3, 5)))
+        self.assertEqual(infer(collection(real, 0, 5), "!=", [2.71, 3.14]), collection(real, 0, 5))
+        self.assertEqual(infer(collection(real, 3, 5), "!=", [2.71, 3.14]), collection(real, 3, 5))
+
+        self.assertEqual(infer(record(f=union(integer, string)), "==", namedtuple("tmp", ["f"])(3)), record(f=integer(3, 3)))
+        self.assertEqual(infer(record(f=union(integer, string)), "==", namedtuple("tmp", ["f"])(b"hey")), record(f=string("bytes", 3, 3)))
+        self.assertEqual(infer(record(one=integer, two=real, three=string), "==", namedtuple("tmp", ["one", "two", "three"])(1, 2.2, b"3")), record(one=integer(1, 1), two=real(2.2, 2.2), three=string(fewest=1, most=1)))
+        tree = namedtuple("tree", ["left", "right"])
+        self.assertEqual(infer(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0], "==", tree(tree(None, None), tree(None, tree(None, None)))), record(left=record(left=null, right=null), right=record(right=record(left=null, right=null), left=null)))
+
+        self.assertEqual(infer(record(f=union(integer, string)), "!=", namedtuple("tmp", ["f"])(3)), record(f=union(integer, string)))
+        self.assertEqual(infer(record(f=union(integer, string)), "!=", namedtuple("tmp", ["f"])(b"hey")), record(f=union(integer, string)))
+        self.assertEqual(infer(record(one=integer, two=real, three=string), "!=", namedtuple("tmp", ["one", "two", "three"])(1, 2.2, b"3")), record(one=integer, two=real, three=string))
+        tree = namedtuple("tree", ["left", "right"])
+        self.assertEqual(infer(resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0], "!=", tree(tree(None, None), tree(None, tree(None, None)))), resolve([record("tree", left=union(null, "tree"), right=union(null, "tree"))])[0])
+
+        self.assertEqual(infer(union(vector(real, 3), vector(real, 4)), "==", [1, 2, 3]), vector(integer(1, 3), 3))
+        self.assertEqual(infer(union(vector(real, 3), vector(real, 4)), "==", [1, 2, 3, 4]), vector(integer(1, 4), 4))
 
 
 

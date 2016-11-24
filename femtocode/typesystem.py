@@ -1175,11 +1175,11 @@ def intersection(*types):
         one, two = types
             
         if isinstance(one, Union) and not isinstance(two, Union):
-            out = union(*(intersection(p, two) for p in one.possibilities))
+            out = union(*filter(lambda x: not isinstance(x, Impossible), (intersection(p, two) for p in one.possibilities)))
 
         elif isinstance(two, Union):
             # includes the case when one and two are both Unions
-            out = union(*(intersection(one, p) for p in two.possibilities))
+            out = union(*filter(lambda x: not isinstance(x, Impossible), (intersection(one, p) for p in two.possibilities)))
 
         elif isinstance(one, Impossible) or isinstance(two, Impossible):
             out = impossible()
@@ -1458,7 +1458,7 @@ def infer(schema, operator, value):
                     if len(value) == 0:
                         return intersection(schema, empty)
                     else:
-                        return intersection(schema, Collection(union(*[infer(schema.items, operator, x) for x in value]), len(value), len(value), True))
+                        return intersection(schema, Collection(union(*(infer(schema.items, operator, x) for x in value)), len(value), len(value), True))
                 else:
                     return impossible
 
@@ -1483,6 +1483,9 @@ def infer(schema, operator, value):
                     return difference(schema, Number(value, value, False))
                 else:
                     return schema
+
+            elif isinstance(schema, Collection) and value == []:
+                return difference(schema, empty)
 
             elif isinstance(schema, (String, Collection, Record)):
                 return schema
