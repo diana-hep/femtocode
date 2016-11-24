@@ -140,14 +140,26 @@ class Schema(object):
         return self._repr_memo(set())
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
+        if isinstance(other, string_types):
+            return True
+        elif isinstance(other, Schema):
+            return self.order < other.order
+        else:
             raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        return self.order < other.order
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
             return False
         return self.__class__ == other.__class__
+
+    def __le__(self, other):
+        return self.__lt__(other) or self.__eq__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __gt__(self, other):
+        return self.__ge__(other) and not self.__eq__(other)
 
     def __hash__(self):
         return hash((self.order,))
@@ -321,18 +333,23 @@ class Number(Schema):
             return False
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            if self.min == other.min:
-                if self.max == other.max:
-                    return self.whole < other.whole
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                if self.min == other.min:
+                    if self.max == other.max:
+                        return self.whole < other.whole
+                    else:
+                        return self.max < other.max
                 else:
-                    return self.max < other.max
+                    return self.min < other.min
             else:
-                return self.min < other.min
+                return self.order < other.order
+
         else:
-            return self.order < other.order
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
@@ -415,18 +432,23 @@ class String(Schema):
             return False
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            if self.charset == other.charset:
-                if self.fewest == other.fewest:
-                    return self.most < other.most
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                if self.charset == other.charset:
+                    if self.fewest == other.fewest:
+                        return self.most < other.most
+                    else:
+                        return self.fewest < other.fewest
                 else:
-                    return self.fewest < other.fewest
+                    return self.charset < other.charset
             else:
-                return self.charset < other.charset
+                return self.order < other.order
+
         else:
-            return self.order < other.order
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
@@ -568,21 +590,26 @@ class Collection(Schema):
             return self.items
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            if self._items() == other._items():
-                if self.fewest == other.fewest:
-                    if self.most == other.most:
-                        return self.ordered < other.ordered
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                if self._items() == other._items():
+                    if self.fewest == other.fewest:
+                        if self.most == other.most:
+                            return self.ordered < other.ordered
+                        else:
+                            return self.most < other.most
                     else:
-                        return self.most < other.most
+                        return self.fewest < other.fewest
                 else:
-                    return self.fewest < other.fewest
+                    return self._items() < other._items()
             else:
-                return self._items() < other._items()
+                return self.order < other.order
+
         else:
-            return self.order < other.order
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
@@ -656,12 +683,17 @@ class Record(Schema):
             return self.fields[name]
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            return [self._field(n) for n in sorted(self.fields)] < [other._field(n) for n in sorted(other.fields)]
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                return [self._field(n) for n in sorted(self.fields)] < [other._field(n) for n in sorted(other.fields)]
+            else:
+                return self.order < other.order
+
         else:
-            return self.order < other.order
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
@@ -734,12 +766,17 @@ class Union(Schema):
             return self.possibilities[index]
 
     def __lt__(self, other):
-        if not isinstance(other, Schema):
-            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
-        if self.order == other.order:
-            return [self._possibility(i) for i in xrange(len(self.possibilities))] < [other._possibility(i) for i in xrange(len(other.possibilities))]
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                return [self._possibility(i) for i in xrange(len(self.possibilities))] < [other._possibility(i) for i in xrange(len(other.possibilities))]
+            else:
+                return self.order < other.order
+
         else:
-            return self.order < other.order
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
 
     def __eq__(self, other):
         if not isinstance(other, Schema):
