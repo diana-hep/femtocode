@@ -750,34 +750,5 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(infer(collection(real, fewest=3), "size<", 3), impossible)
         self.assertEqual(infer(collection(real, fewest=3), "size<=", 3), collection(real, fewest=3, most=3))
 
-
-
-# impossible
-# null
-# boolean
-# union(null, boolean)
-# integer
-# real
-# extended
-# union(integer(-5, 5), integer(10, 20))
-# union(real(-5, 5), real(10, 20))
-# union(real(0, almost(5)), real(almost(5), 10))
-# union(integer(-5, 5), real(10, 20))
-# string
-# string("unicode")
-# union(string("bytes"), string("unicode"))
-# string(fewest=5, most=10)
-# union(string(fewest=0, most=5), string(fewest=10, most=20))
-# collection(real)
-# collection(union(integer, string))
-# collection(real, fewest=5, most=10)
-# union(collection(real, fewest=0, most=5), collection(real, fewest=10, most=20))
-# collection(real, ordered=True)
-# vector(real, 3)
-# matrix(real, 2, 2)
-# tensor(real, 1, 2, 3)
-# union(vector(real, 3), vector(real, 4))
-# record(one=integer, two=real, three=string)
-# union(record(one=integer, two=real, three=string("bytes")), record(one=integer, two=real, three=string("unicode")))
-# record("tree", left=union(null, "tree"), right=union(null, "tree"))
-
+        self.assertEqual(infer(union(collection(real, ordered=True), collection(string, ordered=False)), "ordered", None), collection(real, ordered=True))
+        self.assertEqual(infer(union(collection(real, ordered=True), collection(string, ordered=False)), "notordered", None), collection(string, ordered=False))

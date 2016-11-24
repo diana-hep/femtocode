@@ -1564,6 +1564,18 @@ def infer(schema, operator, value):
             else:
                 raise ProgrammingError("operator {0} unexpected for value {1}".format(operator, value))
 
+        elif operator == "ordered":
+            if schema.ordered:
+                return schema
+            else:
+                return impossible
+
+        elif operator == "notordered":
+            if schema.ordered:
+                return impossible
+            else:
+                return schema
+
         else:
             raise ProgrammingError("unhandled operator: {0}".format(operator))
 
