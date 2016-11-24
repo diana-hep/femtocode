@@ -700,6 +700,56 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(infer(union(vector(real, 3), vector(real, 4)), "==", [1, 2, 3]), vector(integer(1, 3), 3))
         self.assertEqual(infer(union(vector(real, 3), vector(real, 4)), "==", [1, 2, 3, 4]), vector(integer(1, 4), 4))
 
+        self.assertEqual(infer(real, ">", 3), real(almost(3), almost(inf)))
+        self.assertEqual(infer(real, ">=", 3), real(3, almost(inf)))
+        self.assertEqual(infer(real, "<", 3), real(almost(-inf), almost(3)))
+        self.assertEqual(infer(real, "<=", 3), real(almost(-inf), 3))
+
+        self.assertEqual(infer(real(-10, -5), ">", 3), impossible)
+        self.assertEqual(infer(real(-10, -5), ">=", 3), impossible)
+        self.assertEqual(infer(real(5, 10), "<", 3), impossible)
+        self.assertEqual(infer(real(5, 10), "<=", 3), impossible)
+
+        self.assertEqual(infer(extended(3, inf), ">", 3), extended(almost(3), inf))
+        self.assertEqual(infer(extended(3, inf), ">=", 3), extended(3, inf))
+        self.assertEqual(infer(extended(-inf, 3), "<", 3), extended(-inf, almost(3)))
+        self.assertEqual(infer(extended(-inf, 3), "<=", 3), extended(-inf, 3))
+
+        self.assertEqual(infer(extended(almost(3), inf), ">", 3), extended(almost(3), inf))
+        self.assertEqual(infer(extended(almost(3), inf), ">=", 3), extended(almost(3), inf))
+        self.assertEqual(infer(extended(-inf, almost(3)), "<", 3), extended(-inf, almost(3)))
+        self.assertEqual(infer(extended(-inf, almost(3)), "<=", 3), extended(-inf, almost(3)))
+
+        self.assertEqual(infer(string, "size>", 3), string(fewest=4))
+        self.assertEqual(infer(string, "size>=", 3), string(fewest=3))
+        self.assertEqual(infer(string, "size<", 3), string(most=2))
+        self.assertEqual(infer(string, "size<=", 3), string(most=3))
+
+        self.assertEqual(infer(string(fewest=3), "size>", 3), string(fewest=4))
+        self.assertEqual(infer(string(fewest=3), "size>=", 3), string(fewest=3))
+        self.assertEqual(infer(string(most=3), "size<", 3), string(most=2))
+        self.assertEqual(infer(string(most=3), "size<=", 3), string(most=3))
+
+        self.assertEqual(infer(string(most=3), "size>", 3), impossible)
+        self.assertEqual(infer(string(most=3), "size>=", 3), string(fewest=3, most=3))
+        self.assertEqual(infer(string(fewest=3), "size<", 3), impossible)
+        self.assertEqual(infer(string(fewest=3), "size<=", 3), string(fewest=3, most=3))
+
+        self.assertEqual(infer(collection(real), "size>", 3), collection(real, fewest=4))
+        self.assertEqual(infer(collection(real), "size>=", 3), collection(real, fewest=3))
+        self.assertEqual(infer(collection(real), "size<", 3), collection(real, most=2))
+        self.assertEqual(infer(collection(real), "size<=", 3), collection(real, most=3))
+
+        self.assertEqual(infer(collection(real, fewest=3), "size>", 3), collection(real, fewest=4))
+        self.assertEqual(infer(collection(real, fewest=3), "size>=", 3), collection(real, fewest=3))
+        self.assertEqual(infer(collection(real, most=3), "size<", 3), collection(real, most=2))
+        self.assertEqual(infer(collection(real, most=3), "size<=", 3), collection(real, most=3))
+
+        self.assertEqual(infer(collection(real, most=3), "size>", 3), impossible)
+        self.assertEqual(infer(collection(real, most=3), "size>=", 3), collection(real, fewest=3, most=3))
+        self.assertEqual(infer(collection(real, fewest=3), "size<", 3), impossible)
+        self.assertEqual(infer(collection(real, fewest=3), "size<=", 3), collection(real, fewest=3, most=3))
+
 
 
 # impossible
