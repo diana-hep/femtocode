@@ -1018,11 +1018,35 @@ def union(*types):
             out = union(*(one.possibilities + two.possibilities))
 
         elif isinstance(one, Union):
-            out = union(*(one.possibilities + (two,)))
+            possibilities = []
+            filled = False
+            for p in one.possibilities:
+                combined = union(p, two)
+                if not isinstance(combined, Union):
+                    possibilities.append(combined)
+                    filled = True
+                else:
+                    possibilities.append(p)
+
+            if not filled:
+                possibilities.append(two)
+            out = Union(possibilities)
 
         elif isinstance(two, Union):
-            out = union(*((one,) + two.possibilities))
-            
+            possibilities = []
+            filled = False
+            for p in two.possibilities:
+                combined = union(p, one)
+                if not isinstance(combined, Union):
+                    possibilities.append(combined)
+                    filled = True
+                else:
+                    possibilities.append(p)
+
+            if not filled:
+                possibilities.append(one)
+            out = Union(possibilities)
+
         elif isinstance(one, Impossible) or isinstance(two, Impossible):
             # in a language that permits runtime errors, union(impossible, X) == X
             # but in Femtocode, union(impossible, X) == impossible
@@ -1065,7 +1089,7 @@ def union(*types):
                 if inty in Number(realy.min.real, realy.max.real, False):
                     out = Number(almost.min(one.min, two.min), almost.max(one.max, two.max), False)
                 else:
-                    out = Union([one, two])
+                    out = Union([difference(inty, realy), realy])
 
             else:
                 # neither integer: they can be glued if there's no gap
@@ -1281,14 +1305,16 @@ def difference(universal, excluded):
 
     elif isinstance(universal, Number) and isinstance(excluded, Number):
         if not universal.whole and excluded.whole:
-            # do not attempt to remove integers from a continuous interval;
-            # returning too inclusive a set is okay
+            # do not attempt to remove (potentially very many) integers from a continuous interval;
+            # returning too-inclusive a result is okay
             out = universal()
         else:
             if almost.min(universal.min, excluded.min) == excluded.min:
                 # excluded starts below universal
                 if almost.max(universal.max, excluded.max) == excluded.max:
                     out = impossible()
+                elif excluded.max.real < universal.min.real or (excluded.max.real == universal.min.real and (isinstance(excluded.max, almost) or isinstance(universal.min, almost))):
+                    out = universal()
                 else:
                     out = Number(almost.complement(excluded.max), universal.max, universal.whole)
 
@@ -1296,6 +1322,8 @@ def difference(universal, excluded):
                 # excluded ends above universal
                 if almost.min(universal.min, excluded.min) == excluded.min:
                     out = impossible()
+                elif excluded.min.real > universal.max.real or (excluded.min.real == universal.max.real and (isinstance(excluded.min, almost) or isinstance(universal.max, almost))):
+                    out = universal()
                 else:
                     out = Number(universal.min, almost.complement(excluded.min), universal.whole)
 
@@ -1404,7 +1432,7 @@ def infer(schema, operator, value):
             elif len(possibilities) == 1:
                 return possibilities[0]
             else:
-                return Union(possibilities)
+                return union(*possibilities)
 
         elif operator == "==":
             if isinstance(schema, (Impossible, Null, Boolean)):
@@ -1476,7 +1504,7 @@ def infer(schema, operator, value):
             elif len(possibilities) == 1:
                 return possibilities[0]
             else:
-                return Union(*possibilities)
+                return union(*possibilities)
 
         elif isinstance(schema, Number):
             if operator == ">":

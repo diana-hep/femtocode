@@ -392,11 +392,15 @@ class TestTypesystem(unittest.TestCase):
                             for value in range(1, 14):
                                 if value in a and value not in b:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
                             c = difference(b, a)
                             for value in range(1, 14):
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
         for amin in almost(-inf), -inf, almost(3), 3:
             for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
@@ -425,11 +429,15 @@ class TestTypesystem(unittest.TestCase):
                             for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                 if value in a and value not in b:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
                             c = difference(b, a)
                             for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
         for amin in almost(-inf), 3:
             for bmin in almost(-inf), -inf, 2, almost(3), 3, 4, almost(10), 10:
@@ -441,6 +449,7 @@ class TestTypesystem(unittest.TestCase):
                             b = real(bmin, bmax)
 
                             c = union(a, b)
+
                             for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                 if value in a or value in b:
                                     self.assertTrue(value in c)
@@ -458,11 +467,16 @@ class TestTypesystem(unittest.TestCase):
                             for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                 if value in a and value not in b:
                                     self.assertTrue(value in c)
+                                else:
+                                    self.assertTrue(value not in c)
 
                             c = difference(b, a)
                             for value in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                 if value in b and value not in a:
                                     self.assertTrue(value in c)
+                                # ## difference(real, integer) is conservative because it could result in a huge expression otherwise
+                                # else:
+                                #     self.assertTrue(value not in c)
 
         self.assertEqual(Union([string("bytes"), string("unicode")]), union(string("bytes"), string("unicode")))
         self.assertEqual(impossible, intersection(string("bytes"), string("unicode")))
@@ -627,12 +641,22 @@ class TestTypesystem(unittest.TestCase):
         self.assertEqual(infer(real(0, 10), "==", 5), integer(5, 5))
         self.assertEqual(infer(real(0, 10), "==", 3.14), real(3.14, 3.14))
         self.assertEqual(infer(real(10, 20), "==", 5), impossible)
+        self.assertEqual(infer(real(0, 10), "==", 10), integer(10, 10))
+        self.assertEqual(infer(real(0, almost(10)), "==", 10), impossible)
+        self.assertEqual(infer(union(real(0, 7), integer(5, 10)), "==", 6), integer(6, 6))
 
         self.assertEqual(infer(real, "!=", 5), union(real(max=almost(5)), real(min=almost(5))))
         self.assertEqual(infer(real, "!=", 3.14), union(real(max=almost(3.14)), real(min=almost(3.14))))
         self.assertEqual(infer(real(0, 10), "!=", 5), union(real(0, almost(5)), real(almost(5), 10)))
         self.assertEqual(infer(real(0, 10), "!=", 3.14), union(real(0, almost(3.14)), real(almost(3.14), 10)))
         self.assertEqual(infer(real(10, 20), "!=", 5), real(10, 20))
+        self.assertEqual(infer(real(0, 10), "!=", 10), real(0, almost(10)))
+        self.assertEqual(infer(real(0, almost(10)), "!=", 10), real(0, almost(10)))
+        self.assertEqual(infer(union(real(0, 7), integer(5, 10)), "!=", 6), union(real(min=0.0, max=almost(6.0)), real(min=almost(6.0), max=7.0), integer(min=8, max=10)))
+
+        self.assertEqual(infer(string, "==", b"hello"), string("bytes", 5, 5))
+        self.assertEqual(infer(string, "==", u"hello"), impossible)
+        self.assertEqual(infer(string("unicode"), "==", u"hello"), string("unicode", 5, 5))
 
 
 
