@@ -103,19 +103,22 @@ class Call(FunctionTree):
 
     def __init__(self, fcn, args, original=None):
         self.fcn = fcn
-        if self.fcn.commutative():
-            self.args = tuple(sorted(args))
-        else:
-            self.args = tuple(args)
+        self.args = tuple(args)
         self.original = original
 
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
+    def sortedargs(self):
+        if self.fcn.commutative():
+            return tuple(sorted(self.args))
+        else:
+            return self.args
+
     def __lt__(self, other):
         if isinstance(other, Call):
             if self.fcn == other.fcn:
-                return self.args < other.args
+                return self.sortedargs() < other.sortedargs()
             else:
                 return self.fcn < other.fcn
         else:
@@ -125,10 +128,10 @@ class Call(FunctionTree):
         if not isinstance(other, Call):
             return False
         else:
-            return self.fcn == other.fcn and self.args == other.args
+            return self.fcn == other.fcn and self.sortedargs() == other.sortedargs()
 
     def __hash__(self):
-        return hash((self.order, self.fcn, self.args))
+        return hash((self.order, self.fcn, self.sortedargs()))
 
     def schema(self, frame):
         if frame.defined(self):
@@ -138,8 +141,8 @@ class Call(FunctionTree):
             if isinstance(out, Impossible):
                 reason = self.fcn.explanation(frame, self.args)
                 if reason is not None:
-                    reason = "    " + reason + "\n"
-                complain("function \"{0}\" does not accept arguments with the given types:\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame)) for x in self.args), reason), self.original)
+                    reason = "\n    " + reason + "\n"
+                complain("function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame)) for x in self.args), reason), self.original)
             return out
 
 class TypeConstraint(FunctionTree):
@@ -401,33 +404,18 @@ def build(tree, frame):
         for op, right in zip(tree.ops, tree.comparators):
             right = build(right, frame)
             if isinstance(op, parsingtree.Eq):
+                arg = None
                 if isinstance(left, Literal) and not isinstance(right, Literal):
-                    if left.value is None:
-                        arg = TypeConstraint(right, null)
-                    elif left.value is True:
+                    if left.value is True:
                         arg = right
                     elif left.value is False:
                         arg = Call(frame["not"], [right], right.original)
-                    elif isinstance(left.value, int):
-                        arg = TypeConstraint(right, Number(left.value, left.value, True))
-                    elif isinstance(left.value, float):
-                        arg = TypeConstraint(right, Number(left.value, left.value, False))
-                    else:
-                        ProgrammingError("missing implementation")
                 elif not isinstance(left, Literal) and isinstance(right, Literal):
-                    if right.value is None:
-                        arg = TypeConstraint(left, null)
-                    elif right.value is True:
+                    if right.value is True:
                         arg = left
                     elif right.value is False:
                         arg = Call(frame["not"], [left], left.original)
-                    elif isinstance(right.value, int):
-                        arg = TypeConstraint(left, Number(right.value, right.value, True))
-                    elif isinstance(right.value, float):
-                        arg = TypeConstraint(left, Number(right.value, right.value, False))
-                    else:
-                        ProgrammingError("missing implementation")
-                else:
+                if arg is None:
                     arg = Call.build(frame["=="], [left, right], op)
 
             elif isinstance(op, parsingtree.NotEq):

@@ -33,7 +33,7 @@ class Function(object):
     def typeConstraints(self, frame, args):
         return {}
 
-    def retschema(self, types, args):
+    def retschema(self, frame, args):
         raise ProgrammingError("missing implementation")
 
     def sortargs(self, positional, named):
@@ -67,6 +67,9 @@ class BuiltinFunction(Function):
 
     def __repr__(self):
         return "BuiltinFunction[\"{0}\"]".format(self.name)
+
+    def explanation(self, frame, args):
+        raise ProgrammingError("missing implementation")
 
     def __lt__(self, other):
         if isinstance(other, BuiltinFunction):
@@ -115,10 +118,10 @@ class UserFunction(Function):
     def arity(self, index):
         return None
 
-    def retschema(self, types, args):
-        subframe = types.fork()
+    def retschema(self, frame, args):
+        subframe = frame.fork()
         for name, arg in zip(self.names, args):
-            subframe[name] = arg.schema(types)
+            subframe[name] = arg.schema(frame)
         return self.body.schema(subframe)
 
     def sortargs(self, positional, named):
@@ -126,9 +129,6 @@ class UserFunction(Function):
         
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):
-        # if isinstance(parent, dict):
-        #     raise Exception
-
         self.parent = parent
         self.values = dict(values.items())
 

@@ -37,7 +37,7 @@ class TestTypeIntegration(unittest.TestCase):
         pass
 
     @staticmethod
-    def expecting(result, code, **symbolTypes):
+    def expecting(result, code, verbose=False, **symbolTypes):
         if isinstance(result, Schema):
             actual = build(parse(code), table).schema(SymbolTable(symbolTypes))
             if actual != result:
@@ -46,8 +46,8 @@ class TestTypeIntegration(unittest.TestCase):
             try:
                 build(parse(code), table).schema(SymbolTable(symbolTypes))
             except result as err:
-                # print(err)
-                pass
+                if verbose:
+                    print("\n" + str(err))
             else:
                 raise AssertionError("\"{0}\" was supposed to raise {1}".format(code, result))
 
@@ -62,3 +62,11 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(FemtocodeError, "x + y", x=extended, y=extended)
         self.expecting(extended(0, inf), "x + y", x=extended(0, inf), y=extended(0, inf))
 
+    def test_equal(self):
+        self.expecting(boolean, "x == y", x=integer, y=integer)
+        self.expecting(boolean, "x == y", x=integer, y=real)
+        self.expecting(boolean, "x == 5", x=integer)
+        self.expecting(boolean, "5 == x", x=integer)
+        self.expecting(FemtocodeError, "x == y", x=real(0, almost(5)), y=real(almost(5), 10))
+        self.expecting(FemtocodeError, "x == 5", x=real(0, almost(5)))
+        
