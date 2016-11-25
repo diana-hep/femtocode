@@ -68,9 +68,6 @@ class BuiltinFunction(Function):
     def __repr__(self):
         return "BuiltinFunction[\"{0}\"]".format(self.name)
 
-    def explanation(self, frame, args):
-        raise ProgrammingError("missing implementation")
-
     def __lt__(self, other):
         if isinstance(other, BuiltinFunction):
             return self.name < other.name
@@ -114,9 +111,6 @@ class UserFunction(Function):
 
     def __hash__(self):
         return hash((self.order, self.names, self.defaults, self.body))
-
-    def arity(self, index):
-        return None
 
     def retschema(self, frame, args):
         subframe = frame.fork()

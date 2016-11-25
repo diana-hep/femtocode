@@ -30,7 +30,11 @@ def complain(message, source, pos, lineno, col_offset, sourceName, length):
         where = ""
     else:
         where = "in \"" + sourceName + "\""
-    raise FemtocodeError("%s\n    at line:col %d:%d (pos %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+    if "\n" in message:
+        at = "At"
+    else:
+        at = "    at"
+    raise FemtocodeError("%s\n%s line:col %d:%d (pos %d)%s:\n\n%s\n----%s\n" % (message, at, lineno, col_offset, pos, where, snippet, indicator))
 
 reserved = {
   'and': 'AND',

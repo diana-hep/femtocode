@@ -155,6 +155,9 @@ class Schema(object):
     def __repr__(self):
         return self._repr_memo(set())
 
+    def name(self):
+        return self.__class__.__name__
+
     def __lt__(self, other):
         if isinstance(other, string_types):
             return True
@@ -189,7 +192,8 @@ class Schema(object):
 class Impossible(Schema):   # results in a compilation error
     order = 0
 
-    def __init__(self, alias=None):
+    def __init__(self, reason=None, alias=None):
+        self.reason = reason
         super(Impossible, self).__init__(alias)
 
     def _repr_memo(self, memo):
@@ -206,6 +210,9 @@ class Impossible(Schema):   # results in a compilation error
 
     def __contains__(self, other):
         return False
+
+    def __call__(self, reason=None, alias=None):
+        return self.__class__(self.reason if reason is None else reason, alias)
 
 class Null(Schema):
     order = 1
@@ -1103,10 +1110,18 @@ def union(*types):
                 possibilities.append(one)
             out = Union(possibilities)
 
-        elif isinstance(one, Impossible) or isinstance(two, Impossible):
+        elif isinstance(one, Impossible) and isinstance(two, Impossible):
+            out = impossible(one.reason if two.reason is None else two.reason)
+
+        elif isinstance(one, Impossible):
             # in a language that permits runtime errors, union(impossible, X) == X
             # but in Femtocode, union(impossible, X) == impossible
-            out = impossible()
+            out = one()
+
+        elif isinstance(two, Impossible):
+            # in a language that permits runtime errors, union(impossible, X) == X
+            # but in Femtocode, union(impossible, X) == impossible
+            out = two()
 
         elif one.order != two.order:
             # there is no overlap among different kinds
@@ -1237,12 +1252,18 @@ def intersection(*types):
             # includes the case when one and two are both Unions
             out = union(*filter(lambda x: not isinstance(x, Impossible), (intersection(one, p) for p in two.possibilities)))
 
-        elif isinstance(one, Impossible) or isinstance(two, Impossible):
-            out = impossible()
+        elif isinstance(one, Impossible) and isinstance(two, Impossible):
+            out = impossible(one.reason if two.reason is None else two.reason)
+
+        elif isinstance(one, Impossible):
+            out = one()
+
+        elif isinstance(two, Impossible):
+            out = two()
 
         elif one.order != two.order:
             # there is no overlap among different kinds
-            out = impossible()
+            out = impossible("{0} and {1} have no overlap.".format(one.name, two.name))
 
         elif isinstance(one, Null) and isinstance(two, Null):
             out = null()
@@ -1266,10 +1287,10 @@ def intersection(*types):
                     if not isinstance(low.max, almost) and not isinstance(high.min, almost):
                         out = Number(low.max.real, low.max.real, round(low.max.real) == low.max.real)
                     else:
-                        out = impossible()
+                        out = impossible("{0} and {1} are both open at {2}.".format(low, high, low.max.real))
 
                 elif low.max < high.min:
-                    out = impossible()
+                    out = impossible("{0} is entirely below {1}.".format(low, high))
 
                 else:
                     try:
@@ -1277,7 +1298,7 @@ def intersection(*types):
                                      almost.complement(almost.min(almost.complement(low.max), almost.complement(high.max))),
                                      low.whole or high.whole)
                     except FemtocodeError:
-                        out = impossible()
+                        out = impossible()   # ???
 
         elif isinstance(one, String) and isinstance(two, String):
             if one.charset == two.charset:
@@ -1285,11 +1306,11 @@ def intersection(*types):
                 if isinstance(number, Number) and number.whole:
                     out = String(one.charset, number.min, number.max)
                 elif isinstance(number, Impossible):
-                    out = impossible()
+                    out = impossible("Size intervals of {0} and {1} do not overlap.".format(one, two))
                 else:
                     raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
             else:
-                out = impossible()
+                out = impossible("Charsets {0} and {1} do not overlap.".format(one, two))
 
         elif isinstance(one, Collection) and isinstance(two, Collection):
             if one.most == 0 and two.most == 0:
@@ -1310,11 +1331,11 @@ def intersection(*types):
                 if isinstance(number, Number) and number.whole:
                     out = Collection(items, number.min, number.max, ordered)
                 elif isinstance(number, Impossible):
-                    out = impossible()
+                    out = impossible("Size intervals of collections do not overlap in\n{0}".format(compare(one, two)))
                 else:
                     raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
             else:
-                out = impossible()
+                out = impossible("Item schemas of collections do not overlap in\n{0}".format(compare(one, two)))
 
         elif isinstance(one, Record) and isinstance(two, Record):
             if set(one.fields) == set(two.fields):
@@ -1323,12 +1344,12 @@ def intersection(*types):
                 for n in one.fields:
                     fields[n] = intersection(one.fields[n], two.fields[n])
                     if isinstance(fields[n], Impossible):
-                        out = impossible()
+                        out = impossible("Field {0} has no overlap in\n{1}".format(json.dumps(n), compare(one, two)))
                         break
                 if out is None:
                     out = Record(fields)
             else:
-                out = impossible()
+                out = impossible("Field sets differ in\n{0}".format(compare(one, two)))
 
         else:
             raise ProgrammingError("unhandled case")
@@ -1347,17 +1368,23 @@ def difference(universal, excluded):
         for p in excluded.possibilities:
             out = difference(out, p)
 
-    elif isinstance(universal, Impossible) or isinstance(excluded, Impossible):
-        out = impossible()
+    elif isinstance(universal, Impossible) and isinstance(excluded, Impossible):
+        out = impossible(universal.reason if excluded.reason is None else excluded.reason)
+
+    elif isinstance(universal, Impossible):
+        out = universal()
+
+    elif isinstance(excluded, Impossible):
+        out = excluded()
 
     elif universal.order != excluded.order:
         out = universal()
 
     elif isinstance(universal, Null) and isinstance(excluded, Null):
-        out = impossible()
+        out = impossible("null type is completely covered by null type.")
 
     elif isinstance(universal, Boolean) and isinstance(excluded, Boolean):
-        out = impossible()
+        out = impossible("boolean type is completely covered by boolean type.")
 
     elif isinstance(universal, Number) and isinstance(excluded, Number):
         if not universal.whole and excluded.whole:
@@ -1368,7 +1395,7 @@ def difference(universal, excluded):
             if almost.min(universal.min, excluded.min) == excluded.min:
                 # excluded starts below universal
                 if almost.max(universal.max, excluded.max) == excluded.max:
-                    out = impossible()
+                    out = impossible("{0} completely covers {1}.".format(excluded, universal))
                 elif excluded.max.real < universal.min.real or (excluded.max.real == universal.min.real and (isinstance(excluded.max, almost) or isinstance(universal.min, almost))):
                     out = universal()
                 else:
@@ -1377,7 +1404,7 @@ def difference(universal, excluded):
             elif almost.max(universal.max, excluded.max) == excluded.max:
                 # excluded ends above universal
                 if almost.min(universal.min, excluded.min) == excluded.min:
-                    out = impossible()
+                    out = impossible("{0} completely covers {1}.".format(excluded, universal))
                 elif excluded.min.real > universal.max.real or (excluded.min.real == universal.max.real and (isinstance(excluded.min, almost) or isinstance(universal.max, almost))):
                     out = universal()
                 else:
@@ -1398,7 +1425,7 @@ def difference(universal, excluded):
                 two = number.possibilities[1]
                 out = Union([String(universal.charset, one.min, one.max), String(universal.charset, two.min, two.max)])
             elif isinstance(number, Impossible):
-                out = impossible()
+                out = impossible("Size range of {0} completely covers {1}.".format(excluded, universal))
             else:
                 raise ProgrammingError("difference(Number, Number) is {0}".format(number))
         else:
@@ -1407,7 +1434,7 @@ def difference(universal, excluded):
     elif isinstance(universal, Collection) and isinstance(excluded, Collection):
         if universal.most == 0:
             if excluded.most == 0:
-                out = impossible()
+                out = impossible("Type of empty collections is completely covered by empty collections.")
             else:
                 out = universal()
 
@@ -1439,7 +1466,7 @@ def difference(universal, excluded):
                     raise ProgrammingError("difference(Number, Number) is {0}".format(number))
 
             if len(possibilities) == 0:
-                out = impossible()
+                out = impossible("Size and contents completely covered in\n{0}".format(compare(universal, excluded, ("universal set", "exclusion region"))))
             elif len(possibilities) == 1:
                 out = possibilities[0]
             else:
@@ -1457,7 +1484,7 @@ def difference(universal, excluded):
                 fields[n] = intersection(universal.fields[n], excluded.fields[n])
 
             if len(possibilities) == 0:
-                out = impossible()
+                out = impossible("Size and contents completely covered in\n{0}".format(compare(universal, excluded, ("universal set", "exclusion region"))))
             elif len(possibilities) == 1:
                 out = possibilities[0]
             else:

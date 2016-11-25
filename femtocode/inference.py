@@ -21,13 +21,16 @@ from femtocode.typesystem import *
 def literal(schema, operator, value):
     if isinstance(schema, Union):
         possibilities = []
+        reason = None
         for p in schema.possibilities:
             result = literal(p, operator, value)
             if not isinstance(result, Impossible):
                 possibilities.append(result)
+            elif reason is None:
+                reason = result.reason
 
         if len(possibilities) == 0:
-            return impossible
+            return impossible(reason)
         elif len(possibilities) == 1:
             return possibilities[0]
         else:
@@ -35,10 +38,10 @@ def literal(schema, operator, value):
 
     elif isinstance(schema, Impossible):
         if operator == "==":
-            return impossible
+            return schema
 
         elif operator == "!=":
-            return impossible
+            return schema
 
         else:
             raise ProgrammingError("unhandled operator: {0}".format(operator))
@@ -48,13 +51,13 @@ def literal(schema, operator, value):
             if operator == "==":
                 return null
             elif operator == "!=":
-                return impossible
+                return impossible("The null type, excluding its only value (None), leaves no possible values.")
             else:
                 raise ProgrammingError("unhandled operator: {0}".format(operator))
 
         else:
             if operator == "==":
-                return impossible
+                return impossible("Instances of the null type can never be equal to {0}.".format(value))
             elif operator == "!=":
                 return null
             else:
@@ -71,7 +74,7 @@ def literal(schema, operator, value):
 
         else:
             if operator == "==":
-                return impossible
+                return impossible("Instances of the boolean type can never be equal to {0}.".format(value))
             elif operator == "!=":
                 return boolean
             else:
@@ -101,14 +104,14 @@ def literal(schema, operator, value):
                 raise ProgrammingError("unhandled operator: {0}".format(operator))
 
         else:
-            return impossible
+            return impossible("Numeric types can never be equal to {0}.".format(value))
 
     elif isinstance(schema, String):
         if operator == "==":
             if isinstance(value, string_types):
                 return intersection(schema, String("bytes" if isinstance(value, bytes) else "unicode", len(value), len(value)))
             else:
-                return impossible
+                return impossible("String types can never be equal to {0}.".format(value))
 
         elif operator == "!=":
             return schema
@@ -122,7 +125,7 @@ def literal(schema, operator, value):
                 elif isinstance(number, Union):
                     return Union([String(schema.charset, p.min, p.max) for p in number.possibilities])
                 elif isinstance(number, Impossible):
-                    return impossible
+                    return impossible("Size of {0} can never be {1} {2}.".format(schema, operator, value))
                 else:
                     raise ProgrammingError("literal(Number, \"{0}\", value) is {1}".format(operator, number))
 
@@ -140,7 +143,7 @@ def literal(schema, operator, value):
                 else:
                     return intersection(schema, Collection(union(*(literal(schema.items, operator, x) for x in value)), len(value), len(value), True))
             else:
-                return impossible
+                return impossible("Collection types can never be equal to {0}.".format(value))
 
         elif operator == "!=":
             if isinstance(value, (list, tuple, set)) and len(value) == 0:
@@ -157,7 +160,7 @@ def literal(schema, operator, value):
                 elif isinstance(number, Union):
                     return Union([Collection(schema.items, p.min, p.max, schema.ordered) for p in number.possibilities])
                 elif isinstance(number, Impossible):
-                    return impossible
+                    return impossible("Size of collection can never be {1} {2} for\n".format(operator, value, pretty(schema)))
                 else:
                     raise ProgrammingError("literal(Number, \"{0}\", value) is {1}".format(operator, number))
 
@@ -168,11 +171,11 @@ def literal(schema, operator, value):
             if schema.ordered:
                 return schema
             else:
-                return impossible
+                return impossible("Collection is unordered\n{0}".format(pretty(schema)))
 
         elif operator == "notordered":
             if schema.ordered:
-                return impossible
+                return impossible("Collection is ordered\n{0}".format(pretty(schema)))
             else:
                 return schema
 
@@ -184,7 +187,7 @@ def literal(schema, operator, value):
             if all(hasattr(value, n) for n in schema.fields):
                 return intersection(schema, Record(dict((n, literal(t, operator, getattr(value, n))) for n, t in schema.fields.items())))
             else:
-                return impossible
+                return impossible("Value {0} does not have enough fields to be equal to\n{1}".format(value, pretty(schema)))
 
         elif operator == "!=":
             return schema
@@ -197,14 +200,17 @@ def literal(schema, operator, value):
 
 def _combineTwoUnions(one, two, operation):
     possibilities = []
+    reason = None
     for p1 in one.possibilities:
         for p2 in two.possibilities:
             result = operation(one, two)
             if not isinstance(result, Impossible):
                 possibilities.append(result)
-
+            elif reason is None:
+                reason = result.reason
+                
     if len(possibilities) == 0:
-        return impossible
+        return impossible(reason)
     elif len(possibilities) == 1:
         return possibilities[0]
     else:
@@ -212,13 +218,16 @@ def _combineTwoUnions(one, two, operation):
 
 def _combineOneUnion(one, other, operation):
     possibilities = []
+    reason = None
     for p in one.possibilities:
         result = operation(p, other)
         if not isinstance(result, Impossible):
             possibilities.append(result)
+        elif reason is None:
+            reason = result.reason
 
     if len(possibilities) == 0:
-        return impossible
+        return impossible(reason)
     elif len(possibilities) == 1:
         return possibilities[0]
     else:
@@ -252,7 +261,7 @@ def add(*args):
                (one.min == inf and two.max == -inf) or \
                (one.max == inf and two.min == -inf) or \
                (one.max == inf and two.max == -inf):
-                return impossible
+                return impossible("Extended real type allows for indeterminate form (inf + -inf).")
 
             else:
                 if one.min == -inf or two.min == -inf:
@@ -306,7 +315,7 @@ def subtract(*args):
                (one.min == inf and two.max == inf) or \
                (one.max == inf and two.min == inf) or \
                (one.max == inf and two.max == inf):
-                return impossible
+                return impossible("Extended real type allows for indeterminate form (inf - inf).")
 
             else:
                 if one.min == -inf or two.max == inf:
@@ -412,10 +421,10 @@ def multiply(*args):
             for a in oneIntervalMinus:
                 for b in twoIntervalMinus:
                     if a == -inf and b == 0.0:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
 
                     if a == 0.0 and b == -inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
 
                     elif a == -inf:
                         cases.append(inf)
@@ -442,10 +451,10 @@ def multiply(*args):
 
                 for b in twoIntervalPlus:
                     if a == -inf and b == 0.0:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
 
                     if a == 0.0 and b == inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
 
                     elif a == -inf:
                         cases.append(-inf)
@@ -473,10 +482,10 @@ def multiply(*args):
             for a in oneIntervalPlus:
                 for b in twoIntervalMinus:
                     if a == inf and b == 0.0:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
 
                     if a == 0.0 and b == -inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
 
                     elif a == inf:
                         cases.append(-inf)
@@ -503,10 +512,10 @@ def multiply(*args):
 
                 for b in twoIntervalPlus:
                     if a == inf and b == 0.0:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
 
                     if a == 0.0 and b == inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
 
                     elif a == inf:
                         cases.append(inf)
@@ -561,16 +570,18 @@ def divide(*args):
         elif isinstance(one, Number) and isinstance(two, Number):
             oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one, True)
             twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two, True)
-
+            
             cases = []
             for a in oneIntervalMinus:
                 for b in twoIntervalMinus:
                     if a == -inf and b == -inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf / -inf).")
 
                     elif a == -inf and b == 0.0:
-                        # cases.append(-inf)   # according to Java, but arguably an error
-                        return impossible
+                        cases.append(-inf)    # I agree with Java (not Python) that this is okay
+
+                    elif a == 0.0 and b == 0.0:
+                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
 
                     elif a == -inf:
                         cases.append(inf)
@@ -593,11 +604,13 @@ def divide(*args):
 
                 for b in twoIntervalPlus:
                     if a == -inf and b == inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (-inf / inf).")
 
                     elif a == -inf and b == 0.0:
-                        # cases.append(-inf)   # according to Java, but arguably an error
-                        return impossible
+                        cases.append(-inf)    # I agree with Java (not Python) that this is okay
+
+                    elif a == 0.0 and b == 0.0:
+                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
 
                     elif a == -inf:
                         cases.append(-inf)
@@ -621,11 +634,13 @@ def divide(*args):
             for a in oneIntervalPlus:
                 for b in twoIntervalMinus:
                     if a == inf and b == -inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf / -inf).")
 
                     elif a == inf and b == 0.0:
-                        # cases.append(inf)   # according to Java, but arguably an error
-                        return impossible
+                        cases.append(inf)    # I agree with Java (not Python) that this is okay
+
+                    elif a == 0.0 and b == 0.0:
+                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
 
                     elif a == inf:
                         cases.append(-inf)
@@ -648,11 +663,13 @@ def divide(*args):
 
                 for b in twoIntervalPlus:
                     if a == inf and b == inf:
-                        return impossible
+                        return impossible("Extended real type allows for indeterminate form (inf / inf).")
 
                     elif a == inf and b == 0.0:
-                        # cases.append(inf)   # according to Java, but arguably an error
-                        return impossible
+                        cases.append(inf)    # I agree with Java (not Python) that this is okay
+
+                    elif a == 0.0 and b == 0.0:
+                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
 
                     elif a == inf:
                         cases.append(inf)
@@ -801,7 +818,7 @@ def power(one, two):
         if inf in two or -inf in two:
             if 1.0 in one or -1.0 in one:
                 # Java returns NaN; Python says it's 1 (math.pow) or -1 (** with negative base) for some reason
-                return impossible
+                return impossible("Extended real type allows for indeterminate form (1 ** inf).")
             if hasInsideOfOne(one):
                 if inf in two:
                     cases.append(0.0)    # Python and Java
@@ -827,7 +844,7 @@ def power(one, two):
 
         if hasFiniteNegative(one) and hasNonInteger(two):
             # Python raises ValueError; Java returns NaN
-            return impossible
+            return impossible("Exponentiation of negative base by a non-integer power is not real.")
 
         oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
         twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
@@ -864,10 +881,10 @@ def modulo(one, two):
 
     elif isinstance(one, Number) and isinstance(two, Number):
         if inf in one or -inf in one:
-            return impossible
+            return impossible("Extended real type allows for infinite dividend (inf % something).")
 
         if 0.0 in two:
-            return impossible
+            return impossible("Divisor could be zero (something % 0).")
 
         cases = []
 

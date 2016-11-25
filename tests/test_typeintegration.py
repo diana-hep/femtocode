@@ -69,4 +69,27 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(boolean, "5 == x", x=integer)
         self.expecting(FemtocodeError, "x == y", x=real(0, almost(5)), y=real(almost(5), 10))
         self.expecting(FemtocodeError, "x == 5", x=real(0, almost(5)))
-        
+        self.expecting(boolean, "x == y == z", x=integer, y=integer, z=integer)
+        self.expecting(boolean, "x == y + 5", x=integer, y=integer)
+        self.expecting(boolean, "x == y", x=integer(0, 5), y=integer(5, 10))
+        self.expecting(FemtocodeError, "x == y + 1", x=integer(0, 5), y=integer(5, 10))
+
+    def test_and(self):
+        self.expecting(boolean, "x and y", x=boolean, y=boolean)
+        self.expecting(boolean, "x and y == z", x=boolean, y=integer, z=integer)
+        self.expecting(FemtocodeError, "x and y == z", x=boolean, y=integer, z=boolean)
+        self.expecting(FemtocodeError, "x and y == z", x=integer, y=integer, z=integer)
+
+    def test_or(self):
+        self.expecting(boolean, "x or y", x=boolean, y=boolean)
+        self.expecting(boolean, "x or y == z", x=boolean, y=integer, z=integer)
+        self.expecting(FemtocodeError, "x or y == z", x=boolean, y=integer, z=boolean)
+        self.expecting(FemtocodeError, "x or y == z", x=integer, y=integer, z=integer)
+
+    def test_not(self):
+        self.expecting(boolean, "not x", x=boolean)
+        self.expecting(boolean, "not y == z", y=integer, z=integer)
+        self.expecting(boolean, "not (x and y == z)", x=boolean, y=integer, z=integer)
+        self.expecting(FemtocodeError, "not y + z", y=integer, z=integer)
+
+

@@ -136,13 +136,14 @@ class Call(FunctionTree):
     def schema(self, frame):
         if frame.defined(self):
             return frame[self]
+        elif isinstance(self.fcn, UserFunction):
+            return self.fcn.retschema(frame, self.args)
         else:
             out = self.fcn.retschema(frame, self.args)
             if isinstance(out, Impossible):
-                reason = self.fcn.explanation(frame, self.args)
-                if reason is not None:
-                    reason = "\n    " + reason + "\n"
-                complain("function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame)) for x in self.args), reason), self.original)
+                if out.reason is not None:
+                    reason = "\n    " + out.reason + "\n"
+                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame), prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
             return out
 
 class TypeConstraint(FunctionTree):
@@ -485,7 +486,7 @@ def build(tree, frame):
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
-            return Call(frame["not"], [tree.operand], tree)
+            return Call(frame["not"], [build(tree.operand, frame)], tree)
         elif isinstance(tree.op, parsingtree.UAdd):
             raise ProgrammingError("missing implementation")
         elif isinstance(tree.op, parsingtree.USub):
