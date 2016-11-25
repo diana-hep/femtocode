@@ -332,7 +332,7 @@ def subtract(one, two):
             elif one.min == almost(-inf) or two.max == almost(inf):
                 newmin = almost(-inf)
             else:
-                newmin = one.min - two.min
+                newmin = one.min - two.max
 
             if one.max == -inf or two.min == inf:
                 newmax = -inf
@@ -382,7 +382,7 @@ def subtract(one, two):
 
 #     return NumberType(newMin, newMax, whole=self.whole and other.whole)
 
-def _expandMinusPlus(interval):
+def _expandMinusPlus(interval, intermediate=False):
     if interval.min < 0.0 and 0.0 not in interval:
         if interval.min == -inf and interval.max == -inf:
             intervalMinus = (interval.min,)
@@ -391,12 +391,18 @@ def _expandMinusPlus(interval):
         elif interval.min == almost(-inf):
             intervalMinus = (interval.min, interval.max.real - 1.0, interval.max)
         else:
-            intervalMinus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+            if intermediate:
+                intervalMinus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+            else:
+                intervalMinus = (interval.min, interval.max)
     elif interval.min < 0.0:
         if interval.min.real == -inf:
             intervalMinus = (interval.min, -1.0, almost(0.0), 0.0)
         else:
-            intervalMinus = (interval.min, interval.min.real/2.0, almost(0.0), 0.0)
+            if intermediate:
+                intervalMinus = (interval.min, interval.min.real/2.0, almost(0.0), 0.0)
+            else:
+                intervalMinus = (interval.min, almost(0.0), 0.0)
     elif interval.min == 0.0:
         intervalMinus = (0.0,)
     else:
@@ -410,12 +416,18 @@ def _expandMinusPlus(interval):
         elif interval.max == almost(inf):
             intervalPlus = (interval.min, interval.min.real + 1.0, interval.max)
         else:
-            intervalPlus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+            if intermediate:
+                intervalPlus = (interval.min, (interval.min.real + interval.max.real)/2.0, interval.max)
+            else:
+                intervalPlus = (interval.min, interval.max)
     elif interval.max > 0.0:
         if interval.max.real == inf:
             intervalPlus = (0.0, almost(0.0), 1.0, interval.max)
         else:
-            intervalPlus = (0.0, almost(0.0), interval.max.real/2.0, interval.max)
+            if intermediate:
+                intervalPlus = (0.0, almost(0.0), interval.max.real/2.0, interval.max)
+            else:
+                intervalPlus = (0.0, almost(0.0), interval.max)
     elif interval.max == 0.0:
         intervalPlus = (0.0,)
     else:
@@ -745,8 +757,8 @@ def divide(one, two):
         return _combineOneUnion(two, one, divide)
 
     elif isinstance(one, Number) and isinstance(two, Number):
-        oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
-        twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
+        oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one, True)
+        twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two, True)
 
         cases = []
         for a in oneIntervalMinus:
@@ -775,7 +787,7 @@ def divide(one, two):
                     cases.append(inf)
 
                 else:
-                    cases.append(a / b)
+                    cases.append(1.0 * a / b)
 
             for b in twoIntervalPlus:
                 if a == -inf and b == inf:
@@ -802,7 +814,7 @@ def divide(one, two):
                     cases.append(-inf)
 
                 else:
-                    cases.append(a / b)
+                    cases.append(1.0 * a / b)
 
         for a in oneIntervalPlus:
             for b in twoIntervalMinus:
@@ -830,7 +842,7 @@ def divide(one, two):
                     cases.append(-inf)
 
                 else:
-                    cases.append(a / b)
+                    cases.append(1.0 * a / b)
 
             for b in twoIntervalPlus:
                 if a == inf and b == inf:
@@ -857,12 +869,12 @@ def divide(one, two):
                     cases.append(inf)
 
                 else:
-                    cases.append(a / b)
+                    cases.append(1.0 * a / b)
 
         if any(math.isnan(x) for x in cases):
             raise ProgrammingError("nan encountered in divide cases: {0}".format(cases))
 
-        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
+        return Number(almost.min(*cases), almost.max(*cases), False)
 
     else:
         raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
@@ -1156,7 +1168,7 @@ def power(one, two):
         if any(math.isnan(x) for x in cases):
             raise ProgrammingError("nan encountered in power cases: {0}".format(cases))
 
-        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole and two.min >= 0.0)
+        return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole and two.min >= 0)
     
     else:
         raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
