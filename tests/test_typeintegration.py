@@ -92,4 +92,5 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(boolean, "not (x and y == z)", x=boolean, y=integer, z=integer)
         self.expecting(FemtocodeError, "not y + z", y=integer, z=integer)
 
-
+    def test_map(self):
+        self.expecting(collection(real), "data.map(x => x + 1)", data=collection(real))

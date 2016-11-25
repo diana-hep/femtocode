@@ -444,7 +444,7 @@ for literal, name in literal_to_name.items():
 ''' % (name, re.escape(literal)))
 
 W('''def t_error(t):
-    complain("unrecognizable token \\"" + t.value + "\\"", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.sourceName, t.value[1]["length"])
+    complain("Unrecognizable token \\"" + t.value + "\\".", t.lexer.source, t.lexer.lexpos, t.lexer.lineno, t.lexer.lexpos - t.lexer.last_col0 + 1, t.lexer.sourceName, t.value[1]["length"])
 ''')
 W('''def t_comment(t):
     r"[ ]*\\043[^\\n]*"  # \\043 is # ; otherwise PLY thinks it is a regex comment
@@ -575,9 +575,9 @@ for definition in definition_list:
 
 W('''\ndef p_error(p):
     if p is None:
-        raise SyntaxError("code block did not end with an expression")
+        raise FemtocodeError("Code block did not end with an expression.")
     else:
-        complain("this token not expected here", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.sourceName, 1)
+        complain("This token not expected here.", p.lexer.source, p.lexer.lexpos, p.lexer.lineno, p.lexer.lexpos - p.lexer.last_col0 + 1 - p.value[1]["length"], p.lexer.sourceName, 1)
 
 def kwds(lexer, length):
     return {"source": lexer.source, "pos": lexer.lexpos - length, "lineno": lexer.lineno, "col_offset": lexer.lexpos - lexer.last_col0 + 1 - length, "sourceName": lexer.sourceName, "length": length}

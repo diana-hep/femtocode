@@ -55,11 +55,11 @@ class Function(object):
             elif default is not None:
                 out.append(default)
             else:
-                raise TypeError("too few arguments: missing \"{0}\"".format(name))
+                raise TypeError("Too few arguments: missing \"{0}\".".format(name))
         if len(named) > 0:
-            raise TypeError("unrecognized named arguments: {0}".format(", ".join("\"" + x + "\"" for x in named)))
+            raise TypeError("Unrecognized named arguments: {0}.".format(", ".join("\"" + x + "\"" for x in named)))
         if len(positional) > 0:
-            raise TypeError("too many positional arguments")
+            raise TypeError("Too many positional arguments.")
         return out
 
 class BuiltinFunction(Function):

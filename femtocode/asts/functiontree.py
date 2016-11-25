@@ -255,7 +255,7 @@ def expandUserFcns(tree, frame):
 
 def buildSchema(tree):
     if isinstance(tree, parsingtree.Attribute):
-        complain("dot ('.') not allowed in schema expression", tree)
+        complain("Dot ('.') not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.BinOp):
         return ast.BinOp(buildSchema(tree.left), tree.op, buildSchema(tree.right), **pos(tree))
@@ -265,34 +265,34 @@ def buildSchema(tree):
             op = "and"
         elif isinstance(tree.op, parsingtree.Or):
             op = "or"
-        complain(op + " not allowed in schema expression", tree)
+        complain(op + " not allowed in schema expression.", tree)
         
     elif isinstance(tree, parsingtree.Compare):
-        complain("boolean logic not allowed in schema expression")
+        complain("Boolean logic not allowed in schema expression.")
 
     elif isinstance(tree, parsingtree.List):
-        complain("square brackets ('[' ']') not allowed in schema expression")
+        complain("Square brackets ('[' ']') not allowed in schema expression.")
 
     elif isinstance(tree, parsingtree.Name):
         if tree.id in concrete:
             return tree
         elif tree.id in parameterized:
-            complain("type {0} in schema expression must be a function".format(tree.id))
+            complain("Type {0} in schema expression must be a function.".format(tree.id))
         else:
-            complain("unrecognized type \"{0}\" in schema expression".format(tree.id))
+            complain("Unrecognized type \"{0}\" in schema expression.".format(tree.id))
 
     elif isinstance(tree, parsingtree.Num):
         return tree
 
     elif isinstance(tree, parsingtree.Str):
-        complain("quoted strings not allowed in schema expression")
+        complain("Quoted strings not allowed in schema expression.")
 
     elif isinstance(tree, parsingtree.Subscript):
-        complain("square brackets ('[' ']') not allowed in schema expression")
+        complain("Square brackets ('[' ']') not allowed in schema expression.")
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
-            complain("negation ('not') not allowed in schema expression")
+            complain("Negation ('not') not allowed in schema expression.")
         elif isinstance(tree.op, parsingtree.UAdd):
             return ast.UnaryOp(tree.op, buildSchema(tree.operand), **pos(tree))
         elif isinstance(tree.op, parsingtree.USub):
@@ -300,10 +300,10 @@ def buildSchema(tree):
         raise ProgrammingError("unrecognized UnaryOp: " + repr(tree.op))
 
     elif isinstance(tree, parsingtree.Assignment):
-        complain("assignment ('=') not allowed in schema expression", tree)
+        complain("Assignment ('=') not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.AtArg):
-        complain("shortcut arguments ('$') not allowed in schema expression", tree)
+        complain("Shortcut arguments ('$') not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.FcnCall):
         if isinstance(tree.function, parsingtree.Name):
@@ -312,21 +312,21 @@ def buildSchema(tree):
                 keywords = [ast.keyword(k.id, buildSchema(v), **pos(v)) for k, v in zip(tree.names, tree.named)]
                 return ast.Call(tree.function, positional, keywords, None, None, **pos(tree))
             elif tree.function.id in concrete:
-                complain("type {0} in schema expression must not be a function".format(tree.function.id), tree)
+                complain("Type {0} in schema expression must not be a function.".format(tree.function.id), tree)
             else:
-                complain("unrecognized type function \"{0}\" in schema expression".format(tree.function.id), tree)
+                complain("Unrecognized type function \"{0}\" in schema expression.".format(tree.function.id), tree)
         else:
-            complain("higher-order functions not allowed in schema expression", tree)
+            complain("Higher-order functions not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.FcnDef):
-        complain("function declarations ('=>') not allowed in schema expression", tree)
+        complain("Function declarations ('=>') not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.IfChain):
-        complain("if-else not allowed in schema expression", tree)
+        complain("If-else not allowed in schema expression.", tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
-            complain("curly brackets ('{') not allowed in schema expression", tree)
+            complain("Curly brackets ('{') not allowed in schema expression.", tree)
         else:
             return buildSchema(tree.expression)
 
@@ -503,7 +503,7 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.AtArg):
         out = frame.get(1 if tree.num is None else tree.num)
         if out is None:
-            complain("function shortcuts ($n) can only be used in a builtin functional (.map, .filter); write your function longhand (x => f(x))", tree)
+            complain("Function shortcuts ($n) can only be used in a builtin functional (.map, .filter); write your function longhand (x => f(x)).", tree)
         return out
 
     elif isinstance(tree, parsingtree.FcnCall):
@@ -518,7 +518,7 @@ def build(tree, frame):
         else:
             fcn = build(tree.function, frame)
             if not isinstance(fcn, Function):
-                complain("not a known function (declare in order of dependency; recursion is not allowed)", fcn.original)
+                complain("Not a known function (declare in order of dependency; recursion is not allowed).", fcn.original)
 
             try:
                 args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
