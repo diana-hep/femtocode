@@ -20,8 +20,8 @@ from femtocode.py23 import *
 def complain(message, p):
     femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
 
-class ProgrammingError(Exception): pass   # my mistake, not the user's; user should NEVER see this  :)
-class FemtocodeError(Exception): pass     # error in the user's Femtocode
+ProgrammingError = femtocode.parser.ProgrammingError
+FemtocodeError = femtocode.parser.FemtocodeError
 
 class Function(object):
     def commutative(self):

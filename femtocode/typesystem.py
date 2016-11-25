@@ -168,6 +168,9 @@ class Schema(object):
             return False
         return self.__class__ == other.__class__
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __le__(self, other):
         return self.__lt__(other) or self.__eq__(other)
 
@@ -963,12 +966,12 @@ def _pretty(schema, depth, comma, memo):
     else:
         raise ProgrammerError("unhandled kind")
 
-def pretty(schema, highlight=lambda t: "", indent="  "):
-    return "\n".join("{0}{1}{2}".format(highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
+def pretty(schema, highlight=lambda t: "", indent="  ", prefix=""):
+    return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
 
 def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", width=None):
-    one = _pretty(one, 0, "")
-    two = _pretty(two, 0, "")
+    one = _pretty(one, 0, "", set())
+    two = _pretty(two, 0, "", set())
     i1 = 0
     i2 = 0
     if width is None:

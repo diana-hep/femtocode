@@ -134,10 +134,13 @@ class Call(FunctionTree):
         if frame.defined(self):
             return frame[self]
         else:
-            try:
-                return self.fcn.retschema(frame, self.args)
-            except TypeError as err:
-                complain(str(err), self.original)
+            out = self.fcn.retschema(frame, self.args)
+            if isinstance(out, Impossible):
+                reason = self.fcn.explanation(frame, self.args)
+                if reason is not None:
+                    reason = "    " + reason + "\n"
+                complain("function \"{0}\" does not accept arguments with the given types:\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame)) for x in self.args), reason), self.original)
+            return out
 
 class TypeConstraint(FunctionTree):
     order = 5

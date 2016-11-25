@@ -11,6 +11,9 @@ from femtocode.thirdparty.ply import yacc
 
 from femtocode.asts.parsingtree import *
 
+class ProgrammingError(Exception): pass   # my mistake, not the user; user should NEVER see this  :)
+class FemtocodeError(Exception): pass     # error in the user Femtocode
+
 def complain(message, source, pos, lineno, col_offset, sourceName, length):
     start = source.rfind("\n", 0, pos)
     if start == -1: start = 0
@@ -27,7 +30,7 @@ def complain(message, source, pos, lineno, col_offset, sourceName, length):
         where = ""
     else:
         where = "in \"" + sourceName + "\""
-    raise SyntaxError("%s\n    at line:col %d:%d (pos %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+    raise FemtocodeError("%s\n    at line:col %d:%d (pos %d)%s\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
 
 reserved = {
   'and': 'AND',
