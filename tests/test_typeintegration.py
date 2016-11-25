@@ -94,3 +94,4 @@ class TestTypeIntegration(unittest.TestCase):
 
     def test_map(self):
         self.expecting(collection(real), "data.map(x => x + 1)", data=collection(real))
+        self.expecting(collection(real(6, 11)), "data.map(x => x + 1)", data=collection(real(5, 10)))
