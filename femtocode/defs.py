@@ -38,7 +38,7 @@ class Function(object):
 
     def sortargs(self, positional, named):
         if len(named) > 0:
-            raise ProgrammingError(self.name + " function shouldn't get named arguments")
+            raise ProgrammingError("{0} function shouldn't get named arguments".format(self.name))
         return positional
 
     @staticmethod
@@ -57,7 +57,7 @@ class Function(object):
             else:
                 raise TypeError("too few arguments: missing \"{0}\"".format(name))
         if len(named) > 0:
-            raise TypeError("unrecognized named arguments: " + ", ".join("\"" + x + "\"" for x in named))
+            raise TypeError("unrecognized named arguments: {0}".format(", ".join("\"" + x + "\"" for x in named)))
         if len(positional) > 0:
             raise TypeError("too many positional arguments")
         return out
@@ -66,7 +66,7 @@ class BuiltinFunction(Function):
     order = 0
 
     def __repr__(self):
-        return "BuiltinFunction[\"" + self.name + "\"]"
+        return "BuiltinFunction[\"{0}\"]".format(self.name)
 
     def __lt__(self, other):
         if isinstance(other, BuiltinFunction):
@@ -78,7 +78,7 @@ class BuiltinFunction(Function):
         return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash(self.__class__)
+        return hash((self.order,))
 
 class UserFunction(Function):
     order = 1
@@ -110,7 +110,7 @@ class UserFunction(Function):
             return self.names == other.names and self.defaults == other.defaults and self.body == other.body
 
     def __hash__(self):
-        return hash((UserFunction, self.names, self.defaults, self.body))
+        return hash((self.order, self.names, self.defaults, self.body))
 
     def arity(self, index):
         return None
@@ -126,8 +126,8 @@ class UserFunction(Function):
         
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):
-        if isinstance(parent, dict):
-            raise Exception
+        # if isinstance(parent, dict):
+        #     raise Exception
 
         self.parent = parent
         self.values = dict(values.items())

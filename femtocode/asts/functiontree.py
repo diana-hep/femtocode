@@ -50,7 +50,7 @@ class Ref(FunctionTree):
             return self.name == other.name
 
     def __hash__(self):
-        return hash((Ref, self.name))
+        return hash((self.order, self.name))
 
     def schema(self, frame):
         if frame.defined(self):
@@ -81,7 +81,7 @@ class Literal(FunctionTree):
             return self.value == other.value
 
     def __hash__(self):
-        return hash((Literal, self.value))
+        return hash((self.order, self.value))
 
     def schema(self, frame):
         if isinstance(self.value, (int, long)):
@@ -128,7 +128,7 @@ class Call(FunctionTree):
             return self.fcn == other.fcn and self.args == other.args
 
     def __hash__(self):
-        return hash((Call, self.fcn, self.args))
+        return hash((self.order, self.fcn, self.args))
 
     def schema(self, frame):
         if frame.defined(self):
@@ -166,7 +166,7 @@ class TypeConstraint(FunctionTree):
             return self.instance == other.instance and self.oftype == other.oftype
 
     def __hash__(self):
-        return hash((TypeConstraint, self.instance, self.oftype))
+        return hash((self.order, self.instance, self.oftype))
 
     def schema(self, frame):
         return boolean
@@ -194,7 +194,7 @@ class Placeholder(FunctionTree):
             return self.tpe == other.tpe
 
     def __hash__(self):
-        return hash((Placeholder, self.tpe))
+        return hash((self.order, self.tpe))
 
     def schema(self, frame):
         return self.tpe
@@ -212,17 +212,17 @@ def pos(tree):
 #     else:
 #         return Call(frame["not"], [tree], tree.original)
 
-def resolve(tree, frame):
+def expandUserFcns(tree, frame):
     if isinstance(tree, BuiltinFunction):
         return tree
 
     elif isinstance(tree, UserFunction):
         names = tree.names
-        defaults = [None if x is None else resolve(x, frame) for x in tree.defaults]
+        defaults = [None if x is None else expandUserFcns(x, frame) for x in tree.defaults]
         subframe = frame.fork()
         for n, d in zip(names, defaults):
             subframe[n] = d
-        body = resolve(tree.body, subframe)
+        body = expandUserFcns(tree.body, subframe)
         return UserFunction(names, defaults, body)
 
     elif isinstance(tree, Ref):
@@ -235,10 +235,10 @@ def resolve(tree, frame):
         return tree
 
     elif isinstance(tree, Call):
-        return Call.build(resolve(tree.fcn, frame), [resolve(x, frame) for x in tree.args], tree.original)
+        return Call.build(expandUserFcns(tree.fcn, frame), [expandUserFcns(x, frame) for x in tree.args], tree.original)
 
     elif isinstance(tree, TypeConstraint):
-        return TypeConstraint(resolve(tree.instance, frame), tree.schema, tree.original)
+        return TypeConstraint(expandUserFcns(tree.instance, frame), tree.schema, tree.original)
 
     elif isinstance(tree, Placeholder):
         return tree
@@ -406,9 +406,9 @@ def build(tree, frame):
                     elif left.value is False:
                         arg = Call(frame["not"], [right], right.original)
                     elif isinstance(left.value, int):
-                        arg = TypeConstraint(right, Integer(left.value, left.value))
+                        arg = TypeConstraint(right, Number(left.value, left.value, True))
                     elif isinstance(left.value, float):
-                        arg = TypeConstraint(right, Real(left.value, left.value))
+                        arg = TypeConstraint(right, Number(left.value, left.value, False))
                     else:
                         ProgrammingError("missing implementation")
                 elif not isinstance(left, Literal) and isinstance(right, Literal):
@@ -419,9 +419,9 @@ def build(tree, frame):
                     elif right.value is False:
                         arg = Call(frame["not"], [left], left.original)
                     elif isinstance(right.value, int):
-                        arg = TypeConstraint(left, Integer(right.value, right.value))
+                        arg = TypeConstraint(left, Number(right.value, right.value, True))
                     elif isinstance(right.value, float):
-                        arg = TypeConstraint(left, Real(right.value, right.value))
+                        arg = TypeConstraint(left, Number(right.value, right.value, False))
                     else:
                         ProgrammingError("missing implementation")
                 else:
@@ -536,7 +536,7 @@ def build(tree, frame):
             builtArgs = [x if isinstance(x, (FunctionTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
-                return resolve(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
+                return expandUserFcns(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
             else:
                 return Call.build(fcn, builtArgs, tree)
 
