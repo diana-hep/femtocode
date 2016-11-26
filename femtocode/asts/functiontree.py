@@ -142,7 +142,7 @@ class Call(FunctionTree):
             out = self.fcn.retschema(frame, self.args)
             if isinstance(out, Impossible):
                 if out.reason is not None:
-                    reason = "\n    " + out.reason + "\n"
+                    reason = "\n    " + out.reason
                 complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame), prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
             return out
 
@@ -334,7 +334,7 @@ def buildSchema(tree):
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
 
 def buildOrElevate(tree, frame, arity):
-    if arity is None or isinstance(tree, parsingtree.FcnDef):
+    if arity is None or isinstance(tree, parsingtree.FcnDef) or (isinstance(tree, parsingtree.Name) and frame.defined(tree.id) and isinstance(frame[tree.id], Function)):
         return build(tree, frame)
 
     elif isinstance(tree, parsingtree.Attribute):

@@ -93,5 +93,23 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(FemtocodeError, "not y + z", y=integer, z=integer)
 
     def test_map(self):
-        self.expecting(collection(real), "data.map(x => x + 1)", data=collection(real))
-        self.expecting(collection(real(6, 11)), "data.map(x => x + 1)", data=collection(real(5, 10)))
+        self.expecting(collection(real), "data.map(x => x + 10)", data=collection(real))
+        self.expecting(collection(real(15, 20)), "data.map(x => x + 10)", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), "data.map($1 + 10)", data=collection(real(5, 10)))
+        self.expecting(collection(real), "data.map(x => x + y)", data=collection(real), y=real)
+        self.expecting(collection(real(6, 12)), "data.map(x => x + y)", data=collection(real(5, 10)), y=real(1, 2))
+        self.expecting(collection(real(6, 12)), "data.map($1 + y)", data=collection(real(5, 10)), y=real(1, 2))
+        self.expecting(FemtocodeError, "data.map({x => x}, 4)", data=collection(real))
+        self.expecting(FemtocodeError, "data.map()", data=collection(real))
+        self.expecting(collection(real(15, 20)), "data.map(fcn = {x => x + 10})", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), "data.map({x => x + 10})", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), "addten = {x => x + 10}; data.map(addten)", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), "def addten(x): x + 10; data.map(addten)", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), """
+def addten(x): x + 10;
+data.map(addten)""", data=collection(real(5, 10)))
+        self.expecting(collection(real(15, 20)), """
+def addten(x) {
+  x + 10
+}
+data.map(addten)""", data=collection(real(5, 10)))
