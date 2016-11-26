@@ -39,7 +39,12 @@ class Ref(FunctionTree):
 
     def __lt__(self, other):
         if isinstance(other, Ref):
-            return self.name < other.name
+            if isinstance(self.name, int) and isinstance(other.name, string_types):
+                return True
+            elif isinstance(self.name, string_types) and isinstance(other.name, int):
+                return False
+            else:
+                return self.name < other.name
         else:
             return self.order < other.order
 
