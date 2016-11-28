@@ -62,27 +62,6 @@ class Function(object):
             raise TypeError("Too many positional arguments.")
         return out
 
-class BuiltinFunction(Function):
-    order = 0
-
-    def __repr__(self):
-        return "BuiltinFunction[\"{0}\"]".format(self.name)
-
-    def __lt__(self, other):
-        if isinstance(other, BuiltinFunction):
-            return self.name < other.name
-        else:
-            return self.order < other.order
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__
-
-    def __hash__(self):
-        return hash((self.order,))
-
-    def generate(self, args):
-        raise ProgrammingError("missing implementation")
-
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):
         self.parent = parent

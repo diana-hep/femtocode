@@ -19,7 +19,7 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.functiontree import *
+from femtocode.asts.typingtree import *
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
@@ -85,6 +85,7 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(FemtocodeError, "x == 5 and y == 6 and x == y", x=integer, y=integer)
         self.expecting(FemtocodeError, "x == y and x == 5 and y == 6", x=integer, y=integer)
         self.expecting(FemtocodeError, "x == 5 and x == y and y == 6", x=integer, y=integer)
+        self.expecting(FemtocodeError, "x == y and x == 5 and y == 3 + 3", x=integer, y=integer)
 
     def test_or(self):
         self.expecting(boolean, "x or y", x=boolean, y=boolean)

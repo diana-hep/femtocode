@@ -15,13 +15,13 @@
 # limitations under the License.
 
 from femtocode import inference
-from femtocode.asts import functiontree
+from femtocode.asts import typingtree
 from femtocode.defs import *
 from femtocode.typesystem import *
 
 table = SymbolTable()
 
-class Add(BuiltinFunction):
+class Add(typingtree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -38,7 +38,7 @@ class Add(BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Eq(BuiltinFunction):
+class Eq(typingtree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -59,7 +59,7 @@ class Eq(BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class And(BuiltinFunction):
+class And(typingtree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -109,7 +109,7 @@ class And(BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(BuiltinFunction):
+class Or(typingtree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -145,12 +145,12 @@ class Or(BuiltinFunction):
 
 table[Or.name] = Or()
 
-class If(BuiltinFunction):
+class If(typingtree.BuiltinFunction):
     name = "if"
 
 table[If.name] = If()
 
-class Map(BuiltinFunction):
+class Map(typingtree.BuiltinFunction):
     name = ".map"
             
     def arity(self, index):
@@ -170,7 +170,7 @@ class Map(BuiltinFunction):
         if not isinstance(args[1], Function):
             return impossible("Second argument must be a function."), frame
 
-        return collection(args[1].retschema(frame, [functiontree.Placeholder(targ0.items)])[0]), frame
+        return collection(args[1].retschema(frame, [typingtree.Placeholder(targ0.items)])[0]), frame
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

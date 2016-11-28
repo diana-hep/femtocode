@@ -1270,7 +1270,7 @@ def intersection(*types):
             possibilities = []
             reason = None
             for p in two.possibilities:
-                result = intersection(p, two)
+                result = intersection(one, p)
                 if not isinstance(result, Impossible):
                     possibilities.append(result)
                 elif reason is None:

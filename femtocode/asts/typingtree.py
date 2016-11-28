@@ -21,10 +21,31 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-# this kind of AST can include FunctionTree instances and Function instances
+# this kind of AST can include TypingTree instances and Function instances
         
-class FunctionTree(object):
+class TypingTree(object):
     def retschema(self, frame):
+        raise ProgrammingError("missing implementation")
+
+class BuiltinFunction(Function):
+    order = 0
+
+    def __repr__(self):
+        return "BuiltinFunction[\"{0}\"]".format(self.name)
+
+    def __lt__(self, other):
+        if isinstance(other, BuiltinFunction):
+            return self.name < other.name
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
+    def __hash__(self):
+        return hash((self.order,))
+
+    def generate(self, args):
         raise ProgrammingError("missing implementation")
 
 class UserFunction(Function):
@@ -68,7 +89,7 @@ class UserFunction(Function):
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults)
 
-class Ref(FunctionTree):
+class Ref(TypingTree):
     order = 2
 
     def __init__(self, name, original=None):
@@ -110,7 +131,7 @@ class Ref(FunctionTree):
         else:
             return self.name
 
-class Literal(FunctionTree):
+class Literal(TypingTree):
     order = 3
 
     def __init__(self, value, original=None):
@@ -146,7 +167,7 @@ class Literal(FunctionTree):
     def generate(self):
         return repr(self.value)
 
-class Call(FunctionTree):
+class Call(TypingTree):
     order = 4
 
     @staticmethod
@@ -226,7 +247,7 @@ class Call(FunctionTree):
         else:
             return self.fcn.generate(self.args)
 
-class TypeConstraint(FunctionTree):
+class TypeConstraint(TypingTree):
     order = 5
 
     def __init__(self, instance, oftype, original=None):
@@ -273,7 +294,7 @@ class TypeConstraint(FunctionTree):
         return "({0} is {1})".format(self.instance.generate(), repr(self.type))
 
 # these only live long enough to yield their schema; you won't find them in the tree
-class Placeholder(FunctionTree):
+class Placeholder(TypingTree):
     order = 6
 
     def __init__(self, schema):
@@ -622,7 +643,7 @@ def build(tree, frame):
             except TypeError as err:
                 complain(str(err), tree)
 
-            builtArgs = [x if isinstance(x, (FunctionTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
+            builtArgs = [x if isinstance(x, (TypingTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
                 return expandUserFcns(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
