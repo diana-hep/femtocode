@@ -175,7 +175,7 @@ def unpack_trailer(atom, power_star):
     return out
 
 def normalizeLogic(x, negate=False):
-    # push 'not' down below 'and' and 'or' and remove double negatives
+    # push 'not' down below 'and' and 'or' and remove double negatives, chained comparisons -> And/Or
 
     if isinstance(x, UnaryOp) and isinstance(x.op, Not):
         return normalizeLogic(x.operand, not negate)
@@ -191,11 +191,11 @@ def normalizeLogic(x, negate=False):
             raise Exception
 
     elif isinstance(x, Compare):
-        if negate:
-            comparisons = []
-            left = normalizeLogic(x.left, False)
-            for op, right in zip(x.ops, x.comparators):
-                right = normalizeLogic(right, False)
+        comparisons = []
+        left = normalizeLogic(x.left, False)
+        for op, right in zip(x.ops, x.comparators):
+            right = normalizeLogic(right, False)
+            if negate:
                 if isinstance(op, Eq):
                     op = NotEq(**inheriting_lineno(op))
                 elif isinstance(op, NotEq):
@@ -214,14 +214,18 @@ def normalizeLogic(x, negate=False):
                     op = In(**inheriting_lineno(op))
                 else:
                     raise Exception
-                comparisons.append(Compare(left, [op], [right], **inheriting_lineno(right)))
-                left = right
-            if len(comparisons) == 1:
-                return comparisons[0]
-            elif len(comparisons) > 1:
+            comparisons.append(Compare(left, [op], [right], **inheriting_lineno(right)))
+            left = right
+
+        if len(comparisons) == 1:
+            return comparisons[0]
+        elif len(comparisons) > 1:
+            if negate:
                 return BoolOp(Or(**inheriting_lineno(x)), comparisons, **inheriting_lineno(x))
+            else:
+                return BoolOp(And(**inheriting_lineno(x)), comparisons, **inheriting_lineno(x))
         else:
-            return Compare(normalizeLogic(x.left, False), x.ops, [normalizeLogic(y, False) for y in x.comparators], **inheriting_lineno(x))
+            raise Exception
 
     elif isinstance(x, TypeCheck):
         if negate:

@@ -846,7 +846,7 @@ class TestSyntax(unittest.TestCase):
         self.check("x in y", normalizeLogic(parse("not x not in y")), linenumbers=False)
 
         self.check("x == y and y == z", normalizeLogic(parse("x == y and y == z")), linenumbers=False)
-        self.check("x == y == z", normalizeLogic(parse("x == y == z")), linenumbers=False)
+        self.check("x == y and y == z", normalizeLogic(parse("x == y == z")), linenumbers=False)
         self.check("x == y or y == z", normalizeLogic(parse("x == y or y == z")), linenumbers=False)
         self.check("x != y or y != z", normalizeLogic(parse("not (x == y and y == z)")), linenumbers=False)
         self.check("x != y or y != z", normalizeLogic(parse("not (x == y == z)")), linenumbers=False)
