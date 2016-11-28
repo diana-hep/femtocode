@@ -130,6 +130,16 @@ def inherit_lineno(p0, px, alt=True):
             p0.lineno = px.alt["lineno"]
             p0.col_offset = px.alt["col_offset"]
 
+def inheriting_lineno(px):
+    out = {}
+    if hasattr(px, "source"): out["source"] = px.source
+    if hasattr(px, "pos"): out["pos"] = px.pos
+    if hasattr(px, "lineno"): out["lineno"] = px.lineno
+    if hasattr(px, "col_offset"): out["col_offset"] = px.col_offset
+    if hasattr(px, "sourceName"): out["sourceName"] = px.sourceName
+    if hasattr(px, "length"): out["length"] = px.length
+    return out
+
 def unwrap_left_associative(args, alt=False):
     out = BinOp(args[0], args[1], args[2])
     inherit_lineno(out, args[0])
@@ -164,29 +174,87 @@ def unpack_trailer(atom, power_star):
             assert False
     return out
 
-def negate(x):
-    # push 'not' down below all 'and' and 'or' (also removing redundant double-negatives)
+def normalizeLogic(x, negate=False):
+    # push 'not' down below 'and' and 'or' and remove double negatives
 
     if isinstance(x, UnaryOp) and isinstance(x.op, Not):
-        return x.operand
+        return normalizeLogic(x.operand, not negate)
 
-    elif isinstance(x, BoolOp) and isinstance(x.op, And):
-        op = Or()
-        inherit_lineno(op, x.op)
-        out = BoolOp(op, [negate(y) for y in x.values])
-        inherit_lineno(out, x)
-        return out
+    elif isinstance(x, BoolOp):
+        if not negate:
+            return BoolOp(x.op, [normalizeLogic(y, False) for y in x.values], **inheriting_lineno(x))
+        elif isinstance(x.op, And):
+            return BoolOp(Or(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in x.values], **inheriting_lineno(x))
+        elif isinstance(x.op, Or):
+            return BoolOp(And(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in x.values], **inheriting_lineno(x))
+        else:
+            raise Exception
 
-    elif isinstance(x, BoolOp) and isinstance(x.op, Or):
-        op = And()
-        inherit_lineno(op, x.op)
-        out = BoolOp(op, [negate(y) for y in x.values])
-        inherit_lineno(out, x)
-        return out
+    elif isinstance(x, Compare):
+        if negate:
+            comparisons = []
+            left = normalizeLogic(x.left, False)
+            for op, right in zip(x.ops, x.comparators):
+                right = normalizeLogic(right, False)
+                if isinstance(op, Eq):
+                    op = NotEq(**inheriting_lineno(op))
+                elif isinstance(op, NotEq):
+                    op = Eq(**inheriting_lineno(op))
+                elif isinstance(op, Lt):
+                    op = GtE(**inheriting_lineno(op))
+                elif isinstance(op, GtE):
+                    op = Lt(**inheriting_lineno(op))
+                elif isinstance(op, LtE):
+                    op = Gt(**inheriting_lineno(op))
+                elif isinstance(op, Gt):
+                    op = LtE(**inheriting_lineno(op))
+                elif isinstance(op, In):
+                    op = NotIn(**inheriting_lineno(op))
+                elif isinstance(op, NotIn):
+                    op = In(**inheriting_lineno(op))
+                else:
+                    raise Exception
+                comparisons.append(Compare(left, [op], [right], **inheriting_lineno(right)))
+                left = right
+            if len(comparisons) == 1:
+                return comparisons[0]
+            elif len(comparisons) > 1:
+                return BoolOp(Or(**inheriting_lineno(x)), comparisons, **inheriting_lineno(x))
+        else:
+            return Compare(normalizeLogic(x.left, False), x.ops, [normalizeLogic(y, False) for y in x.comparators], **inheriting_lineno(x))
+
+    elif isinstance(x, TypeCheck):
+        if negate:
+            return TypeCheck(x.expr, x.schema, not x.negate, **inheriting_lineno(x))
+        else:
+            return TypeCheck(x.expr, x.schema, x.negate, **inheriting_lineno(x))
+
+    elif negate and isinstance(x, Name) and x.id == "True":
+        return Name("False", x.ctx, **inheriting_lineno(x))
+
+    elif negate and isinstance(x, Name) and x.id == "False":
+        return Name("True", x.ctx, **inheriting_lineno(x))
+
+    elif isinstance(x, Suite):
+        return Suite([normalizeLogic(y, negate) for y in x.assignments], normalizeLogic(x.expression, negate), **inheriting_lineno(x))
+
+    elif isinstance(x, Assignment):
+        return Assignment(x.lvalues, normalizeLogic(x.expression, negate))
+
+    elif isinstance(x, AST):
+        out = x.__new__(x.__class__)
+        for field in x._fields:
+            setattr(out, field, normalizeLogic(getattr(x, field), False))
+        for n, v in inheriting_lineno(x).items():
+            setattr(out, n, v)
+
+        if negate:
+            return UnaryOp(Not(**inheriting_lineno(x)), out, **inheriting_lineno(x))
+        else:
+            return out
+
+    elif isinstance(x, list):
+        return [normalizeLogic(y, negate) for y in x]
 
     else:
-        op = Not()
-        inherit_lineno(op, x)
-        out = UnaryOp(op, x)
-        inherit_lineno(out, x)
-        return out
+        return x

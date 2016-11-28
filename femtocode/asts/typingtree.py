@@ -659,8 +659,8 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
             for assignment in tree.assignments:
-                build(assignment, frame)
-        return build(tree.expression, frame)
+                build(parsingtree.normalizeLogic(assignment), frame)
+        return build(parsingtree.normalizeLogic(tree.expression), frame)
 
     else:
         raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
