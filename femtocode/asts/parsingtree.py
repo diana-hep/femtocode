@@ -175,23 +175,32 @@ def unpack_trailer(atom, power_star):
     return out
 
 def normalizeLogic(x, negate=False):
-    # push 'not' down below 'and' and 'or' and remove double negatives, chained comparisons -> And/Or
+    # push 'not' down below 'and' and 'or' and remove double negatives, flatten And/Or, chained comparisons -> And/Or
 
     if isinstance(x, UnaryOp) and isinstance(x.op, Not):
         return normalizeLogic(x.operand, not negate)
 
     elif isinstance(x, BoolOp):
+        values = []
+        def collect(vs):
+            for v in vs:
+                if isinstance(v, BoolOp) and isinstance(v.op, x.op.__class__):
+                    collect(v.values)
+                else:
+                    values.append(v)
+        collect(x.values)
+
         if not negate:
-            return BoolOp(x.op, [normalizeLogic(y, False) for y in x.values], **inheriting_lineno(x))
+            return BoolOp(x.op, [normalizeLogic(y, False) for y in values], **inheriting_lineno(x))
         elif isinstance(x.op, And):
-            return BoolOp(Or(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in x.values], **inheriting_lineno(x))
+            return BoolOp(Or(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in values], **inheriting_lineno(x))
         elif isinstance(x.op, Or):
-            return BoolOp(And(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in x.values], **inheriting_lineno(x))
+            return BoolOp(And(**inheriting_lineno(x.op)), [normalizeLogic(y, True) for y in values], **inheriting_lineno(x))
         else:
             raise Exception
 
     elif isinstance(x, Compare):
-        comparisons = []
+        predicates = []
         left = normalizeLogic(x.left, False)
         for op, right in zip(x.ops, x.comparators):
             right = normalizeLogic(right, False)
@@ -214,16 +223,16 @@ def normalizeLogic(x, negate=False):
                     op = In(**inheriting_lineno(op))
                 else:
                     raise Exception
-            comparisons.append(Compare(left, [op], [right], **inheriting_lineno(right)))
+            predicates.append(Compare(left, [op], [right], **inheriting_lineno(right)))
             left = right
 
-        if len(comparisons) == 1:
-            return comparisons[0]
-        elif len(comparisons) > 1:
+        if len(predicates) == 1:
+            return predicates[0]
+        elif len(predicates) > 1:
             if negate:
-                return BoolOp(Or(**inheriting_lineno(x)), comparisons, **inheriting_lineno(x))
+                return BoolOp(Or(**inheriting_lineno(x)), predicates, **inheriting_lineno(x))
             else:
-                return BoolOp(And(**inheriting_lineno(x)), comparisons, **inheriting_lineno(x))
+                return BoolOp(And(**inheriting_lineno(x)), predicates, **inheriting_lineno(x))
         else:
             raise Exception
 
