@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import ast
+import math
 
 from femtocode.asts import parsingtree
 from femtocode.defs import *
@@ -157,10 +158,16 @@ class Literal(TypingTree):
         return hash((self.order, self.value))
 
     def retschema(self, frame):
-        if isinstance(self.value, (int, long)):
-            return integer(min=self.value, max=self.value), frame
-        elif isinstance(self.value, float):
-            return real(min=self.value, max=self.value), frame
+        if self.value is None:
+            return null, frame
+        elif self.value is True or self.value is False:
+            return boolean, frame
+        elif isinstance(self.value, (int, long, float)):
+            return extended(self.value, self.value, not math.isinf(self.value) and round(self.value) == self.value), frame
+        elif isinstance(self.value, bytes):
+            return string("bytes", len(self.value), len(self.value)), frame
+        elif isinstance(self.value, string_types):
+            return string("unicode", len(self.value), len(self.value)), frame
         else:
             raise ProgrammingError("missing implementation")
 
@@ -173,7 +180,16 @@ class Call(TypingTree):
     @staticmethod
     def build(fcn, args, original=None):
         if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
-            return Literal(fcn.literaleval([x.value for x in args]), original)
+            empty = SymbolTable()
+            schema = fcn.retschema(empty, args)[0]
+            if isinstance(schema, Impossible):
+                if schema.reason is not None:
+                    reason = "\n    " + schema.reason
+                else:
+                    reason = ""
+                complain("Function \"{0}\" does not accept arguments with the given literal types:\n\n    {0}({1})\n{2}".format(fcn.name, ",\n    {0} ".format(" " * len(fcn.name)).join(pretty(x.retschema(empty)[0], prefix="     " + " " * len(fcn.name)).lstrip() for x in args), reason), original)
+            else:
+                return Literal(fcn.literaleval([x.value for x in args]), original)
         else:
             return Call(fcn, args, original)
 
@@ -219,19 +235,25 @@ class Call(TypingTree):
             if isinstance(out, Impossible):
                 if out.reason is not None:
                     reason = "\n    " + out.reason
+                else:
+                    reason = ""
                 complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
             for expr, t in subframe.itemsHere():
                 if isinstance(t, Impossible):
                     if t.reason is not None:
                         reason = "\n    " + out.reason
-                        complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2})\n{3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                    else:
+                        reason = ""
+                    complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2})\n{3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
         if frame.defined(self):
             out = intersection(frame[self], out)
             if isinstance(out, Impossible):
                 reason = "\n    " + out.reason
-                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3})\n{4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+            else:
+                reason = ""
+            complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3})\n{4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
             subframe[self] = out
             
@@ -282,7 +304,9 @@ class TypeConstraint(TypingTree):
             out = intersection(subframe[self.instance], self.oftype)
             if isinstance(out, Impossible):
                 reason = "\n    " + out.reason
-                complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it is already\n\n{2}\n{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
+            else:
+                reason = ""
+            complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it is already\n\n{2}\n{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
             subframe[self.instance] = out
 
         else:
@@ -535,6 +559,8 @@ def build(tree, frame):
             return Literal(True, tree)
         elif tree.id == "False":
             return Literal(False, tree)
+        elif tree.id == "inf":
+            return Literal(float("inf"), tree)
         else:
             return frame.get(tree.id, Ref(tree.id, tree))
 
@@ -636,9 +662,10 @@ def build(tree, frame):
 
     elif isinstance(tree, parsingtree.IfChain):
         args = []
-        for pred, cons in zip(tree.predicates, tree.consequents):
-            args.append(build(pred, frame))
-            args.append(build(cons, frame))
+        for predicate, consequent in zip(tree.predicates, tree.consequents):
+            args.append(build(predicate, frame))
+            args.append(build(parsingtree.normalizeLogic(predicate, negate=True), frame))
+            args.append(build(consequent, frame))
         args.append(build(tree.alternate, frame))
         return Call.build(frame["if"], args, tree)
 

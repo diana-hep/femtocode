@@ -73,6 +73,13 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(boolean, "x == y + 5", x=integer, y=integer)
         self.expecting(boolean, "x == y", x=integer(0, 5), y=integer(5, 10))
         self.expecting(FemtocodeError, "x == y + 1", x=integer(0, 5), y=integer(5, 10))
+        self.expecting(FemtocodeError, "x == y", x=integer, y=string)
+        self.expecting(FemtocodeError, "2.2 + 2 == y", y=string)
+        self.expecting(FemtocodeError, "x == 'hello'", x=integer)
+        self.expecting(FemtocodeError, "x == \"hello\"", x=integer)
+        self.expecting(FemtocodeError, "x == inf", x=integer, y=integer)
+        self.expecting(FemtocodeError, "x == inf", x=real, y=integer)
+        self.expecting(boolean, "x == inf", x=extended, y=integer)
 
     def test_and(self):
         self.expecting(boolean, "x and y", x=boolean, y=boolean)
@@ -96,6 +103,9 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(FemtocodeError, "(x == 5 or x == 7) and x == 7", x=integer)
         self.expecting(FemtocodeError, "(x == 7 or x == 5) and x == 7", x=integer)
         self.expecting(FemtocodeError, "(x == 5 or x == 10) and x == 7", x=integer)
+
+    def test_if(self):
+        pass
 
     def test_map(self):
         self.expecting(collection(real), "data.map(x => x + 10)", data=collection(real))
