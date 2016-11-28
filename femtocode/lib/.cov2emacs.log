@@ -1,0 +1,104 @@
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:FOUND! newer: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:compile_mode filenames: ['/home/pivarski/diana/femtocode/femtocode/lib/standard.py']
+DEBUG:root:FILTER COV MTIME 1478095534.27 
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/lib/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:No file: /home/pivarski/diana/femtocode/femtocode/.coverage
+DEBUG:root:Potential: /home/pivarski/diana/femtocode/.coverage
+DEBUG:root:OLDER: /home/pivarski/diana/femtocode/.coverage

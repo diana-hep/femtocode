@@ -155,8 +155,11 @@ class Schema(object):
     def __repr__(self):
         return self._repr_memo(set())
 
-    def name(self):
-        return self.__class__.__name__
+    def name(self, plural=False):
+        if plural:
+            return self.__class__.__name__ + "s"
+        else:
+            return self.__class__.__name__
 
     def __lt__(self, other):
         if isinstance(other, string_types):
@@ -1246,11 +1249,39 @@ def intersection(*types):
         one, two = types
             
         if isinstance(one, Union) and not isinstance(two, Union):
-            out = union(*filter(lambda x: not isinstance(x, Impossible), (intersection(p, two) for p in one.possibilities)))
+            possibilities = []
+            reason = None
+            for p in one.possibilities:
+                result = intersection(p, two)
+                if not isinstance(result, Impossible):
+                    possibilities.append(result)
+                elif reason is None:
+                    reason = result.reason
+            
+            if len(possibilities) == 0:
+                out = impossible(reason)
+            elif len(possibilities) == 1:
+                out = possibilities[0]
+            else:
+                out = union(*possibilities)
 
         elif isinstance(two, Union):
             # includes the case when one and two are both Unions
-            out = union(*filter(lambda x: not isinstance(x, Impossible), (intersection(one, p) for p in two.possibilities)))
+            possibilities = []
+            reason = None
+            for p in two.possibilities:
+                result = intersection(p, two)
+                if not isinstance(result, Impossible):
+                    possibilities.append(result)
+                elif reason is None:
+                    reason = result.reason
+            
+            if len(possibilities) == 0:
+                out = impossible(reason)
+            elif len(possibilities) == 1:
+                out = possibilities[0]
+            else:
+                out = union(*possibilities)
 
         elif isinstance(one, Impossible) and isinstance(two, Impossible):
             out = impossible(one.reason if two.reason is None else two.reason)
@@ -1263,7 +1294,7 @@ def intersection(*types):
 
         elif one.order != two.order:
             # there is no overlap among different kinds
-            out = impossible("{0} and {1} have no overlap.".format(one.name, two.name))
+            out = impossible("{0} and {1} have no overlap.".format(one.name(True), two.name(True)))
 
         elif isinstance(one, Null) and isinstance(two, Null):
             out = null()

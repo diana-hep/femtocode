@@ -261,7 +261,7 @@ class TypeConstraint(FunctionTree):
             out = intersection(subframe[self.instance], self.oftype)
             if isinstance(out, Impossible):
                 reason = "\n    " + out.reason
-                complain("Expression {0} cannot be constrained to\n\n{1}\n    because it is already\n\n{2}\n{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
+                complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it is already\n\n{2}\n{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
             subframe[self.instance] = out
 
         else:
@@ -479,7 +479,7 @@ def build(tree, frame):
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
-            out.args = tuple(sorted(out.args))
+            out.args = out.args
             return out
 
         elif isinstance(tree.op, parsingtree.Or):
@@ -490,7 +490,7 @@ def build(tree, frame):
                     out.args = out.args + y.args
                 else:
                     out.args = out.args + (y,)
-            out.args = tuple(sorted(out.args))
+            out.args = out.args
             return out
 
         else:
@@ -548,7 +548,7 @@ def build(tree, frame):
         elif len(out.args) == 1:
             return out.args[0]
         else:
-            out.args = tuple(sorted(out.args))
+            out.args = out.args
             return out
             
     elif isinstance(tree, parsingtree.List):

@@ -44,12 +44,12 @@ class TestTypeIntegration(unittest.TestCase):
                 raise AssertionError("\"{0}\" resulted in the wrong type:\n\n{1}".format(code, compare(result, actual, ("expected", "actual"))))
         else:
             try:
-                build(parse(code), table).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
+                actual = build(parse(code), table).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
             except result as err:
                 if verbose:
                     print("\n" + str(err))
             else:
-                raise AssertionError("\"{0}\" was supposed to raise {1}".format(code, result))
+                raise AssertionError("\"{0}\" was supposed to raise {1} but instead returned {2}".format(code, result, actual))
 
     def test_add(self):
         self.expecting(integer, "x + y", x=integer, y=integer)
@@ -79,12 +79,20 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(boolean, "x and y == z", x=boolean, y=integer, z=integer)
         self.expecting(FemtocodeError, "x and y == z", x=boolean, y=integer, z=boolean)
         self.expecting(FemtocodeError, "x and y == z", x=integer, y=integer, z=integer)
+        self.expecting(FemtocodeError, "x is integer and x is string", x=union(integer, string))
+        self.expecting(FemtocodeError, "x == 5 and x == 6", x=integer)
+        self.expecting(boolean, "x == 5 and y == 6", x=integer, y=integer)
+        self.expecting(FemtocodeError, "x == 5 and y == 6 and x == y", x=integer, y=integer)
+        self.expecting(FemtocodeError, "x == y and x == 5 and y == 6", x=integer, y=integer)
+        self.expecting(FemtocodeError, "x == 5 and x == y and y == 6", x=integer, y=integer)
 
     def test_or(self):
         self.expecting(boolean, "x or y", x=boolean, y=boolean)
         self.expecting(boolean, "x or y == z", x=boolean, y=integer, z=integer)
         self.expecting(FemtocodeError, "x or y == z", x=boolean, y=integer, z=boolean)
         self.expecting(FemtocodeError, "x or y == z", x=integer, y=integer, z=integer)
+        self.expecting(boolean, "x == 5 or x == 10", x=integer)
+        self.expecting(FemtocodeError, "(x == 5 or x == 10) and x == 7", x=integer)
 
     def test_map(self):
         self.expecting(collection(real), "data.map(x => x + 10)", data=collection(real))
