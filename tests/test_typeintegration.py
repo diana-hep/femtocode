@@ -39,12 +39,12 @@ class TestTypeIntegration(unittest.TestCase):
     @staticmethod
     def expecting(result, code, verbose=False, **symbolTypes):
         if isinstance(result, Schema):
-            actual = build(parse(code), table).schema(SymbolTable(symbolTypes))
+            actual = build(parse(code), table).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
             if actual != result:
                 raise AssertionError("\"{0}\" resulted in the wrong type:\n\n{1}".format(code, compare(result, actual, ("expected", "actual"))))
         else:
             try:
-                build(parse(code), table).schema(SymbolTable(symbolTypes))
+                build(parse(code), table).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
             except result as err:
                 if verbose:
                     print("\n" + str(err))
@@ -85,12 +85,6 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(boolean, "x or y == z", x=boolean, y=integer, z=integer)
         self.expecting(FemtocodeError, "x or y == z", x=boolean, y=integer, z=boolean)
         self.expecting(FemtocodeError, "x or y == z", x=integer, y=integer, z=integer)
-
-    def test_not(self):
-        self.expecting(boolean, "not x", x=boolean)
-        self.expecting(boolean, "not y == z", y=integer, z=integer)
-        self.expecting(boolean, "not (x and y == z)", x=boolean, y=integer, z=integer)
-        self.expecting(FemtocodeError, "not y + z", y=integer, z=integer)
 
     def test_map(self):
         self.expecting(collection(real), "data.map(x => x + 10)", data=collection(real))

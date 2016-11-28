@@ -24,8 +24,49 @@ from femtocode.typesystem import *
 # this kind of AST can include FunctionTree instances and Function instances
         
 class FunctionTree(object):
-    def schema(self, frame):
+    def retschema(self, frame):
         raise ProgrammingError("missing implementation")
+
+class UserFunction(Function):
+    order = 1
+
+    def __init__(self, names, defaults, body):
+        self.names = tuple(names)
+        self.defaults = tuple(defaults)
+        self.body = body
+
+    def __repr__(self):
+        return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+
+    def __lt__(self, other):
+        if isinstance(other, UserFunction):
+            if self.names == other.names:
+                if self.defaults == defaults:
+                    return self.body < other.body
+                else:
+                    return self.defaults < other.defaults
+            else:
+                return self.names < other.names
+        else:
+            return self.order < other.order
+
+    def __eq__(self, other):
+        if not isinstance(other, UserFunction):
+            return False
+        else:
+            return self.names == other.names and self.defaults == other.defaults and self.body == other.body
+
+    def __hash__(self):
+        return hash((self.order, self.names, self.defaults, self.body))
+
+    def retschema(self, frame, args):
+        subframe = frame.fork()
+        for name, arg in zip(self.names, args):
+            subframe[Ref(name)] = arg.retschema(frame)[0]
+        return self.body.retschema(subframe)[0], subframe
+
+    def sortargs(self, positional, named):
+        return Function.sortargsWithNames(positional, named, self.names, self.defaults)
 
 class Ref(FunctionTree):
     order = 2
@@ -57,11 +98,17 @@ class Ref(FunctionTree):
     def __hash__(self):
         return hash((self.order, self.name))
 
-    def schema(self, frame):
+    def retschema(self, frame):
         if frame.defined(self):
-            return frame[self]
+            return frame[self], frame
         else:
-            return frame[self.name]
+            complain("\"{0}\" not defined (yet?) in this scope".format(self.name), self.original)
+
+    def generate(self):
+        if isinstance(self.name, int):
+            return "$" + repr(self.name)
+        else:
+            return self.name
 
 class Literal(FunctionTree):
     order = 3
@@ -88,13 +135,16 @@ class Literal(FunctionTree):
     def __hash__(self):
         return hash((self.order, self.value))
 
-    def schema(self, frame):
+    def retschema(self, frame):
         if isinstance(self.value, (int, long)):
-            return integer(min=self.value, max=self.value)
+            return integer(min=self.value, max=self.value), frame
         elif isinstance(self.value, float):
-            return real(min=self.value, max=self.value)
+            return real(min=self.value, max=self.value), frame
         else:
             raise ProgrammingError("missing implementation")
+
+    def generate(self):
+        return repr(self.value)
 
 class Call(FunctionTree):
     order = 4
@@ -138,18 +188,43 @@ class Call(FunctionTree):
     def __hash__(self):
         return hash((self.order, self.fcn, self.sortedargs()))
 
-    def schema(self, frame):
-        if frame.defined(self):
-            return frame[self]
-        elif isinstance(self.fcn, UserFunction):
-            return self.fcn.retschema(frame, self.args)
+    def retschema(self, frame):
+        if isinstance(self.fcn, UserFunction):
+            out, subframe = self.fcn.retschema(frame, self.args)
+
         else:
-            out = self.fcn.retschema(frame, self.args)
+            out, subframe = self.fcn.retschema(frame, self.args)
+
             if isinstance(out, Impossible):
                 if out.reason is not None:
                     reason = "\n    " + out.reason
-                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.schema(frame), prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
-            return out
+                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1})\n{2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+
+            for expr, t in subframe.itemsHere():
+                if isinstance(t, Impossible):
+                    if t.reason is not None:
+                        reason = "\n    " + out.reason
+                        complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2})\n{3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+
+        if frame.defined(self):
+            out = intersection(frame[self], out)
+            if isinstance(out, Impossible):
+                reason = "\n    " + out.reason
+                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3})\n{4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+
+            subframe[self] = out
+            
+        return out, subframe
+
+    def generate(self):
+        if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):
+            return self.fcn.body.generate()
+
+        elif isinstance(self.fcn, UserFunction):
+            return "{{{0} => {1}}}".format(", ".join(self.fcn.names, self.fcn.body.generate()))
+
+        else:
+            return self.fcn.generate(self.args)
 
 class TypeConstraint(FunctionTree):
     order = 5
@@ -180,8 +255,22 @@ class TypeConstraint(FunctionTree):
     def __hash__(self):
         return hash((self.order, self.instance, self.oftype))
 
-    def schema(self, frame):
-        return boolean
+    def retschema(self, frame):
+        subframe = frame.fork()
+        if subframe.defined(self.instance):
+            out = intersection(subframe[self.instance], self.oftype)
+            if isinstance(out, Impossible):
+                reason = "\n    " + out.reason
+                complain("Expression {0} cannot be constrained to\n\n{1}\n    because it is already\n\n{2}\n{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
+            subframe[self.instance] = out
+
+        else:
+            subframe[self.instance] = self.oftype
+
+        return boolean, subframe
+
+    def generate(self):
+        return "({0} is {1})".format(self.instance.generate(), repr(self.type))
 
 # these only live long enough to yield their schema; you won't find them in the tree
 class Placeholder(FunctionTree):
@@ -208,8 +297,11 @@ class Placeholder(FunctionTree):
     def __hash__(self):
         return hash((self.order, self.tpe))
 
-    def schema(self, frame):
-        return self.tpe
+    def retschema(self, frame):
+        return self.tpe, frame
+
+    def generate(self):
+        return "???"
 
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}

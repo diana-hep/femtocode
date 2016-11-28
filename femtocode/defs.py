@@ -30,7 +30,7 @@ class Function(object):
     def arity(self, index):
         return None
 
-    def typeConstraints(self, frame, args):
+    def constrain(self, frame, args):
         return {}
 
     def retschema(self, frame, args):
@@ -80,47 +80,9 @@ class BuiltinFunction(Function):
     def __hash__(self):
         return hash((self.order,))
 
-class UserFunction(Function):
-    order = 1
+    def generate(self, args):
+        raise ProgrammingError("missing implementation")
 
-    def __init__(self, names, defaults, body):
-        self.names = tuple(names)
-        self.defaults = tuple(defaults)
-        self.body = body
-
-    def __repr__(self):
-        return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
-
-    def __lt__(self, other):
-        if isinstance(other, UserFunction):
-            if self.names == other.names:
-                if self.defaults == defaults:
-                    return self.body < other.body
-                else:
-                    return self.defaults < other.defaults
-            else:
-                return self.names < other.names
-        else:
-            return self.order < other.order
-
-    def __eq__(self, other):
-        if not isinstance(other, UserFunction):
-            return False
-        else:
-            return self.names == other.names and self.defaults == other.defaults and self.body == other.body
-
-    def __hash__(self):
-        return hash((self.order, self.names, self.defaults, self.body))
-
-    def retschema(self, frame, args):
-        subframe = frame.fork()
-        for name, arg in zip(self.names, args):
-            subframe[name] = arg.schema(frame)
-        return self.body.schema(subframe)
-
-    def sortargs(self, positional, named):
-        return Function.sortargsWithNames(positional, named, self.names, self.defaults)
-        
 class SymbolTable(object):
     def __init__(self, values={}, parent=None):
         self.parent = parent
@@ -144,11 +106,18 @@ class SymbolTable(object):
     def itemsHere(self):
         return self.values.items()
 
-    def defined(self, x):
+    def keys(self, exclude=None):
+        out = set(self.values.keys())
+        if self.parent is not None and self.parent is not exclude:
+            return out.union(self.parent.keys(exclude))
+        else:
+            return out
+
+    def defined(self, x, exclude=None):
         if self.definedHere(x):
             return True
-        elif self.parent is not None:
-            return self.parent.defined(x)
+        elif self.parent is not None and self.parent is not exclude:
+            return self.parent.defined(x, exclude)
         else:
             return False
 
