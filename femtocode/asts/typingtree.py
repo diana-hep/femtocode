@@ -123,7 +123,7 @@ class Ref(TypingTree):
         if frame.defined(self):
             return frame[self], frame
         else:
-            complain("\"{0}\" not defined (yet?) in this scope".format(self.name), self.original)
+            complain("\"{0}\" not defined (yet?) in this scope.".format(self.name), self.original)
 
     def generate(self):
         if isinstance(self.name, int):
@@ -459,111 +459,74 @@ def buildOrElevate(tree, frame, arity):
     
 def build(tree, frame):
     if isinstance(tree, parsingtree.Attribute):
-        raise ProgrammingError("missing implementation")
+        return Call.build(frame["."], [build(tree.value, frame), Literal(tree.attr, tree)], tree)
 
     elif isinstance(tree, parsingtree.BinOp):
         if isinstance(tree.op, parsingtree.Add):
             return Call.build(frame["+"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Sub):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["-"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Mult):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["*"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Div):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["/"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Mod):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["%"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.Pow):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["**"], [build(tree.left, frame), build(tree.right, frame)], tree)
         elif isinstance(tree.op, parsingtree.FloorDiv):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["//"], [build(tree.left, frame), build(tree.right, frame)], tree)
         else:
-            raise ProgrammingError("unrecognized BinOp.op: " + repr(tree.op))
-
-        raise ProgrammingError("missing implementation")
+            raise ProgrammingError("unexpected binary operator: {0}".format(tree.op))
 
     elif isinstance(tree, parsingtree.BoolOp):
+        # boolean operators flattened by normalizeLogic
         if isinstance(tree.op, parsingtree.And):
-            out = Call(frame["and"], [], tree)
-            for x in tree.values:
-                y = build(x, frame)
-                if isinstance(y, Call) and y.fcn == frame["and"]:
-                    out.args = out.args + y.args
-                else:
-                    out.args = out.args + (y,)
-            out.args = out.args
-            return out
+            return Call.build(frame["and"], [build(x, frame) for x in tree.values], tree)
 
         elif isinstance(tree.op, parsingtree.Or):
-            out = Call(frame["or"], [], tree)
-            for x in tree.values:
-                y = build(x, frame)
-                if isinstance(y, Call) and y.fcn == frame["or"]:
-                    out.args = out.args + y.args
-                else:
-                    out.args = out.args + (y,)
-            out.args = out.args
-            return out
+            return Call.build(frame["or"], [build(x, frame) for x in tree.values], tree)
 
         else:
-            raise ProgrammingError("missing implementation")
+            raise ProgrammingError("unexpected boolean operator: {0}".format(tree.op))
 
     elif isinstance(tree, parsingtree.Compare):
-        out = Call(frame["and"], [], tree)
+        # comparators flattened by normalizeLogic
         left = build(tree.left, frame)
-        for op, right in zip(tree.ops, tree.comparators):
-            right = build(right, frame)
-            if isinstance(op, parsingtree.Eq):
-                arg = None
-                if isinstance(left, Literal) and not isinstance(right, Literal):
-                    if left.value is True:
-                        arg = right
-                    elif left.value is False:
-                        arg = Call(frame["not"], [right], right.original)
-                elif not isinstance(left, Literal) and isinstance(right, Literal):
-                    if right.value is True:
-                        arg = left
-                    elif right.value is False:
-                        arg = Call(frame["not"], [left], left.original)
-                if arg is None:
-                    arg = Call.build(frame["=="], [left, right], op)
+        op = tree.ops[0]
+        right = build(tree.comparators[0], frame)
 
-            elif isinstance(op, parsingtree.NotEq):
-                raise ProgrammingError("missing implementation")
+        if isinstance(op, parsingtree.Eq):
+            return Call.build(frame["=="], [left, right], op)
 
-            elif isinstance(op, parsingtree.Lt):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.NotEq):
+            return Call.build(frame["!="], [left, right], op)
 
-            elif isinstance(op, parsingtree.LtE):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.Lt):
+            return Call.build(frame["<"], [left, right], op)
 
-            elif isinstance(op, parsingtree.Gt):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.LtE):
+            return Call.build(frame["<="], [left, right], op)
 
-            elif isinstance(op, parsingtree.GtE):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.Gt):
+            # use "<" with reversed arguments
+            return Call.build(frame["<"], [right, left], op)
 
-            elif isinstance(op, parsingtree.In):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.GtE):
+            # use "<=" with reversed arguments
+            return Call.build(frame["<="], [right, left], op)
 
-            elif isinstance(op, parsingtree.NotIn):
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.In):
+            return Call.build(frame["in"], [left, right], op)
 
-            else:
-                raise ProgrammingError("missing implementation")
+        elif isinstance(op, parsingtree.NotIn):
+            return Call.build(frame["not in"], [left, right], op)
 
-            left = right
-            out.args = out.args + (arg,)
-
-        if len(out.args) == 0:
-            return Literal(True, tree)
-        elif len(out.args) == 1:
-            return out.args[0]
         else:
-            out.args = out.args
-            return out
+            raise ProgrammingError("unexpected comparison operator {0}".format(op))
             
     elif isinstance(tree, parsingtree.List):
-        raise ProgrammingError("missing implementation")
+        return Call.build(frame["[]"], [build(x, frame) for x in tree.elts])
 
     elif isinstance(tree, parsingtree.Name):
         if tree.id == "None":
@@ -579,39 +542,67 @@ def build(tree, frame):
         return Literal(tree.n, tree)
 
     elif isinstance(tree, parsingtree.Str):
-        raise ProgrammingError("missing implementation")
+        return Literal(tree.s, tree)
 
     elif isinstance(tree, parsingtree.Subscript):
-        if isinstance(tree.op, parsingtree.Slice):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.ExtSlice):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree.op, parsingtree.Index):
-            raise ProgrammingError("missing implementation")
-        elif isinstance(tree, parsingtree.Tuple):
-            raise ProgrammingError("missing implementation")
-        raise ProgrammingError("missing implementation")
+        result = build(tree.value, frame)
+        if isinstance(tree.slice, parsingtree.Slice):
+            if len(tree.slice.dims) == 0:
+                raise ProgrammingError("unexpected subscript ExtSlice of zero dimensions in {0}".format(tree))
+            args = []
+            for slic in tree.slice.dims:
+                if isinstance(slic, parsingtree.Slice):
+                    lower = build(slic.lower, frame) if slic.lower is not None else Literal(None, slic)
+                    upper = build(slic.upper, frame) if slic.upper is not None else Literal(None, slic)
+                    step = build(slic.step, frame) if slic.step is not None else Literal(None, slic)
+                    args.extend([lower, upper, step])
+                elif isinstance(slic, parsingtree.Index):
+                    value = build(slic.value, frame)
+                    args.extend([value, value, Literal(0, slic)])
+                else:
+                    raise ProgrammingError("unexpected slice type in ExtSlice: {0}".format(slic))
+            return Call.build(frame["[#:#:#,]"], [result] + args, tree)
+            
+        elif isinstance(tree.slice, parsingtree.ExtSlice):
+            lower = build(tree.slice.lower, frame) if tree.slice.lower is not None else Literal(None, tree.slice)
+            upper = build(tree.slice.upper, frame) if tree.slice.upper is not None else Literal(None, tree.slice)
+            step = build(tree.slice.step, frame) if tree.slice.step is not None else Literal(None, tree.slice)
+            return Call.build(frame["[#:#:#,]"], [result, lower, upper, step], tree)
+
+        elif isinstance(tree.slice, parsingtree.Index):
+            if isinstance(tree.slice.value, parsingtree.Tuple):
+                if len(tree.slice.value.elts) == 0:
+                    raise ProgrammingError("unexpected subscript tuple of length zero in {0}".format(tree))
+                return Call.build(frame["[#,]"], [result] + [build(x, frame) for x in tree.slice.value.elts], tree)
+            else:
+                return Call.build(frame["[#,]"], [result, build(tree.slice.value, frame)], tree)
+
+        else:
+            raise ProgrammingError("unexpected subscript type: {0}".format(tree.slice))
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
-            return Call(frame["not"], [build(tree.operand, frame)], tree)
+            return Call.build(frame["not"], [build(tree.operand, frame)], tree)
         elif isinstance(tree.op, parsingtree.UAdd):
-            raise ProgrammingError("missing implementation")
+            return Call.build(frame["u+"], [build(tree.operand, frame)], tree)
         elif isinstance(tree.op, parsingtree.USub):
-            raise ProgrammingError("missing implementation")
-        raise ProgrammingError("missing implementation")
+            return Call.build(frame["u-"], [build(tree.operand, frame)], tree)
+        raise ProgrammingError("unexpected unary operator: {0}".format(tree.op))
 
     elif isinstance(tree, parsingtree.Assignment):
         result = build(tree.expression, frame)
         if len(tree.lvalues) == 1:
             frame[tree.lvalues[0].id] = result
+        elif len(tree.lvalues) > 1:
+            for index, lvalue in enumerate(tree.lvalues):
+                frame[lvalue.id] = Call.build(frame["[#,]"], [result, Literal(index)], lvalue)
         else:
-            raise ProgrammingError("missing implementation")
+            raise ProgrammingError("zero lvalues in assignment of {0}".format(tree.expression))
 
     elif isinstance(tree, parsingtree.AtArg):
         out = frame.get(1 if tree.num is None else tree.num)
         if out is None:
-            complain("Function shortcuts ($n) can only be used in a builtin functional (.map, .filter); write your function longhand (x => f(x)).", tree)
+            complain("Function shortcuts ($n) can only be used in builtin functionals; write your function like {x => f(x)}.", tree)
         return out
 
     elif isinstance(tree, parsingtree.FcnCall):
@@ -626,7 +617,7 @@ def build(tree, frame):
         else:
             fcn = build(tree.function, frame)
             if not isinstance(fcn, Function):
-                complain("Not a known function (declare in order of dependency; recursion is not allowed).", fcn.original)
+                complain("Not (yet?) a known function: declare in order of dependency, recursion is not allowed.", fcn.original)
 
             try:
                 args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
@@ -649,7 +640,6 @@ def build(tree, frame):
             args.append(build(pred, frame))
             args.append(build(cons, frame))
         args.append(build(tree.alternate, frame))
-
         return Call.build(frame["if"], args, tree)
 
     elif isinstance(tree, parsingtree.TypeCheck):
