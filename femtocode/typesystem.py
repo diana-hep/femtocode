@@ -270,6 +270,9 @@ class Number(Schema):
         if not isinstance(whole, bool):
             raise FemtocodeError("whole ({0}) must be boolean".format(whole))
 
+        if not isinstance(min, almost) and not isinstance(max, almost) and min == max and not math.isinf(min) and round(min) == min:
+            whole = True
+
         if whole:
             if min == -inf:
                 raise FemtocodeError("for whole-numbered intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))

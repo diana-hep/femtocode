@@ -31,10 +31,10 @@ class Add(typingtree.BuiltinFunction):
         return sum(args)
         
     def retschema(self, frame, args):
-        return inference.add(*(x.retschema(frame)[0] for x in args)), frame
+        return inference.add(args[0].retschema(frame)[0], args[1].retschema(frame)[0]), frame
 
     def generate(self, args):
-        return "(" + " + ".join(x.generate() for x in args) + ")"
+        return "({0} + {1})".format(args[0].generate(), args[1].generate())
 
 table[Add.name] = Add()
 
@@ -58,6 +58,39 @@ class Eq(typingtree.BuiltinFunction):
         return "({0} == {1})".format(args[0].generate(), args[1].generate())
 
 table[Eq.name] = Eq()
+
+class NotEq(typingtree.BuiltinFunction):
+    name = "!="
+
+    def commutative(self):
+        return True
+
+    def literaleval(self, args):
+        return args[0] != args[1]
+
+    def retschema(self, frame, args):
+        const = None
+        expr = None
+        if isinstance(args[0], typingtree.Literal):
+            const = args[0].value
+            expr = args[1]
+        elif isinstance(args[1], typingtree.Literal):
+            const = args[1].value
+            expr = args[0]
+
+        if expr is not None:
+            subframe = frame.fork({expr: inference.literal(expr.retschema(frame)[0], "!=", const)})
+            if isinstance(subframe[expr], Impossible):
+                return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const))
+        else:
+            subframe = frame.fork()
+
+        return boolean, subframe
+
+    def generate(self, args):
+        return "({0} == {1})".format(args[0].generate(), args[1].generate())
+
+table[NotEq.name] = NotEq()
 
 class And(typingtree.BuiltinFunction):
     name = "and"
@@ -145,6 +178,20 @@ class Or(typingtree.BuiltinFunction):
 
 table[Or.name] = Or()
 
+class Not(typingtree.BuiltinFunction):
+    name = "not"
+
+    def literaleval(self, args):
+        return not args
+
+    def retschema(self, frame, args):
+        if not isinstance(args[0].retschema(frame)[0], Boolean):
+            return impossible("Argument must be boolean."), frame
+        else:
+            return boolean, frame
+
+table[Not.name] = Not()
+
 class If(typingtree.BuiltinFunction):
     name = "if"
 
@@ -154,26 +201,33 @@ class If(typingtree.BuiltinFunction):
         consequents = args[2::3]
         alternate = args[-1]
 
-        subframe = frame.fork()
+        topframe = frame.fork()
+        subframe = topframe
+        outtypes = []
         for predicate, antipredicate, consequent in zip(predicates, antipredicates, consequents):
             try:
                 pschema, pframe = predicate.retschema(subframe)
             except FemtocodeError as err:
                 raise FemtocodeError("Error in \"if\" predicate. " + str(err))
             if not isinstance(pschema, Boolean):
-                return impossible("Predicate of \"if\" must be boolean.")
+                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(pschema.retschema(frame)[0], prefix="    "))), predicate.original)
 
             try:
                 aschema, aframe = antipredicate.retschema(subframe)
             except FemtocodeError as err:
                 raise FemtocodeError("Error while negating \"if\" predicate. " + str(err))
             if not isinstance(pschema, Boolean):
-                return impossible("Negation of \"if\" predicate must be boolean.")
+                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.retschema(frame)[0], prefix="    "))), predicate.original)
 
-            # HERE
+            schema, subsubframe = consequent.retschema(pframe)
+            outtypes.append(schema)
 
+            subframe = aframe
 
+        schema, subsubframe = alternate.retschema(subframe)
+        outtypes.append(schema)
 
+        return union(*outtypes), topframe
 
     def generate(self, args):
         predicates = args[0::3]
