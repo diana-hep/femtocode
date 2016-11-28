@@ -92,6 +92,8 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(FemtocodeError, "x or y == z", x=boolean, y=integer, z=boolean)
         self.expecting(FemtocodeError, "x or y == z", x=integer, y=integer, z=integer)
         self.expecting(boolean, "x == 5 or x == 10", x=integer)
+        self.expecting(FemtocodeError, "(x == 5 or x == 7) and x == 7", x=integer)
+        self.expecting(FemtocodeError, "(x == 7 or x == 5) and x == 7", x=integer)
         self.expecting(FemtocodeError, "(x == 5 or x == 10) and x == 7", x=integer)
 
     def test_map(self):

@@ -96,7 +96,7 @@ class And(BuiltinFunction):
             if not isinstance(arg.retschema(tmpframe)[0], Boolean):
                 return impossible("All arguments must be boolean."), frame
             
-        # Now merge all constraints for the return value.
+        # 'and' constraints become intersections.
         for k in keys:
             constraints = [f[k] for f in subsubframes if f.defined(k)]
             if len(constraints) > 0:
@@ -131,8 +131,10 @@ class Or(BuiltinFunction):
             if keys is None:
                 keys = subsubframe.keys(subframe)
             else:
+                # Only apply a constraint if it is mentioned in all arguments of the 'or'.
                 keys = keys.intersection(subsubframe.keys(subframe))
 
+        # 'or' constraints become unions.
         for k in keys:
             subframe[k] = union(*[f[k] for f in subsubframes])
                     
