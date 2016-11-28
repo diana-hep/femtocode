@@ -327,16 +327,6 @@ class Placeholder(TypingTree):
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}
 
-# def negate(tree, frame):
-#     if isinstance(tree, Call) and tree.fcn == frame["not"]:
-#         return tree.args[0]
-#     elif isinstance(tree, Call) and tree.fcn == frame["and"]:
-#         return Call(frame["or"], [negate(x, frame) for x in tree.args], tree.original)
-#     elif isinstance(tree, Call) and tree.fcn == frame["or"]:
-#         return Call(frame["and"], [negate(x, frame) for x in tree.args], tree.original)
-#     else:
-#         return Call(frame["not"], [tree], tree.original)
-
 def expandUserFcns(tree, frame):
     if isinstance(tree, BuiltinFunction):
         return tree

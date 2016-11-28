@@ -32,7 +32,7 @@ class TestSyntax(unittest.TestCase):
     def runTest(self):
         pass
 
-    def check(self, source, theirs=None):
+    def check(self, source, theirs=None, linenumbers=True):
         if theirs is None:
             theirs = ast.parse(source).body[0].value
             mine = parse(source).expression
@@ -49,52 +49,54 @@ class TestSyntax(unittest.TestCase):
             if isinstance(one, ast.AST):
                 if not (isinstance(two, ast.AST) and one._fields == two._fields and one.__class__ == two.__class__):
                     same = False
-                if not (getattr(one, "lineno", "?") == getattr(two, "lineno", "?") and getattr(one, "col_offset", "?") == getattr(two, "col_offset", "?")):
-                    if hasattr(one, "lineno") and hasattr(one, "col_offset"):
-                        # Python's lineno/col_offset for strings with line breaks is wrong.
-                        # Don't count it against my implementation for getting it right.
-                        if not isinstance(one, ast.Str) and not (isinstance(one, ast.Expr) and isinstance(one.value, ast.Str)):
-                            same = False
-                if not (hasattr(two, "lineno") and hasattr(two, "col_offset")):
-                    raise Exception
+                if linenumbers:
+                    if not (getattr(one, "lineno", "?") == getattr(two, "lineno", "?") and getattr(one, "col_offset", "?") == getattr(two, "col_offset", "?")):
+                        if hasattr(one, "lineno") and hasattr(one, "col_offset"):
+                            # Python's lineno/col_offset for strings with line breaks is wrong.
+                            # Don't count it against my implementation for getting it right.
+                            if not isinstance(one, ast.Str) and not (isinstance(one, ast.Expr) and isinstance(one.value, ast.Str)):
+                                same = False
+                    if not (hasattr(two, "lineno") and hasattr(two, "col_offset")):
+                        raise Exception
                 treeOne += one.__class__.__name__ + " " + str(getattr(one, "lineno", "?")) + ":" + str(getattr(one, "col_offset", "?")) + "\n"
                 treeTwo += two.__class__.__name__ + " " + str(getattr(two, "lineno", "?")) + ":" + str(getattr(two, "col_offset", "?")) + "\n"
-                for attrib  in one._fields:
-                    treeOne += indent + "  " + attrib + ": "
-                    treeTwo += indent + "  " + attrib + ": "
-                    valueOne = getattr(one, attrib)
-                    valueTwo = getattr(two, attrib)
-                    if isinstance(valueOne, list):
-                        if not (isinstance(valueTwo, list) and len(valueOne) == len(valueTwo)):
-                            same = False
-                        if len(valueOne) == 0:
-                            treeOne += "[]\n"
+                if same:
+                    for attrib in one._fields:
+                        treeOne += indent + "  " + attrib + ": "
+                        treeTwo += indent + "  " + attrib + ": "
+                        valueOne = getattr(one, attrib)
+                        valueTwo = getattr(two, attrib)
+                        if isinstance(valueOne, list):
+                            if not (isinstance(valueTwo, list) and len(valueOne) == len(valueTwo)):
+                                same = False
+                            if len(valueOne) == 0:
+                                treeOne += "[]\n"
+                            else:
+                                treeOne += "\n"
+                            if len(valueTwo) == 0:
+                                treeTwo += "[]\n"
+                            else:
+                                treeTwo += "\n"
+                            for x, y in zip(valueOne, valueTwo):
+                                treeOne += indent + "    - "
+                                treeTwo += indent + "    - "
+                                deepcompare(x, y, indent + "        ")
+                        elif isinstance(valueOne, (ast.Load, ast.Store, ast.Param, ast.Del)):
+                            if not (isinstance(valueTwo, (ast.Load, ast.Store, ast.Param, ast.Del))):
+                                same = False
+                            treeOne += valueOne.__class__.__name__ + "\n"
+                            treeTwo += valueTwo.__class__.__name__ + "\n"
+                        elif isinstance(valueOne, ast.AST):
+                            if not (isinstance(valueTwo, ast.AST)):
+                                same = False
+                            deepcompare(valueOne, valueTwo, indent + "    ")
+                        elif valueOne is None or isinstance(valueOne, (int, long, float, complex, basestring)):
+                            if not (valueOne == valueTwo):
+                                same = False
+                            treeOne += repr(valueOne) + "\n"
+                            treeTwo += repr(valueTwo) + "\n"
                         else:
-                            treeOne += "\n"
-                        if len(valueTwo) == 0:
-                            treeTwo += "[]\n"
-                        else:
-                            treeTwo += "\n"
-                        for x, y in zip(valueOne, valueTwo):
-                            treeOne += indent + "    - "
-                            treeTwo += indent + "    - "
-                            deepcompare(x, y, indent + "        ")
-                    elif isinstance(valueOne, (ast.Load, ast.Store, ast.Param, ast.Del)):
-                        if not (isinstance(valueTwo, (ast.Load, ast.Store, ast.Param, ast.Del))):
-                            same = False
-                        treeOne += valueOne.__class__.__name__ + "\n"
-                        treeTwo += valueTwo.__class__.__name__ + "\n"
-                    elif isinstance(valueOne, ast.AST):
-                        if not (isinstance(valueTwo, ast.AST)):
-                            same = False
-                        deepcompare(valueOne, valueTwo, indent + "    ")
-                    elif valueOne is None or isinstance(valueOne, (int, long, float, complex, basestring)):
-                        if not (valueOne == valueTwo):
-                            same = False
-                        treeOne += repr(valueOne) + "\n"
-                        treeTwo += repr(valueTwo) + "\n"
-                    else:
-                        raise Exception
+                            raise Exception
             else:
                 if not (one == two):
                     same = False
@@ -123,12 +125,12 @@ class TestSyntax(unittest.TestCase):
                 while len(x) < width:
                     x += " "
                 if diff:
-                    sys.stderr.write(x + "| " + y + "\n")
+                    sys.stderr.write(x + "> " + y + "\n")
                 else:
                     sys.stderr.write(x + "  " + y + "\n")
             sys.exit(-1)   # too much output to see all at once
 
-    def test_PythonCompatibility(self):
+    def test_python(self):
         self.check('"hello"')
         self.check('"he\\nllo"')
         self.check('"he\\\\nllo"')
@@ -553,7 +555,7 @@ class TestSyntax(unittest.TestCase):
         self.check('''x ** y // z ** w''')
         self.check('''x.y**2''')
 
-    def test_NewForms(self):
+    def test_newforms(self):
         self.check('{x => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param())], defaults=[None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
         self.check('{x, y => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param())], defaults=[None, None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
         self.check('{x, y, z => x}', Suite(assignments=[], expression=FcnDef(parameters=[Name(id='x', ctx=Param()), Name(id='y', ctx=Param()), Name(id='z', ctx=Param())], defaults=[None, None, None], body=Suite(assignments=[], expression=Name(id='x', ctx=Load())))))
@@ -718,3 +720,28 @@ class TestSyntax(unittest.TestCase):
 
         self.check("x is integer", Suite(assignments=[], expression=TypeCheck(expr=Name(id='x', ctx=Load()), schema=Name(id='integer', ctx=Load()), negate=False)))
         self.check("x is not real", Suite(assignments=[], expression=TypeCheck(expr=Name(id='x', ctx=Load()), schema=Name(id='real', ctx=Load()), negate=True)))
+
+    def test_negation(self):
+        self.check("not x", Suite(assignments=[], expression=negate(parse("x").expression)), linenumbers=False)
+        self.check("not x and not y", Suite(assignments=[], expression=negate(parse("x or y").expression)), linenumbers=False)
+        self.check("not x and not y and not z", Suite(assignments=[], expression=negate(parse("x or y or z").expression)), linenumbers=False)
+        self.check("(not x and not y) and not z", Suite(assignments=[], expression=negate(parse("(x or y) or z").expression)), linenumbers=False)
+        self.check("not x and (not y and not z)", Suite(assignments=[], expression=negate(parse("x or (y or z)").expression)), linenumbers=False)
+        self.check("not x or not y", Suite(assignments=[], expression=negate(parse("x and y").expression)), linenumbers=False)
+        self.check("not x or not y or not z", Suite(assignments=[], expression=negate(parse("x and y and z").expression)), linenumbers=False)
+        self.check("(not x or not y) or not z", Suite(assignments=[], expression=negate(parse("(x and y) and z").expression)), linenumbers=False)
+        self.check("not x or (not y or not z)", Suite(assignments=[], expression=negate(parse("x and (y and z)").expression)), linenumbers=False)
+        self.check("(not x or not y) and not z", Suite(assignments=[], expression=negate(parse("x and y or z").expression)), linenumbers=False)
+        self.check("not x and (not y or not z)", Suite(assignments=[], expression=negate(parse("x or y and z").expression)), linenumbers=False)
+
+        self.check("not x(1)", Suite(assignments=[], expression=negate(parse("x(1)").expression)), linenumbers=False)
+        self.check("not x(1) and not y(2)", Suite(assignments=[], expression=negate(parse("x(1) or y(2)").expression)), linenumbers=False)
+        self.check("not x(1) and not y(2) and not z(3)", Suite(assignments=[], expression=negate(parse("x(1) or y(2) or z(3)").expression)), linenumbers=False)
+        self.check("(not x(1) and not y(2)) and not z(3)", Suite(assignments=[], expression=negate(parse("(x(1) or y(2)) or z(3)").expression)), linenumbers=False)
+        self.check("not x(1) and (not y(2) and not z(3))", Suite(assignments=[], expression=negate(parse("x(1) or (y(2) or z(3))").expression)), linenumbers=False)
+        self.check("not x(1) or not y(2)", Suite(assignments=[], expression=negate(parse("x(1) and y(2)").expression)), linenumbers=False)
+        self.check("not x(1) or not y(2) or not z(3)", Suite(assignments=[], expression=negate(parse("x(1) and y(2) and z(3)").expression)), linenumbers=False)
+        self.check("(not x(1) or not y(2)) or not z(3)", Suite(assignments=[], expression=negate(parse("(x(1) and y(2)) and z(3)").expression)), linenumbers=False)
+        self.check("not x(1) or (not y(2) or not z(3))", Suite(assignments=[], expression=negate(parse("x(1) and (y(2) and z(3))").expression)), linenumbers=False)
+        self.check("(not x(1) or not y(2)) and not z(3)", Suite(assignments=[], expression=negate(parse("x(1) and y(2) or z(3)").expression)), linenumbers=False)
+        self.check("not x(1) and (not y(2) or not z(3))", Suite(assignments=[], expression=negate(parse("x(1) or y(2) and z(3)").expression)), linenumbers=False)

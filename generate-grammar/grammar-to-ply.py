@@ -455,59 +455,6 @@ def t_newline(t):
     t.lexer.last_col0 = t.lexer.lexpos + 1
 ''')
 
-W('''def inherit_lineno(p0, px, alt=True):
-    if isinstance(px, dict):
-        p0.source = px["source"]
-        p0.pos = px["pos"]
-        p0.lineno = px["lineno"]
-        p0.col_offset = px["col_offset"]
-        p0.sourceName = px["sourceName"]
-        p0.length = px["length"]
-    else:
-        p0.source = px.source
-        p0.pos = px.pos
-        p0.lineno = px.lineno
-        p0.col_offset = px.col_offset
-        p0.sourceName = px.sourceName
-        p0.length = px.length
-        if alt and hasattr(px, "alt"):
-            p0.lineno = px.alt["lineno"]
-            p0.col_offset = px.alt["col_offset"]
-
-def unwrap_left_associative(args, alt=False):
-    out = BinOp(args[0], args[1], args[2])
-    inherit_lineno(out, args[0])
-    args = args[3:]
-    while len(args) > 0:
-        out = BinOp(out, args[0], args[1])
-        inherit_lineno(out, out.left)
-        if alt:
-            out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
-            inherit_lineno(out, out.op)
-        args = args[2:]
-    return out
-
-def unpack_trailer(atom, power_star):
-    out = atom
-    for trailer in power_star:
-        if isinstance(trailer, FcnCall):
-            trailer.function = out
-            inherit_lineno(trailer, out)
-            out = trailer
-        elif isinstance(trailer, Attribute):
-            trailer.value = out
-            inherit_lineno(trailer, out, alt=False)
-            if hasattr(out, "alt"):
-                trailer.alt = out.alt
-            out = trailer
-        elif isinstance(trailer, Subscript):
-            trailer.value = out
-            inherit_lineno(trailer, out)
-            out = trailer
-        else:
-            assert False
-    return out
-''')
 # coverage = {}
 
 def numbers(s):

@@ -110,3 +110,83 @@ class TypeCheck(expr):
         self.schema = schema
         self.negate = negate
         self.__dict__.update(kwds)
+
+def inherit_lineno(p0, px, alt=True):
+    if isinstance(px, dict):
+        p0.source = px["source"]
+        p0.pos = px["pos"]
+        p0.lineno = px["lineno"]
+        p0.col_offset = px["col_offset"]
+        p0.sourceName = px["sourceName"]
+        p0.length = px["length"]
+    else:
+        p0.source = px.source
+        p0.pos = px.pos
+        p0.lineno = px.lineno
+        p0.col_offset = px.col_offset
+        p0.sourceName = px.sourceName
+        p0.length = px.length
+        if alt and hasattr(px, "alt"):
+            p0.lineno = px.alt["lineno"]
+            p0.col_offset = px.alt["col_offset"]
+
+def unwrap_left_associative(args, alt=False):
+    out = BinOp(args[0], args[1], args[2])
+    inherit_lineno(out, args[0])
+    args = args[3:]
+    while len(args) > 0:
+        out = BinOp(out, args[0], args[1])
+        inherit_lineno(out, out.left)
+        if alt:
+            out.alt = {"lineno": out.lineno, "col_offset": out.col_offset}
+            inherit_lineno(out, out.op)
+        args = args[2:]
+    return out
+
+def unpack_trailer(atom, power_star):
+    out = atom
+    for trailer in power_star:
+        if isinstance(trailer, FcnCall):
+            trailer.function = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        elif isinstance(trailer, Attribute):
+            trailer.value = out
+            inherit_lineno(trailer, out, alt=False)
+            if hasattr(out, "alt"):
+                trailer.alt = out.alt
+            out = trailer
+        elif isinstance(trailer, Subscript):
+            trailer.value = out
+            inherit_lineno(trailer, out)
+            out = trailer
+        else:
+            assert False
+    return out
+
+def negate(x):
+    # push 'not' down below all 'and' and 'or' (also removing redundant double-negatives)
+
+    if isinstance(x, UnaryOp) and isinstance(x.op, Not):
+        return x.operand
+
+    elif isinstance(x, BoolOp) and isinstance(x.op, And):
+        op = Or()
+        inherit_lineno(op, x.op)
+        out = BoolOp(op, [negate(y) for y in x.values])
+        inherit_lineno(out, x)
+        return out
+
+    elif isinstance(x, BoolOp) and isinstance(x.op, Or):
+        op = And()
+        inherit_lineno(op, x.op)
+        out = BoolOp(op, [negate(y) for y in x.values])
+        inherit_lineno(out, x)
+        return out
+
+    else:
+        op = Not()
+        inherit_lineno(op, x)
+        out = UnaryOp(op, x)
+        inherit_lineno(out, x)
+        return out
