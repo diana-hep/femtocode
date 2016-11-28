@@ -148,11 +148,39 @@ table[Or.name] = Or()
 class If(typingtree.BuiltinFunction):
     name = "if"
 
-    
+    def retschema(self, frame, args):
+        predicates = args[0::3]
+        antipredicates = args[1::3]
+        consequents = args[2::3]
+        alternate = args[-1]
+
+        subframe = frame.fork()
+        for predicate, antipredicate, consequent in zip(predicates, antipredicates, consequents):
+            try:
+                pschema, pframe = predicate.retschema(subframe)
+            except FemtocodeError as err:
+                raise FemtocodeError("Error in \"if\" predicate. " + str(err))
+            if not isinstance(pschema, Boolean):
+                return impossible("Predicate of \"if\" must be boolean.")
+
+            try:
+                aschema, aframe = antipredicate.retschema(subframe)
+            except FemtocodeError as err:
+                raise FemtocodeError("Error while negating \"if\" predicate. " + str(err))
+            if not isinstance(pschema, Boolean):
+                return impossible("Negation of \"if\" predicate must be boolean.")
+
+            # HERE
 
 
 
 
+    def generate(self, args):
+        predicates = args[0::3]
+        consequents = args[2::3]
+        alternate = args[-1]
+        return " else ".join("if ({0}) {{{1}}}".format(p.generate(), c.generate()) for p, c in zip(predicates, consequents)) + " else {" + alternate.generate() + "}"
+            
 table[If.name] = If()
 
 class Map(typingtree.BuiltinFunction):
