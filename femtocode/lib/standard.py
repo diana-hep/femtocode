@@ -69,13 +69,6 @@ class And(BuiltinFunction):
         return all(args)
         
     def retschema(self, frame, args):
-        # subframe = frame.fork()
-        # for arg in args:
-        #     t, subframe = arg.retschema(subframe)
-        #     if not isinstance(t, Boolean):
-        #         return impossible("All arguments must be boolean."), frame
-        # return boolean, subframe
-
         subframe = frame.fork()
         subsubframes = []
         keys = set()
@@ -89,15 +82,21 @@ class And(BuiltinFunction):
             arg = args[i]
             tmpframe = subframe.fork()
             for k in keys:
+                # Combine all constraints except the ones in 'arg' so that they can be used as preconditions,
+                # regardless of the order in which the constraints are written.
                 constraints = [f[k] for f in [subsubframes[j] for j in xrange(len(args)) if i != j] if f.defined(k)]
                 if len(constraints) > 0:
                     constraint = intersection(*constraints)
                     if not isinstance(constraint, Impossible):
+                        # Ignore the impossible ones for now; they'll come up again (with a more appropriate
+                        # error message) below in arg.retschema(tmpframe).
                         tmpframe[k] = constraint
 
+            # Check the type again, this time with all others as preconditions (regarless of order).
             if not isinstance(arg.retschema(tmpframe)[0], Boolean):
                 return impossible("All arguments must be boolean."), frame
             
+        # Now merge all constraints for the return value.
         for k in keys:
             constraints = [f[k] for f in subsubframes if f.defined(k)]
             if len(constraints) > 0:
