@@ -977,7 +977,7 @@ def _pretty(schema, depth, comma, memo):
         return [(depth, "union(", schema)] + types + [(depth + 1, "){0}".format(comma), schema)]
 
     else:
-        raise ProgrammerError("unhandled kind")
+        raise ProgrammingError("unhandled kind")
 
 def pretty(schema, highlight=lambda t: "", indent="  ", prefix=""):
     return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))

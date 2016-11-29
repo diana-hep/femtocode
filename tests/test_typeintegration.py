@@ -111,7 +111,7 @@ class TestTypeIntegration(unittest.TestCase):
         self.expecting(union(real(5, 5), null), "if x == 5: x else: None", x=real)
         self.expecting(union(real(5, 5), real(0, 0)), "if x == 5: x else: 0", x=real)
         self.expecting(union(real(5, almost(inf)), null), "if x is real(0, almost(inf)): x + 5 else: None", x=real)
-
+        self.expecting(union(integer(10, 10), integer(20, 20), integer(30, 30)), "if test1: 10 elif test2: 20 else: 30", test1=boolean, test2=boolean)
 
     def test_map(self):
         self.expecting(collection(real), "data.map(x => x + 10)", data=collection(real))
