@@ -16,6 +16,7 @@
 
 from femtocode import inference
 from femtocode.asts import typingtree
+from femtocode.asts import columnartree
 from femtocode.defs import *
 from femtocode.typesystem import *
 

@@ -1421,7 +1421,7 @@ def difference(universal, excluded):
         out = impossible("boolean type is completely covered by boolean type.")
 
     elif isinstance(universal, Number) and isinstance(excluded, Number):
-        if not universal.whole and excluded.whole:
+        if not universal.whole and excluded.whole and excluded.min != excluded.max:
             # do not attempt to remove (potentially very many) integers from a continuous interval;
             # returning too-inclusive a result is okay
             out = universal()

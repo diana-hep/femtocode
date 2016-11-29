@@ -666,7 +666,9 @@ def build(tree, frame):
                 return Call.build(fcn, builtArgs, tree)
 
     elif isinstance(tree, parsingtree.FcnDef):
-        return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, frame) for x in tree.defaults], build(tree.body, frame.fork(dict((x.id, Ref(x.id)) for x in tree.parameters))))
+        return UserFunction([x.id for x in tree.parameters],
+                            [None if x is None else build(x, frame) for x in tree.defaults],
+                            build(tree.body, frame.fork(dict((x.id, Ref(x.id)) for x in tree.parameters))))
 
     elif isinstance(tree, parsingtree.IfChain):
         args = []

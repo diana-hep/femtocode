@@ -279,7 +279,7 @@ def typingToColumnar(tree, refframe, typeframe):
         return refframe[tree.name]
 
     elif isinstance(tree, typingtree.Literal):
-        return LiteralData(schemaToColumnar(tree.retschema(typeframe)[0]), tree.value)
+        return LiteralData(schemaToColumnar(tree.schema), tree.value)
 
     elif isinstance(tree, typingtree.Call):
         if isinstance(tree.fcn, typingtree.UserFunction):
