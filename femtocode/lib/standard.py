@@ -233,7 +233,7 @@ class If(typingtree.BuiltinFunction):
         predicates = args[0::3]
         consequents = args[2::3]
         alternate = args[-1]
-        return " else ".join("if ({0}) {{{1}}}".format(p.generate(), c.generate()) for p, c in zip(predicates, consequents)) + " else {" + alternate.generate() + "}"
+        return " el".join("if ({0}) {{{1}}}".format(p.generate(), c.generate()) for p, c in zip(predicates, consequents)) + " else {" + alternate.generate() + "}"
             
 table[If.name] = If()
 

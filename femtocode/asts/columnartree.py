@@ -227,6 +227,11 @@ class DerivedData(Data):
         self.fcn = fcn
         self.args = args
 
+class LiteralData(Data):
+    def __init__(self, schema, value):
+        super(LiteralData, self).__init__(schema)
+        self.value = value
+
 def columnarSchemaToInputs(schema, path=()):
     if isinstance(schema, ColumnarNull):
         return []
@@ -268,3 +273,30 @@ def columnarSchemaToInputs(schema, path=()):
         for i, possibility in enumerate(schema.possibilities):
             data.extend(columnarSchemaToInputs(possibility, path + (repr(i),)))
         return out
+
+def typingToColumnar(tree, refframe, typeframe):
+    if isinstance(tree, typingtree.Ref):
+        return refframe[tree.name]
+
+    elif isinstance(tree, typingtree.Literal):
+        return LiteralData(schemaToColumnar(tree.retschema(typeframe)[0]), tree.value)
+
+    elif isinstance(tree, typingtree.Call):
+        if isinstance(tree.fcn, typingtree.UserFunction):
+            subframe = refframe.fork()
+            for name, arg in zip(tree.fcn.names, tree.args):
+                subframe[name] = typingToColumnar(arg, refframe, typeframe)
+            return typingToColumnar(tree.fcn.body, subframe, typeframe)
+
+        elif isinstance(tree.fcn, typingtree.BuiltinFunction):
+            pass  # HERE
+
+
+        else:
+            raise ProgrammingError("unexpected in function typingtree: {0}".format(tree.fcn))
+
+    elif isinstance(tree, typingtree.TypeConstraint):
+        pass
+
+    else:
+        raise ProgrammingError("unexpected in typingtree: {0}".format(tree))

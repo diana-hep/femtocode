@@ -124,7 +124,7 @@ class Ref(TypingTree):
         if frame.defined(self):
             return frame[self], frame
         else:
-            complain("\"{0}\" not defined (yet?) in this scope.".format(self.name), self.original)
+            complain("\"{0}\" is not (yet?) defined in this scope.".format(self.name), self.original)
 
     def generate(self):
         if isinstance(self.name, int):
@@ -226,26 +226,22 @@ class Call(TypingTree):
         return hash((self.order, self.fcn, self.sortedargs()))
 
     def retschema(self, frame):
-        if isinstance(self.fcn, UserFunction):
-            out, subframe = self.fcn.retschema(frame, self.args)
+        out, subframe = self.fcn.retschema(frame, self.args)
 
-        else:
-            out, subframe = self.fcn.retschema(frame, self.args)
+        if isinstance(out, Impossible):
+            if out.reason is not None:
+                reason = "\n\n    " + out.reason
+            else:
+                reason = ""
+            complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
-            if isinstance(out, Impossible):
-                if out.reason is not None:
+        for expr, t in subframe.itemsHere():
+            if isinstance(t, Impossible):
+                if t.reason is not None:
                     reason = "\n\n    " + out.reason
                 else:
                     reason = ""
-                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
-
-            for expr, t in subframe.itemsHere():
-                if isinstance(t, Impossible):
-                    if t.reason is not None:
-                        reason = "\n\n    " + out.reason
-                    else:
-                        reason = ""
-                    complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
         if frame.defined(self):
             out = intersection(frame[self], out)
@@ -350,9 +346,6 @@ class Placeholder(TypingTree):
     def generate(self):
         return "???"
 
-def pos(tree):
-    return {"lineno": tree.lineno, "col_offset": tree.col_offset}
-
 def expandUserFcns(tree, frame):
     if isinstance(tree, BuiltinFunction):
         return tree
@@ -386,6 +379,9 @@ def expandUserFcns(tree, frame):
 
     else:
         raise ProgrammingError("unrecognized functiontree: " + repr(tree))
+
+def pos(tree):
+    return {"lineno": tree.lineno, "col_offset": tree.col_offset}
 
 def buildSchema(tree):
     if isinstance(tree, parsingtree.Attribute):
@@ -563,8 +559,10 @@ def build(tree, frame):
             return Literal(False, tree)
         elif tree.id == "inf":
             return Literal(float("inf"), tree)
+        elif frame.defined(tree.id):
+            return frame[tree.id]
         else:
-            return frame.get(tree.id, Ref(tree.id, tree))
+            complain("\"{0}\" is not (yet?) defined in this scope.".format(tree.id), tree)
 
     elif isinstance(tree, parsingtree.Num):
         return Literal(tree.n, tree)
@@ -655,12 +653,13 @@ def build(tree, frame):
             builtArgs = [x if isinstance(x, (TypingTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
-                return expandUserFcns(fcn.body, SymbolTable(dict(zip(fcn.names, builtArgs))))
+                # FIXME: should the subframe be forked or isolated?
+                return expandUserFcns(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))
             else:
                 return Call.build(fcn, builtArgs, tree)
 
     elif isinstance(tree, parsingtree.FcnDef):
-        return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, frame) for x in tree.defaults], build(tree.body, frame))
+        return UserFunction([x.id for x in tree.parameters], [None if x is None else build(x, frame) for x in tree.defaults], build(tree.body, frame.fork(dict((x.id, Ref(x.id)) for x in tree.parameters))))
 
     elif isinstance(tree, parsingtree.IfChain):
         args = []
