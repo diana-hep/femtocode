@@ -222,84 +222,49 @@ class InputData(Data):
         self.path = path
 
 class DerivedData(Data):
-    def __init__(self, schema, dependencies, function):
+    def __init__(self, schema, fcn, args):
         super(DerivedData, self).__init__(schema)
-        self.dependencies = dependencies
-        self.function = function
+        self.fcn = fcn
+        self.args = args
 
-class Graph(object):
-    def __init__(self):
-        self.treeToData = {}
+def columnarSchemaToInputs(schema, path=()):
+    if isinstance(schema, ColumnarNull):
+        return []
 
-# def schemaToInputs(schema, prefix=InputData.root, memo=None):
-#     if memo is None:
-#         memo = set()
+    elif isinstance(schema, (ColumnarBoolean, ColumnarNumber, ColumnarStringFixed)):
+        data = InputData(schema, path)
+        schema.data = data
+        return [data]
 
-#     if schema.alias is not None:
-#         if schema.alias in memo:
-#             raise ProgrammingError("recursive types not implemented for input data")
-#         else:
-#             memo.add(schema.alias)
+    elif isinstance(schema, ColumnarString):
+        first = InputData(ColumnarNumber(0, almost(inf), True, []), path + (Data.first,))
+        size = InputData(ColumnarNumber(schema.fewest, schema.most, True, []), path + (Data.size,))
+        data = InputData(schema, path)
+        schema.first = first
+        schema.size = size
+        schema.data = data
+        return [first, size, data]
 
-#     if isinstance(schema, Null):
-#         return []
+    elif isinstance(schema, ColumnarCollectionFixed):
+        return columnarSchemaToInputs(schema.items)
 
-#     elif isinstance(schema, (Boolean, String)):
-#         if schema.min == schema.max:
+    elif isinstance(schema, ColumnarCollection):
+        first = InputData(ColumnarNumber(0, almost(inf), True, []), path + (Data.first,))
+        size = InputData(ColumnarNumber(schema.fewest, schema.most, True, []), path + (Data.size,))
+        schema.first = first
+        schema.size = size
+        return [first, size] + columnarSchemaToInputs(schema.items)
 
+    elif isinstance(schema, ColumnarRecord):
+        out = []
+        for name in sorted(schema.fields):
+            out.extend(columnarSchemaToInputs(schema.fields[name], path + (name,)))
+        return out
 
-#         return [InputData(schema, prefix)]
-
-#     elif isinstance(schema, Number):
-#         if schema.min == schema.max:
-#             return []
-#         else:
-#             return [InputData(schema, prefix)]
-
-#     elif isinstance(schema, Collection):
-#         if schema.fewest == schema.most:
-#             return schemaToInputs(schema.items, prefix)
-#         else:
-#             return [InputData(integer(min=0), prefix + "." + InputData.first),
-#                     InputData(integer(min=0, max=schema.most), prefix + "." + InputData.size)] + \
-#                     schemaToInputs(schema.items, prefix)
-
-#     elif isinstance(schema, Record):
-#         return [InputData(schema.fields[n], prefix + "." + n) for n in sorted(schema.fields.keys())]
-
-#     elif isinstance(schema, Union):
-#         tag = {}
-#         booleans = None
-#         integers = None
-#         extendeds = None
-#         bytestrings = None
-#         unicodestrings = None
-#         groups = []
-
-#         for possibility in sorted(schema.possibilities):
-#             if isinstance(possibility, Null):
-#                 tag[len(tag)] = possibility
-
-#             elif isinstance(possibility, Boolean):
-#                 booleans = len(tag)
-#                 tag[len(tag)] = possibility
-
-#             elif isinstance(possibility, Number) and possibility.whole:
-#                 if integers is None:
-#                     integers = len(tag)
-#                     tag[len(tag)] = Number(possibility.min, possibility.max, True)
-#                 else:
-#                     tag[integers].min = almost.min(tag[integers].min, possibility.min)
-#                     tag[integers].max = almost.max(tag[integers].max, possibility.max)
-
-#             elif isinstance(possibility, Number):
-#                 if extendeds is None:
-#                     extendeds = len(tag)
-#                     tag[len(tag)] = Number(possibility.min, possibility.max, False)
-#                 else:
-#                     tag[extendeds].min = almost.min(tag[extendeds].min, possibility.min)
-#                     tag[extendeds].max = almost.max(tag[extendeds].max, possibility.max)
-
-#             elif isinstance(possibility, String) and possibility.charset == "bytes":
-#                 if bytestrings is None:
-                    
+    elif isinstance(schema, ColumnarUnion):
+        tag = InputData(ColumnarNumber(0, len(schema.possibilities), True, []), path + (Data.tag,))
+        schema.tag = tag
+        out = [tag]
+        for i, possibility in enumerate(schema.possibilities):
+            data.extend(columnarSchemaToInputs(possibility, path + (repr(i),)))
+        return out
