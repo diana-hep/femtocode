@@ -296,7 +296,7 @@ def typingToColumnar(tree, refframe, typeframe):
             raise ProgrammingError("unexpected in function typingtree: {0}".format(tree.fcn))
 
     elif isinstance(tree, typingtree.TypeConstraint):
-        pass
+        pass  # HERE
 
     else:
         raise ProgrammingError("unexpected in typingtree: {0}".format(tree))

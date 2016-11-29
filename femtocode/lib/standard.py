@@ -22,6 +22,14 @@ from femtocode.typesystem import *
 
 table = SymbolTable()
 
+class IsType(typingtree.BuiltinFunction):
+    name = "::"
+
+    def literaleval(self, args):
+        pass
+
+table[IsType.name] = IsType()
+
 class Add(typingtree.BuiltinFunction):
     name = "+"
 

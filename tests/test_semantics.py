@@ -106,3 +106,13 @@ class TestSemantics(unittest.TestCase):
         print(build(parse("y == 2"), table.fork({"y": Ref("y")})))
 
         print(build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": Ref("y")})))
+
+        try:
+            build(parse("def f(x): x; g(2)"), table)
+        except FemtocodeError as err:
+            print(err)
+
+        try:
+            build(parse("g = 8; g(2)"), table)
+        except FemtocodeError as err:
+            print(err)

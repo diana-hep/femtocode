@@ -123,9 +123,8 @@ class Ref(TypingTree):
     def retschema(self, frame):
         if frame.defined(self):
             return frame[self], frame
-
         else:
-            complain("\"{0}\" is not (yet?) defined in this scope.".format(self.name), self.original)
+            raise ProgrammingError("{0} was defined when building typingtree but is not defined in the typing stage".format(self))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -271,9 +270,10 @@ class Call(TypingTree):
 class TypeConstraint(TypingTree):
     order = 5
 
-    def __init__(self, instance, oftype, original=None):
+    def __init__(self, instance, oftype, fcn, original=None):
         self.instance = instance
         self.oftype = oftype
+        self.fcn = fcn
         self.original = original
 
     def __repr__(self):
@@ -306,7 +306,7 @@ class TypeConstraint(TypingTree):
                     reason = "\n\n    " + out.reason
                 else:
                     reason = ""
-                complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it is already\n\n{2}{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
+                complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it has type\n\n{2}{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
             subframe[self.instance] = out
 
         else:
@@ -376,7 +376,7 @@ def copy(tree, frame):
         return Call.build(copy(tree.fcn, frame), [copy(x, frame) for x in tree.args], tree.original)
 
     elif isinstance(tree, TypeConstraint):
-        return TypeConstraint(copy(tree.instance, frame), tree.schema, tree.original)
+        return TypeConstraint(copy(tree.instance, frame), tree.oftype, tree.fcn, tree.original)
 
     elif isinstance(tree, Placeholder):
         return tree
@@ -569,7 +569,7 @@ def build(tree, frame):
             else:
                 return frame[tree.id]
         else:
-            complain("\"{0}\" is not (yet?) defined in this scope.".format(tree.id), tree)
+            complain("\"{0}\" is not (yet?) defined in this scope: define in the order of dependency, recursion is not allowed.".format(tree.id), tree)
 
     elif isinstance(tree, parsingtree.Num):
         return Literal(tree.n, tree)
@@ -651,7 +651,7 @@ def build(tree, frame):
         else:
             fcn = build(tree.function, frame)
             if not isinstance(fcn, Function):
-                complain("Not (yet?) a known function: declare in order of dependency, recursion is not allowed.", fcn.original)
+                complain("Expression {0} is a value, not a function; it cannot be called.".format(fcn.generate()), tree)
 
             try:
                 args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
@@ -680,8 +680,8 @@ def build(tree, frame):
         return Call.build(frame["if"], args, tree)
 
     elif isinstance(tree, parsingtree.TypeCheck):
-        schema = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))
-        return TypeConstraint(build(tree.expr, frame), schema, tree)
+        oftype = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))
+        return TypeConstraint(build(tree.expr, frame), oftype, frame["::"], tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:
