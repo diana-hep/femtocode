@@ -36,94 +36,73 @@ class TestSemantics(unittest.TestCase):
     def runTest(self):
         pass
 
-    # def test_simple1(self):
-    #     p = build(parse("x"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"x": integer})))
+    def test_simple1(self):
+        p = build(parse("x"), table.fork({"x": Ref("x")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("x"): integer})))
 
-    #     p = build(parse("x + 3"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"x": integer})))
+        p = build(parse("x + 3"), table.fork({"x": Ref("x")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("x"): integer})))
 
-    #     p = build(parse("y = x + 3; y + 1"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"x": integer})))
+        p = build(parse("y = x + 3; y + 1"), table.fork({"x": Ref("x")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("x"): integer})))
 
-    #     p = build(parse("{x => x + 3}"), table)
-    #     print(p)
+        p = build(parse("{x => x + 3}"), table.fork({"x": Ref("x")}))
+        print(p)
 
-    #     p = build(parse("def f(x): x + 3.14;\nf"), table)
-    #     print(p)
+        p = build(parse("def f(x): x + 3.14;\nf"), table)
+        print(p)
 
-    #     p = build(parse("def f(q): q + 3;  f(x)"), table)
-    #     print(p)
+        p = build(parse("def f(q): q + 3;  f(x)"), table.fork({"x": Ref("x")}))
+        print(p)
 
-    #     p = build(parse("xs.map({x => 3.14 + x})"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-    #     p = build(parse("xs.map(x => 3.14 + x)"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": Ref("xs")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-    #     p = build(parse("xs.map(3.14 + $1)"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(3.14 + $1)"), table.fork({"xs": Ref("xs")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-    #     p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-    #     try:
-    #         build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table)
-    #     except SyntaxError as err:
-    #         print(err)
+        try:
+            build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        except FemtocodeError as err:
+            print(err)
 
-    #     try:
-    #         build(parse("xs.map()"), table)
-    #     except SyntaxError as err:
-    #         print(err)
+        try:
+            build(parse("xs.map()"), table.fork({"xs": Ref("xs")}))
+        except FemtocodeError as err:
+            print(err)
         
-    #     try:
-    #         build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table)
-    #     except SyntaxError as err:
-    #         print(err)
+        try:
+            build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        except FemtocodeError as err:
+            print(err)
 
-    #     p = build(parse("xs.map(3.14)"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({"xs": collection(integer)})))
+        p = build(parse("xs.map(3.14)"), table.fork({"xs": Ref("xs")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-    #     p = build(parse("y = x + 3; y"), table)
-    #     print(p)
-    #     print(p.schema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
+        p = build(parse("y = x + 3; y"), table.fork({"x": Ref("x")}))
+        print(p)
+        print(p.retschema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
-    #     print(build(parse("def f(x): {y => x + y}; f"), table))
+        print(build(parse("def f(x): {y => x + y}; f"), table))
 
-    #     print(build(parse("def f(x): {y => x + y}; f(3)"), table))
+        print(build(parse("def f(x): {y => x + y}; f(3)"), table))
 
-    #     print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
+        print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
 
-    #     print(build(parse("y == 2"), table))
+        print(build(parse("y == 2"), table.fork({"y": Ref("y")})))
 
-    #     print(build(parse("def f(x): x + 0.1; y == f(2)"), table))
-
-    #     def dump(x):
-    #         if isinstance(x, Call) and x.fcn.name == "not":
-    #             return "not " + dump(x.args[0])
-    #         elif isinstance(x, Call) and x.fcn.name in ["and", "or"]:
-    #             return "(" + (" " + x.fcn.name + " ").join(dump(y) for y in x.args) + ")"
-    #         else:
-    #             return repr(x)
-
-    #     def dump(x):
-    #         if isinstance(x, Call):
-    #             return x.fcn.name + "(" + ", ".join(dump(y) for y in x.args) + ")"
-    #         elif isinstance(x, Literal):
-    #             return repr(x.value)
-    #         else:
-    #             return repr(x)
-
-    #     p = build(parse("x is integer and y == x"), table)
-    #     print(p)
-    #     print(p.fcn.typeConstraints(SymbolTable({"x": union(boolean, integer, string), "y": union(boolean, integer, string)}), p.args))
-
+        print(build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": Ref("y")})))

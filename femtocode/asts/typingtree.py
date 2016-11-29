@@ -123,6 +123,7 @@ class Ref(TypingTree):
     def retschema(self, frame):
         if frame.defined(self):
             return frame[self], frame
+
         else:
             complain("\"{0}\" is not (yet?) defined in this scope.".format(self.name), self.original)
 
@@ -138,6 +139,18 @@ class Literal(TypingTree):
     def __init__(self, value, original=None):
         self.value = value
         self.original = original
+        if self.value is None:
+            self.schema = null
+        elif self.value is True or self.value is False:
+            self.schema = boolean
+        elif isinstance(self.value, (int, long, float)):
+            self.schema = Number(self.value, self.value, not math.isinf(self.value) and round(self.value) == self.value)
+        elif isinstance(self.value, bytes):
+            self.schema = String("bytes", len(self.value), len(self.value))
+        elif isinstance(self.value, string_types):
+            self.schema = String("unicode", len(self.value), len(self.value))
+        else:
+            raise ProgrammingError("missing implementation")
 
     def __repr__(self):
         return "Literal({0})".format(self.value)
@@ -158,18 +171,7 @@ class Literal(TypingTree):
         return hash((self.order, self.value))
 
     def retschema(self, frame):
-        if self.value is None:
-            return null, frame
-        elif self.value is True or self.value is False:
-            return boolean, frame
-        elif isinstance(self.value, (int, long, float)):
-            return Number(self.value, self.value, not math.isinf(self.value) and round(self.value) == self.value), frame
-        elif isinstance(self.value, bytes):
-            return String("bytes", len(self.value), len(self.value)), frame
-        elif isinstance(self.value, string_types):
-            return String("unicode", len(self.value), len(self.value)), frame
-        else:
-            raise ProgrammingError("missing implementation")
+        return self.schema, frame
 
     def generate(self):
         return repr(self.value)
@@ -253,7 +255,7 @@ class Call(TypingTree):
                 complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
             subframe[self] = out
-            
+
         return out, subframe
 
     def generate(self):
@@ -320,14 +322,14 @@ class Placeholder(TypingTree):
     order = 6
 
     def __init__(self, schema):
-        self.tpe = schema
+        self.schema = schema
 
     def __repr__(self):
-        return "Placeholder({0})".format(self.tpe)
+        return "Placeholder({0})".format(self.schema)
 
     def __lt__(self, other):
         if isinstance(other, Placeholder):
-            return self.tpe < other.tpe
+            return self.schema < other.schema
         else:
             return self.order < other.order
 
@@ -335,44 +337,46 @@ class Placeholder(TypingTree):
         if not isinstance(other, Placeholder):
             return False
         else:
-            return self.tpe == other.tpe
+            return self.schema == other.schema
 
     def __hash__(self):
-        return hash((self.order, self.tpe))
+        return hash((self.order, self.schema))
 
     def retschema(self, frame):
-        return self.tpe, frame
+        return self.schema, frame
 
     def generate(self):
         return "???"
 
-def expandUserFcns(tree, frame):
+def copy(tree, frame):
+    # Used to make new references to subtrees that are UserFunctions.
+    # Different evaluations of UserFunctions must be separate references so that they can have distinct types.
+    # All other references can be referenced in place, since their type is fully determined by referential transparency.
+
     if isinstance(tree, BuiltinFunction):
         return tree
 
     elif isinstance(tree, UserFunction):
         names = tree.names
-        defaults = [None if x is None else expandUserFcns(x, frame) for x in tree.defaults]
-        subframe = frame.fork()
-        for n, d in zip(names, defaults):
-            subframe[n] = d
-        body = expandUserFcns(tree.body, subframe)
+        defaults = [None if x is None else copy(x, frame) for x in tree.defaults]
+        subframe = frame.fork(dict((n, Ref(n)) for n in names))  # don't let shadowed variables get expanded
+        body = copy(tree.body, subframe)
         return UserFunction(names, defaults, body)
 
     elif isinstance(tree, Ref):
-        if frame.get(tree.name) is not None:
+        if frame.defined(tree.name):
             return frame[tree.name]
         else:
-            return tree
+            raise ProgrammingError("{0} exists without any such name in the SymbolFrame {1}".format(tree, frame))
 
     elif isinstance(tree, Literal):
         return tree
 
     elif isinstance(tree, Call):
-        return Call.build(expandUserFcns(tree.fcn, frame), [expandUserFcns(x, frame) for x in tree.args], tree.original)
+        return Call.build(copy(tree.fcn, frame), [copy(x, frame) for x in tree.args], tree.original)
 
     elif isinstance(tree, TypeConstraint):
-        return TypeConstraint(expandUserFcns(tree.instance, frame), tree.schema, tree.original)
+        return TypeConstraint(copy(tree.instance, frame), tree.schema, tree.original)
 
     elif isinstance(tree, Placeholder):
         return tree
@@ -560,7 +564,10 @@ def build(tree, frame):
         elif tree.id == "inf":
             return Literal(float("inf"), tree)
         elif frame.defined(tree.id):
-            return frame[tree.id]
+            if isinstance(frame[tree.id], UserFunction):
+                return copy(frame[tree.id], frame)
+            else:
+                return frame[tree.id]
         else:
             complain("\"{0}\" is not (yet?) defined in this scope.".format(tree.id), tree)
 
@@ -613,7 +620,8 @@ def build(tree, frame):
             return Call.build(frame["u+"], [build(tree.operand, frame)], tree)
         elif isinstance(tree.op, parsingtree.USub):
             return Call.build(frame["u-"], [build(tree.operand, frame)], tree)
-        raise ProgrammingError("unexpected unary operator: {0}".format(tree.op))
+        else:
+            raise ProgrammingError("unexpected unary operator: {0}".format(tree.op))
 
     elif isinstance(tree, parsingtree.Assignment):
         result = build(tree.expression, frame)
@@ -653,8 +661,7 @@ def build(tree, frame):
             builtArgs = [x if isinstance(x, (TypingTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
-                # FIXME: should the subframe be forked or isolated?
-                return expandUserFcns(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))
+                return copy(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))
             else:
                 return Call.build(fcn, builtArgs, tree)
 
