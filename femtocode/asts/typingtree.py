@@ -46,6 +46,9 @@ class BuiltinFunction(Function):
     def __hash__(self):
         return hash((self.order,))
 
+    def typingToColumnar(args, typeframe, colframe):
+        raise ProgrammingError("missing implementation")
+
     def generate(self, args):
         raise ProgrammingError("missing implementation")
 

@@ -274,24 +274,28 @@ def columnarSchemaToInputs(schema, path=()):
             data.extend(columnarSchemaToInputs(possibility, path + (repr(i),)))
         return out
 
-def typingToColumnar(tree, refframe, typeframe):
+def typingToColumnar(tree, typeframe, colframe):
     if isinstance(tree, typingtree.Ref):
-        return refframe[tree.name]
+        if colframe.defined(tree):
+            return colframe[tree]
+        else:
+            raise ProgrammingError("{0} was defined when building typingtree but is not defined at the stage of building columns".format(tree))
 
     elif isinstance(tree, typingtree.Literal):
         return LiteralData(schemaToColumnar(tree.schema), tree.value)
 
     elif isinstance(tree, typingtree.Call):
-        if isinstance(tree.fcn, typingtree.UserFunction):
-            subframe = refframe.fork()
-            for name, arg in zip(tree.fcn.names, tree.args):
-                subframe[name] = typingToColumnar(arg, refframe, typeframe)
-            return typingToColumnar(tree.fcn.body, subframe, typeframe)
-
-        elif isinstance(tree.fcn, typingtree.BuiltinFunction):
-            return tree.fcn.typingToColumnar(tree.args, refframe, typeframe)
+        if isinstance(tree.fcn, typingtree.BuiltinFunction):
+            return tree.fcn.typingToColumnar(tree.args, typeframe, colframe)
 
         else:
+            ### UserFunctions should already have been expanded.
+            ### They appear in arguments to functions like .map, not directly in typingtree.Call
+            # if isinstance(tree.fcn, typingtree.UserFunction):
+            #     subframe = colframe.fork()
+            #     for name, arg in zip(tree.fcn.names, tree.args):
+            #         subframe[name] = typingToColumnar(arg, colframe, typeframe)
+            #     return typingToColumnar(tree.fcn.body, subframe, typeframe)
             raise ProgrammingError("unexpected in typingtree function: {0}".format(tree.fcn))
 
     else:

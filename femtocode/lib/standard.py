@@ -41,7 +41,7 @@ class Is(typingtree.BuiltinFunction):
             return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), frame
 
         return boolean, frame.fork({args[0]: out})
-
+        
     def generate(self, args):
         return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
 
@@ -58,7 +58,7 @@ class Add(typingtree.BuiltinFunction):
         
     def retschema(self, args, frame):
         return inference.add(args[0].retschema(frame)[0], args[1].retschema(frame)[0]), frame
-
+        
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
 
