@@ -18,7 +18,10 @@ import femtocode.parser
 from femtocode.py23 import *
 
 def complain(message, p):
-    femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
+    if p is None:
+        raise FemtocodeError(message)
+    else:
+        femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
 
 ProgrammingError = femtocode.parser.ProgrammingError
 FemtocodeError = femtocode.parser.FemtocodeError

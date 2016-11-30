@@ -148,6 +148,8 @@ class Literal(TypingTree):
             self.schema = String("bytes", len(self.value), len(self.value))
         elif isinstance(self.value, string_types):
             self.schema = String("unicode", len(self.value), len(self.value))
+        elif isinstance(self.value, Schema):
+            self.schema = impossible
         else:
             raise ProgrammingError("missing implementation")
 
@@ -230,11 +232,14 @@ class Call(TypingTree):
         out, subframe = self.fcn.retschema(frame, self.args)
 
         if isinstance(out, Impossible):
-            if out.reason is not None:
-                reason = "\n\n    " + out.reason
+            if self.fcn.name == "is":
+                complain(out.reason, self.original)
             else:
-                reason = ""
-            complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                if out.reason is not None:
+                    reason = "\n\n    " + out.reason
+                else:
+                    reason = ""
+                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
         for expr, t in subframe.itemsHere():
             if isinstance(t, Impossible):
@@ -267,59 +272,9 @@ class Call(TypingTree):
         else:
             return self.fcn.generate(self.args)
 
-class TypeConstraint(TypingTree):
-    order = 5
-
-    def __init__(self, instance, oftype, fcn, original=None):
-        self.instance = instance
-        self.oftype = oftype
-        self.fcn = fcn
-        self.original = original
-
-    def __repr__(self):
-        return "TypeConstraint({0}, {1})".format(self.instance, self.oftype)
-
-    def __lt__(self, other):
-        if isinstance(other, TypeConstraint):
-            if self.instance == other.instance:
-                return self.oftype < other.oftype
-            else:
-                return self.instance < other.instance
-        else:
-            return self.order < other.order
-
-    def __eq__(self, other):
-        if not isinstance(other, TypeConstraint):
-            return False
-        else:
-            return self.instance == other.instance and self.oftype == other.oftype
-
-    def __hash__(self):
-        return hash((self.order, self.instance, self.oftype))
-
-    def retschema(self, frame):
-        subframe = frame.fork()
-        if subframe.defined(self.instance):
-            out = intersection(subframe[self.instance], self.oftype)
-            if isinstance(out, Impossible):
-                if out.reason is not None:
-                    reason = "\n\n    " + out.reason
-                else:
-                    reason = ""
-                complain("Expression {0} cannot be constrained to\n\n{1}\n\n    because it has type\n\n{2}{3}".format(self.instance.generate(), pretty(self.oftype, prefix="        "), pretty(subframe[self.instance], prefix="        "), reason), self.original)
-            subframe[self.instance] = out
-
-        else:
-            subframe[self.instance] = self.oftype
-
-        return boolean, subframe
-
-    def generate(self):
-        return "({0} is {1})".format(self.instance.generate(), repr(self.type))
-
 # these only live long enough to yield their schema; you won't find them in the tree
 class Placeholder(TypingTree):
-    order = 6
+    order = 5
 
     def __init__(self, schema):
         self.schema = schema
@@ -374,9 +329,6 @@ def copy(tree, frame):
 
     elif isinstance(tree, Call):
         return Call.build(copy(tree.fcn, frame), [copy(x, frame) for x in tree.args], tree.original)
-
-    elif isinstance(tree, TypeConstraint):
-        return TypeConstraint(copy(tree.instance, frame), tree.oftype, tree.fcn, tree.original)
 
     elif isinstance(tree, Placeholder):
         return tree
@@ -681,7 +633,7 @@ def build(tree, frame):
 
     elif isinstance(tree, parsingtree.TypeCheck):
         oftype = eval(compile(ast.Expression(buildSchema(tree.schema)), "<schema expression>", "eval"))
-        return TypeConstraint(build(tree.expr, frame), oftype, frame["::"], tree)
+        return Call.build(frame["is"], [build(tree.expr, frame), Literal(oftype, tree.schema), Literal(tree.negate, tree)], tree)
 
     elif isinstance(tree, parsingtree.Suite):
         if len(tree.assignments) > 0:

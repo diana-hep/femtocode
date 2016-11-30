@@ -107,7 +107,8 @@ class TestTypeIntegration(unittest.TestCase):
     def test_if(self):
         self.expecting(union(integer(10, 10), integer(20, 20)), "if test: 10 else: 20", test=boolean)
         self.expecting(union(integer(10, 10), null), "if test: 10 else: None", test=boolean)
-        self.expecting(union(real, null), "if x is real: x + 5 else: None", x=real)
+        self.expecting(FemtocodeError, "if x is real: x + 5 else: None", x=real)
+        self.expecting(union(real(min=15), null), "if x is real(min=10): x + 5 else: None", x=real)
         self.expecting(union(real(5, 5), null), "if x == 5: x else: None", x=real)
         self.expecting(union(real(5, 5), real(0, 0)), "if x == 5: x else: 0", x=real)
         self.expecting(union(real(5, almost(inf)), null), "if x is real(0, almost(inf)): x + 5 else: None", x=real)

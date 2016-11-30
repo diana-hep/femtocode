@@ -982,18 +982,20 @@ def _pretty(schema, depth, comma, memo):
 def pretty(schema, highlight=lambda t: "", indent="  ", prefix=""):
     return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
 
-def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", width=None):
+def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
     one = _pretty(one, 0, "", set())
     two = _pretty(two, 0, "", set())
     i1 = 0
     i2 = 0
     if width is None:
         width = max(max([len(indent)*depth + len(line) for depth, line, _ in one]), max([len(indent)*depth + len(line) for depth, line, _ in two]))
+        if header is not None:
+            width = max([width, len(header[0]), len(header[1])])
 
     if header is not None:
         left, right = header   # assuming header is a 2-tuple of strings
-        out = [("{0:%d} {1:%d} {2:%d}" % (width, len(between(None, None)), width)).format(left[:width], "|", right[:width]),
-               ("-" * width) + "-+-" + ("-" * width)]
+        out = [(prefix + "{0:%d} {1:%d} {2:%d}" % (width, len(between(None, None)), width)).format(left[:width], "|", right[:width]),
+               (prefix + "-" * width) + "-+-" + ("-" * width)]
     else:
         out = []
 
@@ -1009,14 +1011,14 @@ def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 
             line2 = ("{0:%d}" % width).format(line2[:width])
         
         if d1 == d2:
-            out.append(line1 + " " + between(t1, t2) + " " + line2)
+            out.append(prefix + line1 + " " + between(t1, t2) + " " + line2)
             i1 += 1
             i2 += 1
         elif d1 > d2:
-            out.append(line1 + " " + between(t1, None) + " " + (" " * width))
+            out.append(prefix + line1 + " " + between(t1, None) + " " + (" " * width))
             i1 += 1
         elif d2 > d1:
-            out.append((" " * width) + " " + between(None, t2) + " " + line2)
+            out.append(prefix + (" " * width) + " " + between(None, t2) + " " + line2)
             i2 += 1
 
     return "\n".join(out)

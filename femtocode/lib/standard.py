@@ -22,13 +22,30 @@ from femtocode.typesystem import *
 
 table = SymbolTable()
 
-class IsType(typingtree.BuiltinFunction):
-    name = "::"
+class Is(typingtree.BuiltinFunction):
+    name = "is"
 
-    def literaleval(self, args):
-        pass
+    # def literaleval(self, args):
+    #     pass
 
-table[IsType.name] = IsType()
+    def retschema(self, frame, args):
+        fromtype = args[0].retschema(frame)[0]
+        totype = args[1].value   # literal type expression
+        negate = args[2].value   # literal boolean
+
+        if negate:
+            out = difference(fromtype, totype)
+        else:
+            out = intersection(fromtype, totype)
+        if isinstance(out, Impossible):
+            return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), frame
+
+        return boolean, frame.fork({args[0]: out})
+
+    def generate(self, args):
+        return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
+
+table[Is.name] = Is()
 
 class Add(typingtree.BuiltinFunction):
     name = "+"
@@ -205,15 +222,15 @@ class If(typingtree.BuiltinFunction):
     name = "if"
 
     def retschema(self, frame, args):
-        predicates = args[0::3]
-        antipredicates = args[1::3]
-        consequents = args[2::3]
+        predicates = args[:-1][0::3]
+        antipredicates = args[:-1][1::3]
+        consequents = args[:-1][2::3]
         alternate = args[-1]
 
         topframe = frame.fork()
         subframe = topframe
         outtypes = []
-        for predicate, antipredicate, consequent in zip(predicates, antipredicates, consequents):
+        for index, (predicate, antipredicate, consequent) in enumerate(zip(predicates, antipredicates, consequents)):
             try:
                 pschema, pframe = predicate.retschema(subframe)
             except FemtocodeError as err:
@@ -224,7 +241,11 @@ class If(typingtree.BuiltinFunction):
             try:
                 aschema, aframe = antipredicate.retschema(subframe)
             except FemtocodeError as err:
-                raise FemtocodeError("Error while negating \"if\" predicate. " + str(err))
+                if index == len(predicates) - 1:
+                    which = "\"else\""
+                else:
+                    which = "\"elif\""
+                raise FemtocodeError("Error while negating predicate for {0} clause. {1}".format(which, str(err)))
             if not isinstance(pschema, Boolean):
                 complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.retschema(frame)[0], prefix="    "))), predicate.original)
 
