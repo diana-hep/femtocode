@@ -22,89 +22,51 @@ from femtocode.typesystem import *
 class TypedTree(object):
     pass
 
-class SimpleRef(lispytree.Ref):
+class Ref(lispytree.Ref):
     order = 0
 
-    def __init__(self, schema, name, original=None):
+    def __init__(self, name, schema, dependencies=None, original=None):
+        self.name = name
         self.schema = schema
-        super(SimpleRef, self).__init__(name, original)
+        self.dependencies = dependencies
+        self.original = original
 
     def __repr__(self):
-        return "SimpleRef({0}, {1})".format(self.schema, self.name)
+        return "Ref({0}, {1}, {2})".format(self.name, self.schema, self.dependencies)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
-            if isinstance(other, SimpleRef):
-                if self.schema == other.schema:
+            if self.order == other.order:
+                if self.name == other.name:
+                    return self.schema < other.schema
+                else:
                     return self.name < other.name
-                else:
-                    return self.schema < other.schema
             else:
                 return self.order < other.order
         else:
             return True
 
     def __eq__(self, other):
-        if isinstance(other, SimpleRef):
-            return self.schema == other.schema and self.name == other.name
-        else:
-            return False
+        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema
 
     def __hash__(self):
-        return hash((SimpleRef, self.name, self.schema))
-
-class EmbeddedRef(lispytree.Ref):
-    order = 1
-
-    def __init__(self, schema, name, caller, callargs, original=None):
-        self.schema = schema
-        self.caller = caller
-        self.callargs = tuple(callargs)
-        super(EmbeddedRef, self).__init__(name, original)
-
-    def __repr__(self):
-        return "EmbeddedRef({0}, {1}, {2}, {3})".format(self.schema, self.caller, self.callargs, self.name)
-
-    def __lt__(self, other):
-        if isinstance(other, TypedTree):
-            if isinstance(other, EmbeddedRef):
-                if self.schema == other.schema:
-                    if self.name == other.name:
-                        if self.caller == other.caller:
-                            return self.callargs < other.callargs
-                        else:
-                            return self.caller < other.caller
-                    else:
-                        return self.name < other.name
-                else:
-                    return self.schema < other.schema
-            else:
-                return self.order < other.order
-        else:
-            return True
-
-    def __eq__(self, other):
-        if isinstance(other, EmbeddedRef):
-            return self.schema == other.schema and self.name == other.name and self.caller == other.caller and self.callargs == other.callargs
-        else:
-            return False
-
-    def __hash__(self):
-        return hash((EmbeddedRef, self.schema, self.name, self.caller, self.callargs))
+        return hash((Ref, self.name, self.schema))
 
 class Literal(lispytree.Literal):
-    order = 2
+    order = 1
 
-    def __init__(self, schema, value, original=None):
+    def __init__(self, value, schema, dependencies=None, original=None):
+        self.value = value
         self.schema = schema
-        super(Literal, self).__init__(value, original)
+        self.dependencies = dependencies
+        self.original = original
 
     def __repr__(self):
-        return "Literal({0}, {1})".format(self.schema, self.value)
+        return "Literal({0}, {1}, {2})".format(self.value, self.schema, self.dependencies)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
-            if isinstance(other, Literal):
+            if self.order == other.order:
                 if self.schema == other.schema:
                     return self.value < other.value
                 else:
@@ -115,105 +77,106 @@ class Literal(lispytree.Literal):
             return True
 
     def __eq__(self, other):
-        if isinstance(other, Literal):
-            return self.schema == other.schema and self.value == other.value
-        else:
-            return False
+        return other.__class__ == Literal and self.value == other.value and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Literal, self.schema, self.value))
+        return hash((Literal, self.value, self.schema))
     
 class Call(lispytree.Call):
-    order = 3
+    order = 2
 
-    def __init__(self, schema, fcn, args, original=None):
+    def __init__(self, fcn, args, schema, dependencies=None, original=None):
+        self.fcn = fcn
+        self.args = args
         self.schema = schema
-        super(Call, self).__init__(fcn, args, original)
-
-    def __repr__(self):
-        return "Call({0}, {1}, {2})".format(self.schema, self.fcn, self.args)
-
-    def __lt__(self, other):
-        if isinstance(other, TypedTree):
-            if isinstance(other, Call):
-                if self.schema == other.schema:
-                    if self.fcn == other.fcn:
-                        return self.args < other.args
-                    else:
-                        return self.fcn < other.fcn
-                else:
-                    return self.schema < other.schema
-            else:
-                return self.order < other.order
-        else:
-            return True
-
-    def __eq__(self, other):
-        if isinstance(other, Call):
-            return self.schema == other.schema and self.fcn == other.fcn and self.args == other.args
-        else:
-            return False
-
-    def __hash__(self):
-        return hash((Call, self.schema, self.fcn, self.sortedargs()))
-
-class UserFunction(lispytree.UserFunction):
-    order = 4
-
-    def __init__(self, schema, refs, body, original=None):
-        self.schema = schema
-        self.refs = refs
-        self.body = body
+        self.dependencies = dependencies
         self.original = original
 
     def __repr__(self):
-        return "UserFunction({0}, {1}, {2})".format(self.schema, self.refs, self.body)
+        return "Call({0}, {1}, {2}, {3})".format(self.fcn, self.args, self.schema, self.dependencies)
+
+    def commuteargs(self):
+        if self.fcn.commutative():
+            return tuple(sorted(self.args))
+        else:
+            return self.args
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
-            if isinstance(other, UserFunction):
-                if self.schema == other.schema:
-                    if self.refs == other.refs:
-                        return self.body < other.body
+            if self.order == other.order:
+                if self.fcn == other.fcn:
+                    if self.args == other.args:
+                        return self.schema < other.schema
                     else:
-                        return self.refs < other.refs
+                        return self.commuteargs() < other.commuteargs()
                 else:
-                    return self.schema < other.schema
+                    return self.fcn < other.fcn
+            else:
+                return self.order == other.order
+        else:
+            return True
+
+    def __eq__(self, other):
+        return other.__class__ == Call and self.fcn == other.fcn and self.commuteargs() == other.commuteargs() and self.schema == other.schema
+
+    def __hash__(self):
+        return hash((Call, self.fcn, self.commuteargs(), self.schema))
+
+class UserFunction(lispytree.UserFunction):
+    order = 3
+
+    def __init__(self, refs, body, schema, dependencies=None, original=None):
+        self.refs = refs
+        self.body = body
+        self.schema = schema
+        self.dependencies = dependencies
+        self.original = original
+
+    def __repr__(self):
+        return "UserFunction({0}, {1}, {2}, {3})".format(self.refs, self.body, self.schema, self.dependencies)
+
+    def __lt__(self, other):
+        if isinstance(other, TypedTree):
+            if self.order == other.order:
+                if self.refs == other.refs:
+                    if self.body == other.body:
+                        return self.schema < other.schema
+                    else:
+                        return self.body < other.body
+                else:
+                    return self.refs < other.refs
             else:
                 return self.order < other.order
         else:
             return True
 
     def __eq__(self, other):
-        if isinstance(other, UserFunction):
-            return self.schema == other.schema and self.refs == other.refs and self.body == other.body
-        else:
-            return False
+        return other.__class__ == UserFunction and self.refs == other.refs and self.body == other.body and self.schema == other.schema
 
     def __hash__(self):
-        return hash((UserFcn, self.schema, self.refs, self.body))
+        return hash((UserFunction, self.refs, self.body, self.schema))
 
 def buildUserFunction(fcn, schemas, caller, callargs, frame):
     if len(fcn.names) != len(schemas):
         raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
 
-    refs = [EmbeddedRef(s, n, caller, callargs) for n, s in zip(fcn.names, schemas)]
+    refs = [Ref(n, s, None) for n, s in zip(fcn.names, schemas)]
     body = build(fcn.body, frame.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))))[0]
-    return UserFunction(body.schema, refs, body, fcn.original)
+    return UserFunction(refs, body, body.schema, None, fcn.original)
 
 def build(tree, frame):
     if isinstance(tree, lispytree.Ref):
         if frame.defined(tree):
-            return SimpleRef(frame[tree], tree.name, tree.original), frame
+            return Ref(tree.name, frame[tree], None, tree.original), frame
         else:
             raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(self))
         
     elif isinstance(tree, lispytree.Literal):
-        return Literal(tree.schema, tree.value, tree.original), frame
+        return Literal(tree.value, tree.schema, None, tree.original), frame
 
     elif isinstance(tree, lispytree.Call):
-        if isinstance(tree.fcn, UserFunction):
-            raise ProgrammingError("UserFunctions should not directly appear in lispytree.Call: {0}".format(tree))
+        if not isinstance(tree.fcn, lispytree.BuiltinFunction):
+            raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
 
         schema, typedargs, subframe = tree.fcn.buildTyped(tree.args, frame)
 
@@ -246,7 +209,7 @@ def build(tree, frame):
 
             subframe[tree] = schema
 
-        return Call(schema, tree.fcn, tree.args, tree.original), subframe
+        return Call(tree.fcn, tree.args, schema, None, tree.original), subframe
 
     else:
         raise ProgrammingError("unexpected in lispytree: {0}".format(tree))

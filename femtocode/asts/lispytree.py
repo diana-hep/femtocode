@@ -31,16 +31,19 @@ class BuiltinFunction(Function):
         return "BuiltinFunction[\"{0}\"]".format(self.name)
 
     def __lt__(self, other):
-        if isinstance(other, BuiltinFunction):
-            return self.name < other.name
+        if isinstance(other, (Function, LispyTree)):
+            if self.order == other.order:
+                return self.name < other.name
+            else:
+                return self.order < other.order
         else:
-            return self.order < other.order
+            return True
 
     def __eq__(self, other):
         return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash((BuiltinFunction,))
+        return hash((self.__class__,))
 
     def buildTyped(self, args, frame):
         raise ProgrammingError("missing implementation")
@@ -64,22 +67,22 @@ class UserFunction(Function):
         return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
 
     def __lt__(self, other):
-        if isinstance(other, UserFunction):
-            if self.names == other.names:
-                if self.defaults == defaults:
-                    return self.body < other.body
+        if isinstance(other, (Function, LispyTree)):
+            if self.order == other.order:
+                if self.names == other.names:
+                    if self.defaults == other.defaults:
+                        return self.body < other.body
+                    else:
+                        return self.defaults < other.defaults
                 else:
-                    return self.defaults < other.defaults
+                    return self.names < other.names
             else:
-                return self.names < other.names
+                return self.order < other.order
         else:
-            return self.order < other.order
+            return True
 
     def __eq__(self, other):
-        if not isinstance(other, UserFunction):
-            return False
-        else:
-            return self.names == other.names and self.defaults == other.defaults and self.body == other.body
+        return other.__class__ == UserFunction and self.names == other.names and self.defaults == other.defaults and self.body == other.body
 
     def __hash__(self):
         return hash((UserFunction, self.names, self.defaults, self.body))
@@ -98,21 +101,16 @@ class Ref(LispyTree):
         return "Ref({0})".format(self.name)
 
     def __lt__(self, other):
-        if isinstance(other, Ref):
-            if isinstance(self.name, int) and isinstance(other.name, string_types):
-                return True
-            elif isinstance(self.name, string_types) and isinstance(other.name, int):
-                return False
-            else:
+        if isinstance(other, (Function, LispyTree)):
+            if self.order == other.order:
                 return self.name < other.name
+            else:
+                return self.order < other.order
         else:
-            return self.order < other.order
+            return True
 
     def __eq__(self, other):
-        if not isinstance(other, Ref):
-            return False
-        else:
-            return self.name == other.name
+        return other.__class__ == Ref and self.name == other.name
 
     def __hash__(self):
         return hash((Ref, self.name))
@@ -148,16 +146,19 @@ class Literal(LispyTree):
         return "Literal({0})".format(self.value)
 
     def __lt__(self, other):
-        if isinstance(other, Literal):
-            return self.value < other.value
+        if isinstance(other, (Function, LispyTree)):
+            if self.order == other.order:
+                if self.schema == other.schema:
+                    return self.value < other.value
+                else:
+                    return self.schema < other.schema
+            else:
+                return self.order < other.order
         else:
-            return self.order < other.order
+            return True
 
     def __eq__(self, other):
-        if not isinstance(other, Literal):
-            return False
-        else:
-            return self.value == other.value
+        return other.__class__ == Literal and self.value == other.value
 
     def __hash__(self):
         return hash((Literal, self.value))
@@ -192,29 +193,29 @@ class Call(LispyTree):
     def __repr__(self):
         return "Call({0}, {1})".format(self.fcn, self.args)
 
-    def sortedargs(self):
+    def commuteargs(self):
         if self.fcn.commutative():
             return tuple(sorted(self.args))
         else:
             return self.args
 
     def __lt__(self, other):
-        if isinstance(other, Call):
-            if self.fcn == other.fcn:
-                return self.sortedargs() < other.sortedargs()
+        if isinstance(other, (Function, LispyTree)):
+            if self.order == other.order:
+                if self.fcn == other.fcn:
+                    return self.commuteargs() < other.commuteargs()
+                else:
+                    return self.fcn < other.fcn
             else:
-                return self.fcn < other.fcn
+                return self.order < other.order
         else:
-            return self.order < other.order
+            return True
 
     def __eq__(self, other):
-        if not isinstance(other, Call):
-            return False
-        else:
-            return self.fcn == other.fcn and self.sortedargs() == other.sortedargs()
+        return other.__class__ == Call and self.fcn == other.fcn and self.commuteargs() == other.commuteargs()
 
     def __hash__(self):
-        return hash((Call, self.fcn, self.sortedargs()))
+        return hash((Call, self.fcn, self.commuteargs()))
 
     def generate(self):
         if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):
