@@ -40,7 +40,7 @@ class BuiltinFunction(Function):
         return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash((self.order,))
+        return hash((BuiltinFunction,))
 
     def buildTyped(self, args, frame):
         raise ProgrammingError("missing implementation")
@@ -82,7 +82,7 @@ class UserFunction(Function):
             return self.names == other.names and self.defaults == other.defaults and self.body == other.body
 
     def __hash__(self):
-        return hash((self.order, self.names, self.defaults, self.body))
+        return hash((UserFunction, self.names, self.defaults, self.body))
 
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults)
@@ -115,7 +115,7 @@ class Ref(LispyTree):
             return self.name == other.name
 
     def __hash__(self):
-        return hash((self.order, self.name))
+        return hash((Ref, self.name))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -160,7 +160,7 @@ class Literal(LispyTree):
             return self.value == other.value
 
     def __hash__(self):
-        return hash((self.order, self.value))
+        return hash((Literal, self.value))
 
     def generate(self):
         return repr(self.value)
@@ -214,7 +214,7 @@ class Call(LispyTree):
             return self.fcn == other.fcn and self.sortedargs() == other.sortedargs()
 
     def __hash__(self):
-        return hash((self.order, self.fcn, self.sortedargs()))
+        return hash((Call, self.fcn, self.sortedargs()))
 
     def generate(self):
         if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):

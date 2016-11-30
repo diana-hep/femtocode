@@ -318,7 +318,7 @@ class Map(lispytree.BuiltinFunction):
         else:
             return impossible("Second argument must be a function."), [], frame
 
-        typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
+        typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], self, [typedarg0, None], frame)
 
         return collection(typedarg1.schema), [typedarg0, typedarg1], frame
 
