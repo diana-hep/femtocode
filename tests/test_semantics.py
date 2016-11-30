@@ -19,7 +19,7 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.typingtree import *
+from femtocode.asts.lispytree import *
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse

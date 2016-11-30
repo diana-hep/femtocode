@@ -15,14 +15,14 @@
 # limitations under the License.
 
 from femtocode import inference
-from femtocode.asts import typingtree
+from femtocode.asts import lispytree
 from femtocode.asts import columnartree
 from femtocode.defs import *
 from femtocode.typesystem import *
 
 table = SymbolTable()
 
-class Is(typingtree.BuiltinFunction):
+class Is(lispytree.BuiltinFunction):
     name = "is"
 
     # def literaleval(self, args):
@@ -47,7 +47,7 @@ class Is(typingtree.BuiltinFunction):
 
 table[Is.name] = Is()
 
-class Add(typingtree.BuiltinFunction):
+class Add(lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -64,7 +64,7 @@ class Add(typingtree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Eq(typingtree.BuiltinFunction):
+class Eq(lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -85,7 +85,7 @@ class Eq(typingtree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(typingtree.BuiltinFunction):
+class NotEq(lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -97,10 +97,10 @@ class NotEq(typingtree.BuiltinFunction):
     def retschema(self, args, frame):
         const = None
         expr = None
-        if isinstance(args[0], typingtree.Literal):
+        if isinstance(args[0], lispytree.Literal):
             const = args[0].value
             expr = args[1]
-        elif isinstance(args[1], typingtree.Literal):
+        elif isinstance(args[1], lispytree.Literal):
             const = args[1].value
             expr = args[0]
 
@@ -118,7 +118,7 @@ class NotEq(typingtree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(typingtree.BuiltinFunction):
+class And(lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -168,7 +168,7 @@ class And(typingtree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(typingtree.BuiltinFunction):
+class Or(lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -204,7 +204,7 @@ class Or(typingtree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(typingtree.BuiltinFunction):
+class Not(lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
@@ -218,7 +218,7 @@ class Not(typingtree.BuiltinFunction):
 
 table[Not.name] = Not()
 
-class If(typingtree.BuiltinFunction):
+class If(lispytree.BuiltinFunction):
     name = "if"
 
     def retschema(self, args, frame):
@@ -267,7 +267,7 @@ class If(typingtree.BuiltinFunction):
             
 table[If.name] = If()
 
-class Map(typingtree.BuiltinFunction):
+class Map(lispytree.BuiltinFunction):
     name = ".map"
             
     def arity(self, index):
@@ -287,7 +287,7 @@ class Map(typingtree.BuiltinFunction):
         if not isinstance(args[1], Function):
             return impossible("Second argument must be a function."), frame
 
-        return collection(args[1].retschema([typingtree.Placeholder(targ0.items)], frame)[0]), frame
+        return collection(args[1].retschema([lispytree.Placeholder(targ0.items)], frame)[0]), frame
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

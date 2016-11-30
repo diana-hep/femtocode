@@ -22,9 +22,9 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-# this kind of AST can include TypingTree instances and Function instances
+# this kind of AST can include LispyTree instances and Function instances
         
-class TypingTree(object):
+class LispyTree(object):
     def retschema(self, frame):
         raise ProgrammingError("missing implementation")
 
@@ -93,7 +93,7 @@ class UserFunction(Function):
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults)
 
-class Ref(TypingTree):
+class Ref(LispyTree):
     order = 2
 
     def __init__(self, name, original=None):
@@ -127,7 +127,7 @@ class Ref(TypingTree):
         if frame.defined(self):
             return frame[self], frame
         else:
-            raise ProgrammingError("{0} was defined when building typingtree but is not defined in the typing stage".format(self))
+            raise ProgrammingError("{0} was defined when building lispytree but is not defined in the typing stage".format(self))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -135,7 +135,7 @@ class Ref(TypingTree):
         else:
             return self.name
 
-class Literal(TypingTree):
+class Literal(LispyTree):
     order = 3
 
     def __init__(self, value, original=None):
@@ -180,7 +180,7 @@ class Literal(TypingTree):
     def generate(self):
         return repr(self.value)
 
-class Call(TypingTree):
+class Call(LispyTree):
     order = 4
 
     @staticmethod
@@ -276,7 +276,7 @@ class Call(TypingTree):
             return self.fcn.generate(self.args)
 
 # these only live long enough to yield their schema; you won't find them in the tree
-class Placeholder(TypingTree):
+class Placeholder(LispyTree):
     order = 5
 
     def __init__(self, schema):
@@ -613,7 +613,7 @@ def build(tree, frame):
             except TypeError as err:
                 complain(str(err), tree)
 
-            builtArgs = [x if isinstance(x, (TypingTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
+            builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
                 return copy(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))

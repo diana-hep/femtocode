@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import femtocode.asts.typingtree as typingtree
+import femtocode.asts.lispytree as lispytree
 import femtocode.typesystem as typesystem
 
 ### Columnar typesystem for execution
@@ -275,28 +275,28 @@ def columnarSchemaToInputs(schema, path=()):
         return out
 
 def typingToColumnar(tree, typeframe, colframe):
-    if isinstance(tree, typingtree.Ref):
+    if isinstance(tree, lispytree.Ref):
         if colframe.defined(tree):
             return colframe[tree]
         else:
-            raise ProgrammingError("{0} was defined when building typingtree but is not defined at the stage of building columns".format(tree))
+            raise ProgrammingError("{0} was defined when building lispytree but is not defined at the stage of building columns".format(tree))
 
-    elif isinstance(tree, typingtree.Literal):
+    elif isinstance(tree, lispytree.Literal):
         return LiteralData(schemaToColumnar(tree.schema), tree.value)
 
-    elif isinstance(tree, typingtree.Call):
-        if isinstance(tree.fcn, typingtree.BuiltinFunction):
+    elif isinstance(tree, lispytree.Call):
+        if isinstance(tree.fcn, lispytree.BuiltinFunction):
             return tree.fcn.typingToColumnar(tree.args, typeframe, colframe)
 
         else:
             ### UserFunctions should already have been expanded.
-            ### They appear in arguments to functions like .map, not directly in typingtree.Call
-            # if isinstance(tree.fcn, typingtree.UserFunction):
+            ### They appear in arguments to functions like .map, not directly in lispytree.Call
+            # if isinstance(tree.fcn, lispytree.UserFunction):
             #     subframe = colframe.fork()
             #     for name, arg in zip(tree.fcn.names, tree.args):
             #         subframe[name] = typingToColumnar(arg, colframe, typeframe)
             #     return typingToColumnar(tree.fcn.body, subframe, typeframe)
-            raise ProgrammingError("unexpected in typingtree function: {0}".format(tree.fcn))
+            raise ProgrammingError("unexpected in lispytree function: {0}".format(tree.fcn))
 
     else:
-        raise ProgrammingError("unexpected in typingtree: {0}".format(tree))
+        raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
