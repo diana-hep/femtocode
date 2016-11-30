@@ -25,32 +25,32 @@ class TypedTree(object):
 class Ref(lispytree.Ref):
     order = 0
 
-    def __init__(self, name, schema, dependencies=None, original=None):
-        self.name = name
+    def __init__(self, identifier, schema, dependencies=None, original=None):
+        self.identifier = identifier
         self.schema = schema
         self.dependencies = dependencies
         self.original = original
 
     def __repr__(self):
-        return "Ref({0}, {1}, {2})".format(self.name, self.schema, self.dependencies)
+        return "Ref({0}, {1}, {2})".format(self.identifier, self.schema, self.dependencies)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
             if self.order == other.order:
-                if self.name == other.name:
+                if self.identifier == other.identifier:
                     return self.schema < other.schema
                 else:
-                    return self.name < other.name
+                    return self.identifier < other.identifier
             else:
                 return self.order < other.order
         else:
             return True
 
     def __eq__(self, other):
-        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema
+        return other.__class__ == Ref and self.identifier == other.identifier and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema))
+        return hash((Ref, self.identifier, self.schema))
 
 class Literal(lispytree.Literal):
     order = 1
@@ -156,18 +156,18 @@ class UserFunction(lispytree.UserFunction):
     def __hash__(self):
         return hash((UserFunction, self.refs, self.body, self.schema))
 
-def buildUserFunction(fcn, schemas, caller, callargs, frame):
+def buildUserFunction(fcn, schemas, frame, depth):
     if len(fcn.names) != len(schemas):
         raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
 
-    refs = [Ref(n, s, None) for n, s in zip(fcn.names, schemas)]
-    body = build(fcn.body, frame.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))))[0]
+    refs = [Ref((n, depth), s, None) for n, s in zip(fcn.names, schemas)]
+    body = build(fcn.body, frame.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))), depth + 1)[0]
     return UserFunction(refs, body, body.schema, None, fcn.original)
 
-def build(tree, frame):
+def build(tree, frame, depth=0):
     if isinstance(tree, lispytree.Ref):
         if frame.defined(tree):
-            return Ref(tree.name, frame[tree], None, tree.original), frame
+            return Ref((tree.name, depth), frame[tree], None, tree.original), frame
         else:
             raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(self))
         
@@ -178,7 +178,7 @@ def build(tree, frame):
         if not isinstance(tree.fcn, lispytree.BuiltinFunction):
             raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
 
-        schema, typedargs, subframe = tree.fcn.buildTyped(tree.args, frame)
+        schema, typedargs, subframe = tree.fcn.buildTyped(tree.args, frame, depth)
 
         if isinstance(schema, Impossible):
             if tree.fcn.name == "is":
