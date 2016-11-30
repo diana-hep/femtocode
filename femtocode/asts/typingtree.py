@@ -81,7 +81,7 @@ class UserFunction(Function):
     def __hash__(self):
         return hash((self.order, self.names, self.defaults, self.body))
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         subframe = frame.fork()
         for name, arg in zip(self.names, args):
             subframe[Ref(name)] = arg.retschema(frame)[0]
@@ -184,7 +184,7 @@ class Call(TypingTree):
     def build(fcn, args, original=None):
         if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
             empty = SymbolTable()
-            schema = fcn.retschema(empty, args)[0]
+            schema = fcn.retschema(args, empty)[0]
             if isinstance(schema, Impossible):
                 if schema.reason is not None:
                     reason = "\n\n    " + schema.reason
@@ -229,7 +229,7 @@ class Call(TypingTree):
         return hash((self.order, self.fcn, self.sortedargs()))
 
     def retschema(self, frame):
-        out, subframe = self.fcn.retschema(frame, self.args)
+        out, subframe = self.fcn.retschema(self.args, frame)
 
         if isinstance(out, Impossible):
             if self.fcn.name == "is":

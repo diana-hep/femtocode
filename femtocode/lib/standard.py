@@ -28,7 +28,7 @@ class Is(typingtree.BuiltinFunction):
     # def literaleval(self, args):
     #     pass
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         fromtype = args[0].retschema(frame)[0]
         totype = args[1].value   # literal type expression
         negate = args[2].value   # literal boolean
@@ -56,7 +56,7 @@ class Add(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return sum(args)
         
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         return inference.add(args[0].retschema(frame)[0], args[1].retschema(frame)[0]), frame
 
     def generate(self, args):
@@ -73,7 +73,7 @@ class Eq(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] == args[1]
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         out = intersection(args[0].retschema(frame)[0], args[1].retschema(frame)[0])
         if isinstance(out, Impossible):
             return impossible("The argument types have no overlap (values can never be equal)."), frame
@@ -94,7 +94,7 @@ class NotEq(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] != args[1]
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         const = None
         expr = None
         if isinstance(args[0], typingtree.Literal):
@@ -127,7 +127,7 @@ class And(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return all(args)
         
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = set()
@@ -177,7 +177,7 @@ class Or(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return any(args)
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = None
@@ -210,7 +210,7 @@ class Not(typingtree.BuiltinFunction):
     def literaleval(self, args):
         return not args
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         if not isinstance(args[0].retschema(frame)[0], Boolean):
             return impossible("Argument must be boolean."), frame
         else:
@@ -221,7 +221,7 @@ table[Not.name] = Not()
 class If(typingtree.BuiltinFunction):
     name = "if"
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -276,7 +276,7 @@ class Map(typingtree.BuiltinFunction):
         else:
             return None
 
-    def retschema(self, frame, args):
+    def retschema(self, args, frame):
         if len(args) != 2:
             return impossible("Exactly two arguments required."), frame
 
@@ -287,7 +287,7 @@ class Map(typingtree.BuiltinFunction):
         if not isinstance(args[1], Function):
             return impossible("Second argument must be a function."), frame
 
-        return collection(args[1].retschema(frame, [typingtree.Placeholder(targ0.items)])[0]), frame
+        return collection(args[1].retschema([typingtree.Placeholder(targ0.items)], frame)[0]), frame
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

@@ -289,8 +289,7 @@ def typingToColumnar(tree, refframe, typeframe):
             return typingToColumnar(tree.fcn.body, subframe, typeframe)
 
         elif isinstance(tree.fcn, typingtree.BuiltinFunction):
-            pass  # HERE
-
+            return tree.fcn.typingToColumnar(tree.args, refframe, typeframe)
 
         else:
             raise ProgrammingError("unexpected in typingtree function: {0}".format(tree.fcn))
