@@ -39,15 +39,15 @@ class TestSemantics(unittest.TestCase):
     def test_simple1(self):
         p = build(parse("x"), table.fork({"x": Ref("x")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("x"): integer})))
+        print(p.getschema(SymbolTable({Ref("x"): integer})))
 
         p = build(parse("x + 3"), table.fork({"x": Ref("x")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("x"): integer})))
+        print(p.getschema(SymbolTable({Ref("x"): integer})))
 
         p = build(parse("y = x + 3; y + 1"), table.fork({"x": Ref("x")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("x"): integer})))
+        print(p.getschema(SymbolTable({Ref("x"): integer})))
 
         p = build(parse("{x => x + 3}"), table.fork({"x": Ref("x")}))
         print(p)
@@ -60,19 +60,19 @@ class TestSemantics(unittest.TestCase):
 
         p = build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
         p = build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": Ref("xs")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
         p = build(parse("xs.map(3.14 + $1)"), table.fork({"xs": Ref("xs")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
         p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
         try:
             build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
@@ -91,11 +91,11 @@ class TestSemantics(unittest.TestCase):
 
         p = build(parse("xs.map(3.14)"), table.fork({"xs": Ref("xs")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
         p = build(parse("y = x + 3; y"), table.fork({"x": Ref("x")}))
         print(p)
-        print(p.retschema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
+        print(p.getschema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
 
         print(build(parse("def f(x): {y => x + y}; f"), table))
 

@@ -39,12 +39,12 @@ class TestTypeIntegration(unittest.TestCase):
     @staticmethod
     def expecting(result, code, verbose=False, **symbolTypes):
         if isinstance(result, Schema):
-            actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
+            actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).getschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
             if actual != result:
                 raise AssertionError("\"{0}\" resulted in the wrong type:\n\n{1}".format(code, compare(result, actual, ("expected", "actual"))))
         else:
             try:
-                actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).retschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
+                actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).getschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
             except result as err:
                 if verbose:
                     print("\n" + str(err))

@@ -25,7 +25,7 @@ from femtocode.typesystem import *
 # this kind of AST can include LispyTree instances and Function instances
         
 class LispyTree(object):
-    def retschema(self, frame):
+    def getschema(self, frame):
         raise ProgrammingError("missing implementation")
 
 class BuiltinFunction(Function):
@@ -84,11 +84,11 @@ class UserFunction(Function):
     def __hash__(self):
         return hash((self.order, self.names, self.defaults, self.body))
 
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         subframe = frame.fork()
         for name, arg in zip(self.names, args):
-            subframe[Ref(name)] = arg.retschema(frame)[0]
-        return self.body.retschema(subframe)[0], subframe
+            subframe[Ref(name)] = arg.getschema(frame)[0]
+        return self.body.getschema(subframe)[0], subframe
 
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults)
@@ -123,7 +123,7 @@ class Ref(LispyTree):
     def __hash__(self):
         return hash((self.order, self.name))
 
-    def retschema(self, frame):
+    def getschema(self, frame):
         if frame.defined(self):
             return frame[self], frame
         else:
@@ -174,7 +174,7 @@ class Literal(LispyTree):
     def __hash__(self):
         return hash((self.order, self.value))
 
-    def retschema(self, frame):
+    def getschema(self, frame):
         return self.schema, frame
 
     def generate(self):
@@ -187,13 +187,13 @@ class Call(LispyTree):
     def build(fcn, args, original=None):
         if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
             empty = SymbolTable()
-            schema = fcn.retschema(args, empty)[0]
+            schema = fcn.getschema(args, empty)[0]
             if isinstance(schema, Impossible):
                 if schema.reason is not None:
                     reason = "\n\n    " + schema.reason
                 else:
                     reason = ""
-                complain("Function \"{0}\" does not accept arguments with the given literal types:\n\n    {0}({1}){2}".format(fcn.name, ",\n    {0} ".format(" " * len(fcn.name)).join(pretty(x.retschema(empty)[0], prefix="     " + " " * len(fcn.name)).lstrip() for x in args), reason), original)
+                complain("Function \"{0}\" does not accept arguments with the given literal types:\n\n    {0}({1}){2}".format(fcn.name, ",\n    {0} ".format(" " * len(fcn.name)).join(pretty(x.getschema(empty)[0], prefix="     " + " " * len(fcn.name)).lstrip() for x in args), reason), original)
             else:
                 return Literal(fcn.literaleval([x.value for x in args]), original)
         else:
@@ -231,8 +231,8 @@ class Call(LispyTree):
     def __hash__(self):
         return hash((self.order, self.fcn, self.sortedargs()))
 
-    def retschema(self, frame):
-        out, subframe = self.fcn.retschema(self.args, frame)
+    def getschema(self, frame):
+        out, subframe = self.fcn.getschema(self.args, frame)
 
         if isinstance(out, Impossible):
             if self.fcn.name == "is":
@@ -242,7 +242,7 @@ class Call(LispyTree):
                     reason = "\n\n    " + out.reason
                 else:
                     reason = ""
-                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
         for expr, t in subframe.itemsHere():
             if isinstance(t, Impossible):
@@ -250,7 +250,7 @@ class Call(LispyTree):
                     reason = "\n\n    " + out.reason
                 else:
                     reason = ""
-                complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
         if frame.defined(self):
             out = intersection(frame[self], out)
@@ -259,7 +259,7 @@ class Call(LispyTree):
                     reason = "\n\n    " + out.reason
                 else:
                     reason = ""
-                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.retschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
+                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
 
             subframe[self] = out
 
@@ -300,11 +300,11 @@ class Placeholder(LispyTree):
     def __hash__(self):
         return hash((self.order, self.schema))
 
-    def retschema(self, frame):
+    def getschema(self, frame):
         return self.schema, frame
 
     def generate(self):
-        return "???"
+        raise ProgrammingError("Placeholders shouldn't appear in lispytrees")
 
 def copy(tree, frame):
     # Used to make new references to subtrees that are UserFunctions.

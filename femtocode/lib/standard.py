@@ -25,11 +25,11 @@ table = SymbolTable()
 class Is(lispytree.BuiltinFunction):
     name = "is"
 
-    # def literaleval(self, args):
-    #     pass
+    def literaleval(self, args):
+        return True
 
-    def retschema(self, args, frame):
-        fromtype = args[0].retschema(frame)[0]
+    def getschema(self, args, frame):
+        fromtype = args[0].getschema(frame)[0]
         totype = args[1].value   # literal type expression
         negate = args[2].value   # literal boolean
 
@@ -56,8 +56,8 @@ class Add(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return sum(args)
         
-    def retschema(self, args, frame):
-        return inference.add(args[0].retschema(frame)[0], args[1].retschema(frame)[0]), frame
+    def getschema(self, args, frame):
+        return inference.add(args[0].getschema(frame)[0], args[1].getschema(frame)[0]), frame
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
@@ -73,8 +73,8 @@ class Eq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] == args[1]
 
-    def retschema(self, args, frame):
-        out = intersection(args[0].retschema(frame)[0], args[1].retschema(frame)[0])
+    def getschema(self, args, frame):
+        out = intersection(args[0].getschema(frame)[0], args[1].getschema(frame)[0])
         if isinstance(out, Impossible):
             return impossible("The argument types have no overlap (values can never be equal)."), frame
         else:
@@ -94,7 +94,7 @@ class NotEq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] != args[1]
 
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         const = None
         expr = None
         if isinstance(args[0], lispytree.Literal):
@@ -105,7 +105,7 @@ class NotEq(lispytree.BuiltinFunction):
             expr = args[0]
 
         if expr is not None:
-            subframe = frame.fork({expr: inference.literal(expr.retschema(frame)[0], "!=", const)})
+            subframe = frame.fork({expr: inference.literal(expr.getschema(frame)[0], "!=", const)})
             if isinstance(subframe[expr], Impossible):
                 return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const))
         else:
@@ -127,13 +127,13 @@ class And(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return all(args)
         
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = set()
 
         for arg in args:
-            t, subsubframe = arg.retschema(subframe)
+            t, subsubframe = arg.getschema(subframe)
             keys = keys.union(subsubframe.keys(subframe))
             subsubframes.append(subsubframe)
 
@@ -148,11 +148,11 @@ class And(lispytree.BuiltinFunction):
                     constraint = intersection(*constraints)
                     if not isinstance(constraint, Impossible):
                         # Ignore the impossible ones for now; they'll come up again (with a more appropriate
-                        # error message) below in arg.retschema(tmpframe).
+                        # error message) below in arg.getschema(tmpframe).
                         tmpframe[k] = constraint
 
             # Check the type again, this time with all others as preconditions (regarless of order).
-            if not isinstance(arg.retschema(tmpframe)[0], Boolean):
+            if not isinstance(arg.getschema(tmpframe)[0], Boolean):
                 return impossible("All arguments must be boolean."), frame
             
         # 'and' constraints become intersections.
@@ -177,13 +177,13 @@ class Or(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return any(args)
 
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = None
 
         for arg in args:
-            t, subsubframe = arg.retschema(subframe)
+            t, subsubframe = arg.getschema(subframe)
             if not isinstance(t, Boolean):
                 return impossible("All arguments must be boolean."), frame
             subsubframes.append(subsubframe)
@@ -210,8 +210,8 @@ class Not(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return not args
 
-    def retschema(self, args, frame):
-        if not isinstance(args[0].retschema(frame)[0], Boolean):
+    def getschema(self, args, frame):
+        if not isinstance(args[0].getschema(frame)[0], Boolean):
             return impossible("Argument must be boolean."), frame
         else:
             return boolean, frame
@@ -221,7 +221,7 @@ table[Not.name] = Not()
 class If(lispytree.BuiltinFunction):
     name = "if"
 
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -232,14 +232,14 @@ class If(lispytree.BuiltinFunction):
         outtypes = []
         for index, (predicate, antipredicate, consequent) in enumerate(zip(predicates, antipredicates, consequents)):
             try:
-                pschema, pframe = predicate.retschema(subframe)
+                pschema, pframe = predicate.getschema(subframe)
             except FemtocodeError as err:
                 raise FemtocodeError("Error in \"if\" predicate. " + str(err))
             if not isinstance(pschema, Boolean):
-                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(pschema.retschema(frame)[0], prefix="    "))), predicate.original)
+                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(pschema.getschema(frame)[0], prefix="    "))), predicate.original)
 
             try:
-                aschema, aframe = antipredicate.retschema(subframe)
+                aschema, aframe = antipredicate.getschema(subframe)
             except FemtocodeError as err:
                 if index == len(predicates) - 1:
                     which = "\"else\""
@@ -247,14 +247,14 @@ class If(lispytree.BuiltinFunction):
                     which = "\"elif\""
                 raise FemtocodeError("Error while negating predicate for {0} clause. {1}".format(which, str(err)))
             if not isinstance(pschema, Boolean):
-                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.retschema(frame)[0], prefix="    "))), predicate.original)
+                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.getschema(frame)[0], prefix="    "))), predicate.original)
 
-            schema, subsubframe = consequent.retschema(pframe)
+            schema, subsubframe = consequent.getschema(pframe)
             outtypes.append(schema)
 
             subframe = aframe
 
-        schema, subsubframe = alternate.retschema(subframe)
+        schema, subsubframe = alternate.getschema(subframe)
         outtypes.append(schema)
 
         return union(*outtypes), topframe
@@ -276,18 +276,18 @@ class Map(lispytree.BuiltinFunction):
         else:
             return None
 
-    def retschema(self, args, frame):
+    def getschema(self, args, frame):
         if len(args) != 2:
             return impossible("Exactly two arguments required."), frame
 
-        targ0 = args[0].retschema(frame)[0]
+        targ0 = args[0].getschema(frame)[0]
         if not isinstance(targ0, Collection):
             return impossible("First argument must be a collection."), frame
 
         if not isinstance(args[1], Function):
             return impossible("Second argument must be a function."), frame
 
-        return collection(args[1].retschema([lispytree.Placeholder(targ0.items)], frame)[0]), frame
+        return collection(args[1].getschema([lispytree.Placeholder(targ0.items)], frame)[0]), frame
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"
