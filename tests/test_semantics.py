@@ -19,7 +19,8 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.lispytree import *
+import femtocode.asts.lispytree as lispytree
+import femtocode.asts.typedtree as typedtree
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
@@ -37,82 +38,82 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        p = build(parse("x"), table.fork({"x": Ref("x")}))
+        p = lispytree.build(parse("x"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("x"): integer})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = build(parse("x + 3"), table.fork({"x": Ref("x")}))
+        p = lispytree.build(parse("x + 3"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("x"): integer})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = build(parse("y = x + 3; y + 1"), table.fork({"x": Ref("x")}))
+        p = lispytree.build(parse("y = x + 3; y + 1"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("x"): integer})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = build(parse("{x => x + 3}"), table.fork({"x": Ref("x")}))
-        print(p)
-
-        p = build(parse("def f(x): x + 3.14;\nf"), table)
+        p = lispytree.build(parse("{x => x + 3}"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
 
-        p = build(parse("def f(q): q + 3;  f(x)"), table.fork({"x": Ref("x")}))
+        p = lispytree.build(parse("def f(x): x + 3.14;\nf"), table)
         print(p)
 
-        p = build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        p = lispytree.build(parse("def f(q): q + 3;  f(x)"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
 
-        p = build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": Ref("xs")}))
+        p = lispytree.build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = build(parse("xs.map(3.14 + $1)"), table.fork({"xs": Ref("xs")}))
+        p = lispytree.build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": lispytree.Ref("xs")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+        p = lispytree.build(parse("xs.map(3.14 + $1)"), table.fork({"xs": lispytree.Ref("xs")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
+
+        p = lispytree.build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
+        print(p)
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
         try:
-            build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+            lispytree.build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
         except FemtocodeError as err:
             print(err)
 
         try:
-            build(parse("xs.map()"), table.fork({"xs": Ref("xs")}))
+            lispytree.build(parse("xs.map()"), table.fork({"xs": lispytree.Ref("xs")}))
         except FemtocodeError as err:
             print(err)
         
         try:
-            build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table.fork({"xs": Ref("xs")}))
+            lispytree.build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
         except FemtocodeError as err:
             print(err)
 
-        p = build(parse("xs.map(3.14)"), table.fork({"xs": Ref("xs")}))
+        p = lispytree.build(parse("xs.map(3.14)"), table.fork({"xs": lispytree.Ref("xs")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("xs"): collection(integer)})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = build(parse("y = x + 3; y"), table.fork({"x": Ref("x")}))
+        p = lispytree.build(parse("y = x + 3; y"), table.fork({"x": lispytree.Ref("x")}))
         print(p)
-        print(p.getschema(SymbolTable({Ref("x"): integer, Call(table["+"], [Literal(3), Ref("x")]): real})))
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer, lispytree.Call(table["+"], [lispytree.Literal(3), lispytree.Ref("x")]): real}))[0].schema)
 
-        print(build(parse("def f(x): {y => x + y}; f"), table))
+        print(lispytree.build(parse("def f(x): {y => x + y}; f"), table))
 
-        print(build(parse("def f(x): {y => x + y}; f(3)"), table))
+        print(lispytree.build(parse("def f(x): {y => x + y}; f(3)"), table))
 
-        print(build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
+        print(lispytree.build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
 
-        print(build(parse("y == 2"), table.fork({"y": Ref("y")})))
+        print(lispytree.build(parse("y == 2"), table.fork({"y": lispytree.Ref("y")})))
 
-        print(build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": Ref("y")})))
+        print(lispytree.build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": lispytree.Ref("y")})))
 
         try:
-            build(parse("def f(x): x; g(2)"), table)
+            lispytree.build(parse("def f(x): x; g(2)"), table)
         except FemtocodeError as err:
             print(err)
 
         try:
-            build(parse("g = 8; g(2)"), table)
+            lispytree.build(parse("g = 8; g(2)"), table)
         except FemtocodeError as err:
             print(err)

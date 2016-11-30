@@ -36,9 +36,6 @@ class Function(object):
     def constrain(self, frame, args):
         return {}
 
-    def retschema(self, args, frame):
-        raise ProgrammingError("missing implementation")
-
     def sortargs(self, positional, named):
         if len(named) > 0:
             raise ProgrammingError("{0} function shouldn't get named arguments".format(self.name))

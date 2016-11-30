@@ -16,6 +16,7 @@
 
 from femtocode import inference
 from femtocode.asts import lispytree
+from femtocode.asts import typedtree
 from femtocode.asts import columnartree
 from femtocode.defs import *
 from femtocode.typesystem import *
@@ -28,20 +29,37 @@ class Is(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return True
 
-    def getschema(self, args, frame):
-        fromtype = args[0].getschema(frame)[0]
-        totype = args[1].value   # literal type expression
-        negate = args[2].value   # literal boolean
+    # def getschema(self, args, frame):
+    #     fromtype = args[0].getschema(frame)[0]
+    #     totype = args[1].value   # literal type expression
+    #     negate = args[2].value   # literal boolean
+
+    #     if negate:
+    #         out = difference(fromtype, totype)
+    #     else:
+    #         out = intersection(fromtype, totype)
+    #     if isinstance(out, Impossible):
+    #         return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), frame
+
+    #     return boolean, frame.fork({args[0]: out})
+
+    def buildTyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+
+        fromtype = typedargs[0].schema
+        totype = typedargs[1].value   # literal type expression
+        negate = typedargs[2].value   # literal boolean
 
         if negate:
             out = difference(fromtype, totype)
         else:
             out = intersection(fromtype, totype)
-        if isinstance(out, Impossible):
-            return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), frame
 
-        return boolean, frame.fork({args[0]: out})
-        
+        if isinstance(out, Impossible):
+            return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), typedargs, frame
+
+        return boolean, typedargs, frame.fork({args[0]: out})
+
     def generate(self, args):
         return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
 
@@ -56,8 +74,12 @@ class Add(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return sum(args)
         
-    def getschema(self, args, frame):
-        return inference.add(args[0].getschema(frame)[0], args[1].getschema(frame)[0]), frame
+    # def getschema(self, args, frame):
+    #     return inference.add(args[0].getschema(frame)[0], args[1].getschema(frame)[0]), frame
+        
+    def buildTyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
@@ -73,12 +95,20 @@ class Eq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] == args[1]
 
-    def getschema(self, args, frame):
-        out = intersection(args[0].getschema(frame)[0], args[1].getschema(frame)[0])
+    # def getschema(self, args, frame):
+    #     out = intersection(args[0].getschema(frame)[0], args[1].getschema(frame)[0])
+    #     if isinstance(out, Impossible):
+    #         return impossible("The argument types have no overlap (values can never be equal)."), frame
+    #     else:
+    #         return boolean, frame.fork({args[0]: out, args[1]: out})
+
+    def buildTyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        out = intersection(typedargs[0].schema, typedargs[1].schema)
         if isinstance(out, Impossible):
-            return impossible("The argument types have no overlap (values can never be equal)."), frame
+            return impossible("The argument types have no overlap (values can never be equal)."), typedargs, frame
         else:
-            return boolean, frame.fork({args[0]: out, args[1]: out})
+            return boolean, typedargs, frame.fork({args[0]: out, args[1]: out})
 
     def generate(self, args):
         return "({0} == {1})".format(args[0].generate(), args[1].generate())
@@ -94,24 +124,47 @@ class NotEq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] != args[1]
 
-    def getschema(self, args, frame):
+    # def getschema(self, args, frame):
+    #     const = None
+    #     expr = None
+    #     if isinstance(args[0], lispytree.Literal):
+    #         const = args[0].value
+    #         expr = args[1]
+    #     elif isinstance(args[1], lispytree.Literal):
+    #         const = args[1].value
+    #         expr = args[0]
+
+    #     if expr is not None:
+    #         subframe = frame.fork({expr: inference.literal(expr.getschema(frame)[0], "!=", const)})
+    #         if isinstance(subframe[expr], Impossible):
+    #             return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const))
+    #     else:
+    #         subframe = frame.fork()
+
+    #     return boolean, subframe
+
+    def buildTyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+
         const = None
         expr = None
         if isinstance(args[0], lispytree.Literal):
             const = args[0].value
             expr = args[1]
+            restriction = inference.literal(typedargs[1].schema, "!=", const)
         elif isinstance(args[1], lispytree.Literal):
             const = args[1].value
             expr = args[0]
+            restriction = inference.literal(typedargs[0].schema, "!=", const)
 
         if expr is not None:
-            subframe = frame.fork({expr: inference.literal(expr.getschema(frame)[0], "!=", const)})
+            subframe = frame.fork({expr: restriction})
             if isinstance(subframe[expr], Impossible):
-                return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const))
+                return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const)), typedargs, frame
         else:
             subframe = frame.fork()
 
-        return boolean, subframe
+        return boolean, typedargs, subframe
 
     def generate(self, args):
         return "({0} == {1})".format(args[0].generate(), args[1].generate())
@@ -127,16 +180,54 @@ class And(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return all(args)
         
-    def getschema(self, args, frame):
+    # def getschema(self, args, frame):
+    #     subframe = frame.fork()
+    #     subsubframes = []
+    #     keys = set()
+
+    #     for arg in args:
+    #         t, subsubframe = arg.getschema(subframe)
+    #         keys = keys.union(subsubframe.keys(subframe))
+    #         subsubframes.append(subsubframe)
+
+    #     for i in xrange(len(args)):
+    #         arg = args[i]
+    #         tmpframe = subframe.fork()
+    #         for k in keys:
+    #             # Combine all constraints except the ones in 'arg' so that they can be used as preconditions,
+    #             # regardless of the order in which the constraints are written.
+    #             constraints = [f[k] for f in [subsubframes[j] for j in xrange(len(args)) if i != j] if f.defined(k)]
+    #             if len(constraints) > 0:
+    #                 constraint = intersection(*constraints)
+    #                 if not isinstance(constraint, Impossible):
+    #                     # Ignore the impossible ones for now; they'll come up again (with a more appropriate
+    #                     # error message) below in arg.getschema(tmpframe).
+    #                     tmpframe[k] = constraint
+
+    #         # Check the type again, this time with all others as preconditions (regarless of order).
+    #         if not isinstance(arg.getschema(tmpframe)[0], Boolean):
+    #             return impossible("All arguments must be boolean."), frame
+            
+    #     # 'and' constraints become intersections.
+    #     for k in keys:
+    #         constraints = [f[k] for f in subsubframes if f.defined(k)]
+    #         if len(constraints) > 0:
+    #             subframe[k] = intersection(*constraints)
+
+    #     return boolean, subframe
+
+    def buildTyped(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = set()
 
         for arg in args:
-            t, subsubframe = arg.getschema(subframe)
+            # First pass gets all constraints in isolation.
+            typedarg, subsubframe = typedtree.build(arg, subframe)
             keys = keys.union(subsubframe.keys(subframe))
             subsubframes.append(subsubframe)
 
+        typedargs = []
         for i in xrange(len(args)):
             arg = args[i]
             tmpframe = subframe.fork()
@@ -152,8 +243,11 @@ class And(lispytree.BuiltinFunction):
                         tmpframe[k] = constraint
 
             # Check the type again, this time with all others as preconditions (regarless of order).
-            if not isinstance(arg.getschema(tmpframe)[0], Boolean):
-                return impossible("All arguments must be boolean."), frame
+            typedargs.append(typedtree.build(arg, tmpframe)[0])
+
+        for typedarg in typedargs:
+            if not isinstance(typedarg.schema, Boolean):
+                return impossible("All arguments must be boolean."), typedargs, frame
             
         # 'and' constraints become intersections.
         for k in keys:
@@ -161,7 +255,7 @@ class And(lispytree.BuiltinFunction):
             if len(constraints) > 0:
                 subframe[k] = intersection(*constraints)
 
-        return boolean, subframe
+        return boolean, typedargs, subframe
 
     def generate(self, args):
         return "(" + " and ".join(x.generate() for x in args) + ")"
@@ -177,15 +271,38 @@ class Or(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return any(args)
 
-    def getschema(self, args, frame):
+    # def getschema(self, args, frame):
+    #     subframe = frame.fork()
+    #     subsubframes = []
+    #     keys = None
+
+    #     for arg in args:
+    #         t, subsubframe = arg.getschema(subframe)
+    #         if not isinstance(t, Boolean):
+    #             return impossible("All arguments must be boolean."), frame
+    #         subsubframes.append(subsubframe)
+    #         if keys is None:
+    #             keys = subsubframe.keys(subframe)
+    #         else:
+    #             # Only apply a constraint if it is mentioned in all arguments of the 'or'.
+    #             keys = keys.intersection(subsubframe.keys(subframe))
+
+    #     # 'or' constraints become unions.
+    #     for k in keys:
+    #         subframe[k] = union(*[f[k] for f in subsubframes])
+                    
+    #     return boolean, subframe
+
+    def buildTyped(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = None
 
+        typedargs = []
         for arg in args:
-            t, subsubframe = arg.getschema(subframe)
-            if not isinstance(t, Boolean):
-                return impossible("All arguments must be boolean."), frame
+            typedarg, subsubframe = typedtree.build(arg, subframe)
+            typedargs.append(typedarg)
+
             subsubframes.append(subsubframe)
             if keys is None:
                 keys = subsubframe.keys(subframe)
@@ -196,8 +313,12 @@ class Or(lispytree.BuiltinFunction):
         # 'or' constraints become unions.
         for k in keys:
             subframe[k] = union(*[f[k] for f in subsubframes])
+
+        for typedarg in typedargs:
+            if not isinstance(typedarg.schema, Boolean):
+                return impossible("All arguments must be boolean."), typedargs, frame
                     
-        return boolean, subframe
+        return boolean, typedargs, subframe
 
     def generate(self, args):
         return "(" + " or ".join(x.generate() for x in args) + ")"
@@ -210,18 +331,63 @@ class Not(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return not args
 
-    def getschema(self, args, frame):
-        if not isinstance(args[0].getschema(frame)[0], Boolean):
-            return impossible("Argument must be boolean."), frame
+    # def getschema(self, args, frame):
+    #     if not isinstance(args[0].getschema(frame)[0], Boolean):
+    #         return impossible("Argument must be boolean."), frame
+    #     else:
+    #         return boolean, frame
+
+    def buildTyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        if not isinstance(typedargs[0].schema, Boolean):
+            return impossible("Argument must be boolean."), typedargs, frame
         else:
-            return boolean, frame
+            return boolean, typedargs, frame
 
 table[Not.name] = Not()
 
 class If(lispytree.BuiltinFunction):
     name = "if"
 
-    def getschema(self, args, frame):
+    # def getschema(self, args, frame):
+    #     predicates = args[:-1][0::3]
+    #     antipredicates = args[:-1][1::3]
+    #     consequents = args[:-1][2::3]
+    #     alternate = args[-1]
+
+    #     topframe = frame.fork()
+    #     subframe = topframe
+    #     outtypes = []
+    #     for index, (predicate, antipredicate, consequent) in enumerate(zip(predicates, antipredicates, consequents)):
+    #         try:
+    #             pschema, pframe = predicate.getschema(subframe)
+    #         except FemtocodeError as err:
+    #             raise FemtocodeError("Error in \"if\" predicate. " + str(err))
+    #         if not isinstance(pschema, Boolean):
+    #             complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(pschema.getschema(frame)[0], prefix="    "))), predicate.original)
+
+    #         try:
+    #             aschema, aframe = antipredicate.getschema(subframe)
+    #         except FemtocodeError as err:
+    #             if index == len(predicates) - 1:
+    #                 which = "\"else\""
+    #             else:
+    #                 which = "\"elif\""
+    #             raise FemtocodeError("Error while negating predicate for {0} clause. {1}".format(which, str(err)))
+    #         if not isinstance(pschema, Boolean):
+    #             complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.getschema(frame)[0], prefix="    "))), predicate.original)
+
+    #         schema, subsubframe = consequent.getschema(pframe)
+    #         outtypes.append(schema)
+
+    #         subframe = aframe
+
+    #     schema, subsubframe = alternate.getschema(subframe)
+    #     outtypes.append(schema)
+
+    #     return union(*outtypes), topframe
+
+    def buildTyped(self, args, frame):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -229,35 +395,41 @@ class If(lispytree.BuiltinFunction):
 
         topframe = frame.fork()
         subframe = topframe
-        outtypes = []
+        typedargs = []
+        outschemas = []
         for index, (predicate, antipredicate, consequent) in enumerate(zip(predicates, antipredicates, consequents)):
             try:
-                pschema, pframe = predicate.getschema(subframe)
+                typedpred, predframe = typedtree.build(predicate, subframe)
             except FemtocodeError as err:
                 raise FemtocodeError("Error in \"if\" predicate. " + str(err))
-            if not isinstance(pschema, Boolean):
-                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(pschema.getschema(frame)[0], prefix="    "))), predicate.original)
+            if not isinstance(typedpred.schema, Boolean):
+                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedpred.schema, prefix="    "))), predicate.original)
 
             try:
-                aschema, aframe = antipredicate.getschema(subframe)
+                typedanti, antiframe = typedtree.build(antipredicate, subframe)
             except FemtocodeError as err:
                 if index == len(predicates) - 1:
                     which = "\"else\""
                 else:
                     which = "\"elif\""
                 raise FemtocodeError("Error while negating predicate for {0} clause. {1}".format(which, str(err)))
-            if not isinstance(pschema, Boolean):
-                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(aschema.getschema(frame)[0], prefix="    "))), predicate.original)
 
-            schema, subsubframe = consequent.getschema(pframe)
-            outtypes.append(schema)
+            if not isinstance(typedanti.schema, Boolean):
+                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedanti.schema, prefix="    "))), predicate.original)
 
-            subframe = aframe
+            typedcons = typedtree.build(consequent, predframe)[0]
 
-        schema, subsubframe = alternate.getschema(subframe)
-        outtypes.append(schema)
+            typedargs.append(typedpred)
+            typedargs.append(typedanti)
+            typedargs.append(typedcons)
+            outschemas.append(typedcons.schema)
+            subframe = antiframe
 
-        return union(*outtypes), topframe
+        typedalt = typedtree.build(alternate, subframe)[0]
+        typedargs.append(typedalt)
+        outschemas.append(typedalt.schema)
+
+        return union(*outschemas), typedargs, topframe
 
     def generate(self, args):
         predicates = args[0::3]
@@ -276,18 +448,37 @@ class Map(lispytree.BuiltinFunction):
         else:
             return None
 
-    def getschema(self, args, frame):
+    # def getschema(self, args, frame):
+    #     if len(args) != 2:
+    #         return impossible("Exactly two arguments required."), frame
+
+    #     targ0 = args[0].getschema(frame)[0]
+    #     if not isinstance(targ0, Collection):
+    #         return impossible("First argument must be a collection."), frame
+
+    #     if not isinstance(args[1], Function):
+    #         return impossible("Second argument must be a function."), frame
+
+    #     return collection(args[1].getschema([lispytree.Placeholder(targ0.items)], frame)[0]), frame
+
+    def buildTyped(self, args, frame):
         if len(args) != 2:
-            return impossible("Exactly two arguments required."), frame
+            return impossible("Exactly two arguments required."), [], frame
 
-        targ0 = args[0].getschema(frame)[0]
-        if not isinstance(targ0, Collection):
-            return impossible("First argument must be a collection."), frame
+        typedarg0 = typedtree.build(args[0], frame)[0]
+        if not isinstance(typedarg0.schema, Collection):
+            return impossible("First argument must be a collection."), [], frame
 
-        if not isinstance(args[1], Function):
-            return impossible("Second argument must be a function."), frame
+        if isinstance(args[1], lispytree.BuiltinFunction):
+            fcn = lispytree.UserFunction([1], [None], lispytree.Call(args[1], [lispytree.Ref(1)], args[1].original))
+        elif isinstance(args[1], lispytree.UserFunction):
+            fcn = args[1]
+        else:
+            return impossible("Second argument must be a function."), [], frame
 
-        return collection(args[1].getschema([lispytree.Placeholder(targ0.items)], frame)[0]), frame
+        typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
+
+        return collection(typedarg1.schema), [typedarg0, typedarg1], frame
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

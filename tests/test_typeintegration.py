@@ -19,7 +19,8 @@ import re
 import sys
 import unittest
 
-from femtocode.asts.lispytree import *
+import femtocode.asts.lispytree as lispytree
+import femtocode.asts.typedtree as typedtree
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
@@ -38,13 +39,18 @@ class TestTypeIntegration(unittest.TestCase):
 
     @staticmethod
     def expecting(result, code, verbose=False, **symbolTypes):
+        def doit():
+            lt = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in symbolTypes)))
+            tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in symbolTypes.items())))
+            return tt.schema
+
         if isinstance(result, Schema):
-            actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).getschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
+            actual = doit()
             if actual != result:
                 raise AssertionError("\"{0}\" resulted in the wrong type:\n\n{1}".format(code, compare(result, actual, ("expected", "actual"))))
         else:
             try:
-                actual = build(parse(code), table.fork(dict((n, Ref(n)) for n in symbolTypes))).getschema(SymbolTable(dict((Ref(n), t) for n, t in symbolTypes.items())))[0]
+                actual = doit()
             except result as err:
                 if verbose:
                     print("\n" + str(err))
