@@ -22,11 +22,7 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-# this kind of AST can include LispyTree instances and Function instances
-        
 class LispyTree(object): pass
-    # def getschema(self, frame):
-    #     raise ProgrammingError("missing implementation")
 
 class BuiltinFunction(Function):
     order = 0
@@ -88,12 +84,6 @@ class UserFunction(Function):
     def __hash__(self):
         return hash((self.order, self.names, self.defaults, self.body))
 
-    # def getschema(self, args, frame):
-    #     subframe = frame.fork()
-    #     for name, arg in zip(self.names, args):
-    #         subframe[Ref(name)] = arg.getschema(frame)[0]
-    #     return self.body.getschema(subframe)[0], subframe
-
     def sortargs(self, positional, named):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults)
 
@@ -126,12 +116,6 @@ class Ref(LispyTree):
 
     def __hash__(self):
         return hash((self.order, self.name))
-
-    # def getschema(self, frame):
-    #     if frame.defined(self):
-    #         return frame[self], frame
-    #     else:
-    #         raise ProgrammingError("{0} was defined when building lispytree but is not defined in the typing stage".format(self))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -177,9 +161,6 @@ class Literal(LispyTree):
 
     def __hash__(self):
         return hash((self.order, self.value))
-
-    # def getschema(self, frame):
-    #     return self.schema, frame
 
     def generate(self):
         return repr(self.value)
@@ -235,40 +216,6 @@ class Call(LispyTree):
     def __hash__(self):
         return hash((self.order, self.fcn, self.sortedargs()))
 
-    # def getschema(self, frame):
-    #     out, subframe = self.fcn.getschema(self.args, frame)
-
-    #     if isinstance(out, Impossible):
-    #         if self.fcn.name == "is":
-    #             complain(out.reason, self.original)
-    #         else:
-    #             if out.reason is not None:
-    #                 reason = "\n\n    " + out.reason
-    #             else:
-    #                 reason = ""
-    #             complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
-
-    #     for expr, t in subframe.itemsHere():
-    #         if isinstance(t, Impossible):
-    #             if t.reason is not None:
-    #                 reason = "\n\n    " + out.reason
-    #             else:
-    #                 reason = ""
-    #             complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(self.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame.parent)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
-
-    #     if frame.defined(self):
-    #         out = intersection(frame[self], out)
-    #         if isinstance(out, Impossible):
-    #             if out.reason is not None:
-    #                 reason = "\n\n    " + out.reason
-    #             else:
-    #                 reason = ""
-    #             complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(self.generate(), pretty(frame[self], prefix="        "), self.fcn.name, ",\n    {0} ".format(" " * len(self.fcn.name)).join(pretty(x.getschema(frame)[0], prefix="     " + " " * len(self.fcn.name)).lstrip() for x in self.args), reason), self.original)
-
-    #         subframe[self] = out
-
-    #     return out, subframe
-
     def generate(self):
         if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):
             return self.fcn.body.generate()
@@ -279,46 +226,15 @@ class Call(LispyTree):
         else:
             return self.fcn.generate(self.args)
 
-# these only live long enough to yield their schema; you won't find them in the tree
-class Placeholder(LispyTree):
-    order = 5
-
-    def __init__(self, schema):
-        self.schema = schema
-
-    def __repr__(self):
-        return "Placeholder({0})".format(self.schema)
-
-    def __lt__(self, other):
-        if isinstance(other, Placeholder):
-            return self.schema < other.schema
-        else:
-            return self.order < other.order
-
-    def __eq__(self, other):
-        if not isinstance(other, Placeholder):
-            return False
-        else:
-            return self.schema == other.schema
-
-    def __hash__(self):
-        return hash((self.order, self.schema))
-
-    # def getschema(self, frame):
-    #     return self.schema, frame
-
-    def generate(self):
-        raise ProgrammingError("Placeholders shouldn't appear in lispytrees")
-
-def copy(tree, frame):
+def expandUserFunction(tree, frame):
     if isinstance(tree, BuiltinFunction):
         return tree
 
     elif isinstance(tree, UserFunction):
         names = tree.names
-        defaults = [None if x is None else copy(x, frame) for x in tree.defaults]
+        defaults = [None if x is None else expandUserFunction(x, frame) for x in tree.defaults]
         subframe = frame.fork(dict((n, Ref(n)) for n in names))  # don't let shadowed variables get expanded
-        body = copy(tree.body, subframe)
+        body = expandUserFunction(tree.body, subframe)
         return UserFunction(names, defaults, body, tree.original)
 
     elif isinstance(tree, Ref):
@@ -331,10 +247,7 @@ def copy(tree, frame):
         return tree
 
     elif isinstance(tree, Call):
-        return Call.build(copy(tree.fcn, frame), [copy(x, frame) for x in tree.args], tree.original)
-
-    elif isinstance(tree, Placeholder):
-        return tree
+        return Call.build(expandUserFunction(tree.fcn, frame), [expandUserFunction(x, frame) for x in tree.args], tree.original)
 
     else:
         raise ProgrammingError("unrecognized functiontree: " + repr(tree))
@@ -613,7 +526,7 @@ def build(tree, frame):
             builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
-                return copy(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))
+                return expandUserFunction(fcn.body, frame.fork(dict(zip(fcn.names, builtArgs))))
             else:
                 return Call.build(fcn, builtArgs, tree)
 
