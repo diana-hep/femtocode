@@ -160,29 +160,36 @@ class UserFunction(lispytree.UserFunction):
     def __hash__(self):
         return hash((UserFunction, self.refs, self.body, self.schema))
 
-def buildUserFunction(fcn, schemas, frame, loc, fcnloc):
+def buildUserFunction(fcn, schemas, typeframe, refframe, loc):
     if len(fcn.names) != len(schemas):
         raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
 
-    refs = [Ref(n, fcnloc, s) for n, s in zip(fcn.names, schemas)]
-    body = build(fcn.body, frame.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))), loc + (0,), fcnloc)[0]
+    refs = [Ref(n, loc, s) for n, s in zip(fcn.names, schemas)]
+    body = build(fcn.body,
+                 typeframe.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))),
+                 refframe.fork(dict((n, ref) for ref in refs)),
+                 loc)[0]
     return UserFunction(refs, body, body.schema, fcn.original)
 
-def build(tree, frame, loc=(0,), fcnloc=()):
+def build(tree, typeframe, refframe=None, loc=()):
+    if refframe is None:
+        refframe = SymbolTable(dict((ref.name, Ref(ref.name, (), s)) for ref, s in typeframe.itemsHere() if isinstance(ref, lispytree.Ref)))
+
     if isinstance(tree, lispytree.Ref):
-        if frame.defined(tree):
-            return Ref(tree.name, fcnloc, frame[tree], tree.original), frame
+        if typeframe.defined(tree) and refframe.defined(tree.name):
+            out = Ref(tree.name, refframe[tree.name].fcnloc, typeframe[tree], tree.original), typeframe
+            return out
         else:
             raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(self))
         
     elif isinstance(tree, lispytree.Literal):
-        return Literal(tree.value, tree.schema, tree.original), frame
+        return Literal(tree.value, tree.schema, tree.original), typeframe
 
     elif isinstance(tree, lispytree.Call):
         if not isinstance(tree.fcn, lispytree.BuiltinFunction):
             raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
 
-        schema, typedargs, subframe = tree.fcn.buildTyped(tree.args, frame, loc, fcnloc)
+        schema, typedargs, subtypeframe = tree.fcn.buildTyped(tree.args, typeframe, refframe, loc)
 
         if isinstance(schema, Impossible):
             if tree.fcn.name == "is":
@@ -194,7 +201,7 @@ def build(tree, frame, loc=(0,), fcnloc=()):
                     reason = ""
                 complain("Function \"{0}\" does not accept arguments with the given types:\n\n    {0}({1}){2}".format(tree.fcn.name, ",\n    {0} ".format(" " * len(tree.fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(tree.fcn.name)).lstrip() for x in typedargs), reason), tree.original)
 
-        for expr, t in subframe.itemsHere():
+        for expr, t in subtypeframe.itemsHere():
             if isinstance(t, Impossible):
                 if t.reason is not None:
                     reason = "\n\n    " + t.reason
@@ -202,18 +209,18 @@ def build(tree, frame, loc=(0,), fcnloc=()):
                     reason = ""
                 complain("Function \"{0}\" puts impossible constraints on {1}:\n\n    {0}({2}){3}".format(tree.fcn.name, expr.generate(), ",\n    {0} ".format(" " * len(tree.fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(tree.fcn.name)).lstrip() for x in typedargs), reason), tree.original)
 
-        if frame.defined(tree):
-            schema = intersection(frame[tree], schema)
+        if typeframe.defined(tree):
+            schema = intersection(typeframe[tree], schema)
             if isinstance(schema, Impossible):
                 if schema.reason is not None:
                     reason = "\n\n    " + schema.reason
                 else:
                     reason = ""
-                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(tree.generate(), pretty(frame[tree], prefix="        "), tree.fcn.name, ",\n    {0} ".format(" " * len(tree.fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(tree.fcn.name)).lstrip() for x in typedargs), reason), tree.original)
+                complain("Expression {0} previously constrained to be\n\n{1}\n    but new constraints on its arguments are incompatible with that.\n\n    {2}({3}){4}".format(tree.generate(), pretty(typeframe[tree], prefix="        "), tree.fcn.name, ",\n    {0} ".format(" " * len(tree.fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(tree.fcn.name)).lstrip() for x in typedargs), reason), tree.original)
 
-            subframe[tree] = schema
+            subtypeframe[tree] = schema
 
-        return Call(tree.fcn, tree.args, schema, tree.original), subframe
+        return Call(tree.fcn, tree.args, schema, tree.original), subtypeframe
 
     else:
         raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
