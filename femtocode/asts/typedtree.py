@@ -25,23 +25,23 @@ class TypedTree(object):
 class Ref(lispytree.Ref):
     order = 0
 
-    def __init__(self, name, fcnloc, schema, original=None):
+    def __init__(self, name, framenumber, schema, original=None):
         self.name = name
-        self.fcnloc = fcnloc
+        self.framenumber = framenumber
         self.schema = schema
         self.original = original
 
     def __repr__(self):
-        return "Ref({0}, {1}, {2})".format(self.name, self.fcnloc, self.schema)
+        return "Ref({0}, {1}, {2})".format(self.name, self.framenumber, self.schema)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
             if self.order == other.order:
                 if self.name == other.name:
-                    if self.fcnloc == other.fcnloc:
+                    if self.framenumber == other.framenumber:
                         return self.schema < other.schema
                     else:
-                        return self.fcnloc < other.fcnloc
+                        return self.framenumber < other.framenumber
                 else:
                     return self.name < other.name
             else:
@@ -50,10 +50,14 @@ class Ref(lispytree.Ref):
             return True
 
     def __eq__(self, other):
-        return other.__class__ == Ref and self.name == other.name and self.fcnloc == other.fcnloc and self.schema == other.schema
+        # return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber and self.schema == other.schema
+        # FIXME
+        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Ref, self.name, self.fcnloc, self.schema))
+        # return hash((Ref, self.name, self.framenumber, self.schema))
+        # FIXME
+        return hash((Ref, self.name, self.schema))
 
 class Literal(lispytree.Literal):
     order = 1
@@ -156,24 +160,18 @@ class UserFunction(lispytree.UserFunction):
     def __hash__(self):
         return hash((UserFunction, self.refs, self.body, self.schema))
 
-def buildUserFunction(fcn, schemas, typeframe, refframe, loc):
+def buildUserFunction(fcn, schemas, typeframe):
     if len(fcn.names) != len(schemas):
         raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
 
-    refs = [Ref(n, loc, s) for n, s in zip(fcn.names, schemas)]
-    body = build(fcn.body,
-                 typeframe.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))),
-                 refframe.fork(dict((n, ref) for ref in refs)),
-                 loc)[0]
+    refs = [Ref(n, "FIXME", s) for n, s in zip(fcn.names, schemas)]
+    body = build(fcn.body, typeframe.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))))[0]
     return UserFunction(refs, body, body.schema, fcn.original)
 
-def build(tree, typeframe, refframe=None, loc=()):
-    if refframe is None:
-        refframe = SymbolTable(dict((ref.name, Ref(ref.name, (), s)) for ref, s in typeframe.itemsHere() if isinstance(ref, lispytree.Ref)))
-
+def build(tree, typeframe):
     if isinstance(tree, lispytree.Ref):
-        if typeframe.defined(tree) and refframe.defined(tree.name):
-            out = Ref(tree.name, refframe[tree.name].fcnloc, typeframe[tree], tree.original), typeframe
+        if typeframe.defined(tree):
+            out = Ref(tree.name, "FIXME", typeframe[tree], tree.original), typeframe
             return out
         else:
             raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(tree))
@@ -185,7 +183,7 @@ def build(tree, typeframe, refframe=None, loc=()):
         if not isinstance(tree.fcn, lispytree.BuiltinFunction):
             raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
 
-        schema, typedargs, subtypeframe = tree.fcn.buildTyped(tree.args, typeframe, refframe, loc)
+        schema, typedargs, subtypeframe = tree.fcn.buildTyped(tree.args, typeframe)
 
         if isinstance(schema, Impossible):
             if tree.fcn.name == "is":

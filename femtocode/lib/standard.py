@@ -29,8 +29,8 @@ class Is(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return True
 
-    def buildTyped(self, args, typeframe, refframe, loc):
-        typedargs = [typedtree.build(arg, typeframe, refframe, loc + (i,))[0] for i, arg in enumerate(args)]
+    def buildTyped(self, args, typeframe):
+        typedargs = [typedtree.build(arg, typeframe)[0] for arg in args]
 
         fromtype = typedargs[0].schema
         totype = typedargs[1].value   # literal type expression
@@ -60,8 +60,8 @@ class Add(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return sum(args)
         
-    def buildTyped(self, args, typeframe, refframe, loc):
-        typedargs = [typedtree.build(arg, typeframe, refframe, loc + (i,))[0] for i, arg in enumerate(args)]
+    def buildTyped(self, args, typeframe):
+        typedargs = [typedtree.build(arg, typeframe)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, typeframe
         
     def generate(self, args):
@@ -78,8 +78,8 @@ class Eq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] == args[1]
 
-    def buildTyped(self, args, typeframe, refframe, loc):
-        typedargs = [typedtree.build(arg, typeframe, refframe, loc + (i,))[0] for i, arg in enumerate(args)]
+    def buildTyped(self, args, typeframe):
+        typedargs = [typedtree.build(arg, typeframe)[0] for arg in args]
         out = intersection(typedargs[0].schema, typedargs[1].schema)
         if isinstance(out, Impossible):
             return impossible("The argument types have no overlap (values can never be equal)."), typedargs, typeframe
@@ -100,8 +100,8 @@ class NotEq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] != args[1]
 
-    def buildTyped(self, args, typeframe, refframe, loc):
-        typedargs = [typedtree.build(arg, typeframe, refframe, loc + (i,))[0] for i, arg in enumerate(args)]
+    def buildTyped(self, args, typeframe):
+        typedargs = [typedtree.build(arg, typeframe)[0] for arg in args]
 
         const = None
         expr = None
@@ -137,14 +137,14 @@ class And(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return all(args)
         
-    def buildTyped(self, args, typeframe, refframe, loc):
+    def buildTyped(self, args, typeframe):
         subtypeframe = typeframe.fork()
         subsubtypeframes = []
         keys = set()
 
-        for i, arg in enumerate(args):
+        for arg in args:
             # First pass gets all constraints in isolation.
-            typedarg, subsubtypeframe = typedtree.build(arg, subtypeframe, refframe, loc + (i,))
+            typedarg, subsubtypeframe = typedtree.build(arg, subtypeframe)
             keys = keys.union(subsubtypeframe.keys(subtypeframe))
             subsubtypeframes.append(subsubtypeframe)
 
@@ -164,7 +164,7 @@ class And(lispytree.BuiltinFunction):
                         tmptypeframe[k] = constraint
 
             # Check the type again, this time with all others as preconditions (regarless of order).
-            typedargs.append(typedtree.build(arg, tmptypeframe, refframe, loc + (i,))[0])
+            typedargs.append(typedtree.build(arg, tmptypeframe)[0])
 
         for typedarg in typedargs:
             if not isinstance(typedarg.schema, Boolean):
@@ -192,14 +192,14 @@ class Or(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return any(args)
 
-    def buildTyped(self, args, typeframe, refframe, loc):
+    def buildTyped(self, args, typeframe):
         subtypeframe = typeframe.fork()
         subsubtypeframes = []
         keys = None
 
         typedargs = []
-        for i, arg in enumerate(args):
-            typedarg, subsubtypeframe = typedtree.build(arg, subtypeframe, refframe, loc + (i,))
+        for arg in args:
+            typedarg, subsubtypeframe = typedtree.build(arg, subtypeframe)
             typedargs.append(typedarg)
 
             subsubtypeframes.append(subsubtypeframe)
@@ -230,8 +230,8 @@ class Not(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return not args
 
-    def buildTyped(self, args, typeframe, refframe, loc):
-        typedargs = [typedtree.build(arg, typeframe, refframe, loc + (i,))[0] for i, arg in enumerate(args)]
+    def buildTyped(self, args, typeframe):
+        typedargs = [typedtree.build(arg, typeframe)[0] for arg in args]
         if not isinstance(typedargs[0].schema, Boolean):
             return impossible("Argument must be boolean."), typedargs, typeframe
         else:
@@ -242,7 +242,7 @@ table[Not.name] = Not()
 class If(lispytree.BuiltinFunction):
     name = "if"
 
-    def buildTyped(self, args, typeframe, refframe, loc):
+    def buildTyped(self, args, typeframe):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -254,14 +254,14 @@ class If(lispytree.BuiltinFunction):
         outschemas = []
         for index, (predicate, antipredicate, consequent) in enumerate(zip(predicates, antipredicates, consequents)):
             try:
-                typedpred, predtypeframe = typedtree.build(predicate, subtypeframe, refframe, loc + (3*index,))
+                typedpred, predtypeframe = typedtree.build(predicate, subtypeframe)
             except FemtocodeError as err:
                 raise FemtocodeError("Error in \"if\" predicate. " + str(err))
             if not isinstance(typedpred.schema, Boolean):
                 complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedpred.schema, prefix="    "))), predicate.original)
 
             try:
-                typedanti, antitypeframe = typedtree.build(antipredicate, subtypeframe, refframe, loc + (3*index + 1,))
+                typedanti, antitypeframe = typedtree.build(antipredicate, subtypeframe)
             except FemtocodeError as err:
                 if index == len(predicates) - 1:
                     which = "\"else\""
@@ -272,7 +272,7 @@ class If(lispytree.BuiltinFunction):
             if not isinstance(typedanti.schema, Boolean):
                 complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedanti.schema, prefix="    "))), predicate.original)
 
-            typedcons = typedtree.build(consequent, predtypeframe, refframe, loc + (3*index + 2,))[0]
+            typedcons = typedtree.build(consequent, predtypeframe)[0]
 
             typedargs.append(typedpred)
             typedargs.append(typedanti)
@@ -280,7 +280,7 @@ class If(lispytree.BuiltinFunction):
             outschemas.append(typedcons.schema)
             subtypeframe = antitypeframe
 
-        typedalt = typedtree.build(alternate, subtypeframe, refframe, loc + (len(args) - 1,))[0]
+        typedalt = typedtree.build(alternate, subtypeframe)[0]
         typedargs.append(typedalt)
         outschemas.append(typedalt.schema)
 
@@ -303,11 +303,11 @@ class Map(lispytree.BuiltinFunction):
         else:
             return None
 
-    def buildTyped(self, args, typeframe, refframe, loc):
+    def buildTyped(self, args, typeframe):
         if len(args) != 2:
             return impossible("Exactly two arguments required."), [], typeframe
 
-        typedarg0 = typedtree.build(args[0], typeframe, refframe, loc + (0,))[0]
+        typedarg0 = typedtree.build(args[0], typeframe)[0]
         if not isinstance(typedarg0.schema, Collection):
             return impossible("First argument must be a collection."), [], typeframe
 
@@ -318,7 +318,7 @@ class Map(lispytree.BuiltinFunction):
         else:
             return impossible("Second argument must be a function."), [], typeframe
 
-        typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], typeframe, refframe, loc + (1,))
+        typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], typeframe)
 
         return collection(typedarg1.schema), [typedarg0, typedarg1], typeframe
 

@@ -124,7 +124,7 @@ class TestSemantics(unittest.TestCase):
 
         def walk(tree, indent=""):
             if isinstance(tree, typedtree.Ref):
-                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.fcnloc, tree.schema))
+                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.framenumber, tree.schema))
 
             elif isinstance(tree, typedtree.Literal):
                 print("{0}Literal {1} {2}".format(indent, tree.value, tree.schema))
