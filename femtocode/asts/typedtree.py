@@ -126,23 +126,27 @@ class Call(lispytree.Call):
 class UserFunction(lispytree.UserFunction):
     order = 3
 
-    def __init__(self, refs, body, schema, original=None):
+    def __init__(self, refs, framenumber, body, schema, original=None):
         self.refs = tuple(refs)
+        self.framenumber = framenumber
         self.body = body
         self.schema = schema
         self.original = original
 
     def __repr__(self):
-        return "UserFunction({0}, {1}, {2})".format(self.refs, self.body, self.schema)
+        return "UserFunction({0}, {1}, {2}, {3})".format(self.refs, self.framenumber, self.body, self.schema)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
             if self.order == other.order:
                 if self.refs == other.refs:
-                    if self.body == other.body:
-                        return self.schema < other.schema
+                    if self.framenumber == other.framenumber:
+                        if self.body == other.body:
+                            return self.schema < other.schema
+                        else:
+                            return self.body < other.body
                     else:
-                        return self.body < other.body
+                        return self.framenumber < other.framenumber
                 else:
                     return self.refs < other.refs
             else:
@@ -151,10 +155,10 @@ class UserFunction(lispytree.UserFunction):
             return True
 
     def __eq__(self, other):
-        return other.__class__ == UserFunction and self.refs == other.refs and self.body == other.body and self.schema == other.schema
+        return other.__class__ == UserFunction and self.refs == other.refs and self.framenumber == other.framenumber and self.body == other.body and self.schema == other.schema
 
     def __hash__(self):
-        return hash((UserFunction, self.refs, self.body, self.schema))
+        return hash((UserFunction, self.refs, self.framenumber, self.body, self.schema))
 
 def buildUserFunction(fcn, schemas, frame):
     if len(fcn.names) != len(schemas):
@@ -162,7 +166,7 @@ def buildUserFunction(fcn, schemas, frame):
 
     refs = [Ref(n, fcn.framenumber, s) for n, s in zip(fcn.names, schemas)]
     body = build(fcn.body, frame.fork(dict((lispytree.Ref(n, fcn.framenumber), s) for n, s in zip(fcn.names, schemas))))[0]
-    return UserFunction(refs, body, body.schema, fcn.original)
+    return UserFunction(refs, fcn.framenumber, body, body.schema, fcn.original)
 
 def build(tree, frame):
     if isinstance(tree, lispytree.Ref):
@@ -239,26 +243,36 @@ def treeOfUniques(tree, uniques):
     else:
         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
 
+def assignDependencies(tree, framenumberToDeps=None):
+    if framenumberToDeps is None:
+        framenumberToDeps = {}
 
-# def assignDependencies(tree, frame):
-#     if isinstance(tree, Ref):
-#         frame[tree.depth][tree.name]
+    if not hasattr(tree, "dependencies"):
+        if isinstance(tree, Ref):
+            if tree.framenumber in framenumberToDeps:
+                tree.dependencies = set(framenumberToDeps[tree.framenumber])
+            else:
+                tree.dependencies = set([tree])
 
+        elif isinstance(tree, Literal):
+            tree.dependencies = set([tree])
 
-#         pass
+        elif isinstance(tree, Call):
+            dependencies = set()
 
-#     elif isinstance(tree, Literal):
-#         pass
+            for arg in tree.args:
+                if not isinstance(arg, UserFunction):
+                    assignDependencies(arg, framenumberToDeps)
+                    dependencies.update(arg.dependencies)
 
-#     elif isinstance(tree, Call):
-#         pass
+            for arg in tree.args:
+                if isinstance(arg, UserFunction):
+                    framenumberToDeps[arg.framenumber] = dependencies
+                    assignDependencies(arg.body, framenumberToDeps)
+                    dependencies.update(arg.body.dependencies)
 
-#     elif isinstance(tree, UserFunction):
+            tree.dependencies = dependencies
 
-#         assignDependencies(tree.body, frame + [dict((ref.name, ref) for ref in tree.refs)])
+        else:
+            raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
 
-
-#         pass
-
-#     else:
-#         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
