@@ -176,7 +176,7 @@ def build(tree, typeframe, refframe=None, loc=()):
             out = Ref(tree.name, refframe[tree.name].fcnloc, typeframe[tree], tree.original), typeframe
             return out
         else:
-            raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(self))
+            raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(tree))
         
     elif isinstance(tree, lispytree.Literal):
         return Literal(tree.value, tree.schema, tree.original), typeframe

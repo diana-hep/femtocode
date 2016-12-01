@@ -66,6 +66,7 @@ class SymbolTable(object):
     def __init__(self, values={}, parent=None):
         self.parent = parent
         self.values = dict(values.items())
+        self._framenumber = 0
 
     def __repr__(self):
         if self.parent is None:
@@ -73,7 +74,20 @@ class SymbolTable(object):
         else:
             return "SymbolTable({0}, {1})".format(self.values, repr(self.parent))
 
+    def framenumber(self):
+        if self.parent is not None:
+            return self.parent.framenumber()
+        else:
+            return self._framenumber
+
+    def _framenumber_inc(self):
+        if self.parent is not None:
+            self.parent._framenumber_inc()
+        else:
+            self._framenumber += 1
+        
     def fork(self, values={}):
+        self._framenumber_inc()
         return SymbolTable(values, self)
 
     def definedHere(self, x):
