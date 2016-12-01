@@ -54,23 +54,27 @@ class BuiltinFunction(Function):
 class UserFunction(Function):
     order = 1
 
-    def __init__(self, names, defaults, body, original=None):
+    def __init__(self, names, framenumber, defaults, body, original=None):
         self.names = tuple(names)
+        self.framenumber = framenumber
         self.defaults = tuple(defaults)
         self.body = body
         self.original = original
 
     def __repr__(self):
-        return "UserFunction({0}, {1}, {2})".format(self.names, self.defaults, self.body)
+        return "UserFunction({0}, {1}, {2}, {3})".format(self.names, self.framenumber, self.defaults, self.body)
 
     def __lt__(self, other):
         if isinstance(other, (Function, LispyTree)):
             if self.order == other.order:
                 if self.names == other.names:
-                    if self.defaults == other.defaults:
-                        return self.body < other.body
+                    if self.framenumber == other.framenumber:
+                        if self.defaults == other.defaults:
+                            return self.body < other.body
+                        else:
+                            return self.defaults < other.defaults
                     else:
-                        return self.defaults < other.defaults
+                        return self.framenumber < other.framenumber
                 else:
                     return self.names < other.names
             else:
@@ -79,13 +83,13 @@ class UserFunction(Function):
             return True
 
     def __eq__(self, other):
-        return other.__class__ == UserFunction and self.names == other.names and self.defaults == other.defaults and self.body == other.body
+        return other.__class__ == UserFunction and self.names == other.names and self.framenumber == other.framenumber and self.defaults == other.defaults and self.body == other.body
 
     def __hash__(self):
-        return hash((UserFunction, self.names, self.defaults, self.body))
+        return hash((UserFunction, self.names, self.framenumber, self.defaults, self.body))
 
-    def sortargs(self, positional, named):
-        return Function.sortargsWithNames(positional, named, self.names, self.defaults)
+    def sortargs(self, positional, named, original):
+        return Function.sortargsWithNames(positional, named, self.names, self.defaults, original)
 
 class Ref(LispyTree):
     order = 2
@@ -111,14 +115,10 @@ class Ref(LispyTree):
             return True
 
     def __eq__(self, other):
-        # return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber
-        # FIXME
-        return other.__class__ == Ref and self.name == other.name
+        return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber
 
     def __hash__(self):
-        # return hash((Ref, self.name, self.framenumber))
-        # FIXME
-        return hash((Ref, self.name))
+        return hash((Ref, self.name, self.framenumber))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -240,10 +240,11 @@ def expandUserFunction(tree, frame):
         names = tree.names
         defaults = [None if x is None else expandUserFunction(x, frame) for x in tree.defaults]
         subframe = frame.fork()
+        framenumber = subframe.framenumber()
         for n in names:
-            subframe[n] = Ref(n, subframe.framenumber())  # don't let shadowed variables get expanded
+            subframe[n] = Ref(n, framenumber)  # don't let shadowed variables get expanded
         body = expandUserFunction(tree.body, subframe)
-        return UserFunction(names, defaults, body, tree.original)
+        return UserFunction(names, framenumber, defaults, body, tree.original)
 
     elif isinstance(tree, Ref):
         if frame.defined(tree.name):
@@ -349,15 +350,17 @@ def buildOrElevate(tree, frame, arity):
 
     elif isinstance(tree, parsingtree.Attribute):
         fcn = frame["." + tree.attr]
+        framenumber = frame.framenumber
         params = list(xrange(arity))
-        args = map(Ref, params)
-        return UserFunction(params, [None] * arity, Call.build(fcn, [build(tree.value, frame)] + args, tree), tree)
+        args = [Ref(i, framenumber, tree) for i in params]
+        return UserFunction(params, framenumber, [None] * arity, Call.build(fcn, [build(tree.value, frame)] + args, tree), tree)
         
     else:
         subframe = frame.fork()
+        framenumber = subframe.framenumber()
         for i in xrange(1, arity + 1):
-            subframe[i] = Ref(i, subframe.framenumber(), tree)
-        return UserFunction(list(range(1, arity + 1)), [None] * arity, build(tree, subframe), tree)
+            subframe[i] = Ref(i, framenumber, tree)
+        return UserFunction(list(range(1, arity + 1)), framenumber, [None] * arity, build(tree, subframe), tree)
     
 def build(tree, frame):
     if isinstance(tree, parsingtree.Attribute):
@@ -515,10 +518,7 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.FcnCall):
         if isinstance(tree.function, parsingtree.Attribute):
             fcn = frame["." + tree.function.attr]
-            try:
-                args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
-            except TypeError as err:
-                complain(str(err), tree)
+            args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)), tree)
             return Call.build(fcn, [build(tree.function.value, frame)] + [buildOrElevate(x, frame, fcn.arity(i + 1)) for i, x in enumerate(args)], tree)
 
         else:
@@ -526,11 +526,7 @@ def build(tree, frame):
             if not isinstance(fcn, Function):
                 complain("Expression {0} is a value, not a function; it cannot be called.".format(fcn.generate()), tree)
 
-            try:
-                args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)))
-            except TypeError as err:
-                complain(str(err), tree)
-
+            args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)), tree)
             builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i)) for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
@@ -540,10 +536,12 @@ def build(tree, frame):
 
     elif isinstance(tree, parsingtree.FcnDef):
         subframe = frame.fork()
+        framenumber = subframe.framenumber()
         for x in tree.parameters:
-            subframe[x.id] = Ref(x.id, subframe.framenumber(), x)
+            subframe[x.id] = Ref(x.id, framenumber, x)
 
         return UserFunction([x.id for x in tree.parameters],
+                            framenumber,
                             [None if x is None else build(x, frame) for x in tree.defaults],
                             build(tree.body, subframe),
                             tree)

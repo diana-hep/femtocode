@@ -311,8 +311,11 @@ class Map(lispytree.BuiltinFunction):
         if not isinstance(typedarg0.schema, Collection):
             return impossible("First argument must be a collection."), [], frame
 
+        # FIXME: move this to lispytree
         if isinstance(args[1], lispytree.BuiltinFunction):
-            fcn = lispytree.UserFunction([1], [None], lispytree.Call(args[1], [lispytree.Ref(1)], args[1].original))
+            subframe = frame.fork()
+            framenumber = subframe.framenumber()
+            fcn = lispytree.UserFunction([1], framenumber, [None], lispytree.Call(args[1], [lispytree.Ref(1, framenumber)], args[1].original))
         elif isinstance(args[1], lispytree.UserFunction):
             fcn = args[1]
         else:
@@ -325,7 +328,7 @@ class Map(lispytree.BuiltinFunction):
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"
 
-    def sortargs(self, positional, named):
-        return Function.sortargsWithNames(positional, named, ["fcn"], [None])
+    def sortargs(self, positional, named, original):
+        return Function.sortargsWithNames(positional, named, ["fcn"], [None], original)
 
 table[Map.name] = Map()

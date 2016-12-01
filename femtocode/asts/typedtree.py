@@ -50,14 +50,10 @@ class Ref(lispytree.Ref):
             return True
 
     def __eq__(self, other):
-        # return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber and self.schema == other.schema
-        # FIXME
-        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema
+        return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber and self.schema == other.schema
 
     def __hash__(self):
-        # return hash((Ref, self.name, self.framenumber, self.schema))
-        # FIXME
-        return hash((Ref, self.name, self.schema))
+        return hash((Ref, self.name, self.framenumber, self.schema))
 
 class Literal(lispytree.Literal):
     order = 1
@@ -164,15 +160,14 @@ def buildUserFunction(fcn, schemas, frame):
     if len(fcn.names) != len(schemas):
         raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
 
-    refs = [Ref(n, "FIXME", s) for n, s in zip(fcn.names, schemas)]
-    body = build(fcn.body, frame.fork(dict((lispytree.Ref(n), s) for n, s in zip(fcn.names, schemas))))[0]
+    refs = [Ref(n, fcn.framenumber, s) for n, s in zip(fcn.names, schemas)]
+    body = build(fcn.body, frame.fork(dict((lispytree.Ref(n, fcn.framenumber), s) for n, s in zip(fcn.names, schemas))))[0]
     return UserFunction(refs, body, body.schema, fcn.original)
 
 def build(tree, frame):
     if isinstance(tree, lispytree.Ref):
         if frame.defined(tree):
-            out = Ref(tree.name, "FIXME", frame[tree], tree.original), frame
-            return out
+            return Ref(tree.name, tree.framenumber, frame[tree], tree.original), frame
         else:
             raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(tree))
         

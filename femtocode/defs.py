@@ -36,13 +36,13 @@ class Function(object):
     def constrain(self, frame, args):
         return {}
 
-    def sortargs(self, positional, named):
+    def sortargs(self, positional, named, original):
         if len(named) > 0:
             raise ProgrammingError("{0} function shouldn't get named arguments".format(self.name))
         return positional
 
     @staticmethod
-    def sortargsWithNames(positional, named, names, defaults):
+    def sortargsWithNames(positional, named, names, defaults, original):
         positional = list(reversed(positional))
         named = dict(named.items())
         out = []
@@ -55,11 +55,11 @@ class Function(object):
             elif default is not None:
                 out.append(default)
             else:
-                raise TypeError("Too few arguments: missing \"{0}\".".format(name))
+                complain("Too few arguments: missing \"{0}\".".format(name), original)
         if len(named) > 0:
-            raise TypeError("Unrecognized named arguments: {0}.".format(", ".join("\"" + x + "\"" for x in named)))
+            complain("Unrecognized named arguments: {0}.".format(", ".join("\"" + x + "\"" for x in named)), original)
         if len(positional) > 0:
-            raise TypeError("Too many positional arguments.")
+            complain("Too many positional arguments.", original)
         return out
 
 class SymbolTable(object):
