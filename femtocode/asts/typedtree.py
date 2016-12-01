@@ -29,7 +29,6 @@ class Ref(lispytree.Ref):
         self.name = name
         self.fcnloc = fcnloc
         self.schema = schema
-        self.dependencies = set()
         self.original = original
 
     def __repr__(self):
@@ -62,7 +61,6 @@ class Literal(lispytree.Literal):
     def __init__(self, value, schema, original=None):
         self.value = value
         self.schema = schema
-        self.dependencies = set()
         self.original = original
 
     def __repr__(self):
@@ -93,7 +91,6 @@ class Call(lispytree.Call):
         self.fcn = fcn
         self.args = args
         self.schema = schema
-        self.dependencies = set()
         self.original = original
 
     def __repr__(self):
@@ -133,7 +130,6 @@ class UserFunction(lispytree.UserFunction):
         self.refs = refs
         self.body = body
         self.schema = schema
-        self.dependencies = set()
         self.original = original
 
     def __repr__(self):
@@ -220,14 +216,35 @@ def build(tree, typeframe, refframe=None, loc=()):
 
             subtypeframe[tree] = schema
 
-        return Call(tree.fcn, tree.args, schema, tree.original), subtypeframe
+        return Call(tree.fcn, typedargs, schema, tree.original), subtypeframe
 
     else:
         raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
 
-# def combineIdentical(tree, 
+def fillUniquesSet(tree, uniques):
+    uniques[tree] = tree
+    if isinstance(tree, Call):
+        for arg in tree.args:
+            fillUniquesSet(arg, uniques)
+    elif isinstance(tree, UserFunction):
+        fillUniquesSet(tree.body, uniques)
 
+def treeOfUniques(tree, uniques):
+    if isinstance(tree, (Ref, Literal)):
+        return uniques[tree]
 
+    elif isinstance(tree, Call):
+        out = uniques[tree]
+        out.args = [treeOfUniques(arg) for arg in out.args]
+        return out
+
+    elif isinstance(tree, UserFunction):
+        out = uniques[tree]
+        out.body = treeOfUniques(out.body)
+        return out
+
+    else:
+        raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
 
 
 # def assignDependencies(tree, frame):

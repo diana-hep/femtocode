@@ -117,3 +117,29 @@ class TestSemantics(unittest.TestCase):
             lispytree.build(parse("g = 8; g(2)"), table)
         except FemtocodeError as err:
             print(err)
+
+    def test_simple2(self):
+        lt = lispytree.build(parse("a = x + y; b = y + z; c = xs.map(x => x + a + b); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
+        tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
+
+        def walk(tree, indent=""):
+            if isinstance(tree, typedtree.Ref):
+                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.fcnloc, tree.schema))
+
+            elif isinstance(tree, typedtree.Literal):
+                print("{0}Literal {1} {2}".format(indent, tree.value, tree.schema))
+
+            elif isinstance(tree, typedtree.Call):
+                print("{0}Call {1} {2}".format(indent, tree.fcn, tree.schema))
+                for arg in tree.args:
+                    walk(arg, indent + "    ")
+
+            elif isinstance(tree, typedtree.UserFunction):
+                print("{0}UserFunction {1} {2}".format(indent, tree.refs, tree.schema))
+                walk(tree.body, indent + "    ")
+
+            else:
+                print("WTF {0} {1}".format(type(tree), tree))
+
+        print("")
+        walk(tt)
