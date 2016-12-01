@@ -22,6 +22,16 @@ from femtocode.defs import *
 from femtocode.typesystem import *
 
 table = SymbolTable()
+    
+class SimpleLevels(object):
+    def level(self, args, base):
+        if len(args) == 0:
+            raise ProgrammingError("SimpleLevels builtin functions cannot have zero arguments")
+        levels = sorted([typedtree.assignLevels(arg, base) for arg in args], key=lambda x: -len(x))
+        for x in levels:
+            if base[:len(x)] != x:
+                raise ProgrammingError("levels are not nested:\n    {0}".format("\n    ".join(map(repr, levels))))
+        return levels[0]
 
 class Is(lispytree.BuiltinFunction):
     name = "is"
@@ -29,7 +39,7 @@ class Is(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return True
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
 
         fromtype = typedargs[0].schema
@@ -46,12 +56,15 @@ class Is(lispytree.BuiltinFunction):
 
         return boolean, typedargs, frame.fork({args[0]: out})
 
+    def level(self, args, base):
+        return typedtree.assignLevels(args[0], base)
+
     def generate(self, args):
         return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
 
 table[Is.name] = Is()
 
-class Add(lispytree.BuiltinFunction):
+class Add(SimpleLevels, lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -60,7 +73,7 @@ class Add(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return sum(args)
         
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
         
@@ -69,7 +82,7 @@ class Add(lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Eq(lispytree.BuiltinFunction):
+class Eq(SimpleLevels, lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -78,7 +91,7 @@ class Eq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] == args[1]
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         out = intersection(typedargs[0].schema, typedargs[1].schema)
         if isinstance(out, Impossible):
@@ -91,7 +104,7 @@ class Eq(lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(lispytree.BuiltinFunction):
+class NotEq(SimpleLevels, lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -100,7 +113,7 @@ class NotEq(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return args[0] != args[1]
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
 
         const = None
@@ -128,7 +141,7 @@ class NotEq(lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(lispytree.BuiltinFunction):
+class And(SimpleLevels, lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -137,7 +150,7 @@ class And(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return all(args)
         
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = set()
@@ -183,7 +196,7 @@ class And(lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(lispytree.BuiltinFunction):
+class Or(SimpleLevels, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -192,7 +205,7 @@ class Or(lispytree.BuiltinFunction):
     def literaleval(self, args):
         return any(args)
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         subframe = frame.fork()
         subsubframes = []
         keys = None
@@ -224,13 +237,13 @@ class Or(lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(lispytree.BuiltinFunction):
+class Not(SimpleLevels, lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
         return not args
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         if not isinstance(typedargs[0].schema, Boolean):
             return impossible("Argument must be boolean."), typedargs, frame
@@ -239,10 +252,10 @@ class Not(lispytree.BuiltinFunction):
 
 table[Not.name] = Not()
 
-class If(lispytree.BuiltinFunction):
+class If(SimpleLevels, lispytree.BuiltinFunction):
     name = "if"
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -303,7 +316,7 @@ class Map(lispytree.BuiltinFunction):
         else:
             return None
 
-    def buildTyped(self, args, frame):
+    def buildtyped(self, args, frame):
         if len(args) != 2:
             return impossible("Exactly two arguments required."), [], frame
 
@@ -324,6 +337,13 @@ class Map(lispytree.BuiltinFunction):
         typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
 
         return collection(typedarg1.schema), [typedarg0, typedarg1], frame
+
+    def level(self, args, base):
+        level0 = typedtree.assignLevels(args[0], base)
+        if base[:len(level0)] != level0:
+            raise ProgrammingError("levels are not nested:\n    {0}".format(level0))
+        level1 = typedtree.assignLevels(args[1].body, level0 + (args[0],))
+        return level0
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

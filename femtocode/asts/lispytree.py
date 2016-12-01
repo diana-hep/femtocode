@@ -45,11 +45,14 @@ class BuiltinFunction(Function):
     def __hash__(self):
         return hash((self.__class__,))
 
-    def buildTyped(self, args, typeframe):
-        raise ProgrammingError("missing implementation")
+    def buildtyped(self, args, typeframe):
+        raise ProgrammingError("missing implementation: {0}".format(self))
+
+    def level(self, args, base):
+        raise ProgrammingError("missing implementation: {0}".format(self))
 
     def generate(self, args):
-        raise ProgrammingError("missing implementation")
+        raise ProgrammingError("missing implementation: {0}".format(self))
 
 class UserFunction(Function):
     order = 1
@@ -94,7 +97,7 @@ class UserFunction(Function):
 class Ref(LispyTree):
     order = 2
 
-    def __init__(self, name, framenumber=0, original=None):
+    def __init__(self, name, framenumber=None, original=None):
         self.name = name
         self.framenumber = framenumber
         self.original = original
@@ -178,7 +181,7 @@ class Call(LispyTree):
     def build(fcn, args, original=None):
         if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
             empty = SymbolTable()
-            schema, typedargs, subempty = fcn.buildTyped(args, empty)
+            schema, typedargs, subempty = fcn.buildtyped(args, empty)
             if isinstance(schema, Impossible):
                 if schema.reason is not None:
                     reason = "\n\n    " + schema.reason

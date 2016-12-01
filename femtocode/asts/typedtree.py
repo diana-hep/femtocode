@@ -182,7 +182,7 @@ def build(tree, frame):
         if not isinstance(tree.fcn, lispytree.BuiltinFunction):
             raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
 
-        schema, typedargs, subframe = tree.fcn.buildTyped(tree.args, frame)
+        schema, typedargs, subframe = tree.fcn.buildtyped(tree.args, frame)
 
         if isinstance(schema, Impossible):
             if tree.fcn.name == "is":
@@ -276,3 +276,21 @@ def assignDependencies(tree, framenumberToDeps=None):
         else:
             raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
 
+def assignLevels(tree, base=()):
+    if not hasattr(tree, "level"):
+        if isinstance(tree, Ref) and tree.framenumber is None:
+            tree.level = ()
+
+        elif isinstance(tree, Ref):
+            tree.level = base
+
+        elif isinstance(tree, Literal):
+            tree.level = ()
+
+        elif isinstance(tree, Call):
+            tree.level = tree.fcn.level(tree.args, base)
+
+        else:
+            raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
+
+    return tree.level

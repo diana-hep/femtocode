@@ -172,3 +172,26 @@ class TestSemantics(unittest.TestCase):
         print("")
         typedtree.assignDependencies(ttunique)
         walk2(ttunique)
+
+        def walk3(tree, indent=""):
+            if isinstance(tree, typedtree.Ref):
+                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.framenumber, tree.level))
+
+            elif isinstance(tree, typedtree.Literal):
+                print("{0}Literal {1} {2}".format(indent, tree.value, tree.level))
+
+            elif isinstance(tree, typedtree.Call):
+                print("{0}Call {1} {2}".format(indent, tree.fcn.name, tree.level))
+                for arg in tree.args:
+                    walk3(arg, indent + "    ")
+
+            elif isinstance(tree, typedtree.UserFunction):
+                print("{0}UserFunction".format(indent))
+                walk3(tree.body, indent + "    ")
+
+            else:
+                print("WTF {0} {1}".format(type(tree), tree))
+        
+        print("")
+        typedtree.assignLevels(ttunique)
+        walk3(ttunique)
