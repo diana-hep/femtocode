@@ -119,23 +119,23 @@ class TestSemantics(unittest.TestCase):
             print(err)
 
     def test_simple2(self):
-        lt = lispytree.build(parse("a = x + y; b = y + z; c = xs.map(x => x + a + b); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
 
         def walk(tree, indent=""):
             if isinstance(tree, typedtree.Ref):
-                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.framenumber, tree.schema))
+                print("{0}Ref@{1} {2} {3} {4}".format(indent, id(tree), tree.name, tree.framenumber, tree.schema))
 
             elif isinstance(tree, typedtree.Literal):
-                print("{0}Literal {1} {2}".format(indent, tree.value, tree.schema))
+                print("{0}Literal@{1} {2} {3}".format(indent, id(tree), tree.value, tree.schema))
 
             elif isinstance(tree, typedtree.Call):
-                print("{0}Call {1} {2}".format(indent, tree.fcn, tree.schema))
+                print("{0}Call@{1} {2} {3}".format(indent, id(tree), tree.fcn, tree.schema))
                 for arg in tree.args:
                     walk(arg, indent + "    ")
 
             elif isinstance(tree, typedtree.UserFunction):
-                print("{0}UserFunction {1} {2}".format(indent, tree.refs, tree.schema))
+                print("{0}UserFunction@{1} {2} {3}".format(indent, id(tree), tree.refs, tree.schema))
                 walk(tree.body, indent + "    ")
 
             else:
@@ -143,3 +143,9 @@ class TestSemantics(unittest.TestCase):
 
         print("")
         walk(tt)
+
+        print("")
+        uniques = {}
+        typedtree.fillUniquesSet(tt, uniques)
+        ttunique = typedtree.treeOfUniques(tt, uniques)
+        walk(ttunique)

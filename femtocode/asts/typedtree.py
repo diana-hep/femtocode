@@ -89,7 +89,7 @@ class Call(lispytree.Call):
 
     def __init__(self, fcn, args, schema, original=None):
         self.fcn = fcn
-        self.args = args
+        self.args = tuple(args)
         self.schema = schema
         self.original = original
 
@@ -127,7 +127,7 @@ class UserFunction(lispytree.UserFunction):
     order = 3
 
     def __init__(self, refs, body, schema, original=None):
-        self.refs = refs
+        self.refs = tuple(refs)
         self.body = body
         self.schema = schema
         self.original = original
@@ -228,12 +228,12 @@ def treeOfUniques(tree, uniques):
 
     elif isinstance(tree, Call):
         out = uniques[tree]
-        out.args = [treeOfUniques(arg) for arg in out.args]
+        out.args = [treeOfUniques(arg, uniques) for arg in out.args]
         return out
 
     elif isinstance(tree, UserFunction):
         out = uniques[tree]
-        out.body = treeOfUniques(out.body)
+        out.body = treeOfUniques(out.body, uniques)
         return out
 
     else:
