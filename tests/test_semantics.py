@@ -38,88 +38,88 @@ class TestSemantics(unittest.TestCase):
         pass
 
     def test_simple1(self):
-        p = lispytree.build(parse("x"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("x"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = lispytree.build(parse("x + 3"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("x + 3"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = lispytree.build(parse("y = x + 3; y + 1"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("y = x + 3; y + 1"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer}))[0].schema)
 
-        p = lispytree.build(parse("{x => x + 3}"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("{x => x + 3}"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
 
-        p = lispytree.build(parse("def f(x): x + 3.14;\nf"), table)
+        p = lispytree.build(parse("def f(x): x + 3.14;\nf"), table)[0]
         print(p)
 
-        p = lispytree.build(parse("def f(q): q + 3;  f(x)"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("def f(q): q + 3;  f(x)"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
 
-        p = lispytree.build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
-        print(p)
-        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
-
-        p = lispytree.build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": lispytree.Ref("xs")}))
+        p = lispytree.build(parse("xs.map({x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = lispytree.build(parse("xs.map(3.14 + $1)"), table.fork({"xs": lispytree.Ref("xs")}))
+        p = lispytree.build(parse("xs.map(x => 3.14 + x)"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = lispytree.build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
+        p = lispytree.build(parse("xs.map(3.14 + $1)"), table.fork({"xs": lispytree.Ref("xs")}))[0]
+        print(p)
+        print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
+
+        p = lispytree.build(parse("xs.map(fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
         try:
-            lispytree.build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
+            lispytree.build(parse("xs.map(wonky = {x => 3.14 + x}, fcn = {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         except FemtocodeError as err:
             print(err)
 
         try:
-            lispytree.build(parse("xs.map()"), table.fork({"xs": lispytree.Ref("xs")}))
+            lispytree.build(parse("xs.map()"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         except FemtocodeError as err:
             print(err)
         
         try:
-            lispytree.build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))
+            lispytree.build(parse("xs.map({x => 3.14 + x}, {x => 3.14 + x})"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         except FemtocodeError as err:
             print(err)
 
-        p = lispytree.build(parse("xs.map(3.14)"), table.fork({"xs": lispytree.Ref("xs")}))
+        p = lispytree.build(parse("xs.map(3.14)"), table.fork({"xs": lispytree.Ref("xs")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("xs"): collection(integer)}))[0].schema)
 
-        p = lispytree.build(parse("y = x + 3; y"), table.fork({"x": lispytree.Ref("x")}))
+        p = lispytree.build(parse("y = x + 3; y"), table.fork({"x": lispytree.Ref("x")}))[0]
         print(p)
         print(typedtree.build(p, SymbolTable({lispytree.Ref("x"): integer, lispytree.Call(table["+"], [lispytree.Literal(3), lispytree.Ref("x")]): real}))[0].schema)
 
-        print(lispytree.build(parse("def f(x): {y => x + y}; f"), table))
+        print(lispytree.build(parse("def f(x): {y => x + y}; f"), table)[0])
 
-        print(lispytree.build(parse("def f(x): {y => x + y}; f(3)"), table))
+        print(lispytree.build(parse("def f(x): {y => x + y}; f(3)"), table)[0])
 
-        print(lispytree.build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table))
+        print(lispytree.build(parse("def f(x, z=99): {y => x + y + z}; f(3)"), table)[0])
 
-        print(lispytree.build(parse("y == 2"), table.fork({"y": lispytree.Ref("y")})))
+        print(lispytree.build(parse("y == 2"), table.fork({"y": lispytree.Ref("y")}))[0])
 
-        print(lispytree.build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": lispytree.Ref("y")})))
+        print(lispytree.build(parse("def f(x): x + 0.1; y == f(2)"), table.fork({"y": lispytree.Ref("y")}))[0])
 
         try:
-            lispytree.build(parse("def f(x): x; g(2)"), table)
+            lispytree.build(parse("def f(x): x; g(2)"), table)[0]
         except FemtocodeError as err:
             print(err)
 
         try:
-            lispytree.build(parse("g = 8; g(2)"), table)
+            lispytree.build(parse("g = 8; g(2)"), table)[0]
         except FemtocodeError as err:
             print(err)
 
     def test_simple2(self):
-        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
 
         def walk(tree, indent=""):
@@ -197,7 +197,7 @@ class TestSemantics(unittest.TestCase):
         walk3(ttunique)
 
     def test_simple3(self):
-        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
 
         statements = []

@@ -40,7 +40,7 @@ class TestTypeIntegration(unittest.TestCase):
     @staticmethod
     def expecting(result, code, verbose=False, **symbolTypes):
         def doit():
-            lt = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in symbolTypes)))
+            lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in symbolTypes)))
             tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in symbolTypes.items())))
             return tt.schema
 
