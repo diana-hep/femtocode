@@ -75,20 +75,22 @@ class SymbolTable(object):
             return "SymbolTable({0}, {1})".format(self.values, repr(self.parent))
 
     def framenumber(self):
-        if self.parent is not None:
-            return self.parent.framenumber()
-        else:
+        if hasattr(self, "_framenumber"):
             return self._framenumber
+        else:
+            return self.parent.framenumber()
 
     def _framenumber_inc(self):
-        if self.parent is not None:
-            self.parent._framenumber_inc()
-        else:
+        if hasattr(self, "_framenumber"):
             self._framenumber += 1
-        
+        else:
+            self.parent._framenumber_inc()
+
     def fork(self, values={}):
         self._framenumber_inc()
-        return SymbolTable(values, self)
+        out = SymbolTable(values, self)
+        del out._framenumber
+        return out
 
     def definedHere(self, x):
         return x in self.values
