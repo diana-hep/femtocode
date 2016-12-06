@@ -76,6 +76,17 @@ class Add(SimpleLevels, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+
+    def toStatements(self, call, statements, replacements, number):
+        for arg in call.args:
+            number = typedtree.toStatements(arg, statements, replacements, number)
+
+        newref = typedtree.Ref(number, None, call.schema, call.original)
+        number += 1
+        value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
+        statements.append((newref, value))
+        replacements[call] = newref
+        return number
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
@@ -337,6 +348,17 @@ class Map(lispytree.BuiltinFunction):
         typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
 
         return collection(typedarg1.schema), [typedarg0, typedarg1], frame
+
+    def toStatements(self, call, statements, replacements, number):
+        number = typedtree.toStatements(call.args[0], statements, replacements, number)
+
+        # the argument of the UserFunction is the values of the collection
+        replacements[call.args[1].refs[0]] = replacements[call.args[0]]
+        number = typedtree.toStatements(call.args[1].body, statements, replacements, number)
+
+        replacements[call] = replacements[call.args[1].body]
+
+        return number
 
     def level(self, args, base):
         level0 = typedtree.assignLevels(args[0], base)

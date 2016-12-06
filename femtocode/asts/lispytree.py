@@ -110,8 +110,12 @@ class Ref(LispyTree):
             if self.order == other.order:
                 if self.name == other.name:
                     return self.framenumber < other.framenumber
-                else:
+                elif isinstance(self.name, int) and isinstance(other.name, int):
                     return self.name < other.name
+                elif isinstance(self.name, string_types) and isinstance(other.name, string_types):
+                    return self.name < other.name
+                else:
+                    return True
             else:
                 return self.order < other.order
         else:

@@ -195,3 +195,14 @@ class TestSemantics(unittest.TestCase):
         print("")
         typedtree.assignLevels(ttunique)
         walk3(ttunique)
+
+    def test_simple3(self):
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))
+        tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
+
+        statements = []
+        typedtree.toStatements(tt, statements, {}, 0)
+
+        print("")
+        for ref, value in statements:
+            print(repr(ref) + " -> " + repr(value))

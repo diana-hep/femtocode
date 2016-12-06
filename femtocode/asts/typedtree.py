@@ -42,8 +42,12 @@ class Ref(lispytree.Ref):
                         return self.schema < other.schema
                     else:
                         return self.framenumber < other.framenumber
-                else:
+                elif isinstance(self.name, int) and isinstance(other.name, int):
                     return self.name < other.name
+                elif isinstance(self.name, string_types) and isinstance(other.name, string_types):
+                    return self.name < other.name
+                else:
+                    return True
             else:
                 return self.order < other.order
         else:
@@ -217,6 +221,32 @@ def build(tree, frame):
 
     else:
         raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
+
+########################################
+
+def toStatements(tree, statements, replacements, number):
+    if isinstance(tree, Ref):
+        if tree.framenumber is None:
+            replacements[tree] = tree
+
+    elif isinstance(tree, Literal):
+        replacements[tree] = tree
+
+    elif isinstance(tree, Call):
+        number = tree.fcn.toStatements(tree, statements, replacements, number)
+
+    else:
+        raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
+
+    return number
+
+
+
+
+
+
+
+########################################
 
 def fillUniquesSet(tree, uniques):
     uniques[tree] = tree
