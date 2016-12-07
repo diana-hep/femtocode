@@ -155,6 +155,16 @@ class Schema(object):
     def __repr__(self):
         return self._repr_memo(set())
 
+    def _update_memo(self, memo):
+        if self.alias is not None:
+            if self.alias in memo:
+                return json.dumps(self.alias)
+            else:
+                memo.add(self.alias)
+                return None
+        else:
+            return None
+
     def name(self, plural=False):
         if plural:
             return self.__class__.__name__ + "s"
@@ -191,7 +201,21 @@ class Schema(object):
 
     def __call__(self, alias=None):
         return self.__class__(alias)
-    
+
+    @staticmethod
+    def fromJson(self, obj):
+        pass
+
+    @staticmethod
+    def fromJsonString(self, obj):
+        return Schema.fromJson(json.loads(obj))
+
+    def toJson(self):
+        return self._toJson_memo(set())
+
+    def toJsonString(self):
+        return json.dumps(self.toJson())
+
 class Impossible(Schema):   # results in a compilation error
     order = 0
 
@@ -200,11 +224,9 @@ class Impossible(Schema):   # results in a compilation error
         super(Impossible, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.alias is not None:
             return "impossible(alias={0})".format(json.dumps(self.alias))
@@ -224,11 +246,9 @@ class Null(Schema):
         super(Null, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.alias is not None:
             return "null(alias={0})".format(json.dumps(self.alias))
@@ -245,11 +265,9 @@ class Boolean(Schema):
         super(Boolean, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.alias is not None:
             return "boolean(alias={0})".format(json.dumps(self.alias))
@@ -311,11 +329,9 @@ class Number(Schema):
         super(Number, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.whole and self.min == almost(-inf) and self.max == almost(inf):
             base = "integer"
@@ -419,11 +435,9 @@ class String(Schema):
         super(String, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         args = []
         if self.charset != "bytes":
@@ -543,11 +557,9 @@ class Collection(Schema):
             getaliases(items)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.most == 0:
             if self.alias is None:
@@ -678,11 +690,9 @@ class Record(Schema):
         super(Record, self).__init__(alias)
 
     def _repr_memo(self, memo):
-        if self.alias is not None:
-            if self.alias in memo:
-                return json.dumps(self.alias)
-            else:
-                memo.add(self.alias)
+        out = self._update_memo(memo)
+        if out is not None:
+            return out
 
         if self.alias is not None:
             alias = json.dumps(self.alias) + ", "
