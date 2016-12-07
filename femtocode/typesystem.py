@@ -158,7 +158,7 @@ class Schema(object):
     def _update_memo(self, memo):
         if self.alias is not None:
             if self.alias in memo:
-                return json.dumps(self.alias)
+                return self.alias
             else:
                 memo.add(self.alias)
                 return None
@@ -203,11 +203,109 @@ class Schema(object):
         return self.__class__(alias)
 
     @staticmethod
-    def fromJson(self, obj):
-        pass
+    def _numtojson(obj):
+        if obj.real == -inf:
+            num = "-inf"
+        elif obj.real == inf:
+            num = "inf"
+        elif round(obj.real) == obj.real:
+            num = int(obj.real)
+        else:
+            num = obj.real
+
+        if isinstance(obj, almost):
+            return {"almost": num}
+        else:
+            return num
 
     @staticmethod
-    def fromJsonString(self, obj):
+    def _numfromjson(obj, path):
+        if isinstance(obj, dict) and len(obj) == 1 and "almost" in obj:
+            if obj["almost"] == "-inf":
+                return almost(-inf)
+            elif obj["almost"] == "inf":
+                return almost(inf)
+            elif isinstance(obj["almost"], (int, long, float)):
+                return almost(obj["almost"])
+            else:
+                raise FemtocodeError("Expected number, \"-inf\", \"inf\" or {{\"almost\": _}} at JSON{0}\n\n    found {1}".format(path, obj))
+
+        elif isinstance(obj, (int, long, float)):
+            if obj == "-inf":
+                return almost(-inf)
+            elif obj == "inf":
+                return almost(inf)
+            elif isinstance(obj, (int, long, float)):
+                return almost(obj)
+            else:
+                raise FemtocodeError("Expected number, \"-inf\", \"inf\" or {{\"almost\": _}} at JSON{0}\n\n    found {1}".format(path, obj))
+
+        else:
+            raise FemtocodeError("Expected number, \"-inf\", \"inf\" or {{\"almost\": _}} at JSON{0}\n\n    found {1}".format(path, obj))
+
+    @staticmethod
+    def fromJson(obj):
+        def build(obj, path, predefined):
+            if isinstance(obj, string_types):
+                if obj == "impossible":
+                    return impossible
+                elif obj == "null":
+                    return null
+                elif obj == "boolean":
+                    return boolean
+                elif obj == "integer":
+                    return integer
+                elif obj == "extended":
+                    return extended
+                elif obj == "real":
+                    return real
+                elif obj == "string":
+                    return string
+                else:
+                    raise FemtocodeError("Expected name of concrete type at JSON{0}\n\n    found {1}".format(path, obj))
+
+            elif isinstance(obj, dict):
+                if len(obj) == 1 and "alias" in obj:
+                    return obj   # this is a placeholder, to be replaced in resolve
+
+                elif "type" in obj:
+                    if obj["type"] in ("integer", "real", "extended"):
+                        pass
+
+                    elif obj["type"] == "string":
+                        pass
+
+                    elif obj["type"] == "collection":
+                        pass
+
+                    elif obj["type"] in ("vector", "matrix", "tensor"):
+                        pass
+
+                    elif obj["type"] == "record":
+                        pass
+
+                    elif obj["type"] == "union":
+                        pass
+
+                    else:
+                        raise FemtocodeError("Expected name of parameterized type at JSON{0}\n\n    found {1}".format(path, obj))
+
+                else:
+                    raise FemtocodeError("Expected \"type\" in {{...}} at JSON{0}\n\n    found keys {1}".format(path, ", ".join(map(json.dumps, obj.keys()))))
+
+            else:
+                raise FemtocodeError("Expected string or {{...}} at JSON{0}\n\n    found {1}".format(path, obj))
+
+        predefined = {}
+        out = build(obj, "", predefined)
+
+        def resolve(obj):
+            pass
+
+        return resolve(obj)
+
+    @staticmethod
+    def fromJsonString(obj):
         return Schema.fromJson(json.loads(obj))
 
     def toJson(self):
@@ -226,7 +324,7 @@ class Impossible(Schema):   # results in a compilation error
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.alias is not None:
             return "impossible(alias={0})".format(json.dumps(self.alias))
@@ -239,6 +337,16 @@ class Impossible(Schema):   # results in a compilation error
     def __call__(self, reason=None, alias=None):
         return self.__class__(self.reason if reason is None else reason, alias)
 
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        if self.alias is not None:
+            return {"type": "impossible", "alias": self.alias}
+        else:
+            return "impossible"
+
 class Null(Schema):
     order = 1
 
@@ -248,7 +356,7 @@ class Null(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.alias is not None:
             return "null(alias={0})".format(json.dumps(self.alias))
@@ -257,6 +365,16 @@ class Null(Schema):
 
     def __contains__(self, other):
         return isinstance(other, Null) or other is None
+
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        if self.alias is not None:
+            return {"type": "null", "alias": self.alias}
+        else:
+            return "null"
 
 class Boolean(Schema):
     order = 2
@@ -267,7 +385,7 @@ class Boolean(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.alias is not None:
             return "boolean(alias={0})".format(json.dumps(self.alias))
@@ -276,6 +394,16 @@ class Boolean(Schema):
 
     def __contains__(self, other):
         return isinstance(other, Boolean) or other is True or other is False
+
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        if self.alias is not None:
+            return {"type": "boolean", "alias": self.alias}
+        else:
+            return "boolean"
 
 class Number(Schema):
     order = 3
@@ -331,7 +459,7 @@ class Number(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.whole and self.min == almost(-inf) and self.max == almost(inf):
             base = "integer"
@@ -416,6 +544,32 @@ class Number(Schema):
                               self.whole if whole is None else whole,
                               alias)
 
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        if self.whole and self.min == almost(-inf) and self.max == almost(inf):
+            out = {"type": "integer"}
+        elif self.whole:
+            out = {"type": "integer", "min": Schema._numtojson(self.min), "max": Schema._numtojson(self.max)}
+        elif self.min == -inf and self.max == inf:
+            out = {"type": "extended"}
+        elif self.min == -inf or self.max == inf:
+            out = {"type": "extended", "min": Schema._numtojson(self.min), "max": Schema._numtojson(self.max)}
+        elif self.min == almost(-inf) and self.max == almost(inf):
+            out = {"type": "real"}
+        else:
+            out = {"type": "real", "min": Schema._numtojson(self.min), "max": Schema._numtojson(self.max)}
+
+        if self.alias is not None:
+            out["alias"] = self.alias
+
+        if len(out) == 1:
+            return out["type"]
+        else:
+            return out
+
 class String(Schema):
     order = 4
 
@@ -437,7 +591,7 @@ class String(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         args = []
         if self.charset != "bytes":
@@ -513,6 +667,27 @@ class String(Schema):
                               self.most if most is None else most,
                               alias)
 
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        out = {}
+        if self.charset != "bytes":
+            out["charset"] = self.charset
+        if not self.fewest == 0:
+            out["fewest"] = Schema._numtojson(self.fewest)
+        if not self.most == almost(inf):
+            out["most"] = Schema._numtojson(self.most)
+        if self.alias is not None:
+            out["alias"] = self.alias
+
+        if len(out) == 0:
+            return "string"
+        else:
+            out["type"] = "string"
+            return out
+
 class Collection(Schema):
     order = 5
 
@@ -559,7 +734,7 @@ class Collection(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.most == 0:
             if self.alias is None:
@@ -587,10 +762,9 @@ class Collection(Schema):
             dimensions.append(items.fewest)
             items = items.items
 
-        args = []
+        args = map(repr, dimensions)
         if self.alias is not None:
             args.append("alias={0}".format(json.dumps(self.alias)))
-        args.extend(map(repr, dimensions))
 
         if len(dimensions) == 1:
             return "vector({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
@@ -674,6 +848,56 @@ class Collection(Schema):
                               self.ordered if ordered is None else ordered,
                               alias)
 
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        if self.most == 0:
+            if self.alias is None:
+                return "empty"
+            else:
+                return {"type": "empty", "alias": self.alias}
+
+        def generic():
+            out = {"type": "collection", "items": self.items._json_memo(memo)}
+            if self.fewest != 0:
+                out["fewest"] = Schema._numtojson(self.fewest)
+            if self.most != almost(inf):
+                out["most"] = Schema._numtojson(self.most)
+            if self.ordered:
+                out["ordered"] = self.ordered
+            if self.alias is not None:
+                out["alias"] = self.alias
+            return out
+
+        dimensions = []
+        items = self
+        while isinstance(items, Collection) and items.ordered and items.fewest == items.most and items.fewest != 0:
+            if not items.ordered:
+                return generic()
+            dimensions.append(items.fewest)
+            items = items.items
+
+        out = {"dims": dimensions}
+        if self.alias is not None:
+            out["alias"] = self.alias
+
+        if len(dimensions) == 1:
+            out["type"] = "vector"
+            out["items"] = items._json_memo(memo)
+            return out
+        elif len(dimensions) == 2:
+            out["type"] = "matrix"
+            out["items"] = items._json_memo(memo)
+            return out
+        elif len(dimensions) > 2:
+            out["type"] = "tensor"
+            out["items"] = items._json_memo(memo)
+            return out
+        else:
+            return generic()
+
 class Record(Schema):
     order = 6
 
@@ -692,7 +916,7 @@ class Record(Schema):
     def _repr_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
-            return out
+            return json.dumps(out)
 
         if self.alias is not None:
             alias = json.dumps(self.alias) + ", "
@@ -748,6 +972,17 @@ class Record(Schema):
 
     def __call__(self, __alias__=None, **fields):
         return self.__class__(dict(self.fields, **fields), __alias__)
+
+    def _json_memo(self, memo):
+        out = self._update_memo(memo)
+        if out is not None:
+            return {"alias": out}
+
+        out = {"type": "record", "fields": dict((n, t._json_memo(memo)) for n, t in self.fields)}
+        if self.alias is not None:
+            out["alias"] = self.alias
+
+        return out
 
 class Union(Schema):
     order = 7
@@ -831,6 +1066,9 @@ class Union(Schema):
 
     def __call__(self, *possibilities):
         return self.__class__(possibilities)
+
+    def _json_memo(self, memo):
+        return {"type": "union", "possibilities": [x._json_memo(memo) for x in self.possibilities]}
 
 def _collectAliases(schema, aliases):
     for n, t in schema._aliases:
