@@ -230,13 +230,13 @@ class Schema(object):
             else:
                 raise FemtocodeError("Expected number, \"-inf\", \"inf\" or {{\"almost\": _}} at JSON{0}\n\n    found {1}".format(path, obj))
 
-        elif isinstance(obj, (int, long, float)):
+        elif isinstance(obj, (int, long, float) + string_types):
             if obj == "-inf":
-                return almost(-inf)
+                return -inf
             elif obj == "inf":
-                return almost(inf)
+                return inf
             elif isinstance(obj, (int, long, float)):
-                return almost(obj)
+                return obj
             else:
                 raise FemtocodeError("Expected number, \"-inf\", \"inf\" or {{\"almost\": _}} at JSON{0}\n\n    found {1}".format(path, obj))
 
@@ -261,16 +261,34 @@ class Schema(object):
                     return real
                 elif obj == "string":
                     return string
+                elif obj == "empty":
+                    return empty
                 else:
                     raise FemtocodeError("Expected name of concrete type at JSON{0}\n\n    found {1}".format(path, obj))
 
             elif isinstance(obj, dict):
                 if len(obj) == 1 and "alias" in obj:
-                    return obj["alias"]   # this is a placeholder, to be replaced in resolve
+                    return obj["alias"]   # this is a placeholder, to be replaced in resolve (below)
 
                 elif "type" in obj:
-                    if obj["type"] in ("integer", "real", "extended"):
-                        kwds = {"whole": obj["type"] == "integer"}
+                    if obj["type"] in ("impossible", "null", "boolean", "empty"):
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if obj["type"] == "impossible":
+                            return impossible(**kwds)
+                        elif obj["type"] == "null":
+                            return null(**kwds)
+                        elif obj["type"] == "boolean":
+                            return boolean(**kwds)
+                        elif obj["type"] == "empty":
+                            return empty(**kwds)
+
+                    elif obj["type"] in ("integer", "real", "extended"):
+                        kwds = {}
                         if "alias" in obj:
                             if isinstance(obj["alias"], string_types):
                                 kwds["alias"] = obj["alias"]
@@ -284,7 +302,12 @@ class Schema(object):
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
-                            return Number(**kwds)
+                            if obj["type"] == "integer":
+                                return integer(**kwds)
+                            elif obj["type"] == "real":
+                                return real(**kwds)
+                            elif obj["type"] == "extended":
+                                return extended(**kwds)
                         except FemtocodeError as err:
                             raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
@@ -304,26 +327,113 @@ class Schema(object):
                             kwds["fewest"] = Schema._numfromjson(obj["fewest"], path + "[\"fewest\"]")
                         if "most" in obj:
                             kwds["most"] = Schema._numfromjson(obj["most"], path + "[\"most\"]")
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "min", "max"]))
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "charset", "fewest", "most"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
-                            return String(**kwds)
+                            return string(**kwds)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
+                        
+                    elif obj["type"] == "collection":
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "items" in obj:
+                            kwds["items"] = build(obj["items"], path + "[\"items\"]")
+                        else:
+                            raise FemtocodeError("Expected \"items\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
+                        if "fewest" in obj:
+                            kwds["fewest"] = Schema._numfromjson(obj["fewest"], path + "[\"fewest\"]")
+                        if "most" in obj:
+                            kwds["most"] = Schema._numfromjson(obj["most"], path + "[\"most\"]")
+                        if "ordered" in obj:
+                            if isinstance(obj["ordered"], bool):
+                                kwds["ordered"] = obj["ordered"]
+                            else:
+                                raise FemtocodeError("Expected \"ordered\" for \"type\": \"{0}\" to be boolean at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["ordered"])))
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "items", "fewest", "most", "ordered"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            return collection(**kwds)
                         except FemtocodeError as err:
                             raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
-                    elif obj["type"] == "collection":
-                        pass
-
                     elif obj["type"] in ("vector", "matrix", "tensor"):
-                        pass
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "items" in obj:
+                            items = build(obj["items"], path + "[\"items\"]")
+                        else:
+                            raise FemtocodeError("Expected \"items\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
+                        if "dimensions" in obj:
+                            if isinstance(obj["dimensions"], list):
+                                if all(isinstance(x, int) for x in obj["dimensions"]):
+                                    dimensions = obj["dimensions"]
+                                else:
+                                    raise FemtocodeError("Expected \"dimensions\" for \"type\": \"{0}\" to be an array of integers at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["dimensions"])))
+                            else:
+                                raise FemtocodeError("Expected \"dimensions\" for \"type\": \"{0}\" to be [...] at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["dimensions"])))
+                        else:
+                            raise FemtocodeError("Expected \"dimensions\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "items", "dimensions"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            if obj["type"] == "vector":
+                                return vector(items, *dimensions, **kwds)
+                            elif obj["type"] == "matrix":
+                                return matrix(items, *dimensions, **kwds)
+                            elif obj["type"] == "tensor":
+                                return tensor(items, *dimensions, **kwds)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
                     elif obj["type"] == "record":
-                        pass
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "fields" in obj:
+                            if isinstance(obj["fields"], dict) and all(isinstance(x, string_types) for x in obj["fields"].keys()):
+                                kwds["fields"] = dict((n, build(t, path + "[\"fields\"][" + json.dumps(n) + "]")) for n, t in obj["fields"].items())
+                            else:
+                                raise FemtocodeError("Expected \"fields\" for \"type\": \"{0}\" to be {{...}}} at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["fields"])))
+                        else:
+                            raise FemtocodeError("Expected \"fields\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "fields"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            return Record(**kwds)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
                     elif obj["type"] == "union":
-                        pass
-
+                        if "possibilities" in obj:
+                            if isinstance(obj["possibilities"], list):
+                                possibilities = [build(t, path + "[{0}]".format(i)) for i, t in enumerate(obj["possibilities"])]
+                            else:
+                                raise FemtocodeError("Expected \"possibilities\" for \"type\": \"{0}\" to be [...] at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["possibilities"])))
+                        else:
+                            raise FemtocodeError("Expected \"possibilities\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "possibilities"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            return union(*possibilities)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
                     else:
                         raise FemtocodeError("Expected name of parameterized type at JSON{0}\n\n    found {1}".format(path, obj))
 
@@ -335,14 +445,14 @@ class Schema(object):
 
         out = build(obj, "")
 
-        return resolve([obj])[0]
+        return resolve([out])[0]
 
     @staticmethod
     def fromJsonString(obj):
         return Schema.fromJson(json.loads(obj))
 
     def toJson(self):
-        return self._toJson_memo(set())
+        return self._json_memo(set())
 
     def toJsonString(self):
         return json.dumps(self.toJson())
@@ -912,7 +1022,7 @@ class Collection(Schema):
             dimensions.append(items.fewest)
             items = items.items
 
-        out = {"dims": dimensions}
+        out = {"dimensions": dimensions}
         if self.alias is not None:
             out["alias"] = self.alias
 
@@ -1011,7 +1121,7 @@ class Record(Schema):
         if out is not None:
             return {"alias": out}
 
-        out = {"type": "record", "fields": dict((n, t._json_memo(memo)) for n, t in self.fields)}
+        out = {"type": "record", "fields": dict((n, t._json_memo(memo)) for n, t in self.fields.items())}
         if self.alias is not None:
             out["alias"] = self.alias
 
@@ -1329,12 +1439,17 @@ def matrix(items, dimension0, dimension1, alias=None):
         raise FemtocodeError("matrix dimensions ({0}, {1}) must be positive".format(dimension0, dimension1))
     return Collection(Collection(items, dimension1, dimension1, True), dimension0, dimension0, True, alias)
 
-def tensor(items, *dimensions):
+def tensor(items, *dimensions, **kwds):
     if len(dimensions) > 0 and isinstance(dimensions[-1], string_types):
-        alias = alias[-1]
+        alias = dimensions[-1]
         dimensions = dimensions[:-1]
+    elif len(kwds) > 0 and "alias" in kwds:
+        alias = kwds["alias"]
     else:
         alias = None
+    unexpected = set(kwds.keys()).difference(set(["alias"]))
+    if len(unexpected) > 0:
+        raise FemtocodeError("unexpected keyword arguments in tensor: {0}".format(", ".join(map(repr, kwds.keys()))))
     out = items
     if any(d <= 0 for d in dimensions):
         raise FemtocodeError("tensor dimensions ({0}) must be positive".format(", ".join(map(repr, dimensions))))
