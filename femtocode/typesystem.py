@@ -245,7 +245,7 @@ class Schema(object):
 
     @staticmethod
     def fromJson(obj):
-        def build(obj, path, predefined):
+        def build(obj, path):
             if isinstance(obj, string_types):
                 if obj == "impossible":
                     return impossible
@@ -266,14 +266,51 @@ class Schema(object):
 
             elif isinstance(obj, dict):
                 if len(obj) == 1 and "alias" in obj:
-                    return obj   # this is a placeholder, to be replaced in resolve
+                    return obj["alias"]   # this is a placeholder, to be replaced in resolve
 
                 elif "type" in obj:
                     if obj["type"] in ("integer", "real", "extended"):
-                        pass
+                        kwds = {"whole": obj["type"] == "integer"}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "min" in obj:
+                            kwds["min"] = Schema._numfromjson(obj["min"], path + "[\"min\"]")
+                        if "max" in obj:
+                            kwds["max"] = Schema._numfromjson(obj["max"], path + "[\"max\"]")
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "min", "max"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            return Number(**kwds)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
                     elif obj["type"] == "string":
-                        pass
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "charset" in obj:
+                            if isinstance(obj["charset"], string_types):
+                                kwds["charset"] = obj["charset"]
+                            else:
+                                raise FemtocodeError("Expected \"charset\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["charset"])))
+                        if "fewest" in obj:
+                            kwds["fewest"] = Schema._numfromjson(obj["fewest"], path + "[\"fewest\"]")
+                        if "most" in obj:
+                            kwds["most"] = Schema._numfromjson(obj["most"], path + "[\"most\"]")
+                        unexpected = set(obj.keys()).difference(set(["type", "alias", "min", "max"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        try:
+                            return String(**kwds)
+                        except FemtocodeError as err:
+                            raise FemtocodeError("Error in arguments for \"type\": \"{0}\" at JSON{1}\n\n    {2}".format(obj["type"], path, str(err)))
 
                     elif obj["type"] == "collection":
                         pass
@@ -296,13 +333,9 @@ class Schema(object):
             else:
                 raise FemtocodeError("Expected string or {{...}} at JSON{0}\n\n    found {1}".format(path, obj))
 
-        predefined = {}
-        out = build(obj, "", predefined)
+        out = build(obj, "")
 
-        def resolve(obj):
-            pass
-
-        return resolve(obj)
+        return resolve([obj])[0]
 
     @staticmethod
     def fromJsonString(obj):
