@@ -81,11 +81,12 @@ class Add(SimpleLevels, lispytree.BuiltinFunction):
         for arg in call.args:
             number = typedtree.toStatements(arg, statements, replacements, number)
 
-        newref = typedtree.Ref(number, None, call.schema, call.original)
-        number += 1
-        value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
-        statements.append((newref, value))
-        replacements[call] = newref
+        if call not in replacements:
+            newref = typedtree.Ref(number, None, call.schema, call.original)
+            number += 1
+            value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
+            statements.append((newref, value))
+            replacements[call] = newref
         return number
         
     def generate(self, args):
@@ -107,11 +108,12 @@ class Divide(SimpleLevels, lispytree.BuiltinFunction):
         for arg in call.args:
             number = typedtree.toStatements(arg, statements, replacements, number)
 
-        newref = typedtree.Ref(number, None, call.schema, call.original)
-        number += 1
-        value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
-        statements.append((newref, value))
-        replacements[call] = newref
+        if call not in replacements:
+            newref = typedtree.Ref(number, None, call.schema, call.original)
+            number += 1
+            value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
+            statements.append((newref, value))
+            replacements[call] = newref
         return number
         
     def generate(self, args):
