@@ -203,7 +203,7 @@ def _combineTwoUnions(one, two, operation):
     reason = None
     for p1 in one.possibilities:
         for p2 in two.possibilities:
-            result = operation(one, two)
+            result = operation(p1, p2)
             if not isinstance(result, Impossible):
                 possibilities.append(result)
             elif reason is None:
@@ -214,9 +214,9 @@ def _combineTwoUnions(one, two, operation):
     elif len(possibilities) == 1:
         return possibilities[0]
     else:
-        return Union(possibilities)
+        return union(*possibilities)
 
-def _combineOneUnion(one, other, operation):
+def _combineFirstUnion(one, other, operation):
     possibilities = []
     reason = None
     for p in one.possibilities:
@@ -231,8 +231,25 @@ def _combineOneUnion(one, other, operation):
     elif len(possibilities) == 1:
         return possibilities[0]
     else:
-        return Union(possibilities)
-        
+        return union(*possibilities)
+
+def _combineSecondUnion(other, two, operation):
+    possibilities = []
+    reason = None
+    for p in two.possibilities:
+        result = operation(other, p)
+        if not isinstance(result, Impossible):
+            possibilities.append(result)
+        elif reason is None:
+            reason = result.reason
+
+    if len(possibilities) == 0:
+        return impossible(reason)
+    elif len(possibilities) == 1:
+        return possibilities[0]
+    else:
+        return union(*possibilities)
+
 def add(*args):
     if len(args) == 0:
         raise ProgrammingError("inference.add called with 0 arguments")
@@ -247,10 +264,10 @@ def add(*args):
             return _combineTwoUnions(one, two, add)
 
         elif isinstance(one, Union):
-            return _combineOneUnion(one, two, add)
+            return _combineFirstUnion(one, two, add)
 
         elif isinstance(two, Union):
-            return _combineOneUnion(two, one, add)
+            return _combineSecondUnion(one, two, add)
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if (one.min == -inf and two.min == inf) or \
@@ -301,10 +318,10 @@ def subtract(*args):
             return _combineTwoUnions(one, two, subtract)
 
         elif isinstance(one, Union):
-            return _combineOneUnion(one, two, subtract)
+            return _combineFirstUnion(one, two, subtract)
 
         elif isinstance(two, Union):
-            return _combineOneUnion(two, one, subtract)
+            return _combineSecondUnion(one, two, subtract)
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if (one.min == -inf and two.min == -inf) or \
@@ -408,10 +425,10 @@ def multiply(*args):
             return _combineTwoUnions(one, two, multiply)
 
         elif isinstance(one, Union):
-            return _combineOneUnion(one, two, multiply)
+            return _combineFirstUnion(one, two, multiply)
 
         elif isinstance(two, Union):
-            return _combineOneUnion(two, one, multiply)
+            return _combineSecondUnion(one, two, multiply)
 
         elif isinstance(one, Number) and isinstance(two, Number):
             oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
@@ -562,10 +579,10 @@ def divide(*args):
             return _combineTwoUnions(one, two, divide)
 
         elif isinstance(one, Union):
-            return _combineOneUnion(one, two, divide)
+            return _combineFirstUnion(one, two, divide)
 
         elif isinstance(two, Union):
-            return _combineOneUnion(two, one, divide)
+            return _combineSecondUnion(one, two, divide)
 
         elif isinstance(one, Number) and isinstance(two, Number):
             oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one, True)
@@ -581,7 +598,7 @@ def divide(*args):
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
+                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(inf)
@@ -610,7 +627,7 @@ def divide(*args):
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
+                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(-inf)
@@ -640,7 +657,7 @@ def divide(*args):
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
+                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(-inf)
@@ -669,7 +686,7 @@ def divide(*args):
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (0 / 0).")
+                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(inf)
@@ -703,10 +720,10 @@ def power(one, two):
         return _combineTwoUnions(one, two, power)
 
     elif isinstance(one, Union):
-        return _combineOneUnion(one, two, power)
+        return _combineFirstUnion(one, two, power)
 
     elif isinstance(two, Union):
-        return _combineOneUnion(two, one, power)
+        return _combineSecondUnion(one, two, power)
 
     elif isinstance(one, Number) and isinstance(two, Number):
         def hasNegative(interval):
@@ -874,10 +891,10 @@ def modulo(one, two):
         return _combineTwoUnions(one, two, modulo)
 
     elif isinstance(one, Union):
-        return _combineOneUnion(one, two, modulo)
+        return _combineFirstUnion(one, two, modulo)
 
     elif isinstance(two, Union):
-        return _combineOneUnion(two, one, modulo)
+        return _combineSecondUnion(one, two, modulo)
 
     elif isinstance(one, Number) and isinstance(two, Number):
         if inf in one or -inf in one:

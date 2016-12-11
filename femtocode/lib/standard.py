@@ -93,6 +93,32 @@ class Add(SimpleLevels, lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
+class Divide(SimpleLevels, lispytree.BuiltinFunction):
+    name = "/"
+
+    def literaleval(self, args):
+        return float(args[0]) / float(args[1])
+        
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+
+    def toStatements(self, call, statements, replacements, number):
+        for arg in call.args:
+            number = typedtree.toStatements(arg, statements, replacements, number)
+
+        newref = typedtree.Ref(number, None, call.schema, call.original)
+        number += 1
+        value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
+        statements.append((newref, value))
+        replacements[call] = newref
+        return number
+        
+    def generate(self, args):
+        return "({0} / {1})".format(args[0].generate(), args[1].generate())
+
+table[Divide.name] = Divide()
+
 class Eq(SimpleLevels, lispytree.BuiltinFunction):
     name = "=="
 
@@ -347,7 +373,8 @@ class Map(lispytree.BuiltinFunction):
 
         typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
 
-        return collection(typedarg1.schema), [typedarg0, typedarg1], frame
+        c = typedarg0.schema
+        return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
     def toStatements(self, call, statements, replacements, number):
         number = typedtree.toStatements(call.args[0], statements, replacements, number)

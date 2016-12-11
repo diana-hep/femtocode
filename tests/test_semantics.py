@@ -197,12 +197,49 @@ class TestSemantics(unittest.TestCase):
         walk3(ttunique)
 
     def test_simple3(self):
-        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
+
+        def walk(tree, indent=""):
+            if isinstance(tree, typedtree.Ref):
+                print("{0}Ref {1} (frame {2}) has type {3}".format(indent, tree.name, tree.framenumber, tree.schema))
+
+            elif isinstance(tree, typedtree.Literal):
+                print("{0}Literal {1} has type {2}".format(indent, tree.value, tree.schema))
+
+            elif isinstance(tree, typedtree.Call):
+                print("{0}Call {1} has type {2}".format(indent, tree.fcn, tree.schema))
+                for arg in tree.args:
+                    walk(arg, indent + "    ")
+
+            elif isinstance(tree, typedtree.UserFunction):
+                print("{0}UserFunction has type {1}".format(indent, tree.schema))
+                walk(tree.body, indent + "    ")
+
+            else:
+                print("WTF {0} {1}".format(type(tree), tree))
+
+        print("")
+        walk(tt)
 
         statements = []
         typedtree.toStatements(tt, statements, {}, 0)
 
         print("")
         for ref, value in statements:
-            print(repr(ref) + " -> " + repr(value))
+            left = ref.name if isinstance(ref.name, string_types) else "tmp_" + repr(ref.name)
+            if isinstance(value, typedtree.Call):
+                fcn = value.fcn.name
+                args = []
+                for arg in value.args:
+                    if isinstance(arg, typedtree.Ref):
+                        ref = arg
+                        args.append(ref.name if isinstance(ref.name, string_types) else "tmp_" + repr(ref.name))
+                    elif isinstance(arg, typedtree.Literal):
+                        args.append(repr(arg.value))
+                    else:
+                        print("WTF {0} {1}".format(type(arg), arg))
+            else:
+                print("WTF {0} {1}".format(type(value), value))
+
+            print(left + " := (" + fcn + " " + " ".join(args) + ")")
