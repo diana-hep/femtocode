@@ -42,7 +42,7 @@ def schemaToColumns(name, schema, rep=None):
     if isinstance(schema, Null):
         return {}
 
-    elif isinstance(schema, (Boolean, Number)) or (isinstance(schema, Union) and all(isinstance(p, Number) for p in schema.possibilities)):
+    elif isinstance(schema, (Boolean, Number)):
         out = {name: Column(name, schema, rep)}
         if rep is not None:
             out[rep.name] = rep
@@ -84,6 +84,8 @@ def schemaToColumns(name, schema, rep=None):
                 return True
             elif isinstance(x, String) and x.charset == "unicode" and isinstance(y, String) and y.charset == "unicode":
                 return True
+            elif isinstance(x, String) and isinstance(y, String):
+                return False   # bytes and unicode or unicode and bytes
             elif isinstance(x, Collection) and isinstance(y, Collection):
                 return compatible(x.items, y.items)
             elif isinstance(x, Record) and isinstance(y, Record):
@@ -104,7 +106,7 @@ def schemaToColumns(name, schema, rep=None):
                         found = True
             if not found:
                 classes.append([p1])
-
+        
         flattened = []
         for c in classes:
             if isinstance(c[0], Null):
@@ -112,13 +114,13 @@ def schemaToColumns(name, schema, rep=None):
             elif isinstance(c[0], Boolean):
                 flattened.append(boolean)
             elif isinstance(c[0], Number):
-                flattened.append(Number(almost.min([p.min for p in c]), almost.max([p.max for p in c]), all(p.whole for p in c)))
+                flattened.append(Number(almost.min(*[p.min for p in c]), almost.max(*[p.max for p in c]), all(p.whole for p in c)))
             elif isinstance(c[0], String) and c[0].charset == "bytes":
-                flattened.append(String("bytes", almost.min([p.fewest for p in c]), almost.max([p.most for p in c])))
+                flattened.append(String("bytes", almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c])))
             elif isinstance(c[0], String) and c[0].charset == "unicode":
-                flattened.append(String("unicode", almost.min([p.fewest for p in c]), almost.max([p.most for p in c])))
+                flattened.append(String("unicode", almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c])))
             elif isinstance(c[0], Collection):
-                flattened.append(Collection(Union([p.items for p in c]), almost.min([p.fewest for p in c]), almost.max([p.most for p in c]), all(p.ordered for p in c)))
+                flattened.append(Collection(Union([p.items for p in c]), almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c]), all(p.ordered for p in c)))
             elif isinstance(c[0], Record):
                 flattened.append(Record(dict((n, Union([p.fields[n] for p in c])) for n in c[0].fields)))
             else:
@@ -128,7 +130,7 @@ def schemaToColumns(name, schema, rep=None):
             return schemaToColumns(name, flattened[0], rep)
         else:
             tagName = name + "." + Column.tagSuffix
-            tag = Column(tagName, Number(0, len(flattened), True), None)
+            tag = Column(tagName, Number(0, len(flattened) - 1, True), None)
             out = {tagName: tag}
             for i, p in enumerate(flattened):
                 out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep))
