@@ -1138,7 +1138,7 @@ class Union(Schema):
             if not isinstance(p, (Schema,) + string_types):
                 raise FemtocodeError("all Union possibilities ({0}) must be Schemas or alias strings".format(p))
         if len(possibilities) <= 1:
-            raise FemtocodeError("")
+            raise FemtocodeError("more than one Union possibility required: {0}".format(possibilities))
 
         # flatten Union of Unions
         ps = []

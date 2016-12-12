@@ -95,9 +95,20 @@ class TestStatements(unittest.TestCase):
         self.assertEqual(schemaToColumns("x", union(boolean, integer(1, 2))), {"x.@0": Column("x.@0", boolean, None), "x.@1": Column("x.@1", integer(1, 2), None), "x.@tag": Column("x.@tag", integer(0, 1), None)})
         self.assertEqual(schemaToColumns("x", union(string("bytes", 5, 5), string("unicode", 5, 5))), {"x.@0": Column("x.@0", string("bytes", 5, 5), None), "x.@1": Column("x.@1", string("unicode", 5, 5), Column("x.@1.@rep", integer(0, 1), None)), "x.@1.@rep": Column("x.@1.@rep", integer(0, 1), None), "x.@tag": Column("x.@tag", integer(0, 1), None)})
 
+        self.assertEqual(schemaToColumns("x", union(collection(boolean), collection(string))), {
+            "x.@tag": Column("x.@tag", integer(min=0, max=1), None),
+            "x.@0": Column("x.@0", boolean, Column("x.@0.@rep", integer(0, 1), None)),
+            "x.@0.@rep": Column("x.@0.@rep", integer(0, 1), None),
+            "x.@1": Column("x.@1", string, Column("x.@1.@rep", integer(0, 2), None)),
+            "x.@1.@rep": Column("x.@1.@rep", integer(0, 2), None)})
 
+        self.assertEqual(schemaToColumns("x", union(collection(boolean, 5, 5), collection(string, 5, 5))), {
+            "x.@tag": Column("x.@tag", integer(min=0, max=1), None),
+            "x.@0": Column("x.@0", boolean, None),
+            "x.@1": Column("x.@1", string, Column("x.@1.@rep", integer(0, 1), None)),
+            "x.@1.@rep": Column("x.@1.@rep", integer(0, 1), None)})
 
 
 
         print("")
-        print("\n".join(n + ": " + repr(c) for n, c in schemaToColumns("x", union(string("bytes", 5, 5), string("unicode", 5, 5))).items()))
+        print("\n".join(n + ": " + repr(c) for n, c in schemaToColumns("x", union(collection(boolean), collection(string))).items()))

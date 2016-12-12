@@ -120,9 +120,9 @@ def schemaToColumns(name, schema, rep=None):
             elif isinstance(c[0], String) and c[0].charset == "unicode":
                 flattened.append(String("unicode", almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c])))
             elif isinstance(c[0], Collection):
-                flattened.append(Collection(Union([p.items for p in c]), almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c]), all(p.ordered for p in c)))
+                flattened.append(Collection(union(*[p.items for p in c]), almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c]), all(p.ordered for p in c)))
             elif isinstance(c[0], Record):
-                flattened.append(Record(dict((n, Union([p.fields[n] for p in c])) for n in c[0].fields)))
+                flattened.append(Record(dict((n, union(*[p.fields[n] for p in c])) for n in c[0].fields)))
             else:
                 raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
 
