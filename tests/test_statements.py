@@ -107,8 +107,23 @@ class TestStatements(unittest.TestCase):
             "x.@0": Column("x.@0", boolean, None),
             "x.@1": Column("x.@1", string, Column("x.@1.@rep", integer(0, 1), None)),
             "x.@1.@rep": Column("x.@1.@rep", integer(0, 1), None)})
+        
+        self.assertEqual(schemaToColumns("x", resolve([record("tree", left=union(boolean, "tree"), right=union(boolean, "tree"))])[0]), {
+            "x.left.@tag": Column("x.left.@tag", integer(0, 1), None),
+            "x.left.@0": Column("x.left.@0", boolean, Column("x.left.@rep", integer(0, almost(inf)), None)),
+            "x.left.@rep": Column("x.left.@rep", integer(0, almost(inf)), None),
+            "x.right.@tag": Column("x.right.@tag", integer(0, 1), None),
+            "x.right.@0": Column("x.right.@0", boolean, Column("x.right.@rep", integer(0, almost(inf)), None)),
+            "x.right.@rep": Column("x.right.@rep", integer(0, almost(inf)), None)})
 
+        self.assertEqual(schemaToColumns("x", resolve([record("tree", left=collection("tree"), right=collection("tree"))])[0]), {
+            "x.left": Column("x.left", record("tree", left=collection("tree"), right=collection("tree")), Column("x.left.@rep", integer(0, almost(inf)), None)),
+            "x.left.@rep": Column("x.left.@rep", integer(0, almost(inf)), None),
+            "x.right": Column("x.right", record("tree", left=collection("tree"), right=collection("tree")), Column("x.right.@rep", integer(0, almost(inf)), None)),
+            "x.right.@rep": Column("x.right.@rep", integer(0, almost(inf)), None)})
 
-
-        print("")
-        print("\n".join(n + ": " + repr(c) for n, c in schemaToColumns("x", union(collection(boolean), collection(string))).items()))
+        self.assertEqual(schemaToColumns("x", resolve([record("tree", left=collection(collection("tree")), right=collection("tree"))])[0]), {
+            "x.left": Column("x.left", record("tree", left=collection(collection("tree")), right=collection("tree")), Column("x.left.@rep", integer(0, almost(inf)), None)),
+            "x.left.@rep": Column("x.left.@rep", integer(0, almost(inf)), None),
+            "x.right": Column("x.right", record("tree", left=collection(collection("tree")), right=collection("tree")), Column("x.right.@rep", integer(0, almost(inf)), None)),
+            "x.right.@rep": Column("x.right.@rep", integer(0, almost(inf)), None)})

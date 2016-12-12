@@ -38,7 +38,12 @@ class Column(object):
     def __eq__(self, other):
         return self.name == other.name and self.schema == other.schema and self.rep == other.rep
 
-def schemaToColumns(name, schema, rep=None):
+def schemaToColumns(name, schema, rep=None, memo=None):
+    if memo is None:
+        memo = ()
+    if schema.alias is not None:
+        memo = memo + (schema,)
+
     if isinstance(schema, Null):
         return {}
 
@@ -59,17 +64,21 @@ def schemaToColumns(name, schema, rep=None):
 
     elif isinstance(schema, Collection):
         if schema.fewest == schema.most:
-            return schemaToColumns(name, schema.items, rep)
+            return schemaToColumns(name, schema.items, rep, memo)
+        elif schema.items in memo:
+            repName = name + "." + Column.repSuffix
+            rep = Column(repName, Number(0, almost(inf), True), None)
+            return {repName: rep, name: Column(name, schema.items, rep)}
         else:
             repName = name + "." + Column.repSuffix
             maxRep = 1 + (0 if rep is None else rep.schema.max)
             rep = Column(repName, Number(0, maxRep, True), None)
-            return schemaToColumns(name, schema.items, rep)
+            return schemaToColumns(name, schema.items, rep, memo)
 
     elif isinstance(schema, Record):
         out = {}
         for n, t in schema.fields.items():
-            out.update(schemaToColumns(name + "." + n, t, rep))
+            out.update(schemaToColumns(name + "." + n, t, rep, memo))
         return out
 
     elif isinstance(schema, Union):
@@ -127,13 +136,17 @@ def schemaToColumns(name, schema, rep=None):
                 raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
 
         if len(flattened) == 1:
-            return schemaToColumns(name, flattened[0], rep)
+            return schemaToColumns(name, flattened[0], rep, memo)
         else:
             tagName = name + "." + Column.tagSuffix
             tag = Column(tagName, Number(0, len(flattened) - 1, True), None)
             out = {tagName: tag}
+
+            if any(p in memo for p in flattened):
+                rep = Column(name + "." + Column.repSuffix, Number(0, almost(inf), True), None)
             for i, p in enumerate(flattened):
-                out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep))
+                if p not in memo:
+                    out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep, memo))
             return out
 
     else:
