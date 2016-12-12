@@ -553,20 +553,20 @@ class Number(Schema):
 
     def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):
         if not isinstance(min, (int, long, float)):
-            raise FemtocodeError("min ({0}) must be a number (or an almost(number))".format(min))
+            raise FemtocodeError("Number min ({0}) must be a number (or an almost(number))".format(min))
         if not isinstance(max, (int, long, float)):
-            raise FemtocodeError("max ({0}) must be a number (or an almost(number))".format(max))
+            raise FemtocodeError("Number max ({0}) must be a number (or an almost(number))".format(max))
         if not isinstance(whole, bool):
-            raise FemtocodeError("whole ({0}) must be boolean".format(whole))
+            raise FemtocodeError("Number whole ({0}) must be boolean".format(whole))
 
         if not isinstance(min, almost) and not isinstance(max, almost) and min == max and not math.isinf(min) and round(min) == min:
             whole = True
 
         if whole:
             if min == -inf:
-                raise FemtocodeError("for whole-numbered intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))
+                raise FemtocodeError("for whole Number intervals, min ({0}) cannot be -inf; try almost(-inf)".format(min))
             if max == inf:
-                raise FemtocodeError("for whole-numbered intervals, max ({0}) cannot be inf; try almost(inf)".format(max))
+                raise FemtocodeError("for whole Number intervals, max ({0}) cannot be inf; try almost(inf)".format(max))
             if min != almost(-inf):
                 if isinstance(min, almost) and round(min.real) == min.real:
                     min = min.real + 1
@@ -590,9 +590,9 @@ class Number(Schema):
                 max = float(max)
 
         if min > max:
-            raise FemtocodeError("min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
+            raise FemtocodeError("Number min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
         if min.real == max.real and (isinstance(min, almost) or isinstance(max, almost)):
-            raise FemtocodeError("min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not almost(endpoint))".format(min, max))
+            raise FemtocodeError("Number min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not almost(endpoint))".format(min, max))
             
         self.min = min
         self.max = max
@@ -718,13 +718,13 @@ class String(Schema):
 
     def __init__(self, charset="bytes", fewest=0, most=almost(inf), alias=None):
         if charset not in ("bytes", "unicode"):
-            raise FemtocodeError("charset {0} not recognized".format(json.dumps(charset)))
+            raise FemtocodeError("String charset {0} not recognized".format(json.dumps(charset)))
         if not (isinstance(fewest, (int, long, float)) and not isinstance(fewest, almost) and fewest >= 0 and round(fewest) == fewest):
-            raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
+            raise FemtocodeError("String fewest ({0}) must be a nonnegative integer".format(fewest))
         if not (isinstance(most, (int, long, float)) and (most == almost(inf) or (not isinstance(most, almost) and round(most) == most))):
-            raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
+            raise FemtocodeError("String most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
-            raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
+            raise FemtocodeError("String fewest ({0}) must not be greater than most ({1})".format(fewest, most))
 
         self.charset = charset
         self.fewest = int(fewest)
@@ -836,15 +836,15 @@ class Collection(Schema):
 
     def __init__(self, items, fewest=0, most=almost(inf), ordered=False, alias=None):
         if not isinstance(items, (Schema,) + string_types):
-            raise FemtocodeError("items ({0}) must be a Schema or an alias string".format(items))
+            raise FemtocodeError("Collection items ({0}) must be a Schema or an alias string".format(items))
         if not (isinstance(fewest, (int, long, float)) and not isinstance(fewest, almost) and fewest >= 0 and round(fewest) == fewest):
-            raise FemtocodeError("fewest ({0}) must be a nonnegative integer".format(fewest))
+            raise FemtocodeError("Collection fewest ({0}) must be a nonnegative integer".format(fewest))
         if not (isinstance(most, (int, long, float)) and (most == almost(inf) or (not isinstance(most, almost) and round(most) == most))):
-            raise FemtocodeError("most ({0}) must be an integer or almost(inf)".format(most))
+            raise FemtocodeError("Collection most ({0}) must be an integer or almost(inf)".format(most))
         if fewest > most:
-            raise FemtocodeError("fewest ({0}) must not be greater than most ({1})".format(fewest, most))
+            raise FemtocodeError("Collection fewest ({0}) must not be greater than most ({1})".format(fewest, most))
         if not isinstance(ordered, bool):
-            raise FemtocodeError("ordered ({0}) must be boolean".format(ordered))
+            raise FemtocodeError("Collection ordered ({0}) must be boolean".format(ordered))
 
         if most == 0:
             self.items = null
@@ -1046,12 +1046,12 @@ class Record(Schema):
 
     def __init__(self, fields, alias=None):
         if not isinstance(fields, dict):
-            raise FemtocodeError("fields ({0}) must be a dictionary".format(fields))
+            raise FemtocodeError("Record fields ({0}) must be a dictionary".format(fields))
         if len(fields) == 0:
-            raise FemtocodeError("fields ({0}) must contain at least one field-type pair".format(fields))
+            raise FemtocodeError("Record fields ({0}) must contain at least one field-type pair".format(fields))
         for n, t in fields.items():
             if not isinstance(n, string_types) or not isinstance(t, (Schema,) + string_types):
-                raise FemtocodeError("all fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
+                raise FemtocodeError("all Record fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
 
         self.fields = fields
         super(Record, self).__init__(alias)
@@ -1133,10 +1133,12 @@ class Union(Schema):
     def __init__(self, possibilities):
         # Unions can't have aliases because of a case that would lead to unresolvable references
         if not isinstance(possibilities, (list, tuple)):
-            raise FemtocodeError("possibilities ({0}) must be a list or tuple".format(possibilities))
+            raise FemtocodeError("Union possibilities ({0}) must be a list or tuple".format(possibilities))
         for p in possibilities:
             if not isinstance(p, (Schema,) + string_types):
-                raise FemtocodeError("all possibilities ({0}) must be Schemas or alias strings".format(p))
+                raise FemtocodeError("all Union possibilities ({0}) must be Schemas or alias strings".format(p))
+        if len(possibilities) <= 1:
+            raise FemtocodeError("")
 
         # flatten Union of Unions
         ps = []

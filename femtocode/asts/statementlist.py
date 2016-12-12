@@ -21,6 +21,11 @@ from femtocode.typesystem import *
 
 class Column(object):
     repSuffix = "@rep"
+    tagSuffix = "@tag"
+
+    @staticmethod
+    def posSuffix(n):
+        return "@" + repr(n)
 
     def __init__(self, name, schema, rep):
         self.name = name
@@ -42,7 +47,7 @@ def schemaToColumns(name, schema, rep=None):
             return {name: Column(name, schema, rep)}
         else:
             repName = name + "." + Column.repSuffix
-            maxRep = schema.most * (1 if rep is None else rep.schema.max)
+            maxRep = 1 + (0 if rep is None else rep.schema.max)
             rep = Column(repName, Number(0, maxRep, True), None)
             return {repName: rep, name: Column(name, schema, rep)}
 
@@ -51,8 +56,74 @@ def schemaToColumns(name, schema, rep=None):
             return {name: Column(name, schema, rep)}
         else:
             repName = name + "." + Column.repSuffix
-            maxRep = schema.most * (1 if rep is None else rep.schema.max)
+            maxRep = 1 * (0 if rep is None else rep.schema.max)
             rep = Column(repName, Number(0, maxRep, True), None)
             return schemaToColumns(name, schema.items, rep)
 
+    elif isinstance(schema, Record):
+        out = {}
+        for n, t in schema.fields.items():
+            out.update(schemaToColumns(name + "." + n, t, rep))
+        return out
 
+    elif isinstance(schema, Union):
+        def compatible(x, y):
+            if isinstance(x, Null) and isinstance(y, Null):
+                return True
+            elif isinstance(x, Boolean) and isinstance(y, Boolean):
+                return True
+            elif isinstance(x, Number) and isinstance(y, Number):
+                return True
+            elif isinstance(x, String) and x.charset == "bytes" and isinstance(y, String) and y.charset == "bytes":
+                return True
+            elif isinstance(x, String) and x.charset == "unicode" and isinstance(y, String) and y.charset == "unicode":
+                return True
+            elif isinstance(x, Collection) and isinstance(y, Collection):
+                return compatible(x.items, y.items)
+            elif isinstance(x, Record) and isinstance(y, Record):
+                return set(x.fields.keys()) == set(y.fields.keys()) and \
+                       all(compatible(x.fields[n], y.fields[n]) for n in x.fields)
+            elif x.__class__ == y.__class__:
+                raise ProgrammingError("missing case: {0} {1} {2}".format(type(x), x, y))
+            else:
+                return False
+
+        classes = []
+        for p1 in schema.possibilities:
+            found = False
+            for c in classes:
+                for p2 in c:
+                    if not found and compatible(p1, p2):
+                        c.append(p1)
+                        found = True
+            if not found:
+                classes.append([p1])
+
+        flattened = []
+        for c in classes:
+            if isinstance(c[0], Null):
+                flattened.append(null)
+            elif isinstance(c[0], Boolean):
+                flattened.append(boolean)
+            elif isinstance(c[0], Number):
+                flattened.append(Number(almost.min([p.min for p in c]), almost.max([p.max for p in c]), all(p.whole for p in c)))
+            elif isinstance(c[0], String) and c[0].charset == "bytes":
+                flattened.append(String("bytes", almost.min([p.fewest for p in c]), almost.max([p.most for p in c])))
+            elif isinstance(c[0], String) and c[0].charset == "unicode":
+                flattened.append(String("unicode", almost.min([p.fewest for p in c]), almost.max([p.most for p in c])))
+            elif isinstance(c[0], Collection):
+                flattened.append(Collection(Union([p.items for p in c]), almost.min([p.fewest for p in c]), almost.max([p.most for p in c]), all(p.ordered for p in c)))
+            elif isinstance(c[0], Record):
+                flattened.append(Record(dict((n, Union([p.fields[n] for p in c])) for n in c[0].fields)))
+            else:
+                raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
+
+        if len(flattened) == 1:
+            return schemaToColumns(name, flattened[0], rep)
+        else:
+            tagName = name + "." + Column.tagSuffix
+            tag = Column(tagName, Number(0, len(flattened), True), None)
+            out = {tagName: tag}
+            for i, p in enumerate(flattened):
+                out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep))
+            return out
