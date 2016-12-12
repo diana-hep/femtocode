@@ -35,13 +35,19 @@ class Column(object):
     def __repr__(self):
         return "Column({0}, {1}, {2})".format(self.name, self.schema, self.rep)
 
+    def __eq__(self, other):
+        return self.name == other.name and self.schema == other.schema and self.rep == other.rep
+
 def schemaToColumns(name, schema, rep=None):
     if isinstance(schema, Null):
         return {}
 
     elif isinstance(schema, (Boolean, Number)) or (isinstance(schema, Union) and all(isinstance(p, Number) for p in schema.possibilities)):
-        return {name: Column(name, schema, rep)}
-        
+        out = {name: Column(name, schema, rep)}
+        if rep is not None:
+            out[rep.name] = rep
+        return out
+
     elif isinstance(schema, String):
         if schema.charset == "bytes" and schema.fewest == schema.most:
             return {name: Column(name, schema, rep)}
@@ -53,10 +59,10 @@ def schemaToColumns(name, schema, rep=None):
 
     elif isinstance(schema, Collection):
         if schema.fewest == schema.most:
-            return {name: Column(name, schema, rep)}
+            return schemaToColumns(name, schema.items, rep)
         else:
             repName = name + "." + Column.repSuffix
-            maxRep = 1 * (0 if rep is None else rep.schema.max)
+            maxRep = 1 + (0 if rep is None else rep.schema.max)
             rep = Column(repName, Number(0, maxRep, True), None)
             return schemaToColumns(name, schema.items, rep)
 
@@ -127,3 +133,6 @@ def schemaToColumns(name, schema, rep=None):
             for i, p in enumerate(flattened):
                 out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep))
             return out
+
+    else:
+        raise ProgrammingError("unexpected schema: {0}".format(schema))
