@@ -21,24 +21,56 @@ from femtocode.typesystem import *
 
 class Column(object):
     repSuffix = "@rep"
+    gapSuffix = "@gap"
     tagSuffix = "@tag"
 
     @staticmethod
     def posSuffix(n):
         return "@" + repr(n)
 
-    def __init__(self, name, schema, rep):
+    def __init__(self, name, schema, rep, gap):
         self.name = name
         self.schema = schema
         self.rep = rep
+        self.gap = gap
         
     def __repr__(self):
-        return "Column({0}, {1}, {2})".format(self.name, self.schema, self.rep)
+        return "Column({0}, {1}, {2}, {3})".format(self.name, self.schema, self.rep, self.gap)
 
     def __eq__(self, other):
-        return self.name == other.name and self.schema == other.schema and self.rep == other.rep
+        return self.name == other.name and self.schema == other.schema and self.rep == other.rep and self.gap == other.gap
 
-def schemaToColumns(name, schema, rep=None, memo=None):
+class RepColumn(Column):
+    def __init__(self, name, max):
+        self.name = name
+        self.schema = integer(0, max)
+        self.rep = None
+        self.gap = None
+
+    def __repr__(self):
+        return "RepColumn({0}, {1})".format(self.name, self.schema.max)
+
+class GapColumn(Column):
+    def __init__(self, name):
+        self.name = name
+        self.schema = integer(0, almost(inf))
+        self.rep = None
+        self.gap = None
+
+    def __repr__(self):
+        return "GapColumn({0})".format(self.name)
+
+class TagColumn(Column):
+    def __init__(self, name, max):
+        self.name = name
+        self.schema = integer(0, max)
+        self.rep = None
+        self.gap = None
+
+    def __repr__(self):
+        return "TagColumn({0}, {1})".format(self.name, self.schema.max)
+
+def schemaToColumns(name, schema, rep=None, gap=None, memo=None):
     if memo is None:
         memo = ()
     if schema.alias is not None:
@@ -48,37 +80,46 @@ def schemaToColumns(name, schema, rep=None, memo=None):
         return {}
 
     elif isinstance(schema, (Boolean, Number)):
-        out = {name: Column(name, schema, rep)}
+        out = {name: Column(name, schema, rep, gap)}
         if rep is not None:
             out[rep.name] = rep
+            out[gap.name] = gap
         return out
 
     elif isinstance(schema, String):
         if schema.charset == "bytes" and schema.fewest == schema.most:
-            return {name: Column(name, schema, rep)}
+            return {name: Column(name, schema, rep, gap)}
         else:
             repName = name + "." + Column.repSuffix
+            gapName = name + "." + Column.gapSuffix
             maxRep = 1 + (0 if rep is None else rep.schema.max)
-            rep = Column(repName, Number(0, maxRep, True), None)
-            return {repName: rep, name: Column(name, schema, rep)}
+            rep = RepColumn(repName, maxRep)
+            gap = GapColumn(gapName)
+            return {repName: rep, gapName: gap, name: Column(name, schema, rep, gap)}
 
     elif isinstance(schema, Collection):
         if schema.fewest == schema.most:
-            return schemaToColumns(name, schema.items, rep, memo)
+            return schemaToColumns(name, schema.items, rep, gap, memo)
+
         elif schema.items in memo:
             repName = name + "." + Column.repSuffix
-            rep = Column(repName, Number(0, almost(inf), True), None)
-            return {repName: rep, name: Column(name, schema.items, rep)}
+            gapName = name + "." + Column.gapSuffix
+            rep = RepColumn(repName, almost(inf))
+            gap = GapColumn(gapName)
+            return {repName: rep, gapName: gap, name: Column(name, schema.items, rep, gap)}
+
         else:
             repName = name + "." + Column.repSuffix
+            gapName = name + "." + Column.gapSuffix
             maxRep = 1 + (0 if rep is None else rep.schema.max)
-            rep = Column(repName, Number(0, maxRep, True), None)
-            return schemaToColumns(name, schema.items, rep, memo)
+            rep = RepColumn(repName, maxRep)
+            gap = GapColumn(gapName)
+            return schemaToColumns(name, schema.items, rep, gap, memo)
 
     elif isinstance(schema, Record):
         out = {}
         for n, t in schema.fields.items():
-            out.update(schemaToColumns(name + "." + n, t, rep, memo))
+            out.update(schemaToColumns(name + "." + n, t, rep, gap, memo))
         return out
 
     elif isinstance(schema, Union):
@@ -136,17 +177,17 @@ def schemaToColumns(name, schema, rep=None, memo=None):
                 raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
 
         if len(flattened) == 1:
-            return schemaToColumns(name, flattened[0], rep, memo)
+            return schemaToColumns(name, flattened[0], rep, gap, memo)
         else:
             tagName = name + "." + Column.tagSuffix
-            tag = Column(tagName, Number(0, len(flattened) - 1, True), None)
-            out = {tagName: tag}
+            out = {tagName: TagColumn(tagName, len(flattened) - 1)}
 
             if any(p in memo for p in flattened):
-                rep = Column(name + "." + Column.repSuffix, Number(0, almost(inf), True), None)
+                rep = RepColumn(name + "." + Column.repSuffix, almost(inf))
+                gap = GapColumn(name + "." + Column.gapSuffix)
             for i, p in enumerate(flattened):
                 if p not in memo:
-                    out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep, memo))
+                    out.update(schemaToColumns(name + "." + Column.posSuffix(i), p, rep, gap, memo))
             return out
 
     else:
