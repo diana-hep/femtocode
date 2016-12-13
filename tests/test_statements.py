@@ -27,6 +27,7 @@ import sys
 if sys.version_info.major >= 3:
     long = int
     basestring = str
+    xrange = range
 
 class TestStatements(unittest.TestCase):
     def runTest(self):
@@ -132,6 +133,7 @@ class TestStatements(unittest.TestCase):
         def addData(columns):
             for c in columns.values():
                 c.data = []
+                c.pointer = 0
             return columns
 
         def shred(obj, schema, columns, name):
@@ -142,14 +144,15 @@ class TestStatements(unittest.TestCase):
 
             elif isinstance(schema, (Boolean, Number)):
                 self.assertIn(name, columns)
-                columns[name].data.append(obj)
+                col = columns[name]
+                col.data.append(obj)
 
             # elif isinstance(schema, String):
             #     pass
 
             elif isinstance(schema, Collection):
-                size = columns[name + "." + Column.sizeSuffix]
-                size.data.append(len(obj))
+                col = columns[name + "." + Column.sizeSuffix]
+                col.data.append(len(obj))
 
                 items = schema.items
                 for x in obj:
@@ -158,12 +161,51 @@ class TestStatements(unittest.TestCase):
             # else:
             #     pass
 
+        def assemble(schema, columns, name):
+            if isinstance(schema, Null):
+                return None
+
+            elif isinstance(schema, (Boolean, Number)):
+                col = columns[name]
+                out = col.data[col.pointer]
+                col.pointer += 1
+                return out
+
+            # elif isinstance(schema, String):
+            #     pass
+
+            elif isinstance(schema, Collection):
+                col = columns[name + "." + Column.sizeSuffix]
+                size = col.data[col.pointer]
+                col.pointer += 1
+
+                items = schema.items
+                return [assemble(items, columns, name) for i in xrange(size)]
+
+            # else:
+            #     pass
+
+
+
         def checkShred(schema, data, expect):
             schema = resolve([schema])[0]
             columns = addData(schemaToColumns("x", schema))
             for obj in data:
                 shred(obj, schema, columns, "x")
             self.assertEqual(dict((k, v.data) for k, v in columns.items()), expect)
+
+        def checkShredAndAssemble(schema, data, verbose=False):
+            schema = resolve([schema])[0]
+            columns = addData(schemaToColumns("x", schema))
+            for obj in data:
+                shred(obj, schema, columns, "x")
+
+            num = len(data)
+            out = [assemble(schema, columns, "x") for i in xrange(num)]
+
+            if verbose:
+                print(out)
+            self.assertEqual(data, out)
 
         def lookShred(schema, data):
             schema = resolve([schema])[0]
@@ -176,15 +218,19 @@ class TestStatements(unittest.TestCase):
 
         checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
             "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
+        checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
 
         checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
             "x": [1.1, 2.2, 3.3, 4.4, 5.5],
             "x.@size": [0, 1, 2, 0, 0, 2]})
+        checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]])
 
         checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
             "x": [1.1, 1.1, 2.2, 1.1, 2.2],
             "x.@size": [1, 1, 2, 1, 1, 1, 2]})
+        checkShredAndAssemble(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
 
         checkShred(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []], {
             "x": [1.1, 1.1, 2.2, 1.1, 2.2],
             "x.@size": [0, 2, 0, 1, 3, 1, 0, 1, 0, 3, 0, 2, 0, 0]})
+        checkShredAndAssemble(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []])
