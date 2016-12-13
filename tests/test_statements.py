@@ -145,4 +145,73 @@ class TestStatements(unittest.TestCase):
             "x.right.@gap": GapColumn("x.right.@gap")})
 
     def test_shredAndAssemble(self):
-        pass
+        def addData(columns):
+            for c in columns.values():
+                c.data = []
+            return columns
+
+        def shred(obj, schema, level, repNumber, gapNumber, columns, name):
+            self.assertIn(obj, schema)
+
+            if isinstance(schema, Null):
+                return level, 0
+
+            elif isinstance(schema, (Boolean, Number)):
+                self.assertIn(name, columns)
+                col = columns[name]
+                col.data.append(obj)
+                if col.rep is not None and len(col.rep.data) < len(col.data):
+                    col.rep.data.append(repNumber)
+                    col.gap.data.append(gapNumber)
+                return level, 0
+
+            # elif isinstance(schema, String):
+            #     pass
+
+            elif isinstance(schema, Collection):
+                if len(obj) == 0:
+                    gapOut = gapNumber + 1
+                else:
+                    gapOut = 0
+
+                items = schema.items
+                for x in obj:
+                    repNumber, gapNumber = shred(x, items, level + 1, repNumber, gapNumber, columns, name)
+
+                return level, gapOut
+
+            # else:
+            #     pass
+
+        def checkShred(schema, data, expect):
+            schema = resolve([schema])[0]
+            columns = addData(schemaToColumns("x", schema))
+            gapNumber = 0
+            for obj in data:
+                repNumber, gapNumber = shred(obj, schema, 0, 0, gapNumber, columns, "x")
+            self.assertEqual(dict((k, v.data) for k, v in columns.items()), expect)
+
+        def lookShred(schema, data):
+            schema = resolve([schema])[0]
+            columns = addData(schemaToColumns("x", schema))
+            gapNumber = 0
+            for obj in data:
+                repNumber, gapNumber = shred(obj, schema, 0, 0, gapNumber, columns, "x")
+            print("")
+            for n in sorted(columns):
+                print("{0}: {1}".format(n, columns[n].data))
+
+        checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
+            "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
+
+        checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
+            "x": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "x.@gap": [1, 0, 0, 2, 0],
+            "x.@rep": [0, 0, 1, 0, 1]})
+
+        checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
+            "x": [1.1, 1.1, 2.2, 1.1, 2.2],
+            "x.@gap": [0, 0, 0, 0, 0],
+            "x.@rep": [0, 0, 1, 0, 2]})
+
+        lookShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
