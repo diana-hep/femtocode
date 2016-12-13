@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 import ast
 import re
 import sys
@@ -158,6 +159,11 @@ class TestStatements(unittest.TestCase):
                 for x in obj:
                     shred(x, items, columns, name)
 
+            elif isinstance(schema, Record):
+                for n, t in schema.fields.items():
+                    self.assertTrue(hasattr(obj, n))
+                    shred(getattr(obj, n), t, columns, name + "." + n)
+
             # else:
             #     pass
 
@@ -181,6 +187,10 @@ class TestStatements(unittest.TestCase):
 
                 items = schema.items
                 return [assemble(items, columns, name) for i in xrange(size)]
+
+            elif isinstance(schema, Record):
+                names = sorted(schema.fields.keys())
+                return namedtuple("tmp", names)(*[assemble(schema.fields[n], columns, name + "." + n) for n in names])
 
             # else:
             #     pass
@@ -209,9 +219,9 @@ class TestStatements(unittest.TestCase):
 
         def lookShred(schema, data):
             schema = resolve([schema])[0]
-            columns = addData(schemaToColumns("x", schema))
+            columns = addData(schemaToColumns("", schema))
             for obj in data:
-                shred(obj, schema, columns, "x")
+                shred(obj, schema, columns, "")
             print("")
             for n in sorted(columns):
                 print("{0}: {1}".format(n, columns[n].data))
@@ -234,3 +244,19 @@ class TestStatements(unittest.TestCase):
             "x": [1.1, 1.1, 2.2, 1.1, 2.2],
             "x.@size": [0, 2, 0, 1, 3, 1, 0, 1, 0, 3, 0, 2, 0, 0]})
         checkShredAndAssemble(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []])
+
+        rec1 = namedtuple("rec1", ["x", "y"])
+        rec2 = namedtuple("rec2", ["a", "b"])
+        checkShred(record(x=real, y=collection(record(a=real, b=collection(real)))),
+                  [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
+                   rec1(6, [rec2(9, [10, 11])])], {
+            "x.x": [1, 6],
+            "x.y.@size": [2, 1],
+            "x.y.a": [2, 5, 9],
+            "x.y.b": [3, 4, 10, 11],
+            "x.y.b.@size": [2, 0, 2]})
+
+        checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)))),
+                  [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
+                   rec1(6, [rec2(9, [10, 11])])])
+
