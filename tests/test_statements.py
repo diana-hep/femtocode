@@ -201,17 +201,17 @@ class TestStatements(unittest.TestCase):
             for n in sorted(columns):
                 print("{0}: {1}".format(n, columns[n].data))
 
-        checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
-            "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
+        # checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
+        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
 
-        checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
-            "x": [1.1, 2.2, 3.3, 4.4, 5.5],
-            "x.@gap": [1, 0, 0, 2, 0],
-            "x.@rep": [0, 0, 1, 0, 1]})
+        # checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
+        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5],
+        #     "x.@gap": [1, 0, 0, 2, 0],
+        #     "x.@rep": [0, 0, 1, 0, 1]})
 
-        checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
-            "x": [1.1, 1.1, 2.2, 1.1, 2.2],
-            "x.@gap": [0, 0, 0, 0, 0],
-            "x.@rep": [0, 0, 1, 0, 2]})
+        # checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
+        #     "x": [1.1, 1.1, 2.2, 1.1, 2.2],
+        #     "x.@gap": [0, 0, 0, 0, 0],
+        #     "x.@rep": [0, 0, 1, 0, 2]})
 
-        lookShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
+        # lookShred(collection(collection(real)), [[], [[], [1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
