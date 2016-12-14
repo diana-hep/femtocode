@@ -16,6 +16,7 @@
 
 from collections import namedtuple
 import ast
+import json
 import re
 import sys
 import unittest
@@ -281,7 +282,12 @@ class TestStatements(unittest.TestCase):
             out = [assemble(schema, columns, "root") for i in xrange(num)]
 
             if verbose:
-                print(out)
+                print("")
+                print("Schema: {0}".format(pretty(schema)))
+                print("Input: {0}".format(data))
+                print("Columns:")
+                for n in sorted(columns):
+                    print("    {0}: {1}".format(json.dumps(n), columns[n].data))
             self.assertEqual(data, out)
 
         def lookShred(schema, data):
@@ -291,7 +297,7 @@ class TestStatements(unittest.TestCase):
                 shred(obj, schema, columns, "root")
             print("")
             for n in sorted(columns):
-                print("{0}: {1}".format(n, columns[n].data))
+                print("{0}: {1}".format(json.dumps(n), columns[n].data))
 
         checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
 
