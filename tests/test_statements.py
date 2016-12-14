@@ -296,7 +296,9 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(union(boolean, integer), [1, True, 2, False, 3])
 
-        lookShred(collection(union(boolean, integer)), [[], [1], [True, 2], [False], [3, 4]])
+        checkShredAndAssemble(collection(union(boolean, integer)), [[], [1], [True, 2], [False], [3, 4]])
+
+        checkShredAndAssemble(collection(union(integer, string)), [[], [1], [b"two", 3], [b"four"], [5, 6]])
 
         rec1 = namedtuple("rec1", ["x", "y"])
         checkShredAndAssemble(union(integer, record(x=real, y=real)), [1, rec1(2.2, 3.3), 4, rec1(5.5, 6.6), 7])
