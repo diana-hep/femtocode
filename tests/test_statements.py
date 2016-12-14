@@ -140,18 +140,20 @@ class TestStatements(unittest.TestCase):
                 columns[name].data.append(obj)
 
             elif isinstance(schema, String):
-                sizeName = name + Column.sizeSuffix
                 self.assertIn(name, columns)
-                self.assertIn(sizeName, columns)
-
                 columns[name].data.extend(list(obj))
-                columns[sizeName].data.append(len(obj))
+
+                if schema.charset != "bytes" or schema.fewest != schema.most:
+                    sizeName = name + Column.sizeSuffix
+                    self.assertIn(sizeName, columns)
+                    columns[sizeName].data.append(len(obj))
 
             elif isinstance(schema, Collection):
-                size = len(obj)
-                for n, c in columns.items():
-                    if n.startswith(name) and n.endswith(Column.sizeSuffix):
-                        c.data.append(size)
+                if schema.fewest != schema.most:
+                    size = len(obj)
+                    for n, c in columns.items():
+                        if n.startswith(name) and n.endswith(Column.sizeSuffix):
+                            c.data.append(size)
 
                 items = schema.items
                 for x in obj:
@@ -191,21 +193,27 @@ class TestStatements(unittest.TestCase):
 
             elif isinstance(schema, String):
                 col = columns[name]
-                sizeCol = columns[name + Column.sizeSuffix]
+                if schema.charset == "bytes" and schema.fewest == schema.most:
+                    size = schema.fewest
+                else:
+                    sizeCol = columns[name + Column.sizeSuffix]
+                    size = sizeCol.data[sizeCol.pointer]
+                    sizeCol.pointer += 1
 
-                size = sizeCol.data[sizeCol.pointer]
-                sizeCol.pointer += 1
                 out = "".join(col.data[col.pointer:col.pointer + size])
                 col.pointer += size
                 return out
 
             elif isinstance(schema, Collection):
-                size = None
-                for n, c in columns.items():
-                    if n.startswith(name) and n.endswith(Column.sizeSuffix):
-                        size = c.data[c.pointer]
-                        c.pointer += 1
-                self.assertIsNotNone(size)
+                if schema.fewest == schema.most:
+                    size = schema.fewest
+                else:
+                    size = None
+                    for n, c in columns.items():
+                        if n.startswith(name) and n.endswith(Column.sizeSuffix):
+                            size = c.data[c.pointer]
+                            c.pointer += 1
+                    self.assertIsNotNone(size)
 
                 items = schema.items
                 return [assemble(items, columns, name) for i in xrange(size)]
@@ -267,17 +275,30 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], []])
 
+        checkShredAndAssemble(collection(real, 1, 1), [[1.1], [2.2], [3.3], [4.4]])
+
         checkShredAndAssemble(collection(collection(real)), [[], [[1.1]], [[], [2.2, 3.3]]])
+
+        checkShredAndAssemble(collection(collection(real, 1, 1)), [[], [[1.1]], [[2.2], [3.3]]])
+
+        checkShredAndAssemble(collection(collection(real), 1, 1), [[[]], [[1.1]], [[2.2, 3.3]]])
 
         checkShredAndAssemble(string, [b"one", b"two", b"three"])
 
+        checkShredAndAssemble(string("bytes", 3, 3), [b"one", b"two", b"thr"])
+
         checkShredAndAssemble(collection(string), [[], [b"one", b"two"], [b"three"]])
+
+        checkShredAndAssemble(collection(string("bytes", 3, 3)), [[], [b"one", b"two"], [b"thr"]])
 
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(record(a=real, b=real), [rec1(1.1, 2.2), rec1(3.3, 4.4)])
 
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(record(a=real, b=string), [rec1(1.1, "two"), rec1(3.3, "four"), rec1(5.5, "six")])
+
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(record(a=real, b=string("bytes", 3, 3)), [rec1(1.1, "two"), rec1(3.3, "for"), rec1(5.5, "six")])
 
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(collection(record(a=real, b=string)), [[], [rec1(1.1, "two")], [rec1(3.3, "four"), rec1(5.5, "six")]])
@@ -291,6 +312,18 @@ class TestStatements(unittest.TestCase):
                   [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
                    rec1(6, [rec2(9, [10, 11])])])
 
+        rec1 = namedtuple("rec1", ["x", "y"])
+        rec2 = namedtuple("rec2", ["a", "b"])
+        checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)), 1, 1)),
+                  [rec1(1, [rec2(2, [3, 4])]),
+                   rec1(6, [rec2(9, [10, 11])])])
+
+        rec1 = namedtuple("rec1", ["x", "y"])
+        rec2 = namedtuple("rec2", ["a", "b"])
+        checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real, 2, 2)))),
+                  [rec1(1, [rec2(2, [3, 4]), rec2(5, [6, 7])]),
+                   rec1(6, [rec2(9, [10, 11])])])
+
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(record("rec1", a=real, b=collection("rec1")), [rec1(1.1, []), rec1(2.2, [rec1(3.3, [])])])
 
@@ -298,15 +331,24 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(collection(union(boolean, integer)), [[], [1], [True, 2], [False], [3, 4]])
 
+        checkShredAndAssemble(collection(union(boolean, integer), 2, 2), [[1, 2], [3, True], [False, 4], [True, False]])
+
         checkShredAndAssemble(collection(union(integer, string)), [[], [1], [b"two", 3], [b"four"], [5, 6]])
+
+        checkShredAndAssemble(collection(union(integer, string("bytes", 3, 3))), [[], [1], [b"two", 3], [b"for"], [5, 6]])
 
         rec1 = namedtuple("rec1", ["x", "y"])
         checkShredAndAssemble(union(integer, record(x=real, y=real)), [1, rec1(2.2, 3.3), 4, rec1(5.5, 6.6), 7])
 
         checkShredAndAssemble(union(real, collection(real)), [1.1, [2.2, 3.3], 4.4, [5.5, 6.6], 7.7])
 
+        checkShredAndAssemble(union(real, collection(real, 2, 2)), [1.1, [2.2, 3.3], 4.4, [5.5, 6.6], 7.7])
+
         rec1 = namedtuple("rec1", ["x", "y"])
         checkShredAndAssemble(union(integer, collection(record(x=real, y=real))), [1, [], 2, [rec1(3.3, 4.4), rec1(5.5, 6.6)], 7])
+
+        rec1 = namedtuple("rec1", ["x", "y"])
+        checkShredAndAssemble(union(integer, collection(record(x=real, y=real), 1, 1)), [1, [rec1(3.3, 4.4)], 2, [rec1(5.5, 6.6)], 7])
 
         checkShredAndAssemble(union(null, real), [1.1, None, 2.2, None, 3.3])
 

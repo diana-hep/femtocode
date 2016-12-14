@@ -128,11 +128,14 @@ def schemaToColumns(name, schema, hasSize=False):
             return {name: Column(name, schema)}
 
     elif isinstance(schema, String):
-        sizeName = name + Column.sizeSuffix
-        return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
+        if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
+            return {name: Column(name, schema)}
+        else:
+            sizeName = name + Column.sizeSuffix
+            return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
 
     elif isinstance(schema, Collection):
-        return schemaToColumns(name, schema.items, True)
+        return schemaToColumns(name, schema.items, hasSize or schema.fewest != schema.most)
 
     elif isinstance(schema, Record):
         out = {}
