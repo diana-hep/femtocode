@@ -886,7 +886,7 @@ class Collection(Schema):
                 return "empty(alias={0})".format(json.dumps(self.alias))
 
         def generic():
-            args = [self.items._repr_memo(memo)]
+            args = [self.items._repr_memo(memo) if isinstance(self.items, Schema) else repr(self.items)]
             if self.fewest != 0:
                 args.append("fewest={0}".format(self.fewest))
             if self.most != almost(inf):
@@ -910,11 +910,11 @@ class Collection(Schema):
             args.append("alias={0}".format(json.dumps(self.alias)))
 
         if len(dimensions) == 1:
-            return "vector({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
+            return "vector({0}, {1})".format(items._repr_memo(memo) if isinstance(items, Schema) else repr(items), ", ".join(args))
         elif len(dimensions) == 2:
-            return "matrix({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
+            return "matrix({0}, {1})".format(items._repr_memo(memo) if isinstance(items, Schema) else repr(items), ", ".join(args))
         elif len(dimensions) > 2:
-            return "tensor({0}, {1})".format(items._repr_memo(memo), ", ".join(args))
+            return "tensor({0}, {1})".format(items._repr_memo(memo) if isinstance(items, Schema) else repr(items), ", ".join(args))
         else:
             return generic()
         
@@ -1066,7 +1066,7 @@ class Record(Schema):
         else:
             alias = ""
 
-        return "record({0}{1})".format(alias, ", ".join(n + "=" + t._repr_memo(memo) for n, t in sorted(self.fields.items())))
+        return "record({0}{1})".format(alias, ", ".join(n + "=" + (t._repr_memo(memo) if isinstance(t, Schema) else repr(t)) for n, t in sorted(self.fields.items())))
 
     def __contains__(self, other):
         if isinstance(other, Record):
@@ -1159,7 +1159,7 @@ class Union(Schema):
         self._aliases.update(aliases)
 
     def _repr_memo(self, memo):
-        return "union({0})".format(", ".join(x._repr_memo(memo) for x in self.possibilities))
+        return "union({0})".format(", ".join(x._repr_memo(memo) if isinstance(x, Schema) else repr(x) for x in self.possibilities))
 
     def __contains__(self, other):
         if isinstance(other, Union):

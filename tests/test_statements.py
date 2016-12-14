@@ -118,17 +118,7 @@ class TestStatements(unittest.TestCase):
             "x.right.@0": Column("x.right.@0", boolean, SizeColumn("x.right.@size", almost(inf))),
             "x.right.@size": SizeColumn("x.right.@size", almost(inf))})
 
-        self.assertEqual(schemaToColumns("x", resolve([record("tree", left=collection("tree"), right=collection("tree"))])[0]), {
-            "x.left": Column("x.left", record("tree", left=collection("tree"), right=collection("tree")), SizeColumn("x.left.@size", almost(inf))),
-            "x.left.@size": SizeColumn("x.left.@size", almost(inf)),
-            "x.right": Column("x.right", record("tree", left=collection("tree"), right=collection("tree")), SizeColumn("x.right.@size", almost(inf))),
-            "x.right.@size": SizeColumn("x.right.@size", almost(inf))})
-
-        self.assertEqual(schemaToColumns("x", resolve([record("tree", left=collection(collection("tree")), right=collection("tree"))])[0]), {
-            "x.left": Column("x.left", record("tree", left=collection(collection("tree")), right=collection("tree")), SizeColumn("x.left.@size", almost(inf))),
-            "x.left.@size": SizeColumn("x.left.@size", almost(inf)),
-            "x.right": Column("x.right", record("tree", left=collection(collection("tree")), right=collection("tree")), SizeColumn("x.right.@size", almost(inf))),
-            "x.right.@size": SizeColumn("x.right.@size", almost(inf))})
+        # print "STUFFY", schemaToColumns("x", resolve([record("tree", node=boolean, left=collection("tree"), right=collection("tree"))])[0])
 
     def test_shredAndAssemble(self):
         def addData(columns):
@@ -140,20 +130,24 @@ class TestStatements(unittest.TestCase):
         def shred(obj, schema, columns, name):
             self.assertIn(obj, schema)
 
-            if isinstance(schema, Null):
-                pass
+            if isinstance(columns.get(name), RecursiveColumn):
+                columns[name].data.append(obj)
+
+            # elif isinstance(schema, Null):
+            #     pass
 
             elif isinstance(schema, (Boolean, Number)):
                 self.assertIn(name, columns)
-                col = columns[name]
-                col.data.append(obj)
+                columns[name].data.append(obj)
 
             # elif isinstance(schema, String):
             #     pass
 
             elif isinstance(schema, Collection):
-                col = columns[name + "." + Column.sizeSuffix]
-                col.data.append(len(obj))
+                size = len(obj)
+                for n, c in columns.items():
+                    if n.startswith(name) and n.endswith(Column.sizeSuffix):
+                        c.data.append(size)
 
                 items = schema.items
                 for x in obj:
@@ -164,10 +158,19 @@ class TestStatements(unittest.TestCase):
                     self.assertTrue(hasattr(obj, n))
                     shred(getattr(obj, n), t, columns, name + "." + n)
 
-            # else:
+            # elif isinstance(schema, Union):
             #     pass
 
+            else:
+                raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
+
         def assemble(schema, columns, name):
+            if isinstance(columns.get(name), RecursiveColumn):
+                col = columns[name]
+                out = col.data[col.pointer]
+                col.pointer += 1
+                return out
+
             if isinstance(schema, Null):
                 return None
 
@@ -181,9 +184,11 @@ class TestStatements(unittest.TestCase):
             #     pass
 
             elif isinstance(schema, Collection):
-                col = columns[name + "." + Column.sizeSuffix]
-                size = col.data[col.pointer]
-                col.pointer += 1
+                size = None
+                for n, c in columns.items():
+                    if n.startswith(name) and n.endswith(Column.sizeSuffix):
+                        size = c.data[c.pointer]
+                        c.pointer += 1
 
                 items = schema.items
                 return [assemble(items, columns, name) for i in xrange(size)]
@@ -192,26 +197,88 @@ class TestStatements(unittest.TestCase):
                 names = sorted(schema.fields.keys())
                 return namedtuple("tmp", names)(*[assemble(schema.fields[n], columns, name + "." + n) for n in names])
 
-            # else:
+            # elif isinstance(schema, Union):
             #     pass
 
+            else:
+                raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
 
+        # def shred(obj, schema, columns, name, memo):
+        #     self.assertIn(obj, schema)
+
+        #     if isinstance(schema, Null):
+        #         pass
+
+        #     elif isinstance(schema, (Boolean, Number)):
+        #         self.assertIn(name, columns)
+        #         col = columns[name]
+        #         col.data.append(obj)
+
+        #     # elif isinstance(schema, String):
+        #     #     pass
+
+        #     elif isinstance(schema, Collection):
+        #         if schema not in memo:
+        #             memo[schema] = name + "." + Column.sizeSuffix
+
+        #         col = columns[memo[schema]]
+        #         col.data.append(len(obj))
+
+        #         items = schema.items
+        #         for x in obj:
+        #             shred(x, items, columns, name, memo)
+
+        #     elif isinstance(schema, Record):
+        #         for n, t in schema.fields.items():
+        #             self.assertTrue(hasattr(obj, n))
+        #             shred(getattr(obj, n), t, columns, name + "." + n, memo)
+
+        #     # else:
+        #     #     pass
+
+        # def assemble(schema, columns, name):
+        #     if isinstance(schema, Null):
+        #         return None
+
+        #     elif isinstance(schema, (Boolean, Number)):
+        #         col = columns[name]
+        #         out = col.data[col.pointer]
+        #         col.pointer += 1
+        #         return out
+
+        #     # elif isinstance(schema, String):
+        #     #     pass
+
+        #     elif isinstance(schema, Collection):
+        #         col = columns[name + "." + Column.sizeSuffix]
+        #         size = col.data[col.pointer]
+        #         col.pointer += 1
+
+        #         items = schema.items
+        #         return [assemble(items, columns, name) for i in xrange(size)]
+
+        #     elif isinstance(schema, Record):
+        #         names = sorted(schema.fields.keys())
+        #         return namedtuple("tmp", names)(*[assemble(schema.fields[n], columns, name + "." + n) for n in names])
+
+        #     # else:
+        #     #     pass
 
         def checkShred(schema, data, expect):
             schema = resolve([schema])[0]
-            columns = addData(schemaToColumns("x", schema))
+            columns = addData(schemaToColumns("root", schema))
             for obj in data:
-                shred(obj, schema, columns, "x")
+                shred(obj, schema, columns, "root")
             self.assertEqual(dict((k, v.data) for k, v in columns.items()), expect)
 
         def checkShredAndAssemble(schema, data, verbose=False):
             schema = resolve([schema])[0]
-            columns = addData(schemaToColumns("x", schema))
+            columns = addData(schemaToColumns("root", schema))
             for obj in data:
-                shred(obj, schema, columns, "x")
+                shred(obj, schema, columns, "root")
 
             num = len(data)
-            out = [assemble(schema, columns, "x") for i in xrange(num)]
+            out = [assemble(schema, columns, "root") for i in xrange(num)]
 
             if verbose:
                 print(out)
@@ -219,44 +286,75 @@ class TestStatements(unittest.TestCase):
 
         def lookShred(schema, data):
             schema = resolve([schema])[0]
-            columns = addData(schemaToColumns("", schema))
+            columns = addData(schemaToColumns("root", schema))
             for obj in data:
-                shred(obj, schema, columns, "")
+                shred(obj, schema, columns, "root")
             print("")
             for n in sorted(columns):
                 print("{0}: {1}".format(n, columns[n].data))
 
-        checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
-            "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
         checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
 
-        checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
-            "x": [1.1, 2.2, 3.3, 4.4, 5.5],
-            "x.@size": [0, 1, 2, 0, 0, 2]})
-        checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]])
+        checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], []])
 
-        checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
-            "x": [1.1, 1.1, 2.2, 1.1, 2.2],
-            "x.@size": [1, 1, 2, 1, 1, 1, 2]})
-        checkShredAndAssemble(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
+        checkShredAndAssemble(collection(collection(real)), [[], [[1.1]], [[], [2.2, 3.3]]])
 
-        checkShred(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []], {
-            "x": [1.1, 1.1, 2.2, 1.1, 2.2],
-            "x.@size": [0, 2, 0, 1, 3, 1, 0, 1, 0, 3, 0, 2, 0, 0]})
-        checkShredAndAssemble(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []])
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(record(a=real, b=real), [rec1(1.1, 2.2), rec1(3.3, 4.4)])
+
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(collection(record(a=real, b=real)), [[], [rec1(1.1, 2.2), rec1(3.3, 4.4)]])
 
         rec1 = namedtuple("rec1", ["x", "y"])
         rec2 = namedtuple("rec2", ["a", "b"])
-        checkShred(record(x=real, y=collection(record(a=real, b=collection(real)))),
-                  [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
-                   rec1(6, [rec2(9, [10, 11])])], {
-            "x.x": [1, 6],
-            "x.y.@size": [2, 1],
-            "x.y.a": [2, 5, 9],
-            "x.y.b": [3, 4, 10, 11],
-            "x.y.b.@size": [2, 0, 2]})
-
         checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)))),
                   [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
                    rec1(6, [rec2(9, [10, 11])])])
 
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(record("rec1", a=real, b=collection("rec1")), [rec1(1.1, []), rec1(2.2, [rec1(3.3, [])])])
+
+
+
+
+        # checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
+        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
+        # checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
+
+        # checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
+        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5],
+        #     "x.@size": [0, 1, 2, 0, 0, 2]})
+        # checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]])
+
+        # checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
+        #     "x": [1.1, 1.1, 2.2, 1.1, 2.2],
+        #     "x.@size": [1, 1, 2, 1, 1, 1, 2]})
+        # checkShredAndAssemble(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
+
+        # checkShred(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []], {
+        #     "x": [1.1, 1.1, 2.2, 1.1, 2.2],
+        #     "x.@size": [0, 2, 0, 1, 3, 1, 0, 1, 0, 3, 0, 2, 0, 0]})
+        # checkShredAndAssemble(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []])
+
+        # rec1 = namedtuple("rec1", ["x", "y"])
+        # rec2 = namedtuple("rec2", ["a", "b"])
+        # checkShred(record(x=real, y=collection(record(a=real, b=collection(real)))),
+        #           [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
+        #            rec1(6, [rec2(9, [10, 11])])], {
+        #     "x.x": [1, 6],
+        #     "x.y.@size": [2, 1],
+        #     "x.y.a": [2, 5, 9],
+        #     "x.y.b": [3, 4, 10, 11],
+        #     "x.y.b.@size": [2, 0, 2]})
+
+        # checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)))),
+        #           [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
+        #            rec1(6, [rec2(9, [10, 11])])])
+
+        # checkShredAndAssemble(collection("stuff", alias="stuff"), [[], [[], []], [[[], [], [[]]]]])
+
+
+        # print schemaToColumns("", resolve([record("stuff", a=real, b=collection("stuff"))])[0])
+
+        # rec1 = namedtuple("rec1", ["a", "b"])
+        # lookShred(record("stuff", a=real, b=collection("stuff")), [rec1(1.1, []), rec1(2.2, [rec1(3.3, [])]), rec1(4.4, [rec1(5.5, [])])])
