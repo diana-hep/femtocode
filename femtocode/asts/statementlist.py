@@ -19,25 +19,6 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-# class Column(object):
-#     sizeSuffix = "@size"
-#     tagSuffix = "@tag"
-
-#     @staticmethod
-#     def posSuffix(n):
-#         return "@" + repr(n)
-
-#     def __init__(self, name, schema, size):
-#         self.name = name
-#         self.schema = schema
-#         self.size = size
-        
-#     def __repr__(self):
-#         return "Column({0}, {1}, {2})".format(self.name, self.schema, self.size)
-
-#     def __eq__(self, other):
-#         return self.name == other.name and self.schema == other.schema and self.size == other.size
-
 class Column(object):
     sizeSuffix = "@size"
     tagSuffix = "@tag"
@@ -59,14 +40,6 @@ class Column(object):
 class RecursiveColumn(Column):
     def __repr__(self):
         return "RecursiveColumn({0}, {1})".format(self.name, self.schema)
-
-# class SizeColumn(Column):
-#     def __init__(self, name, depth):
-#         super(SizeColumn, self).__init__(name, integer(0, almost(inf)))
-#         self.depth = depth
-
-#     def __repr__(self):
-#         return "SizeColumn({0}, {1})".format(self.name, self.depth)
 
 class SizeColumn(Column):
     def __init__(self, name):
@@ -198,7 +171,7 @@ def schemaToColumns(name, schema, hasSize=False):
                 raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
 
         if len(flattened) == 1:
-            schemaToColumns(name, flattened[0], hasSize)
+            return schemaToColumns(name, flattened[0], hasSize)
 
         else:
             if hasSize:

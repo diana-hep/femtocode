@@ -37,87 +37,83 @@ class TestStatements(unittest.TestCase):
 
     def test_schemaToColumns(self):
         self.assertEqual(schemaToColumns("x", null), {})
-        self.assertEqual(schemaToColumns("x", boolean), {"x": Column("x", boolean, None)})
-        self.assertEqual(schemaToColumns("x", integer), {"x": Column("x", integer, None)})
-        self.assertEqual(schemaToColumns("x", real), {"x": Column("x", real, None)})
-        self.assertEqual(schemaToColumns("x", extended), {"x": Column("x", extended, None)})
+        self.assertEqual(schemaToColumns("x", boolean), {"x": Column("x", boolean)})
+        self.assertEqual(schemaToColumns("x", integer), {"x": Column("x", integer)})
+        self.assertEqual(schemaToColumns("x", real), {"x": Column("x", real)})
+        self.assertEqual(schemaToColumns("x", extended), {"x": Column("x", extended)})
 
-        self.assertEqual(schemaToColumns("x", string), {"x": Column("x", string, SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", string("bytes", 5, 5)), {"x": Column("x", string("bytes", 5, 5), None)})
-        self.assertEqual(schemaToColumns("x", string("unicode", 5, 5)), {"x": Column("x", string("unicode", 5, 5), SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", collection(boolean)), {"x": Column("x", boolean, SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", collection(null)), {})
-        self.assertEqual(schemaToColumns("x", collection(boolean, 5, 5)), {"x": Column("x", boolean, None)})
-        self.assertEqual(schemaToColumns("x", vector(boolean, 5)), {"x": Column("x", boolean, None)})
-        self.assertEqual(schemaToColumns("x", vector(collection(boolean), 5)), {"x": Column("x", boolean, SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", collection(collection(boolean))), {"x": Column("x", boolean, SizeColumn("x.@size", 2)), "x.@size": SizeColumn("x.@size", 2)})
-        self.assertEqual(schemaToColumns("x", collection(vector(boolean, 5))), {"x": Column("x", boolean, SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
+        self.assertEqual(schemaToColumns("x", string), {"x": Column("x", string), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", string("bytes", 5, 5)), {"x": Column("x", string("bytes", 5, 5))})
+        self.assertEqual(schemaToColumns("x", string("unicode", 5, 5)), {"x": Column("x", string("unicode", 5, 5)), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", collection(boolean)), {"x": Column("x", boolean), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", collection(null)), {"x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", collection(boolean, 5, 5)), {"x": Column("x", boolean)})
+        self.assertEqual(schemaToColumns("x", vector(boolean, 5)), {"x": Column("x", boolean)})
+        self.assertEqual(schemaToColumns("x", vector(collection(boolean), 5)), {"x": Column("x", boolean), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", collection(collection(boolean))), {"x": Column("x", boolean), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", collection(vector(boolean, 5))), {"x": Column("x", boolean), "x@size": SizeColumn("x@size")})
 
         self.assertEqual(schemaToColumns("x", record(one=integer, two=real, three=string)),
-                         {"x.one": Column("x.one", integer, None),
-                          "x.two": Column("x.two", real, None),
-                          "x.three": Column("x.three", string, SizeColumn("x.three.@size", 1)),
-                          "x.three.@size": SizeColumn("x.three.@size", 1)})
+                         {"x.one": Column("x.one", integer),
+                          "x.two": Column("x.two", real),
+                          "x.three": Column("x.three", string),
+                          "x.three@size": SizeColumn("x.three@size")})
         self.assertEqual(schemaToColumns("x", collection(record(one=integer, two=real, three=string))),
-                         {"x.one": Column("x.one", integer, SizeColumn("x.@size", 1)),
-                          "x.two": Column("x.two", real, SizeColumn("x.@size", 1)),
-                          "x.@size": SizeColumn("x.@size", 1),
-                          "x.three": Column("x.three", string, SizeColumn("x.three.@size", 2)),
-                          "x.three.@size": SizeColumn("x.three.@size", 2)})
+                         {"x.one": Column("x.one", integer),
+                          "x.two": Column("x.two", real),
+                          "x.three": Column("x.three", string),
+                          "x.one@size": SizeColumn("x.one@size"),
+                          "x.two@size": SizeColumn("x.two@size"),
+                          "x.three@size": SizeColumn("x.three@size")})
         self.assertEqual(schemaToColumns("x", collection(record(uno=boolean, dos=collection(record(tres=boolean, quatro=collection(boolean)))))),
-                         {"x.@size": SizeColumn("x.@size", 1),
-                          "x.uno": Column("x.uno", boolean, SizeColumn("x.@size", 1)),
-                          "x.dos.@size": SizeColumn("x.dos.@size", 2),
-                          "x.dos.tres": Column("x.dos.tres", boolean, SizeColumn("x.dos.@size", 2)),
-                          "x.dos.quatro.@size": SizeColumn("x.dos.quatro.@size", 3),
-                          "x.dos.quatro": Column("x.dos.quatro", boolean, SizeColumn("x.dos.quatro.@size", 3))})
+                         {"x.uno": Column("x.uno", boolean),
+                          "x.uno@size": SizeColumn("x.uno@size"),
+                          "x.dos.tres": Column("x.dos.tres", boolean),
+                          "x.dos.quatro": Column("x.dos.quatro", boolean),
+                          "x.dos.tres@size": SizeColumn("x.dos.tres@size"),
+                          "x.dos.quatro@size": SizeColumn("x.dos.quatro@size")})
 
         self.assertEqual(schemaToColumns("x", union(null)), {})
-        self.assertEqual(schemaToColumns("x", union(boolean)), {"x": Column("x", boolean, None)})
-        self.assertEqual(schemaToColumns("x", union(integer(1, 2), integer(100, 200))), {"x": Column("x", integer(1, 200), None)})
-        self.assertEqual(schemaToColumns("x", union(real(almost(1), almost(2)), real(100, 200))), {"x": Column("x", real(almost(1), 200), None)})
-        self.assertEqual(schemaToColumns("x", union(extended(almost(-inf), almost(2)), real(100, inf))), {"x": Column("x", real(almost(-inf), inf), None)})
-        self.assertEqual(schemaToColumns("x", union(integer(1, 2), real(100, 200))), {"x": Column("x", real(1, 200), None)})
+        self.assertEqual(schemaToColumns("x", union(boolean)), {"x": Column("x", boolean)})
+        self.assertEqual(schemaToColumns("x", union(integer(1, 2), integer(100, 200))), {"x": Column("x", integer(1, 200))})
+        self.assertEqual(schemaToColumns("x", union(real(almost(1), almost(2)), real(100, 200))), {"x": Column("x", real(almost(1), 200))})
+        self.assertEqual(schemaToColumns("x", union(extended(almost(-inf), almost(2)), real(100, inf))), {"x": Column("x", real(almost(-inf), inf))})
+        self.assertEqual(schemaToColumns("x", union(integer(1, 2), real(100, 200))), {"x": Column("x", real(1, 200))})
 
-        self.assertEqual(schemaToColumns("x", union(string("bytes", 5, 10), string("bytes", 3, 3))), {"x": Column("x", string("bytes", 3, 10), SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", union(string("bytes", 3, 3), string("bytes", 3, 3))), {"x": Column("x", string("bytes", 3, 3), None)})
-        self.assertEqual(schemaToColumns("x", union(string("unicode", 3, 3), string("unicode", 3, 3))), {"x": Column("x", string("unicode", 3, 3), SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
+        self.assertEqual(schemaToColumns("x", union(string("bytes", 5, 10), string("bytes", 3, 3))), {"x": Column("x", string("bytes", 3, 10)), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", union(string("bytes", 3, 3), string("bytes", 3, 3))), {"x": Column("x", string("bytes", 3, 3))})
+        self.assertEqual(schemaToColumns("x", union(string("unicode", 3, 3), string("unicode", 3, 3))), {"x": Column("x", string("unicode", 3, 3)), "x@size": SizeColumn("x@size")})
 
-        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2)), collection(real(100, 200)))), {"x": Column("x", real(1, 200), SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2), 5, 5), collection(real(100, 200), 6, 6))), {"x": Column("x", real(1, 200), SizeColumn("x.@size", 1)), "x.@size": SizeColumn("x.@size", 1)})
-        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2), 5, 5), collection(real(100, 200), 5, 5))), {"x": Column("x", real(1, 200), None)})
+        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2)), collection(real(100, 200)))), {"x": Column("x", real(1, 200)), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2), 5, 5), collection(real(100, 200), 6, 6))), {"x": Column("x", real(1, 200)), "x@size": SizeColumn("x@size")})
+        self.assertEqual(schemaToColumns("x", union(collection(integer(1, 2), 5, 5), collection(real(100, 200), 5, 5))), {"x": Column("x", real(1, 200))})
 
         self.assertEqual(schemaToColumns("x", union(record(one=integer(1, 2), two=real(1, 2), three=string), record(one=integer(100, 200), two=real(100, 200), three=string))),
-                         {"x.one": Column("x.one", integer(1, 200), None),
-                          "x.two": Column("x.two", real(1, 200), None),
-                          "x.three": Column("x.three", string, SizeColumn("x.three.@size", 1)),
-                          "x.three.@size": SizeColumn("x.three.@size", 1)})
+                         {"x.one": Column("x.one", integer(1, 200)),
+                          "x.two": Column("x.two", real(1, 200)),
+                          "x.three": Column("x.three", string),
+                          "x.three@size": SizeColumn("x.three@size")})
 
-        self.assertEqual(schemaToColumns("x", union(null, boolean)), {"x.@1": Column("x.@1", boolean, None), "x.@tag": TagColumn("x.@tag", 1)})
-        self.assertEqual(schemaToColumns("x", union(null, integer(1, 2))), {"x.@1": Column("x.@1", integer(1, 2), None), "x.@tag": TagColumn("x.@tag", 1)})
-        self.assertEqual(schemaToColumns("x", union(boolean, integer(1, 2))), {"x.@0": Column("x.@0", boolean, None), "x.@1": Column("x.@1", integer(1, 2), None), "x.@tag": TagColumn("x.@tag", 1)})
-        self.assertEqual(schemaToColumns("x", union(string("bytes", 5, 5), string("unicode", 5, 5))), {"x.@0": Column("x.@0", string("bytes", 5, 5), None), "x.@1": Column("x.@1", string("unicode", 5, 5), SizeColumn("x.@1.@size", 1)), "x.@1.@size": SizeColumn("x.@1.@size", 1), "x.@tag": TagColumn("x.@tag", 1)})
+        self.assertEqual(schemaToColumns("x", union(null, boolean)), {"x@1": Column("x@1", boolean), "x@tag": TagColumn("x@tag", [null, boolean])})
+        self.assertEqual(schemaToColumns("x", union(null, integer(1, 2))), {"x@1": Column("x@1", integer(1, 2)), "x@tag": TagColumn("x@tag", [null, integer(1, 2)])})
+        self.assertEqual(schemaToColumns("x", union(boolean, integer(1, 2))), {"x@0": Column("x@0", boolean), "x@1": Column("x@1", integer(1, 2)), "x@tag": TagColumn("x@tag", [boolean, integer(1, 2)])})
+        self.assertEqual(schemaToColumns("x", union(string("bytes", 5, 5), string("unicode", 5, 5))), {"x@0": Column("x@0", string("bytes", 5, 5)), "x@1": Column("x@1", string("unicode", 5, 5)), "x@1@size": SizeColumn("x@1@size"), "x@tag": TagColumn("x@tag", [string("bytes", 5, 5), string("unicode", 5, 5)])})
 
         self.assertEqual(schemaToColumns("x", union(collection(boolean), collection(string))), {
-            "x.@tag": TagColumn("x.@tag", 1),
-            "x.@0": Column("x.@0", boolean, SizeColumn("x.@0.@size", 1)),
-            "x.@0.@size": SizeColumn("x.@0.@size", 1),
-            "x.@1": Column("x.@1", string, SizeColumn("x.@1.@size", 2)),
-            "x.@1.@size": SizeColumn("x.@1.@size", 2)})
+            "x@tag": TagColumn("x@tag", [collection(boolean), collection(string)]),
+            "x@0": Column("x@0", boolean),
+            "x@0@size": SizeColumn("x@0@size"),
+            "x@1": Column("x@1", string),
+            "x@1@size": SizeColumn("x@1@size")})
 
         self.assertEqual(schemaToColumns("x", union(collection(boolean, 5, 5), collection(string, 5, 5))), {
-            "x.@tag": TagColumn("x.@tag", 1),
-            "x.@0": Column("x.@0", boolean, None),
-            "x.@1": Column("x.@1", string, SizeColumn("x.@1.@size", 1)),
-            "x.@1.@size": SizeColumn("x.@1.@size", 1)})
+            "x@tag": TagColumn("x@tag", [collection(boolean, 5, 5), collection(string, 5, 5)]),
+            "x@0": Column("x@0", boolean),
+            "x@1": Column("x@1", string),
+            "x@1@size": SizeColumn("x@1@size")})
         
         self.assertEqual(schemaToColumns("x", resolve([record("tree", left=union(boolean, "tree"), right=union(boolean, "tree"))])[0]), {
-            "x.left.@tag": TagColumn("x.left.@tag", 1),
-            "x.left.@0": Column("x.left.@0", boolean, SizeColumn("x.left.@size", almost(inf))),
-            "x.left.@size": SizeColumn("x.left.@size", almost(inf)),
-            "x.right.@tag": TagColumn("x.right.@tag", 1),
-            "x.right.@0": Column("x.right.@0", boolean, SizeColumn("x.right.@size", almost(inf))),
-            "x.right.@size": SizeColumn("x.right.@size", almost(inf))})
+            "x": RecursiveColumn("x", resolve([record("tree", left=union(boolean, "tree"), right=union(boolean, "tree"))])[0])})
 
     def test_shredAndAssemble(self):
         def addData(columns):
@@ -273,7 +269,13 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
 
+        checkShredAndAssemble(null, [None, None, None, None, None])
+
         checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], []])
+
+        checkShredAndAssemble(collection(null), [[], [None], [None, None], [None, None, None]])
+
+        checkShredAndAssemble(collection(null, 2, 2), [[None, None], [None, None], [None, None]])
 
         checkShredAndAssemble(collection(real, 1, 1), [[1.1], [2.2], [3.3], [4.4]])
 
@@ -351,46 +353,3 @@ class TestStatements(unittest.TestCase):
         checkShredAndAssemble(union(integer, collection(record(x=real, y=real), 1, 1)), [1, [rec1(3.3, 4.4)], 2, [rec1(5.5, 6.6)], 7])
 
         checkShredAndAssemble(union(null, real), [1.1, None, 2.2, None, 3.3])
-
-
-        # checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
-        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5]})
-        # checkShredAndAssemble(real, [1.1, 2.2, 3.3, 4.4, 5.5])
-
-        # checkShred(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]], {
-        #     "x": [1.1, 2.2, 3.3, 4.4, 5.5],
-        #     "x.@size": [0, 1, 2, 0, 0, 2]})
-        # checkShredAndAssemble(collection(real), [[], [1.1], [2.2, 3.3], [], [], [4.4, 5.5]])
-
-        # checkShred(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]], {
-        #     "x": [1.1, 1.1, 2.2, 1.1, 2.2],
-        #     "x.@size": [1, 1, 2, 1, 1, 1, 2]})
-        # checkShredAndAssemble(collection(collection(real)), [[[1.1]], [[1.1], [2.2]], [[1.1, 2.2]]])
-
-        # checkShred(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []], {
-        #     "x": [1.1, 1.1, 2.2, 1.1, 2.2],
-        #     "x.@size": [0, 2, 0, 1, 3, 1, 0, 1, 0, 3, 0, 2, 0, 0]})
-        # checkShredAndAssemble(collection(collection(real)), [[], [[], [1.1]], [[1.1], [], [2.2]], [], [[], [1.1, 2.2], []], []])
-
-        # rec1 = namedtuple("rec1", ["x", "y"])
-        # rec2 = namedtuple("rec2", ["a", "b"])
-        # checkShred(record(x=real, y=collection(record(a=real, b=collection(real)))),
-        #           [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
-        #            rec1(6, [rec2(9, [10, 11])])], {
-        #     "x.x": [1, 6],
-        #     "x.y.@size": [2, 1],
-        #     "x.y.a": [2, 5, 9],
-        #     "x.y.b": [3, 4, 10, 11],
-        #     "x.y.b.@size": [2, 0, 2]})
-
-        # checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)))),
-        #           [rec1(1, [rec2(2, [3, 4]), rec2(5, [])]),
-        #            rec1(6, [rec2(9, [10, 11])])])
-
-        # checkShredAndAssemble(collection("stuff", alias="stuff"), [[], [[], []], [[[], [], [[]]]]])
-
-
-        # print schemaToColumns("", resolve([record("stuff", a=real, b=collection("stuff"))])[0])
-
-        # rec1 = namedtuple("rec1", ["a", "b"])
-        # lookShred(record("stuff", a=real, b=collection("stuff")), [rec1(1.1, []), rec1(2.2, [rec1(3.3, [])]), rec1(4.4, [rec1(5.5, [])])])
