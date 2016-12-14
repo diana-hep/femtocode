@@ -23,8 +23,13 @@ from femtocode.py23 import *
 from femtocode.asts.statementlist import *
 
 class Dataset(object):
-    def __init__(self, **fields):
-        for name in fields.keys():
+    @staticmethod
+    def checknames(names):
+        for name in names:
             if re.match("^" + t_NAME.__doc__ + "$", name) is None:
                 raise FemtocodeError("Not a valid field name: {0}".format(json.dumps(name)))
-        self.fields = fields
+
+    def __init__(self, schemas, columns):
+        self.schemas = schemas
+        self.columns = columns
+        self.entries = 0
