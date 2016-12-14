@@ -246,7 +246,10 @@ class Schema(object):
     @staticmethod
     def fromJson(obj):
         def build(obj, path):
-            if isinstance(obj, string_types):
+            if obj is None:
+                return null
+
+            elif isinstance(obj, string_types):
                 if obj == "impossible":
                     return impossible
                 elif obj == "null":

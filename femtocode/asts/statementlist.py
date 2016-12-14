@@ -113,8 +113,12 @@ def schemaToColumns(name, schema, hasSize=False):
         else:
             return {name: RecursiveColumn(name, schema)}
 
-    # elif isinstance(schema, Null):
-    #     return {}
+    elif isinstance(schema, Null):
+        if hasSize:
+            sizeName = name + Column.sizeSuffix
+            return {sizeName: SizeColumn(sizeName)}
+        else:
+            return {}
 
     elif isinstance(schema, (Boolean, Number)):
         if hasSize:
@@ -123,8 +127,9 @@ def schemaToColumns(name, schema, hasSize=False):
         else:
             return {name: Column(name, schema)}
 
-    # elif isinstance(schema, String):
-    #     pass
+    elif isinstance(schema, String):
+        sizeName = name + Column.sizeSuffix
+        return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
 
     elif isinstance(schema, Collection):
         return schemaToColumns(name, schema.items, True)

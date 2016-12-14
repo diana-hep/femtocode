@@ -132,15 +132,20 @@ class TestStatements(unittest.TestCase):
             if isinstance(columns.get(name), RecursiveColumn):
                 columns[name].data.append(obj)
 
-            # elif isinstance(schema, Null):
-            #     pass
+            elif isinstance(schema, Null):
+                pass
 
             elif isinstance(schema, (Boolean, Number)):
                 self.assertIn(name, columns)
                 columns[name].data.append(obj)
 
-            # elif isinstance(schema, String):
-            #     pass
+            elif isinstance(schema, String):
+                sizeName = name + Column.sizeSuffix
+                self.assertIn(name, columns)
+                self.assertIn(sizeName, columns)
+
+                columns[name].data.extend(list(obj))
+                columns[sizeName].data.append(len(obj))
 
             elif isinstance(schema, Collection):
                 size = len(obj)
@@ -175,7 +180,7 @@ class TestStatements(unittest.TestCase):
                 col.pointer += 1
                 return out
 
-            if isinstance(schema, Null):
+            elif isinstance(schema, Null):
                 return None
 
             elif isinstance(schema, (Boolean, Number)):
@@ -184,8 +189,15 @@ class TestStatements(unittest.TestCase):
                 col.pointer += 1
                 return out
 
-            # elif isinstance(schema, String):
-            #     pass
+            elif isinstance(schema, String):
+                col = columns[name]
+                sizeCol = columns[name + Column.sizeSuffix]
+
+                size = sizeCol.data[sizeCol.pointer]
+                sizeCol.pointer += 1
+                out = "".join(col.data[col.pointer:col.pointer + size])
+                col.pointer += size
+                return out
 
             elif isinstance(schema, Collection):
                 size = None
@@ -247,7 +259,7 @@ class TestStatements(unittest.TestCase):
                 print("    {0}: {1}".format(json.dumps(n), columns[n]))
             for obj in data:
                 shred(obj, schema, columns, "root")
-            print("Filled with:")
+            print("Contents:")
             for n in sorted(columns):
                 print("    {0}: {1}".format(json.dumps(n), columns[n].data))
 
@@ -257,8 +269,18 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(collection(collection(real)), [[], [[1.1]], [[], [2.2, 3.3]]])
 
+        checkShredAndAssemble(string, [b"one", b"two", b"three"])
+
+        checkShredAndAssemble(collection(string), [[], [b"one", b"two"], [b"three"]])
+
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(record(a=real, b=real), [rec1(1.1, 2.2), rec1(3.3, 4.4)])
+
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(record(a=real, b=string), [rec1(1.1, "two"), rec1(3.3, "four"), rec1(5.5, "six")])
+
+        rec1 = namedtuple("rec1", ["a", "b"])
+        checkShredAndAssemble(collection(record(a=real, b=string)), [[], [rec1(1.1, "two")], [rec1(3.3, "four"), rec1(5.5, "six")]])
 
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(collection(record(a=real, b=real)), [[], [rec1(1.1, 2.2), rec1(3.3, 4.4)]])
@@ -281,6 +303,8 @@ class TestStatements(unittest.TestCase):
 
         rec1 = namedtuple("rec1", ["x", "y"])
         checkShredAndAssemble(union(integer, collection(record(x=real, y=real))), [1, [], 2, [rec1(3.3, 4.4), rec1(5.5, 6.6)], 7])
+
+        checkShredAndAssemble(union(null, real), [1.1, None, 2.2, None, 3.3])
 
 
         # checkShred(real, [1.1, 2.2, 3.3, 4.4, 5.5], {
