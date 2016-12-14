@@ -196,7 +196,13 @@ class TestStatements(unittest.TestCase):
                     size = sizeCol.data[sizeCol.pointer]
                     sizeCol.pointer += 1
 
-                out = "".join(col.data[col.pointer:col.pointer + size])
+                if schema.charset == "bytes":
+                    if sys.version_info[0] >= 3:
+                        out = bytes(col.data[col.pointer:col.pointer + size])
+                    else:
+                        out = b"".join(col.data[col.pointer:col.pointer + size])
+                else:
+                    out = u"".join(col.data[col.pointer:col.pointer + size])
                 col.pointer += size
                 return out
 
@@ -284,7 +290,7 @@ class TestStatements(unittest.TestCase):
         checkShredAndAssemble(collection(collection(real, 1, 1)), [[], [[1.1]], [[2.2], [3.3]]])
 
         checkShredAndAssemble(collection(collection(real), 1, 1), [[[]], [[1.1]], [[2.2, 3.3]]])
-
+        
         checkShredAndAssemble(string, [b"one", b"two", b"three"])
 
         checkShredAndAssemble(string("bytes", 3, 3), [b"one", b"two", b"thr"])
@@ -297,13 +303,13 @@ class TestStatements(unittest.TestCase):
         checkShredAndAssemble(record(a=real, b=real), [rec1(1.1, 2.2), rec1(3.3, 4.4)])
 
         rec1 = namedtuple("rec1", ["a", "b"])
-        checkShredAndAssemble(record(a=real, b=string), [rec1(1.1, "two"), rec1(3.3, "four"), rec1(5.5, "six")])
+        checkShredAndAssemble(record(a=real, b=string), [rec1(1.1, b"two"), rec1(3.3, b"four"), rec1(5.5, b"six")])
 
         rec1 = namedtuple("rec1", ["a", "b"])
-        checkShredAndAssemble(record(a=real, b=string("bytes", 3, 3)), [rec1(1.1, "two"), rec1(3.3, "for"), rec1(5.5, "six")])
+        checkShredAndAssemble(record(a=real, b=string("bytes", 3, 3)), [rec1(1.1, b"two"), rec1(3.3, b"for"), rec1(5.5, b"six")])
 
         rec1 = namedtuple("rec1", ["a", "b"])
-        checkShredAndAssemble(collection(record(a=real, b=string)), [[], [rec1(1.1, "two")], [rec1(3.3, "four"), rec1(5.5, "six")]])
+        checkShredAndAssemble(collection(record(a=real, b=string)), [[], [rec1(1.1, b"two")], [rec1(3.3, b"four"), rec1(5.5, b"six")]])
 
         rec1 = namedtuple("rec1", ["a", "b"])
         checkShredAndAssemble(collection(record(a=real, b=real)), [[], [rec1(1.1, 2.2), rec1(3.3, 4.4)]])

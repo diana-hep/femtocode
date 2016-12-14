@@ -17,7 +17,9 @@
 import sys
 import json
 import math
+import re
 
+from femtocode.parser import t_NAME
 from femtocode.defs import FemtocodeError, ProgrammingError
 from femtocode.py23 import *
 
@@ -908,7 +910,7 @@ class Collection(Schema):
             dimensions.append(items.fewest)
             items = items.items
 
-        args = map(repr, dimensions)
+        args = list(map(repr, dimensions))
         if self.alias is not None:
             args.append("alias={0}".format(json.dumps(self.alias)))
 
@@ -1055,6 +1057,8 @@ class Record(Schema):
         for n, t in fields.items():
             if not isinstance(n, string_types) or not isinstance(t, (Schema,) + string_types):
                 raise FemtocodeError("all Record fields ({0}: {1}) must map field names (string) to field types (Schema or alias string)".format(n, t))
+            if re.match("^" + t_NAME.__doc__ + "$", n) is None:
+                raise FemtocodeError("Not a valid field name: {0}".format(json.dumps(n)))
 
         self.fields = fields
         super(Record, self).__init__(alias)

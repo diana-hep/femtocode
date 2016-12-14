@@ -109,7 +109,14 @@ class Ref(LispyTree):
         if isinstance(other, (Function, LispyTree)):
             if self.order == other.order:
                 if self.name == other.name:
-                    return self.framenumber < other.framenumber
+                    if self.framenumber is None and other.framenumber is None:
+                        return False
+                    elif self.framenumber is None:
+                        return True
+                    elif other.framenumber is None:
+                        return False
+                    else:
+                        return self.framenumber < other.framenumber
                 elif isinstance(self.name, int) and isinstance(other.name, int):
                     return self.name < other.name
                 elif isinstance(self.name, string_types) and isinstance(other.name, string_types):
