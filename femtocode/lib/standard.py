@@ -69,17 +69,21 @@ class Add(lispytree.BuiltinFunction):
 
     def buildstatements(self, call, replacements, refnumber):
         statements = []
+        level = 0
         for arg in call.args:
-            ss, refnumber = statementlist.build(arg, replacements, refnumber)
+            argref, ss, refnumber = statementlist.build(arg, replacements, refnumber)
             statements.extend(ss)
+            level = max(argref.level, level)
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, 0)
+            ref = statementlist.Ref(refnumber, call.schema, level)
             refnumber += 1
-            replacements[call] = newref
-            statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
+            replacements[call] = ref
+            statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
+        else:
+            ref = replacements[call]
 
-        return statements, refnumber
+        return ref, statements, refnumber
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
@@ -98,17 +102,21 @@ class Divide(lispytree.BuiltinFunction):
 
     def buildstatements(self, call, replacements, refnumber):
         statements = []
+        level = 0
         for arg in call.args:
-            ss, refnumber = statementlist.build(arg, replacements, refnumber)
+            argref, ss, refnumber = statementlist.build(arg, replacements, refnumber)
             statements.extend(ss)
+            level = max(argref.level, level)
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, 0)
+            ref = statementlist.Ref(refnumber, call.schema, level)
             refnumber += 1
-            replacements[call] = newref
-            statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
+            replacements[call] = ref
+            statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
+        else:
+            ref = replacements[call]
 
-        return statements, refnumber
+        return ref, statements, refnumber
         
     def generate(self, args):
         return "({0} / {1})".format(args[0].generate(), args[1].generate())
@@ -373,16 +381,17 @@ class Map(lispytree.BuiltinFunction):
         return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
     def buildstatements(self, call, replacements, refnumber):
-        statements, refnumber = statementlist.build(call.args[0], replacements, refnumber)
+        argref, statements, refnumber = statementlist.build(call.args[0], replacements, refnumber)
 
         # the argument of the UserFunction is the values of the collection
-        replacements[call.args[1].refs[0]] = replacements[call.args[0]]
-        s, refnumber = statementlist.build(call.args[1].body, replacements, refnumber)
+        replacements[call.args[1].refs[0]] = statementlist.Ref.deeper(argref)
+
+        result, s, refnumber = statementlist.build(call.args[1].body, replacements, refnumber)
         statements.extend(s)
 
         replacements[call] = replacements[call.args[1].body]
 
-        return statements, refnumber
+        return statementlist.Ref.shallower(result, call.schema), statements, refnumber
 
     # def level(self, args, base):
     #     level0 = typedtree.assignLevels(args[0], base)

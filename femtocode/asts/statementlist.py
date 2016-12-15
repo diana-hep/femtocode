@@ -193,13 +193,25 @@ def schemaToColumns(name, schema, hasSize=False):
 class Statement(object): pass
 
 class Ref(Statement):
+    @staticmethod
+    def deeper(ref):
+        if not isinstance(ref.schema, Collection):
+            raise ProgrammingError("cannot go deeper into schema {0} (level {1})".format(ref.schema, ref.level))
+        return Ref(ref.name, ref.schema.items, ref.level + 1)
+
+    @staticmethod
+    def shallower(ref, schema):
+        if ref.level <= 1:
+            raise ProgrammingError("cannot go shallower from schema {0} (level {1})".format(schema, ref.level))
+        return Ref(ref.name, schema, ref.level - 1)
+
     def __init__(self, name, schema, level):
         self.name = name
         self.schema = schema
         self.level = level
 
     def __repr__(self):
-        return "statementlist.Ref({0}, {1}, {2}, {3})".format(self.name, self.schema, self.level)
+        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema, self.level)
 
     def __str__(self):
         if isinstance(self.name, int):
@@ -217,6 +229,10 @@ class Literal(Statement):
     def __init__(self, value, schema):
         self.value = value
         self.schema = schema
+
+    @property
+    def level(self):
+        return 0
 
     def __repr__(self):
         return "statementlist.Literal({0}, {1})".format(self.value, self.schema)
@@ -254,21 +270,20 @@ def build(tree, replacements=None, refnumber=0):
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema, 0)
-        # else:
-        #     print "HERE", replacements[tree]
+            replacements[tree] = Ref(tree.name, tree.schema, 1)
+        elif tree in replacements:
+            pass
+        else:
+            raise ProgrammingError("should not encounter any deep references here")
 
-        #     raise ProgrammingError("should not encounter any deep references here")
-        statements = []
+        return replacements[tree], [], refnumber
 
     elif isinstance(tree, typedtree.Literal):
         replacements[tree] = Literal(tree.value, tree.schema)
-        statements = []
+        return replacements[tree], [], refnumber
 
     elif isinstance(tree, typedtree.Call):
-        statements, refnumber = tree.fcn.buildstatements(tree, replacements, refnumber)
+        return tree.fcn.buildstatements(tree, replacements, refnumber)
 
     else:
         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
-
-    return statements, refnumber

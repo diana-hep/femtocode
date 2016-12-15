@@ -128,8 +128,9 @@ class TestSemantics(unittest.TestCase):
         # ttu = typedtree.treeOfUniques(tt, uniques)
         # typedtree.assignLevels(ttu)
 
-        ss = statementlist.build(tt)[0]
+        result, ss, _ = statementlist.build(tt)
 
         print("")
         for statement in ss:
             print(statement)
+        print("-> " + str(result))
