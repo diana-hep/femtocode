@@ -120,9 +120,15 @@ class TestSemantics(unittest.TestCase):
             print(err)
 
     def test_simple2(self):
+        columns = {}
+        columns.update(statementlist.schemaToColumns("x", real))
+        columns.update(statementlist.schemaToColumns("y", real))
+        columns.update(statementlist.schemaToColumns("z", real))
+        columns.update(statementlist.schemaToColumns("xs", collection(real)))
+
         lt = lispytree.build(parse("xs.map($1 + x).map($1 + y).map($1 + z)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
-        result, ss, _ = statementlist.build(tt)
+        result, ss, _ = statementlist.build(tt, columns)
 
         print("")
         for statement in ss:
@@ -131,7 +137,7 @@ class TestSemantics(unittest.TestCase):
 
         lt = lispytree.build(parse("a = x + y; b = a + y + z; xs.map(x => x + a + a + b).map(y => y + 2)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
-        result, ss, _ = statementlist.build(tt)
+        result, ss, _ = statementlist.build(tt, columns)
 
         print("")
         for statement in ss:

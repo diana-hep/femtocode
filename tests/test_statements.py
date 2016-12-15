@@ -42,11 +42,11 @@ class TestStatements(unittest.TestCase):
             out = {}
             for n, c in columns.items():
                 if isinstance(c, SizeColumn):
-                    out[repr(n)] = SizeColumn(repr(c.name))
+                    out[str(n)] = SizeColumn(str(c.name))
                 elif isinstance(c, TagColumn):
-                    out[repr(n)] = TagColumn(repr(c.name), c.possibilities)
+                    out[str(n)] = TagColumn(str(c.name), c.possibilities)
                 else:
-                    out[repr(n)] = Column(repr(c.name), c.schema)
+                    out[str(n)] = Column(str(c.name), c.schema)
             return out
 
         self.assertEqual(schemaToColumns2("x", null), {})
@@ -164,7 +164,7 @@ class TestStatements(unittest.TestCase):
                 if schema.fewest != schema.most:
                     size = len(obj)
                     for n, c in columns.items():
-                        if n.startswith(name) and n.endswith(ColumnName(ColumnName.sizeSuffix)):
+                        if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
                             c.data.append(size)
 
                 items = schema.items
@@ -231,7 +231,7 @@ class TestStatements(unittest.TestCase):
                 else:
                     size = None
                     for n, c in columns.items():
-                        if n.startswith(name) and n.endswith(ColumnName(ColumnName.sizeSuffix)):
+                        if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
                             size = c.data[c.pointer]
                             c.pointer += 1
                     self.assertIsNotNone(size)

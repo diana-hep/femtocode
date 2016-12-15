@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 import femtocode.asts.typedtree as typedtree
 from femtocode.defs import *
 from femtocode.py23 import *
@@ -33,10 +35,16 @@ class ColumnName(object):
         return ColumnName(*(self.seq + (self.tagSuffix,)))
 
     def rec(self, fieldName):
-        return ColumnName(*(self.seq + ("." + fieldName,)))
+        return ColumnName(*(self.seq + (fieldName,)))
 
     def pos(self, position):
-        return ColumnName(*(self.seq + ("@" + repr(position),)))
+        return ColumnName(*(self.seq + (position,)))
+
+    def issize(self):
+        return self.endswith(ColumnName.sizeSuffix)
+
+    def istag(self):
+        return self.endswith(ColumnName.tagSuffix)
 
     def __eq__(self, other):
         return isinstance(other, ColumnName) and self.seq == other.seq
@@ -45,10 +53,28 @@ class ColumnName(object):
         return hash((ColumnName, self.seq))
 
     def __repr__(self):
-        return "".join(self.seq)
+        return "ColumnName({0})".format(", ".join(map(json.dumps, self.seq)))
+
+    def __str__(self):
+        out = self.seq[0]
+        for x in self.seq[1:]:
+            if x == self.sizeSuffix:
+                out = out + x
+            elif x == self.tagSuffix:
+                out = out + x
+            elif isinstance(x, string_types):
+                out = out + "." + x
+            elif isinstance(x, int):
+                out = out + "@" + repr(x)
+            else:
+                raise ProgrammingError("bad ColumnName")
+        return out
 
     def startswith(self, other):
-        if isinstance(other, ColumnName):
+        if isinstance(other, string_types):
+            return self.seq[0] == other
+
+        elif isinstance(other, ColumnName):
             if len(self.seq) >= len(other.seq):
                 return self.seq[:len(other.seq)] == other.seq
             else:
@@ -57,7 +83,10 @@ class ColumnName(object):
             raise ProgrammingError("calling startswith on {0}".format(other))
 
     def endswith(self, other):
-        if isinstance(other, ColumnName):
+        if isinstance(other, string_types):
+            return self.seq[-1] == other
+
+        elif isinstance(other, ColumnName):
             if len(self.seq) >= len(other.seq):
                 return self.seq[-len(other.seq):] == other.seq
             else:
@@ -239,33 +268,34 @@ class Ref(Statement):
     def deeper(ref):
         if not isinstance(ref.schema, Collection):
             raise ProgrammingError("cannot go deeper into schema {0} (level {1})".format(ref.schema, ref.level))
-        return Ref(ref.name, ref.schema.items, ref.level + 1)
+        return Ref(ref.name, ref.schema.items, ref.level + 1, ref.columns)
 
     @staticmethod
     def shallower(ref, schema):
         if ref.level <= 1:
             raise ProgrammingError("cannot go shallower from schema {0} (level {1})".format(schema, ref.level))
-        return Ref(ref.name, schema, ref.level - 1)
+        return Ref(ref.name, schema, ref.level - 1, ref.columns)
 
-    def __init__(self, name, schema, level):
+    def __init__(self, name, schema, level, columns):
         self.name = name
         self.schema = schema
         self.level = level
+        self.columns = columns
 
     def __repr__(self):
-        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema, self.level)
+        return "statementlist.Ref({0}, {1}, {2}, {3}, {4})".format(self.name, self.schema, self.level, self.columns)
 
     def __str__(self):
         if isinstance(self.name, int):
-            return "@tmp{0}[{1}]".format(self.name, self.level)
+            return "#{0}[L{1}: {2}]".format(self.name, self.level, ", ".join(str(n) for n in self.columns))
         else:
-            return "{0}[{1}]".format(self.name, self.level)
+            return "{0}[L{1}: {2}]".format(self.name, self.level, ", ".join(str(n) for n in self.columns))
 
     def __eq__(self, other):
-        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level and self.columns == other.columns
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema, self.level))
+        return hash((Ref, self.name, self.schema, self.level, tuple(sorted(self.columns.items()))))
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -280,7 +310,7 @@ class Literal(Statement):
         return "statementlist.Literal({0}, {1})".format(self.value, self.schema)
 
     def __str__(self):
-        return "{0}[{1}]".format(self.value, self.level)
+        return "{0}[L{1}]".format(self.value, self.level)
 
     def __eq__(self, other):
         return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
@@ -306,13 +336,13 @@ class Call(Statement):
     def __hash__(self):
         return hash((Statement, self.newref, self.fcnname, self.args))
 
-def build(tree, replacements=None, refnumber=0):
+def build(tree, columns, replacements=None, refnumber=0):
     if replacements is None:
         replacements = {}
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema, 1)
+            replacements[tree] = Ref(tree.name, tree.schema, 1, dict((n, c) for n, c in columns.items() if n.startswith(tree.name)))
         elif tree in replacements:
             pass
         else:
@@ -325,7 +355,7 @@ def build(tree, replacements=None, refnumber=0):
         return replacements[tree], [], refnumber
 
     elif isinstance(tree, typedtree.Call):
-        return tree.fcn.buildstatements(tree, replacements, refnumber)
+        return tree.fcn.buildstatements(tree, columns, replacements, refnumber)
 
     else:
         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
