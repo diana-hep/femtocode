@@ -46,9 +46,6 @@ class Is(lispytree.BuiltinFunction):
 
         return boolean, typedargs, frame.fork({args[0]: out})
 
-    # def level(self, args, base):
-    #     return typedtree.assignLevels(args[0], base)
-
     def generate(self, args):
         return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
 
@@ -392,13 +389,6 @@ class Map(lispytree.BuiltinFunction):
         replacements[call] = replacements[call.args[1].body]
 
         return statementlist.Ref.shallower(result, call.schema), statements, refnumber
-
-    # def level(self, args, base):
-    #     level0 = typedtree.assignLevels(args[0], base)
-    #     if base[:len(level0)] != level0:
-    #         raise ProgrammingError("levels are not nested:\n    {0}".format(level0))
-    #     level1 = typedtree.assignLevels(args[1].body, level0 + (args[0],))
-    #     return level0
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"
