@@ -143,3 +143,16 @@ class TestSemantics(unittest.TestCase):
         for statement in ss:
             print(statement)
         print("-> " + str(result))
+
+        columns = {}
+        columns.update(statementlist.schemaToColumns("xss", collection(collection(real))))
+        columns.update(statementlist.schemaToColumns("ys", collection(real)))
+
+        lt = lispytree.build(parse("xss.map(xs => ys.map(y => xs.map(x => x + y)))"), table.fork(dict((v, lispytree.Ref(v)) for v in ("xss", "ys"))))[0]
+        tt = typedtree.build(lt, SymbolTable({lispytree.Ref("xss"): collection(collection(real)), lispytree.Ref("ys"): collection(real)}))[0]
+        result, ss, _ = statementlist.build(tt, columns)
+
+        print("")
+        for statement in ss:
+            print(statement)
+        print("-> " + str(result))
