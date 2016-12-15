@@ -193,25 +193,24 @@ def schemaToColumns(name, schema, hasSize=False):
 class Statement(object): pass
 
 class Ref(Statement):
-    def __init__(self, name, schema, level):
+    def __init__(self, name, schema):
         self.name = name
         self.schema = schema
-        self.level = level
 
     def __repr__(self):
-        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema, self.level)
+        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema)
 
     def __str__(self):
         if isinstance(self.name, int):
-            return "@tmp{0}[{1}]".format(self.name, len(self.level))
+            return "@tmp{0}".format(self.name)
         else:
             return self.name
 
     def __eq__(self, other):
-        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema, self.level))
+        return hash((Ref, self.name, self.schema))
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -254,7 +253,7 @@ def build(tree, replacements=None, refnumber=0):
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema, tree.level)
+            replacements[tree] = Ref(tree.name, tree.schema)
         statements = []
 
     elif isinstance(tree, typedtree.Literal):

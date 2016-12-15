@@ -46,15 +46,15 @@ class Is(lispytree.BuiltinFunction):
 
         return boolean, typedargs, frame.fork({args[0]: out})
 
-    def level(self, args, base):
-        return typedtree.assignLevels(args[0], base)
+    # def level(self, args, base):
+    #     return typedtree.assignLevels(args[0], base)
 
     def generate(self, args):
         return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
 
 table[Is.name] = Is()
 
-class Add(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class Add(lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -74,7 +74,7 @@ class Add(typedtree.SimpleLevels, lispytree.BuiltinFunction):
             statements.extend(s)
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, call.level)
+            newref = statementlist.Ref(refnumber, call.schema)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
@@ -86,7 +86,7 @@ class Add(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Divide(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class Divide(lispytree.BuiltinFunction):
     name = "/"
 
     def literaleval(self, args):
@@ -103,7 +103,7 @@ class Divide(typedtree.SimpleLevels, lispytree.BuiltinFunction):
             statements.extend(s)
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, call.level)
+            newref = statementlist.Ref(refnumber, call.schema)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
@@ -115,7 +115,7 @@ class Divide(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[Divide.name] = Divide()
 
-class Eq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class Eq(lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -137,7 +137,7 @@ class Eq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class NotEq(lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -174,7 +174,7 @@ class NotEq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class And(lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -229,7 +229,7 @@ class And(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class Or(lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -270,7 +270,7 @@ class Or(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class Not(lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
@@ -285,7 +285,7 @@ class Not(typedtree.SimpleLevels, lispytree.BuiltinFunction):
 
 table[Not.name] = Not()
 
-class If(typedtree.SimpleLevels, lispytree.BuiltinFunction):
+class If(lispytree.BuiltinFunction):
     name = "if"
 
     def buildtyped(self, args, frame):
@@ -384,12 +384,12 @@ class Map(lispytree.BuiltinFunction):
 
         return statements, refnumber
 
-    def level(self, args, base):
-        level0 = typedtree.assignLevels(args[0], base)
-        if base[:len(level0)] != level0:
-            raise ProgrammingError("levels are not nested:\n    {0}".format(level0))
-        level1 = typedtree.assignLevels(args[1].body, level0 + (args[0],))
-        return level0
+    # def level(self, args, base):
+    #     level0 = typedtree.assignLevels(args[0], base)
+    #     if base[:len(level0)] != level0:
+    #         raise ProgrammingError("levels are not nested:\n    {0}".format(level0))
+    #     level1 = typedtree.assignLevels(args[1].body, level0 + (args[0],))
+    #     return level0
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

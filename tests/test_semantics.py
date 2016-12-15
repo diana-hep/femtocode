@@ -123,12 +123,12 @@ class TestSemantics(unittest.TestCase):
         lt = lispytree.build(parse("xs.map($1 + x).map($1 + y).map($1 + z)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
 
-        uniques = {}
-        typedtree.fillUniquesSet(tt, uniques)
-        ttu = typedtree.treeOfUniques(tt, uniques)
-        typedtree.assignLevels(ttu)
+        # uniques = {}
+        # typedtree.fillUniquesSet(tt, uniques)
+        # ttu = typedtree.treeOfUniques(tt, uniques)
+        # typedtree.assignLevels(ttu)
 
-        ss = statementlist.build(ttu)[0]
+        ss = statementlist.build(tt)[0]
 
         print("")
         for statement in ss:
