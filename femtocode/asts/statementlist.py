@@ -192,38 +192,6 @@ def schemaToColumns(name, schema, hasSize=False):
 
 class Statement(object): pass
 
-class Level(Statement):
-    @staticmethod
-    def deepest(one, two):
-        if len(one) <= len(two):
-            if one == two[:len(one)]:
-                return two
-            else:
-                raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
-        else:
-            if two == one[:len(two)]:
-                return one
-            else:
-                raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
-
-    def __init__(self, *sequence):
-        self.sequence = sequence
-
-    def __repr__(self):
-        return "Level{0}".format(self.sequence)
-
-    def depth(self):
-        return len(self.sequence)
-    
-    def __add__(self, other):
-        return Level(*(self.sequence + (other,)))
-
-    def __eq__(self, other):
-        return isinstance(other, Level) and self.sequence == other.sequence
-
-    def __hash__(self):
-        return hash((Level, self.sequence))
-
 class Ref(Statement):
     def __init__(self, name, schema, level):
         self.name = name
@@ -286,7 +254,7 @@ def build(tree, replacements=None, refnumber=0):
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema, Level())
+            replacements[tree] = Ref(tree.name, tree.schema, 0)
         # else:
         #     print "HERE", replacements[tree]
 

@@ -73,10 +73,8 @@ class Add(lispytree.BuiltinFunction):
             ss, refnumber = statementlist.build(arg, replacements, refnumber)
             statements.extend(ss)
 
-        level = statementlist.Level()
-
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, level)
+            newref = statementlist.Ref(refnumber, call.schema, 0)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
@@ -104,10 +102,8 @@ class Divide(lispytree.BuiltinFunction):
             ss, refnumber = statementlist.build(arg, replacements, refnumber)
             statements.extend(ss)
 
-        level = statementlist.Level()
-
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema, level)
+            newref = statementlist.Ref(refnumber, call.schema, 0)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
