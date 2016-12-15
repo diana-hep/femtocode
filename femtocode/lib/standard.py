@@ -17,21 +17,12 @@
 from femtocode import inference
 from femtocode.asts import lispytree
 from femtocode.asts import typedtree
+from femtocode.asts import statementlist
 from femtocode.defs import *
 from femtocode.typesystem import *
 
 table = SymbolTable()
     
-class SimpleLevels(object):
-    def level(self, args, base):
-        if len(args) == 0:
-            raise ProgrammingError("SimpleLevels builtin functions cannot have zero arguments")
-        levels = sorted([typedtree.assignLevels(arg, base) for arg in args], key=lambda x: -len(x))
-        for x in levels:
-            if base[:len(x)] != x:
-                raise ProgrammingError("levels are not nested:\n    {0}".format("\n    ".join(map(repr, levels))))
-        return levels[0]
-
 class Is(lispytree.BuiltinFunction):
     name = "is"
 
@@ -63,7 +54,7 @@ class Is(lispytree.BuiltinFunction):
 
 table[Is.name] = Is()
 
-class Add(SimpleLevels, lispytree.BuiltinFunction):
+class Add(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -76,24 +67,26 @@ class Add(SimpleLevels, lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
-    def toStatements(self, call, statements, replacements, number):
+    def buildstatements(self, call, replacements, refnumber):
+        statements = []
         for arg in call.args:
-            number = typedtree.toStatements(arg, statements, replacements, number)
+            s, refnumber = statementlist.build(arg, replacements, refnumber)
+            statements.extend(s)
 
         if call not in replacements:
-            newref = typedtree.Ref(number, None, call.schema, call.original)
-            number += 1
-            value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
-            statements.append((newref, value))
+            newref = statementlist.Ref(refnumber, call.schema, call.level)
+            refnumber += 1
             replacements[call] = newref
-        return number
+            statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
+
+        return statements, refnumber
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
 
 table[Add.name] = Add()
 
-class Divide(SimpleLevels, lispytree.BuiltinFunction):
+class Divide(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "/"
 
     def literaleval(self, args):
@@ -103,24 +96,26 @@ class Divide(SimpleLevels, lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
-    def toStatements(self, call, statements, replacements, number):
+    def buildstatements(self, call, replacements, refnumber):
+        statements = []
         for arg in call.args:
-            number = typedtree.toStatements(arg, statements, replacements, number)
+            s, refnumber = statementlist.build(arg, replacements, refnumber)
+            statements.extend(s)
 
         if call not in replacements:
-            newref = typedtree.Ref(number, None, call.schema, call.original)
-            number += 1
-            value = typedtree.Call(self, [replacements[arg] for arg in call.args], call.schema, call.original)
-            statements.append((newref, value))
+            newref = statementlist.Ref(refnumber, call.schema, call.level)
+            refnumber += 1
             replacements[call] = newref
-        return number
+            statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
+
+        return statements, refnumber
         
     def generate(self, args):
         return "({0} / {1})".format(args[0].generate(), args[1].generate())
 
 table[Divide.name] = Divide()
 
-class Eq(SimpleLevels, lispytree.BuiltinFunction):
+class Eq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -142,7 +137,7 @@ class Eq(SimpleLevels, lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(SimpleLevels, lispytree.BuiltinFunction):
+class NotEq(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -179,7 +174,7 @@ class NotEq(SimpleLevels, lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(SimpleLevels, lispytree.BuiltinFunction):
+class And(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -234,7 +229,7 @@ class And(SimpleLevels, lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(SimpleLevels, lispytree.BuiltinFunction):
+class Or(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -275,7 +270,7 @@ class Or(SimpleLevels, lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(SimpleLevels, lispytree.BuiltinFunction):
+class Not(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
@@ -290,7 +285,7 @@ class Not(SimpleLevels, lispytree.BuiltinFunction):
 
 table[Not.name] = Not()
 
-class If(SimpleLevels, lispytree.BuiltinFunction):
+class If(typedtree.SimpleLevels, lispytree.BuiltinFunction):
     name = "if"
 
     def buildtyped(self, args, frame):
@@ -377,16 +372,17 @@ class Map(lispytree.BuiltinFunction):
         c = typedarg0.schema
         return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
-    def toStatements(self, call, statements, replacements, number):
-        number = typedtree.toStatements(call.args[0], statements, replacements, number)
+    def buildstatements(self, call, replacements, refnumber):
+        statements, refnumber = statementlist.build(call.args[0], replacements, refnumber)
 
         # the argument of the UserFunction is the values of the collection
         replacements[call.args[1].refs[0]] = replacements[call.args[0]]
-        number = typedtree.toStatements(call.args[1].body, statements, replacements, number)
+        s, refnumber = statementlist.build(call.args[1].body, replacements, refnumber)
+        statements.extend(s)
 
         replacements[call] = replacements[call.args[1].body]
 
-        return number
+        return statements, refnumber
 
     def level(self, args, base):
         level0 = typedtree.assignLevels(args[0], base)

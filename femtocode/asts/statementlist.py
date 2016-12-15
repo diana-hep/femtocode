@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import femtocode.asts.lispytree as lispytree
+import femtocode.asts.typedtree as typedtree
 from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
@@ -189,3 +189,82 @@ def schemaToColumns(name, schema, hasSize=False):
 
     else:
         raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
+
+class Statement(object): pass
+
+class Ref(Statement):
+    def __init__(self, name, schema, level):
+        self.name = name
+        self.schema = schema
+        self.level = level
+
+    def __repr__(self):
+        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema, self.level)
+
+    def __str__(self):
+        if isinstance(self.name, int):
+            return "@tmp{0}[{1}]".format(self.name, len(self.level))
+        else:
+            return self.name
+
+    def __eq__(self, other):
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level
+
+    def __hash__(self):
+        return hash((Ref, self.name, self.schema, self.level))
+
+class Literal(Statement):
+    def __init__(self, value, schema):
+        self.value = value
+        self.schema = schema
+
+    def __repr__(self):
+        return "statementlist.Literal({0}, {1})".format(self.value, self.schema)
+
+    def __str__(self):
+        return str(self.value)
+
+    def __eq__(self, other):
+        return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
+
+    def __hash__(self):
+        return hash((Literal, self.value, self.schema))
+
+class Call(Statement):
+    def __init__(self, newref, fcnname, args):
+        self.newref = newref
+        self.fcnname = fcnname
+        self.args = tuple(args)
+
+    def __repr__(self):
+        return "statementlist.Call({0}, {1}, {2})".format(self.newref, self.fcnname, self.args)
+
+    def __str__(self):
+        return "{0} := ({1} {2});".format(str(self.newref), self.fcnname, " ".join(map(str, self.args)))
+
+    def __eq__(self, other):
+        return isinstance(other, Call) and self.newref == other.newref and self.fcnname == other.fcnname and self.args == other.args
+
+    def __hash__(self):
+        return hash((Statement, self.newref, self.fcnname, self.args))
+
+def build(tree, replacements=None, refnumber=0):
+    if replacements is None:
+        replacements = {}
+
+    if isinstance(tree, typedtree.Ref):
+        if tree.framenumber is None:
+            replacements[tree] = Ref(tree.name, tree.schema, tree.level)
+        statements = []
+
+    elif isinstance(tree, typedtree.Literal):
+        replacements[tree] = Literal(tree.value, tree.schema)
+        statements = []
+
+    elif isinstance(tree, typedtree.Call):
+        statements, refnumber = tree.fcn.buildstatements(tree, replacements, refnumber)
+
+    else:
+        raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
+
+    return statements, refnumber

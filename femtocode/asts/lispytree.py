@@ -103,7 +103,7 @@ class Ref(LispyTree):
         self.original = original
 
     def __repr__(self):
-        return "Ref({0}, {1})".format(self.name, self.framenumber)
+        return "lispytree.Ref({0}, {1})".format(self.name, self.framenumber)
 
     def __lt__(self, other):
         if isinstance(other, (Function, LispyTree)):
@@ -162,7 +162,7 @@ class Literal(LispyTree):
             raise ProgrammingError("missing implementation")
 
     def __repr__(self):
-        return "Literal({0})".format(self.value)
+        return "lispytree.Literal({0})".format(self.value)
 
     def __lt__(self, other):
         if isinstance(other, (Function, LispyTree)):
@@ -210,7 +210,7 @@ class Call(LispyTree):
         self.original = original
 
     def __repr__(self):
-        return "Call({0}, {1})".format(self.fcn, self.args)
+        return "lispytree.Call({0}, {1})".format(self.fcn, self.args)
 
     def commuteargs(self):
         if self.fcn.commutative():

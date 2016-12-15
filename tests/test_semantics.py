@@ -21,6 +21,7 @@ import unittest
 
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.typedtree as typedtree
+import femtocode.asts.statementlist as statementlist
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
@@ -119,127 +120,16 @@ class TestSemantics(unittest.TestCase):
             print(err)
 
     def test_simple2(self):
-        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
+        lt = lispytree.build(parse("xs.map($1 + x).map($1 + y).map($1 + z)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
 
-        def walk(tree, indent=""):
-            if isinstance(tree, typedtree.Ref):
-                print("{0}Ref@{1} {2} {3} {4}".format(indent, id(tree), tree.name, tree.framenumber, tree.schema))
-
-            elif isinstance(tree, typedtree.Literal):
-                print("{0}Literal@{1} {2} {3}".format(indent, id(tree), tree.value, tree.schema))
-
-            elif isinstance(tree, typedtree.Call):
-                print("{0}Call@{1} {2} {3}".format(indent, id(tree), tree.fcn, tree.schema))
-                for arg in tree.args:
-                    walk(arg, indent + "    ")
-
-            elif isinstance(tree, typedtree.UserFunction):
-                print("{0}UserFunction@{1} {2} {3}".format(indent, id(tree), tree.refs, tree.schema))
-                walk(tree.body, indent + "    ")
-
-            else:
-                print("WTF {0} {1}".format(type(tree), tree))
-
-        print("")
-        walk(tt)
-
-        print("")
         uniques = {}
         typedtree.fillUniquesSet(tt, uniques)
-        ttunique = typedtree.treeOfUniques(tt, uniques)
-        walk(ttunique)
+        ttu = typedtree.treeOfUniques(tt, uniques)
+        typedtree.assignLevels(ttu)
 
-        def walk2(tree, indent=""):
-            if isinstance(tree, typedtree.Ref):
-                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.framenumber, tree.dependencies))
-
-            elif isinstance(tree, typedtree.Literal):
-                print("{0}Literal {1} {2}".format(indent, tree.value, tree.dependencies))
-
-            elif isinstance(tree, typedtree.Call):
-                print("{0}Call {1} {2}".format(indent, tree.fcn.name, tree.dependencies))
-                for arg in tree.args:
-                    walk2(arg, indent + "    ")
-
-            elif isinstance(tree, typedtree.UserFunction):
-                print("{0}UserFunction {1}".format(indent, tree.refs))
-                walk2(tree.body, indent + "    ")
-
-            else:
-                print("WTF {0} {1}".format(type(tree), tree))
-        
-        print("")
-        typedtree.assignDependencies(ttunique)
-        walk2(ttunique)
-
-        def walk3(tree, indent=""):
-            if isinstance(tree, typedtree.Ref):
-                print("{0}Ref {1} {2} {3}".format(indent, tree.name, tree.framenumber, tree.level))
-
-            elif isinstance(tree, typedtree.Literal):
-                print("{0}Literal {1} {2}".format(indent, tree.value, tree.level))
-
-            elif isinstance(tree, typedtree.Call):
-                print("{0}Call {1} {2}".format(indent, tree.fcn.name, tree.level))
-                for arg in tree.args:
-                    walk3(arg, indent + "    ")
-
-            elif isinstance(tree, typedtree.UserFunction):
-                print("{0}UserFunction".format(indent))
-                walk3(tree.body, indent + "    ")
-
-            else:
-                print("WTF {0} {1}".format(type(tree), tree))
-        
-        print("")
-        typedtree.assignLevels(ttunique)
-        walk3(ttunique)
-
-    def test_simple3(self):
-        lt = lispytree.build(parse("a = x + y; b = a + y + z; c = xs.map(x => x + a + a + b).map(y => y + 2); c"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
-        tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
-
-        def walk(tree, indent=""):
-            if isinstance(tree, typedtree.Ref):
-                print("{0}Ref {1} (frame {2}) has type {3}".format(indent, tree.name, tree.framenumber, tree.schema))
-
-            elif isinstance(tree, typedtree.Literal):
-                print("{0}Literal {1} has type {2}".format(indent, tree.value, tree.schema))
-
-            elif isinstance(tree, typedtree.Call):
-                print("{0}Call {1} has type {2}".format(indent, tree.fcn, tree.schema))
-                for arg in tree.args:
-                    walk(arg, indent + "    ")
-
-            elif isinstance(tree, typedtree.UserFunction):
-                print("{0}UserFunction has type {1}".format(indent, tree.schema))
-                walk(tree.body, indent + "    ")
-
-            else:
-                print("WTF {0} {1}".format(type(tree), tree))
+        ss = statementlist.build(ttu)[0]
 
         print("")
-        walk(tt)
-
-        statements = []
-        typedtree.toStatements(tt, statements, {}, 0)
-
-        print("")
-        for ref, value in statements:
-            left = ref.name if isinstance(ref.name, string_types) else "tmp_" + repr(ref.name)
-            if isinstance(value, typedtree.Call):
-                fcn = value.fcn.name
-                args = []
-                for arg in value.args:
-                    if isinstance(arg, typedtree.Ref):
-                        ref = arg
-                        args.append(ref.name if isinstance(ref.name, string_types) else "tmp_" + repr(ref.name))
-                    elif isinstance(arg, typedtree.Literal):
-                        args.append(repr(arg.value))
-                    else:
-                        print("WTF {0} {1}".format(type(arg), arg))
-            else:
-                print("WTF {0} {1}".format(type(value), value))
-
-            print(left + " := (" + fcn + " " + " ".join(args) + ")")
+        for statement in ss:
+            print(statement)

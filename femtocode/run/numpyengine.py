@@ -65,6 +65,10 @@ class NumpyColumn(object):
         else:
             self.data = None
 
+    @property
+    def schema(self):
+        return self.column.schema
+
     def clear(self):
         self.data = numpy.empty(0, dtype=self.data.dtype)
         self.growdata = []

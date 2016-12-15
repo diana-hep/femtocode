@@ -32,7 +32,7 @@ class Ref(lispytree.Ref):
         self.original = original
 
     def __repr__(self):
-        return "Ref({0}, {1}, {2})".format(self.name, self.framenumber, self.schema)
+        return "typedtree.Ref({0}, {1}, {2})".format(self.name, self.framenumber, self.schema)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
@@ -68,7 +68,7 @@ class Literal(lispytree.Literal):
         self.original = original
 
     def __repr__(self):
-        return "Literal({0}, {1})".format(self.value, self.schema)
+        return "typedtree.Literal({0}, {1})".format(self.value, self.schema)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
@@ -98,7 +98,7 @@ class Call(lispytree.Call):
         self.original = original
 
     def __repr__(self):
-        return "Call({0}, {1}, {2})".format(self.fcn, self.args, self.schema)
+        return "typedtree.Call({0}, {1}, {2})".format(self.fcn, self.args, self.schema)
 
     def commuteargs(self):
         if self.fcn.commutative():
@@ -138,7 +138,7 @@ class UserFunction(lispytree.UserFunction):
         self.original = original
 
     def __repr__(self):
-        return "UserFunction({0}, {1}, {2}, {3})".format(self.refs, self.framenumber, self.body, self.schema)
+        return "typedtree.UserFunction({0}, {1}, {2}, {3})".format(self.refs, self.framenumber, self.body, self.schema)
 
     def __lt__(self, other):
         if isinstance(other, TypedTree):
@@ -222,32 +222,6 @@ def build(tree, frame):
     else:
         raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
 
-########################################
-
-def toStatements(tree, statements, replacements, number):
-    if isinstance(tree, Ref):
-        if tree.framenumber is None:
-            replacements[tree] = tree
-
-    elif isinstance(tree, Literal):
-        replacements[tree] = tree
-
-    elif isinstance(tree, Call):
-        number = tree.fcn.toStatements(tree, statements, replacements, number)
-
-    else:
-        raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
-
-    return number
-
-
-
-
-
-
-
-########################################
-
 def fillUniquesSet(tree, uniques):
     uniques[tree] = tree
     if isinstance(tree, Call):
@@ -262,7 +236,7 @@ def treeOfUniques(tree, uniques):
 
     elif isinstance(tree, Call):
         out = uniques[tree]
-        out.args = [treeOfUniques(arg, uniques) for arg in out.args]
+        out.args = tuple([treeOfUniques(arg, uniques) for arg in out.args])
         return out
 
     elif isinstance(tree, UserFunction):
@@ -273,38 +247,15 @@ def treeOfUniques(tree, uniques):
     else:
         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
 
-def assignDependencies(tree, framenumberToDeps=None):
-    if framenumberToDeps is None:
-        framenumberToDeps = {}
-
-    if not hasattr(tree, "dependencies"):
-        if isinstance(tree, Ref):
-            if tree.framenumber in framenumberToDeps:
-                tree.dependencies = set(framenumberToDeps[tree.framenumber])
-            else:
-                tree.dependencies = set([tree])
-
-        elif isinstance(tree, Literal):
-            tree.dependencies = set([tree])
-
-        elif isinstance(tree, Call):
-            dependencies = set()
-
-            for arg in tree.args:
-                if not isinstance(arg, UserFunction):
-                    assignDependencies(arg, framenumberToDeps)
-                    dependencies.update(arg.dependencies)
-
-            for arg in tree.args:
-                if isinstance(arg, UserFunction):
-                    framenumberToDeps[arg.framenumber] = dependencies
-                    assignDependencies(arg.body, framenumberToDeps)
-                    dependencies.update(arg.body.dependencies)
-
-            tree.dependencies = dependencies
-
-        else:
-            raise ProgrammingError("unexpected in typedtree: {0}".format(tree))        
+class SimpleLevels(object):
+    def level(self, args, base):
+        if len(args) == 0:
+            raise ProgrammingError("SimpleLevels builtin functions cannot have zero arguments")
+        levels = sorted([assignLevels(arg, base) for arg in args], key=lambda x: -len(x))
+        for x in levels:
+            if base[:len(x)] != x:
+                raise ProgrammingError("levels are not nested:\n    {0}".format("\n    ".join(map(repr, levels))))
+        return levels[0]
 
 def assignLevels(tree, base=()):
     if not hasattr(tree, "level"):
