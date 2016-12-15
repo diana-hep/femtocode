@@ -19,14 +19,53 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class Column(object):
+class ColumnName(object):
     sizeSuffix = "@size"
     tagSuffix = "@tag"
+    
+    def __init__(self, *seq):
+        self.seq = seq
 
-    @staticmethod
-    def posSuffix(n):
-        return "@" + repr(n)
+    def size(self):
+        return ColumnName(*(self.seq + (self.sizeSuffix,)))
 
+    def tag(self):
+        return ColumnName(*(self.seq + (self.tagSuffix,)))
+
+    def rec(self, fieldName):
+        return ColumnName(*(self.seq + ("." + fieldName,)))
+
+    def pos(self, position):
+        return ColumnName(*(self.seq + ("@" + repr(position),)))
+
+    def __eq__(self, other):
+        return isinstance(other, ColumnName) and self.seq == other.seq
+
+    def __hash__(self):
+        return hash((ColumnName, self.seq))
+
+    def __repr__(self):
+        return "".join(self.seq)
+
+    def startswith(self, other):
+        if isinstance(other, ColumnName):
+            if len(self.seq) >= len(other.seq):
+                return self.seq[:len(other.seq)] == other.seq
+            else:
+                return False
+        else:
+            raise ProgrammingError("calling startswith on {0}".format(other))
+
+    def endswith(self, other):
+        if isinstance(other, ColumnName):
+            if len(self.seq) >= len(other.seq):
+                return self.seq[-len(other.seq):] == other.seq
+            else:
+                return False
+        else:
+            raise ProgrammingError("calling endswith on {0}".format(other))
+
+class Column(object):
     def __init__(self, name, schema):
         self.name = name
         self.schema = schema
@@ -79,23 +118,26 @@ def isMinimallyRecursive(schema, nested=None):
         raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
 
 def schemaToColumns(name, schema, hasSize=False):
+    if isinstance(name, string_types):
+        name = ColumnName(name)
+
     if isMinimallyRecursive(schema):
         if hasSize:
-            sizeName = name + Column.sizeSuffix
+            sizeName = name.size()
             return {name: RecursiveColumn(name, schema), sizeName: SizeColumn(sizeName)}
         else:
             return {name: RecursiveColumn(name, schema)}
 
     elif isinstance(schema, Null):
         if hasSize:
-            sizeName = name + Column.sizeSuffix
+            sizeName = name.size()
             return {sizeName: SizeColumn(sizeName)}
         else:
             return {}
 
     elif isinstance(schema, (Boolean, Number)):
         if hasSize:
-            sizeName = name + Column.sizeSuffix
+            sizeName = name.size()
             return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
         else:
             return {name: Column(name, schema)}
@@ -104,7 +146,7 @@ def schemaToColumns(name, schema, hasSize=False):
         if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
             return {name: Column(name, schema)}
         else:
-            sizeName = name + Column.sizeSuffix
+            sizeName = name.size()
             return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
 
     elif isinstance(schema, Collection):
@@ -113,7 +155,7 @@ def schemaToColumns(name, schema, hasSize=False):
     elif isinstance(schema, Record):
         out = {}
         for n, t in schema.fields.items():
-            out.update(schemaToColumns(name + "." + n, t, hasSize))
+            out.update(schemaToColumns(name.rec(n), t, hasSize))
         return out
 
     elif isinstance(schema, Union):
@@ -175,16 +217,16 @@ def schemaToColumns(name, schema, hasSize=False):
 
         else:
             if hasSize:
-                sizeName = name + Column.sizeSuffix
+                sizeName = name.size()
                 out = {sizeName: SizeColumn(sizeName)}
             else:
                 out = {}
 
-            tagName = name + Column.tagSuffix
+            tagName = name.tag()
             out[tagName] = TagColumn(tagName, flattened)
 
             for i, p in enumerate(flattened):
-                out.update(schemaToColumns(name + Column.posSuffix(i), p, False))
+                out.update(schemaToColumns(name.pos(i), p, False))
             return out
 
     else:
@@ -238,7 +280,7 @@ class Literal(Statement):
         return "statementlist.Literal({0}, {1})".format(self.value, self.schema)
 
     def __str__(self):
-        return str(self.value)
+        return "{0}[{1}]".format(self.value, self.level)
 
     def __eq__(self, other):
         return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
@@ -256,7 +298,7 @@ class Call(Statement):
         return "statementlist.Call({0}, {1}, {2})".format(self.newref, self.fcnname, self.args)
 
     def __str__(self):
-        return "{0} := ({1} {2});".format(str(self.newref), self.fcnname, " ".join(map(str, self.args)))
+        return "{0} := ({1} {2})".format(str(self.newref), self.fcnname, " ".join(map(str, self.args)))
 
     def __eq__(self, other):
         return isinstance(other, Call) and self.newref == other.newref and self.fcnname == other.fcnname and self.args == other.args

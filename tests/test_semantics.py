@@ -122,7 +122,15 @@ class TestSemantics(unittest.TestCase):
     def test_simple2(self):
         lt = lispytree.build(parse("xs.map($1 + x).map($1 + y).map($1 + z)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
         tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
+        result, ss, _ = statementlist.build(tt)
 
+        print("")
+        for statement in ss:
+            print(statement)
+        print("-> " + str(result))
+
+        lt = lispytree.build(parse("a = x + y; b = a + y + z; xs.map(x => x + a + a + b).map(y => y + 2)"), table.fork(dict((v, lispytree.Ref(v)) for v in ("x", "y", "z", "xs"))))[0]
+        tt = typedtree.build(lt, SymbolTable(dict([(lispytree.Ref(v), real) for v in ("x", "y", "z")] + [(lispytree.Ref("xs"), collection(real))])))[0]
         result, ss, _ = statementlist.build(tt)
 
         print("")
