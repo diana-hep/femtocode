@@ -70,11 +70,13 @@ class Add(lispytree.BuiltinFunction):
     def buildstatements(self, call, replacements, refnumber):
         statements = []
         for arg in call.args:
-            s, refnumber = statementlist.build(arg, replacements, refnumber)
-            statements.extend(s)
+            ss, refnumber = statementlist.build(arg, replacements, refnumber)
+            statements.extend(ss)
+
+        level = statementlist.Level()
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema)
+            newref = statementlist.Ref(refnumber, call.schema, level)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
@@ -99,11 +101,13 @@ class Divide(lispytree.BuiltinFunction):
     def buildstatements(self, call, replacements, refnumber):
         statements = []
         for arg in call.args:
-            s, refnumber = statementlist.build(arg, replacements, refnumber)
-            statements.extend(s)
+            ss, refnumber = statementlist.build(arg, replacements, refnumber)
+            statements.extend(ss)
+
+        level = statementlist.Level()
 
         if call not in replacements:
-            newref = statementlist.Ref(refnumber, call.schema)
+            newref = statementlist.Ref(refnumber, call.schema, level)
             refnumber += 1
             replacements[call] = newref
             statements.append(statementlist.Call(newref, self.name, [replacements[arg] for arg in call.args]))
@@ -357,7 +361,7 @@ class Map(lispytree.BuiltinFunction):
         if not isinstance(typedarg0.schema, Collection):
             return impossible("First argument must be a collection."), [], frame
 
-        # FIXME: move this to lispytree
+        # FIXME: generalize this out (knowing the number of arguments, [1])
         if isinstance(args[1], lispytree.BuiltinFunction):
             subframe = frame.fork()
             framenumber = subframe.framenumber()

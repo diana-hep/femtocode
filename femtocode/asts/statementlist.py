@@ -192,25 +192,58 @@ def schemaToColumns(name, schema, hasSize=False):
 
 class Statement(object): pass
 
-class Ref(Statement):
-    def __init__(self, name, schema):
-        self.name = name
-        self.schema = schema
+class Level(Statement):
+    @staticmethod
+    def deepest(one, two):
+        if len(one) <= len(two):
+            if one == two[:len(one)]:
+                return two
+            else:
+                raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
+        else:
+            if two == one[:len(two)]:
+                return one
+            else:
+                raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
+
+    def __init__(self, *sequence):
+        self.sequence = sequence
 
     def __repr__(self):
-        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema)
+        return "Level{0}".format(self.sequence)
+
+    def depth(self):
+        return len(self.sequence)
+    
+    def __add__(self, other):
+        return Level(*(self.sequence + (other,)))
+
+    def __eq__(self, other):
+        return isinstance(other, Level) and self.sequence == other.sequence
+
+    def __hash__(self):
+        return hash((Level, self.sequence))
+
+class Ref(Statement):
+    def __init__(self, name, schema, level):
+        self.name = name
+        self.schema = schema
+        self.level = level
+
+    def __repr__(self):
+        return "statementlist.Ref({0}, {1}, {2}, {3})".format(self.name, self.schema, self.level)
 
     def __str__(self):
         if isinstance(self.name, int):
-            return "@tmp{0}".format(self.name)
+            return "@tmp{0}[{1}]".format(self.name, self.level)
         else:
-            return self.name
+            return "{0}[{1}]".format(self.name, self.level)
 
     def __eq__(self, other):
-        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema))
+        return hash((Ref, self.name, self.schema, self.level))
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -253,7 +286,11 @@ def build(tree, replacements=None, refnumber=0):
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema)
+            replacements[tree] = Ref(tree.name, tree.schema, Level())
+        # else:
+        #     print "HERE", replacements[tree]
+
+        #     raise ProgrammingError("should not encounter any deep references here")
         statements = []
 
     elif isinstance(tree, typedtree.Literal):
