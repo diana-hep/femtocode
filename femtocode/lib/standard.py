@@ -51,7 +51,7 @@ class Is(lispytree.BuiltinFunction):
 
 table[Is.name] = Is()
 
-class Add(lispytree.BuiltinFunction):
+class Add(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -63,37 +63,13 @@ class Add(lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
-
-    def buildstatements(self, call, columns, replacements, refnumber):
-        args = []
-        statements = []
-        for arg in call.args:
-            argref, ss, refnumber = statementlist.build(arg, columns, replacements, refnumber)
-            args.append(argref)
-            statements.extend(ss)
-
-        if call not in replacements:
-            columnName = statementlist.ColumnName("#" + repr(refnumber))
-            columns = statementlist.schemaToColumns(columnName, call.schema)
-            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, statementlist.Ref)):
-                sizeName = columnName.size()
-                columns[sizeName] = statementlist.SizeColumn(sizeName)
-
-            ref = statementlist.Ref(refnumber, call.schema, columns)
-            refnumber += 1
-            replacements[call] = ref
-            statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
-        else:
-            ref = replacements[call]
-
-        return ref, statements, refnumber
         
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
 
 table[Add.name] = Add()
 
-class Divide(lispytree.BuiltinFunction):
+class Divide(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "/"
 
     def literaleval(self, args):
@@ -103,36 +79,12 @@ class Divide(lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
-    def buildstatements(self, call, columns, replacements, refnumber):
-        args = []
-        statements = []
-        for arg in call.args:
-            argref, ss, refnumber = statementlist.build(arg, columns, replacements, refnumber)
-            args.append(argref)
-            statements.extend(ss)
-
-        if call not in replacements:
-            columnName = statementlist.ColumnName("#" + repr(refnumber))
-            columns = statementlist.schemaToColumns(columnName, call.schema)
-            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, statementlist.Ref)):
-                sizeName = columnName.size()
-                columns[sizeName] = statementlist.SizeColumn(sizeName)
-
-            ref = statementlist.Ref(refnumber, call.schema, columns)
-            refnumber += 1
-            replacements[call] = ref
-            statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
-        else:
-            ref = replacements[call]
-
-        return ref, statements, refnumber
-        
     def generate(self, args):
         return "({0} / {1})".format(args[0].generate(), args[1].generate())
 
 table[Divide.name] = Divide()
 
-class Eq(lispytree.BuiltinFunction):
+class Eq(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -154,7 +106,7 @@ class Eq(lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(lispytree.BuiltinFunction):
+class NotEq(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -191,7 +143,7 @@ class NotEq(lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(lispytree.BuiltinFunction):
+class And(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -246,7 +198,7 @@ class And(lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(lispytree.BuiltinFunction):
+class Or(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -287,7 +239,7 @@ class Or(lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(lispytree.BuiltinFunction):
+class Not(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):

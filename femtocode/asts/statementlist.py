@@ -105,6 +105,10 @@ class Column(object):
     def __eq__(self, other):
         return self.name == other.name and self.schema == other.schema
 
+class DataColumn(Column):
+    def __repr__(self):
+        return "DataColumn({0}, {1})".format(self.name, self.schema)
+    
 class RecursiveColumn(Column):
     def __repr__(self):
         return "RecursiveColumn({0}, {1})".format(self.name, self.schema)
@@ -167,16 +171,16 @@ def schemaToColumns(name, schema, hasSize=False):
     elif isinstance(schema, (Boolean, Number)):
         if hasSize:
             sizeName = name.size()
-            return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
         else:
-            return {name: Column(name, schema)}
+            return {name: DataColumn(name, schema)}
 
     elif isinstance(schema, String):
         if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
-            return {name: Column(name, schema)}
+            return {name: DataColumn(name, schema)}
         else:
             sizeName = name.size()
-            return {name: Column(name, schema), sizeName: SizeColumn(sizeName)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
 
     elif isinstance(schema, Collection):
         return schemaToColumns(name, schema.items, hasSize or schema.fewest != schema.most)
@@ -185,6 +189,13 @@ def schemaToColumns(name, schema, hasSize=False):
         out = {}
         for n, t in schema.fields.items():
             out.update(schemaToColumns(name.rec(n), t, hasSize))
+
+        collectiveSize = SizeColumn(name.size())
+        for n, t in schema.fields.items():
+            if (isinstance(t, (Null, Boolean, Number)) or (isinstance(t, Union) and all(isinstance(p, Number) for p in t.possibilities))) and \
+                   name.rec(n).size() in out:
+                out[name.rec(n).size()] = collectiveSize
+
         return out
 
     elif isinstance(schema, Union):
@@ -342,3 +353,29 @@ def build(tree, columns, replacements=None, refnumber=0):
 
     else:
         raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
+
+# mix-in for most BuiltinFunctions
+class BuildStatements(object):
+    def buildstatements(self, call, columns, replacements, refnumber):
+        args = []
+        statements = []
+        for arg in call.args:
+            argref, ss, refnumber = build(arg, columns, replacements, refnumber)
+            args.append(argref)
+            statements.extend(ss)
+
+        if call not in replacements:
+            columnName = ColumnName("#" + repr(refnumber))
+            columns = schemaToColumns(columnName, call.schema)
+            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, Ref)):
+                sizeName = columnName.size()
+                columns[sizeName] = SizeColumn(sizeName)
+
+            ref = Ref(refnumber, call.schema, columns)
+            refnumber += 1
+            replacements[call] = ref
+            statements.append(Call(ref, self.name, [replacements[arg] for arg in call.args]))
+        else:
+            ref = replacements[call]
+
+        return ref, statements, refnumber

@@ -48,7 +48,7 @@ class BuiltinFunction(Function):
     def buildtyped(self, args, typeframe):
         raise ProgrammingError("missing implementation: {0}".format(self))
 
-    def level(self, args, base):
+    def buildstatements(self, call, columns, replacements, refnumber):
         raise ProgrammingError("missing implementation: {0}".format(self))
 
     def generate(self, args):

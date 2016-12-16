@@ -75,15 +75,22 @@ class TestStatements(unittest.TestCase):
                          {"x.one": Column("x.one", integer),
                           "x.two": Column("x.two", real),
                           "x.three": Column("x.three", string),
-                          "x.one@size": SizeColumn("x.one@size"),
-                          "x.two@size": SizeColumn("x.two@size"),
+                          "x.one@size": SizeColumn("x@size"),
+                          "x.two@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.three@size": SizeColumn("x.three@size")})
+        self.assertEqual(schemaToColumns2("x", collection(record(one=integer, two=union(real(0, 10), real(100, 200)), three=string))),
+                         {"x.one": Column("x.one", integer),
+                          "x.two": Column("x.two", real(0, 200)),
+                          "x.three": Column("x.three", string),
+                          "x.one@size": SizeColumn("x@size"),
+                          "x.two@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
                           "x.three@size": SizeColumn("x.three@size")})
         self.assertEqual(schemaToColumns2("x", collection(record(uno=boolean, dos=collection(record(tres=boolean, quatro=collection(boolean)))))),
                          {"x.uno": Column("x.uno", boolean),
-                          "x.uno@size": SizeColumn("x.uno@size"),
+                          "x.uno@size": SizeColumn("x@size"),
                           "x.dos.tres": Column("x.dos.tres", boolean),
                           "x.dos.quatro": Column("x.dos.quatro", boolean),
-                          "x.dos.tres@size": SizeColumn("x.dos.tres@size"),
+                          "x.dos.tres@size": SizeColumn("x.dos@size"),
                           "x.dos.quatro@size": SizeColumn("x.dos.quatro@size")})
 
         self.assertEqual(schemaToColumns2("x", union(null)), {})
