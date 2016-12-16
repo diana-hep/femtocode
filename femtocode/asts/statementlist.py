@@ -263,89 +263,37 @@ def schemaToColumns(name, schema, hasSize=False):
 
 class Statement(object): pass
 
-# class Level(Statement):
-#     @staticmethod
-#     def deepest(one, two):
-#         if len(one) <= len(two):
-#             if one == two[:len(one)]:
-#                 return two
-#             else:
-#                 raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
-#         else:
-#             if two == one[:len(two)]:
-#                 return one
-#             else:
-#                 raise ProgrammingError("cannot combine levels: {0} and {1}".format(one, two))
-
-#     def __init__(self, *sequence):
-#         self.sequence = sequence
-
-#     def __repr__(self):
-#         return "Level{0}".format(self.sequence)
-
-#     def __str__(self):
-#         return "L" + repr(len(self.sequence))
-
-#     def depth(self):
-#         return len(self.sequence)
-    
-#     def __add__(self, other):
-#         return Level(*(self.sequence + (other,)))
-
-#     def __eq__(self, other):
-#         return isinstance(other, Level) and self.sequence == other.sequence
-
-#     def __hash__(self):
-#         return hash((Level, self.sequence))
-
 class Ref(Statement):
-    @staticmethod
-    def deeper(ref):
-        if not isinstance(ref.schema, Collection):
-            raise ProgrammingError("cannot go deeper into schema {0} (level {1})".format(ref.schema, ref.level))
-        return Ref(ref.name, ref.schema.items, ref.level + 1, ref.columns)
-
-    @staticmethod
-    def shallower(ref, schema):
-        if ref.level <= 1:
-            raise ProgrammingError("cannot go shallower from schema {0} (level {1})".format(schema, ref.level))
-        return Ref(ref.name, schema, ref.level - 1, ref.columns)
-
-    def __init__(self, name, schema, level, columns):
+    def __init__(self, name, schema, columns):
         self.name = name
         self.schema = schema
-        self.level = level
         self.columns = columns
 
     def __repr__(self):
-        return "statementlist.Ref({0}, {1}, {2}, {3}, {4})".format(self.name, self.schema, self.level, self.columns)
+        return "statementlist.Ref({0}, {1}, {2})".format(self.name, self.schema, self.columns)
 
     def __str__(self):
         if isinstance(self.name, int):
-            return "#{0}[L{1}: {2}]".format(self.name, self.level, ", ".join(str(n) for n in self.columns))
+            return "#{0}[{1}]".format(self.name, ", ".join(str(n) for n in self.columns))
         else:
-            return "{0}[L{1}: {2}]".format(self.name, self.level, ", ".join(str(n) for n in self.columns))
+            return "{0}[{1}]".format(self.name, ", ".join(str(n) for n in self.columns))
 
     def __eq__(self, other):
-        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.level == other.level and self.columns == other.columns
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.columns == other.columns
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema, self.level, tuple(sorted(self.columns.items()))))
+        return hash((Ref, self.name, self.schema, tuple(sorted(self.columns.items()))))
 
 class Literal(Statement):
     def __init__(self, value, schema):
         self.value = value
         self.schema = schema
 
-    @property
-    def level(self):
-        return 0
-
     def __repr__(self):
         return "statementlist.Literal({0}, {1})".format(self.value, self.schema)
 
     def __str__(self):
-        return "{0}[L{1}]".format(self.value, self.level)
+        return repr(self.value)
 
     def __eq__(self, other):
         return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
@@ -377,7 +325,7 @@ def build(tree, columns, replacements=None, refnumber=0):
 
     if isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
-            replacements[tree] = Ref(tree.name, tree.schema, 1, dict((n, c) for n, c in columns.items() if n.startswith(tree.name)))
+            replacements[tree] = Ref(tree.name, tree.schema, dict((n, c) for n, c in columns.items() if n.startswith(tree.name)))
         elif tree in replacements:
             pass
         else:

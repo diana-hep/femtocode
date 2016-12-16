@@ -65,21 +65,21 @@ class Add(lispytree.BuiltinFunction):
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildstatements(self, call, columns, replacements, refnumber):
+        args = []
         statements = []
-        level = 0
         for arg in call.args:
             argref, ss, refnumber = statementlist.build(arg, columns, replacements, refnumber)
+            args.append(argref)
             statements.extend(ss)
-            level = max(argref.level, level)
 
         if call not in replacements:
             columnName = statementlist.ColumnName("#" + repr(refnumber))
             columns = statementlist.schemaToColumns(columnName, call.schema)
-            if level > 1:
+            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, statementlist.Ref)):
                 sizeName = columnName.size()
                 columns[sizeName] = statementlist.SizeColumn(sizeName)
 
-            ref = statementlist.Ref(refnumber, call.schema, level, columns)
+            ref = statementlist.Ref(refnumber, call.schema, columns)
             refnumber += 1
             replacements[call] = ref
             statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
@@ -104,21 +104,21 @@ class Divide(lispytree.BuiltinFunction):
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildstatements(self, call, columns, replacements, refnumber):
+        args = []
         statements = []
-        level = 0
         for arg in call.args:
             argref, ss, refnumber = statementlist.build(arg, columns, replacements, refnumber)
+            args.append(argref)
             statements.extend(ss)
-            level = max(argref.level, level)
 
         if call not in replacements:
             columnName = statementlist.ColumnName("#" + repr(refnumber))
             columns = statementlist.schemaToColumns(columnName, call.schema)
-            if level > 1:
+            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, statementlist.Ref)):
                 sizeName = columnName.size()
                 columns[sizeName] = statementlist.SizeColumn(sizeName)
 
-            ref = statementlist.Ref(refnumber, call.schema, level, columns)
+            ref = statementlist.Ref(refnumber, call.schema, columns)
             refnumber += 1
             replacements[call] = ref
             statements.append(statementlist.Call(ref, self.name, [replacements[arg] for arg in call.args]))
@@ -393,14 +393,14 @@ class Map(lispytree.BuiltinFunction):
         argref, statements, refnumber = statementlist.build(call.args[0], columns, replacements, refnumber)
 
         # the argument of the UserFunction is the values of the collection
-        replacements[call.args[1].refs[0]] = statementlist.Ref.deeper(argref)
+        replacements[call.args[1].refs[0]] = argref
 
         result, s, refnumber = statementlist.build(call.args[1].body, columns, replacements, refnumber)
         statements.extend(s)
 
         replacements[call] = replacements[call.args[1].body]
 
-        return statementlist.Ref.shallower(result, call.schema), statements, refnumber
+        return statementlist.Ref(result.name, call.schema, result.columns), statements, refnumber
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"
