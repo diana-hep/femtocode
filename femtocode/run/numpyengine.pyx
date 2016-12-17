@@ -91,3 +91,23 @@ class NumpyColumn(object):
             data[:len(self.data)] = self.data
             data[len(self.data):] = other
             self.data = data
+
+########################################################################
+
+import cython
+
+import numpy
+cimport numpy
+
+cdef extern from "stdint.h":
+    ctypedef int int64_t
+
+cdef extern from "femtocoderun.h":
+    void complement(int64_t size, double* array)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def doit(numpy.ndarray[double, ndim=1, mode="c"] array not None):
+    cdef Py_ssize_t size
+    size = array.shape[0]
+    complement(size, &array[0])
