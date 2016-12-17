@@ -75,15 +75,26 @@ class TestStatements(unittest.TestCase):
                          {"x.one": Column("x.one", integer),
                           "x.two": Column("x.two", real),
                           "x.three": Column("x.three", string),
-                          "x.one@size": SizeColumn("x@size"),
-                          "x.two@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.one@size": SizeColumn("x@size"),         # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.two@size": SizeColumn("x@size"),         # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
                           "x.three@size": SizeColumn("x.three@size")})
         self.assertEqual(schemaToColumns2("x", collection(record(one=integer, two=union(real(0, 10), real(100, 200)), three=string))),
                          {"x.one": Column("x.one", integer),
                           "x.two": Column("x.two", real(0, 200)),
                           "x.three": Column("x.three", string),
-                          "x.one@size": SizeColumn("x@size"),
-                          "x.two@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.one@size": SizeColumn("x@size"),         # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.two@size": SizeColumn("x@size"),         # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.three@size": SizeColumn("x.three@size")})
+        self.assertEqual(schemaToColumns2("x", collection(record(one=record(uno=integer, dos=real, tres=string), two=real, three=string))),
+                         {"x.one.uno": Column("x.one.uno", integer),
+                          "x.one.uno@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.one.dos": Column("x.one.dos", real),
+                          "x.one.dos@size": SizeColumn("x@size"),     # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.one.tres": Column("x.one.tres", string),
+                          "x.one.tres@size": SizeColumn("x.one.tres@size"),
+                          "x.two": Column("x.two", real),
+                          "x.two@size": SizeColumn("x@size"),         # NOTE! x.one@size and x.two@size both point to x@size because they'd always be the same
+                          "x.three": Column("x.three", string),
                           "x.three@size": SizeColumn("x.three@size")})
         self.assertEqual(schemaToColumns2("x", collection(record(uno=boolean, dos=collection(record(tres=boolean, quatro=collection(boolean)))))),
                          {"x.uno": Column("x.uno", boolean),

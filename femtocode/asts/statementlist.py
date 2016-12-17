@@ -191,10 +191,17 @@ def schemaToColumns(name, schema, hasSize=False):
             out.update(schemaToColumns(name.rec(n), t, hasSize))
 
         collectiveSize = SizeColumn(name.size())
-        for n, t in schema.fields.items():
-            if (isinstance(t, (Null, Boolean, Number)) or (isinstance(t, Union) and all(isinstance(p, Number) for p in t.possibilities))) and \
-                   name.rec(n).size() in out:
-                out[name.rec(n).size()] = collectiveSize
+
+        def thislevel(name, schema):
+            for n, t in schema.fields.items():
+                if (isinstance(t, (Null, Boolean, Number)) or (isinstance(t, Union) and all(isinstance(p, Number) for p in t.possibilities))) and \
+                       name.rec(n).size() in out:
+                    out[name.rec(n).size()] = collectiveSize
+
+                elif isinstance(t, Record):
+                    thislevel(name.rec(n), t)
+
+        thislevel(name, schema)
 
         return out
 
