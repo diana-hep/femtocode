@@ -32,7 +32,12 @@ class TestNumpyRun(unittest.TestCase):
         pass
 
     def test_cython(self):
-        array = numpy.array([i/100.0 for i in xrange(100)], dtype=numpy.double)
-        print array
-        doit(array)
-        print array
+        in1 = numpy.array([i/100.0 for i in xrange(100)], dtype=numpy.double)
+        in2 = numpy.array([1.0 - i/100.0 for i in xrange(100)], dtype=numpy.double)
+        out = numpy.array([999.999 for i in xrange(100)], dtype=numpy.double)
+        print
+        print in1
+        print in2
+        print out
+        plus(in1, in2, out)
+        print out

@@ -14,7 +14,21 @@
 
 #include <stdint.h>
 
-void complement(int64_t size, double* array) {
-  for (int i = 0;  i < size;  i++)
-    array[i] = 1.0 - array[i];
+template <typename IN1, typename IN2, typename OUT>
+void plus_flatflat(int64_t len, IN1* in1array, IN2* in2array, OUT* outarray) {
+  for (int64_t i = 0;  i < len;  i++)
+    outarray[i] = in1array[i] + in2array[i];
 }
+
+// template <typename IN1, typename IN2, typename OUT>
+// void plus_sizeflat(int64_t size1len, int64_t* size1array,
+//                    int64_t in1len, IN1* in1array,
+//                    int64_t in2len, IN1* in2array,
+//                    OUT* outarray) {
+  
+
+
+
+//   for (int64_t i = 0;  i < len;  i++)
+//     outarray[i] = in1array[i] + in2array[i];
+// }

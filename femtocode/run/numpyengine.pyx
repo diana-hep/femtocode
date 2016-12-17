@@ -103,11 +103,51 @@ cdef extern from "stdint.h":
     ctypedef int int64_t
 
 cdef extern from "femtocoderun.h":
-    void complement(int64_t size, double* array)
+    void plus_flatflat[IN1, IN2, OUT](int64_t len, IN1* in1array, IN2* in2array, OUT* outarray)
+
+def plus(in1, in2, out):
+    if isinstance(in1, numpy.ndarray) and isinstance(in2, numpy.ndarray) and isinstance(out, numpy.ndarray) and len(in1) == len(in2) == len(out):
+        if in1.dtype == numpy.int64 and in2.dtype == numpy.int64 and out.dtype == numpy.int64:
+            plus_flatflat_longlong(len(in1), in1, in2, out)
+        elif in1.dtype == numpy.int64 and in2.dtype == numpy.float64 and out.dtype == numpy.float64:
+            plus_flatflat_longdouble(len(in1), in1, in2, out)
+        elif in1.dtype == numpy.float64 and in2.dtype == numpy.int64 and out.dtype == numpy.float64:
+            plus_flatflat_doublelong(len(in1), in1, in2, out)
+        elif in1.dtype == numpy.float64 and in2.dtype == numpy.float64 and out.dtype == numpy.float64:
+            plus_flatflat_doubledouble(len(in1), in1, in2, out)
+        else:
+            raise ProgrammingError("bad numpy type combination: {0} {1} {2}".format(in1.dtype, in2.dtype, out.dtype))
+    else:
+        raise ProgrammingError("bad array input: {0} ({1}) {2} ({3}) {4} ({5})".format(in1, len(in1), in2, len(in2), out, len(out)))
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def doit(numpy.ndarray[double, ndim=1, mode="c"] array not None):
-    cdef Py_ssize_t size
-    size = array.shape[0]
-    complement(size, &array[0])
+def plus_flatflat_longlong(Py_ssize_t len,
+    numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[long, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[long, ndim=1, mode="c"] out not None):
+    plus_flatflat[long, long, long](len, &in1[0], &in2[0], &out[0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def plus_flatflat_longdouble(Py_ssize_t len,
+    numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] out not None):
+    plus_flatflat[long, double, double](len, &in1[0], &in2[0], &out[0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def plus_flatflat_doublelong(Py_ssize_t len,
+    numpy.ndarray[double, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[long, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] out not None):
+    plus_flatflat[double, long, double](len, &in1[0], &in2[0], &out[0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def plus_flatflat_doubledouble(Py_ssize_t len,
+    numpy.ndarray[double, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] out not None):
+    plus_flatflat[double, double, double](len, &in1[0], &in2[0], &out[0])

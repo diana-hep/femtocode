@@ -114,11 +114,12 @@ class RecursiveColumn(Column):
         return "RecursiveColumn({0}, {1})".format(self.name, self.schema)
 
 class SizeColumn(Column):
-    def __init__(self, name):
+    def __init__(self, name, depth):
         super(SizeColumn, self).__init__(name, integer(0, almost(inf)))
+        self.depth = depth
 
     def __repr__(self):
-        return "SizeColumn({0})".format(self.name)
+        return "SizeColumn({0}, {1})".format(self.name, self.depth)
 
 class TagColumn(Column):
     def __init__(self, name, possibilities):
@@ -150,47 +151,47 @@ def isMinimallyRecursive(schema, nested=None):
     else:
         raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
 
-def schemaToColumns(name, schema, hasSize=False):
+def schemaToColumns(name, schema, depth=0):
     if isinstance(name, string_types):
         name = ColumnName(name)
 
     if isMinimallyRecursive(schema):
-        if hasSize:
+        if depth > 0:
             sizeName = name.size()
-            return {name: RecursiveColumn(name, schema), sizeName: SizeColumn(sizeName)}
+            return {name: RecursiveColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
         else:
             return {name: RecursiveColumn(name, schema)}
 
     elif isinstance(schema, Null):
-        if hasSize:
+        if depth > 0:
             sizeName = name.size()
-            return {sizeName: SizeColumn(sizeName)}
+            return {sizeName: SizeColumn(sizeName, depth)}
         else:
             return {}
 
     elif isinstance(schema, (Boolean, Number)):
-        if hasSize:
+        if depth > 0:
             sizeName = name.size()
-            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
         else:
             return {name: DataColumn(name, schema)}
 
     elif isinstance(schema, String):
-        if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
+        if depth == 0 and schema.charset == "bytes" and schema.fewest == schema.most:
             return {name: DataColumn(name, schema)}
         else:
             sizeName = name.size()
-            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
 
     elif isinstance(schema, Collection):
-        return schemaToColumns(name, schema.items, hasSize or schema.fewest != schema.most)
+        return schemaToColumns(name, schema.items, depth + (1 if schema.fewest != schema.most else 0))
 
     elif isinstance(schema, Record):
         out = {}
         for n, t in schema.fields.items():
-            out.update(schemaToColumns(name.rec(n), t, hasSize))
+            out.update(schemaToColumns(name.rec(n), t, depth))
 
-        collectiveSize = SizeColumn(name.size())
+        collectiveSize = SizeColumn(name.size(), depth)
 
         def thislevel(name, schema):
             for n, t in schema.fields.items():
@@ -260,12 +261,12 @@ def schemaToColumns(name, schema, hasSize=False):
                 raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
 
         if len(flattened) == 1:
-            return schemaToColumns(name, flattened[0], hasSize)
+            return schemaToColumns(name, flattened[0], depth)
 
         else:
-            if hasSize:
+            if depth > 0:
                 sizeName = name.size()
-                out = {sizeName: SizeColumn(sizeName)}
+                out = {sizeName: SizeColumn(sizeName, depth)}
             else:
                 out = {}
 
@@ -273,7 +274,7 @@ def schemaToColumns(name, schema, hasSize=False):
             out[tagName] = TagColumn(tagName, flattened)
 
             for i, p in enumerate(flattened):
-                out.update(schemaToColumns(name.pos(i), p, False))
+                out.update(schemaToColumns(name.pos(i), p, depth))
             return out
 
     else:
@@ -374,9 +375,24 @@ class BuildStatements(object):
         if call not in replacements:
             columnName = ColumnName("#" + repr(refnumber))
             columns = schemaToColumns(columnName, call.schema)
-            if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, Ref)):
-                sizeName = columnName.size()
-                columns[sizeName] = SizeColumn(sizeName)
+            sizeColumn = None
+            for arg in args:
+                if isinstance(arg, Ref):
+                    for n, c in arg.columns.items():
+                        if n.issize():
+                            if sizeColumn is None:
+                                sizeColumn = c
+                            elif sizeColumn.name == c.name:
+                                pass
+                            else:
+                                sizeColumn = SizeColumn(columnName.size(), max(sizeColumn.depth, c.depth))
+
+            if sizeColumn is not None:
+                columns[columnName.size()] = sizeColumn
+
+            # if any(any(cname.issize() for cname in arg.columns) for arg in args if isinstance(arg, Ref)):
+            #     sizeName = columnName.size()
+            #     columns[sizeName] = SizeColumn(sizeName, depth)
 
             ref = Ref(refnumber, call.schema, columns)
             refnumber += 1
