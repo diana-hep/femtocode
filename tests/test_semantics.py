@@ -156,3 +156,71 @@ class TestSemantics(unittest.TestCase):
         for statement in ss:
             print(statement)
         print("-> " + str(result))
+
+    def test_prototype1(self):
+        class UnsizedColumn(object):
+            def __init__(self, numEntries, data):
+                self.numEntries = numEntries
+                self.data = data
+
+        class SizedColumn(object):
+            def __init__(self, numEntries, numDeep, fixedSizes, data, size):
+                self.numEntries = numEntries
+                self.numDeep = numDeep
+                self.fixedSizes = fixedSizes
+                self.data = data
+                self.size = size
+
+        OPEN = ["(", "[", "{", "<"]
+        CLOSE = [")", "]", "}", ">"]
+
+        # The Antikythera Mechanism
+        def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
+            ini = 0
+            countdown = [[None] * columns[i].numDeep for i in xrange(numColumns)]
+            deepi = [-1] * numColumns
+            datai = [0] * numColumns
+            sizei = [0] * numColumns
+                    
+            outi = 0
+            entry = 0
+            while entry < numEntries:
+                deepi[ini] += 1
+                countdown[ini][deepi[ini]] = columns[ini].fixedSizes[deepi[ini]]
+                if countdown[ini][deepi[ini]] == 0:
+                    countdown[ini][deepi[ini]] = columns[ini].size[sizei[ini]]
+                else:
+                    assert False    # no fixed sizes for now
+                print OPEN[ini],
+
+                if deepi[ini] == columns[ini].numDeep - 1:
+                    while countdown[ini][deepi[ini]] != 0:
+                        print columns[ini].data[datai[ini]],
+                        countdown[ini][deepi[ini]] -= 1
+                    deepi[ini] -= 1
+                    print CLOSE[ini],
+
+                if countdown[ini][deepi[ini]] != 0:
+                    countdown[ini][deepi[ini]] -= 1
+                else:
+                    while deepi[ini] != -1 and countdown[ini][deepi[ini]] == 0:
+                        deepi[ini] -= 1
+                        print CLOSE[ini],
+
+                sizei[ini] += 1
+
+                if deepi[0] == -1:
+                    entry += 1
+                    print
+
+        # outsize = []
+        # outdata = []
+        # print
+        # explodeSized(3, 1, [0], [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
+
+        outsize = []
+        outdata = []
+        print
+        explodeSized(1, 2, [0, 1], 1, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+        print "outsize", outsize
+        print "outdata", outdata
