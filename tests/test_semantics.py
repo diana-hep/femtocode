@@ -176,87 +176,49 @@ class TestSemantics(unittest.TestCase):
 
         # The Antikythera Mechanism
         def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
-            # countdown = [[None] * columns[i].numDeep for i in xrange(numColumns)]
-            # deepi = [-1] * numColumns
+            countdown = [[None] * columns[i].numDeep for i in xrange(numColumns)]
+            deepi = [-1] * numColumns
 
-            # dataistart = [0] * numColumns
-            # datai      = [0] * numColumns
-            # sizeistart = [0] * numColumns
-            # sizei      = [0] * numColumns
+            dataistart = [0] * numColumns
+            datai      = [0] * numColumns
+            sizeistart = [0] * numColumns
+            sizei      = [0] * numColumns
 
             # for entry in xrange(numEntries):
             #     for leveli in xrange(numLevels):
 
-            countdown = [None] * columns[0].numDeep
-            deepi = -1
-            datai = 0
-            sizei = 0
-
+            ini = 0
             entry = 0
             while entry < numEntries:
-                if deepi != -1:
-                    countdown[deepi] -= 1
+                # each real time through counts down
+                if deepi[ini] != -1:
+                    countdown[ini][deepi[ini]] -= 1
 
-                if deepi == columns[0].numDeep - 1:
+                if deepi[ini] == columns[ini].numDeep - 1:
                     # move forward in datai
-                    print columns[0].data[datai],
-                    datai += 1
-
-                    while deepi != -1 and countdown[deepi] == 0:
-                        deepi -= 1
-                        print CLOSE[0],
+                    print columns[ini].data[datai[ini]],
+                    datai[ini] += 1
 
                 else:
                     # move forward in sizei
-                    deepi += 1
-                    countdown[deepi] = columns[0].fixedSizes[deepi]
-                    if countdown[deepi] == 0:
-                        tmp = columns[0].size[sizei]
-                        countdown[deepi] = tmp
-                        sizei += 1
+                    deepi[ini] += 1
+                    countdown[ini][deepi[ini]] = columns[ini].fixedSizes[deepi[ini]]
+                    if countdown[ini][deepi[ini]] == 0:
+                        tmp = columns[ini].size[sizei[ini]]
+                        countdown[ini][deepi[ini]] = tmp
+                        sizei[ini] += 1
                     else:
                         assert False
                     print OPEN[0],
 
-                    while deepi != -1 and countdown[deepi] == 0:
-                        deepi -= 1
-                        print CLOSE[0],
+                # remove all completed countdowns
+                while deepi[ini] != -1 and countdown[ini][deepi[ini]] == 0:
+                    deepi[ini] -= 1
+                    print CLOSE[0],
 
-                if deepi == -1:
+                if deepi[0] == -1:
                     entry += 1
                     print
-
-
-            # ini = 0
-            # outi = 0
-            # entry = 0
-            # while entry < numEntries:
-            #     deepi[ini] += 1
-            #     countdown[ini][deepi[ini]] = columns[ini].fixedSizes[deepi[ini]]
-            #     if countdown[ini][deepi[ini]] == 0:
-            #         countdown[ini][deepi[ini]] = columns[ini].size[sizei[ini]]
-            #         sizei[ini] += 1
-            #     else:
-            #         assert False    # no fixed sizes for now
-            #     print OPEN[ini],
-
-            #     if deepi[ini] == columns[ini].numDeep - 1:
-            #         while countdown[ini][deepi[ini]] != 0:
-            #             print columns[ini].data[datai[ini]],
-            #             countdown[ini][deepi[ini]] -= 1
-            #         deepi[ini] -= 1
-            #         print CLOSE[ini],
-
-            #     if countdown[ini][deepi[ini]] != 0:
-            #         countdown[ini][deepi[ini]] -= 1
-            #     else:
-            #         while deepi[ini] != -1 and countdown[ini][deepi[ini]] == 0:
-            #             deepi[ini] -= 1
-            #             print CLOSE[ini],
-
-            #     if deepi[0] == -1:
-            #         entry += 1
-            #         print
 
         outsize = []
         outdata = []
