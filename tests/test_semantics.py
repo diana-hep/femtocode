@@ -178,56 +178,54 @@ class TestSemantics(unittest.TestCase):
         def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
             countdown = [[None] * columns[i].numDeep for i in xrange(numColumns)]
             deepi = [-1] * numColumns
+            datai = [0] * numColumns
+            sizei = [0] * numColumns
 
-            dataistart = [0] * numColumns
-            datai      = [0] * numColumns
-            sizeistart = [0] * numColumns
-            sizei      = [0] * numColumns
-
-            # for entry in xrange(numEntries):
-            #     for leveli in xrange(numLevels):
-
-            ini = 0
+            leveli = -1
+            coli = levels[leveli + 1]
             entry = 0
             while entry < numEntries:
                 # each real time through counts down
-                if deepi[ini] != -1:
-                    countdown[ini][deepi[ini]] -= 1
+                if deepi[coli] != -1:
+                    countdown[coli][deepi[coli]] -= 1
 
-                if deepi[ini] == columns[ini].numDeep - 1:
+                if deepi[coli] == columns[coli].numDeep - 1:
                     # move forward in datai
-                    print columns[ini].data[datai[ini]],
-                    datai[ini] += 1
+                    print columns[coli].data[datai[coli]],
+                    datai[coli] += 1
 
                 else:
                     # move forward in sizei
-                    deepi[ini] += 1
-                    countdown[ini][deepi[ini]] = columns[ini].fixedSizes[deepi[ini]]
-                    if countdown[ini][deepi[ini]] == 0:
-                        tmp = columns[ini].size[sizei[ini]]
-                        countdown[ini][deepi[ini]] = tmp
-                        sizei[ini] += 1
+                    deepi[coli] += 1
+                    countdown[coli][deepi[coli]] = columns[coli].fixedSizes[deepi[coli]]
+                    if countdown[coli][deepi[coli]] == 0:
+                        countdown[coli][deepi[coli]] = columns[coli].size[sizei[coli]]
+                        sizei[coli] += 1
                     else:
                         assert False
                     print OPEN[0],
+                    leveli += 1
 
                 # remove all completed countdowns
-                while deepi[ini] != -1 and countdown[ini][deepi[ini]] == 0:
-                    deepi[ini] -= 1
+                while deepi[coli] != -1 and countdown[coli][deepi[coli]] == 0:
+                    deepi[coli] -= 1
                     print CLOSE[0],
+                    leveli -= 1
 
-                if deepi[0] == -1:
-                    entry += 1
-                    print
+                if deepi[coli] != columns[coli].numDeep - 1:
+                    coli = levels[leveli + 1]
+                    if leveli == -1:
+                        entry += 1
+                        print
+
+        # outsize = []
+        # outdata = []
+        # print
+        # explodeSized(3, None, None, 1, [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
 
         outsize = []
         outdata = []
         print
-        explodeSized(3, None, None, 1, [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
-
-        outsize = []
-        outdata = []
-        print
-        explodeSized(1, 2, [0, 1], 1, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+        explodeSized(1, 4, [0, 0, 1, 1], 1, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, 2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
         print "outsize", outsize
         print "outdata", outdata
