@@ -182,15 +182,19 @@ class TestSemantics(unittest.TestCase):
             sizei = [0] * numColumns
 
             leveli = 0
-            coli = 0
             entry = 0
             while entry < numEntries:
+                if leveli < numLevels:
+                    coli = levels[leveli]
+
+                print coli, countdown[0], countdown[1]
+
                 # each real time through counts down
                 countdown[coli][deepi[coli]] -= 1
 
                 if deepi[coli] == columns[coli].numDeep:
                     # move forward in datai
-                    print columns[coli].data[datai[coli]],
+                    # print columns[coli].data[datai[coli]],
                     datai[coli] += 1
 
                 else:
@@ -199,30 +203,30 @@ class TestSemantics(unittest.TestCase):
                     deepi[coli] += 1
                     countdown[coli][deepi[coli]] = columns[coli].fixedSizes[deepi[coli] - 1]
                     if countdown[coli][deepi[coli]] == 0:
-                        countdown[coli][deepi[coli]] = columns[coli].size[sizei[coli]]
+                        tmp = columns[coli].size[sizei[coli]]
+                        countdown[coli][deepi[coli]] = tmp
                         sizei[coli] += 1
-                    else:
-                        assert False
-                    print OPEN[0],
+                    # print OPEN[0],
 
                 # remove all completed countdowns
                 while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
                     leveli -= 1
+                    countdown[coli][deepi[coli]] = None
                     deepi[coli] -= 1
-                    print CLOSE[0],
+                    # print CLOSE[0],
 
                 if leveli == 0:
                     entry += 1
-                    print
+                    # print
+
+        # outsize = []
+        # outdata = []
+        # print
+        # explodeSized(3, None, None, 1, [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
 
         outsize = []
         outdata = []
         print
-        explodeSized(3, None, None, 1, [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
-
-        outsize = []
-        outdata = []
-        print
-        explodeSized(1, 4, [0, 0, 1, 1], 1, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, 2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
+        explodeSized(1, 4, [0, 0, 1, 1], 2, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, 2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
         print "outsize", outsize
         print "outdata", outdata
