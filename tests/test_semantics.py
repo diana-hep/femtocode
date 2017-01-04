@@ -157,90 +157,92 @@ class TestSemantics(unittest.TestCase):
             print(statement)
         print("-> " + str(result))
 
-    def test_prototype1(self):
-        class UnsizedColumn(object):
-            def __init__(self, data):
-                self.data = data
+    # def test_prototype1(self):
+    #     class UnsizedColumn(object):
+    #         def __init__(self, data):
+    #             self.data = data
 
-        class SizedColumn(object):
-            def __init__(self, numDeep, fixedSizes, data, size):
-                self.numDeep = numDeep
-                self.fixedSizes = fixedSizes
-                self.data = data
-                self.size = size
+    #     class SizedColumn(object):
+    #         def __init__(self, numDeep, fixedSizes, data, size):
+    #             self.numDeep = numDeep
+    #             self.fixedSizes = fixedSizes
+    #             self.data = data
+    #             self.size = size
 
-        OPEN = ["(", "[", "{", "<"]
-        CLOSE = [")", "]", "}", ">"]
+    #     OPEN = ["(", "[", "{", "<"]
+    #     CLOSE = [")", "]", "}", ">"]
 
-        # The Antikythera Mechanism
-        def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
-            countdown = [[None] + [None] * columns[i].numDeep for i in xrange(numColumns)]
-            deepi = [0] * numColumns
-            datai = [0] * numColumns
-            sizei = [0] * numColumns
+    #     # The Antikythera Mechanism
+    #     def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
+    #         countdown = [[None] + [None] * columns[i].numDeep for i in xrange(numColumns)]
+    #         deepi = [0] * numColumns
+    #         datai = [0] * numColumns
+    #         sizei = [0] * numColumns
 
-            datarewind = [None] * numLevels
-            sizerewind = [None] * numLevels
+    #         datarewind = [None] * numLevels
+    #         sizerewind = [None] * numLevels
 
-            coli = None
-            levi = 0
-            entry = 0
-            while entry < numEntries:
-                if levi < numLevels:
-                    coli = levels[levi]
+    #         coli = None
+    #         levi = 0
+    #         entry = 0
+    #         while entry < numEntries:
+    #             if levi < numLevels:
+    #                 coli = levels[levi]
 
-                if deepi[coli] != 0:
-                    countdown[coli][deepi[coli]] -= 1
+    #             if deepi[coli] != 0:
+    #                 countdown[coli][deepi[coli]] -= 1
 
-                for i in xrange(numColumns):
-                    print "L" + repr(levi) + "C" + repr(coli) + " CD[" + repr(i) + "]:" + ".".join(map(repr, countdown[i])),
-                print
+    #             for i in xrange(numColumns):
+    #                 print "L" + repr(levi) + "C" + repr(coli) + " CD[" + repr(i) + "]:" + ".".join(map(repr, countdown[i])),
+    #             print
 
-                if deepi[coli] == columns[coli].numDeep:
-                    # move forward in datai
-                    print columns[coli].data[datai[coli]]
-                    datai[coli] += 1
+    #             if deepi[coli] == columns[coli].numDeep:
+    #                 # move forward in datai
+    #                 print columns[coli].data[datai[coli]]
+    #                 datai[coli] += 1
 
-                else:
-                    datarewind[levi] = datai[coli]
-                    sizerewind[levi] = sizei[coli]
+    #             else:
+    #                 datarewind[levi] = datai[coli]
+    #                 sizerewind[levi] = sizei[coli]
 
-                    print "     SR:" + ".".join(map(repr, sizerewind))
+    #                 print "     SR:" + ".".join(map(repr, sizerewind))
 
-                    # move forward in sizei
-                    levi += 1
-                    deepi[coli] += 1
-                    countdown[coli][deepi[coli]] = columns[coli].fixedSizes[deepi[coli] - 1]
-                    if countdown[coli][deepi[coli]] == 0:
-                        countdown[coli][deepi[coli]] = columns[coli].size[sizei[coli]]
-                        sizei[coli] += 1
-                    print OPEN[coli]
+    #                 # move forward in sizei
+    #                 levi += 1
+    #                 deepi[coli] += 1
+    #                 countdown[coli][deepi[coli]] = columns[coli].fixedSizes[deepi[coli] - 1]
+    #                 if countdown[coli][deepi[coli]] == 0:
+    #                     countdown[coli][deepi[coli]] = columns[coli].size[sizei[coli]]
+    #                     sizei[coli] += 1
+    #                 print OPEN[coli]
 
-                # remove all completed countdowns
-                while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
-                    levi -= 1
-                    countdown[coli][deepi[coli]] = None   # just for show
-                    deepi[coli] -= 1
-                    print CLOSE[coli]
+    #             # remove all completed countdowns
+    #             while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
+    #                 levi -= 1
+    #                 countdown[coli][deepi[coli]] = None   # just for show
+    #                 deepi[coli] -= 1
+    #                 print CLOSE[coli]
 
-                if levi == 0:
-                    entry += 1
-                    print
+    #             if levi == 0:
+    #                 entry += 1
+    #                 print
                         
-        outsize = []
-        outdata = []
-        print
-        explodeSized(3, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["one", "two", "three"], [0, 1, 1, 2, 0, 2])], outsize, outdata)
+    #     outsize = []
+    #     outdata = []
+    #     print
+    #     explodeSized(3, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["one", "two", "three"], [0, 1, 1, 2, 0, 2])], outsize, outdata)
 
-        outsize = []
-        outdata = []
-        print
-        explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+    #     outsize = []
+    #     outdata = []
+    #     print
+    #     explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
 
-        outsize = []
-        outdata = []
-        print
-        explodeSized(1, 3, [0, 0, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, [0], ["A", "B", "C", "D"], [4])], outsize, outdata)
+    #     outsize = []
+    #     outdata = []
+    #     print
+    #     explodeSized(1, 3, [0, 0, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, [0], ["A", "B", "C", "D"], [4])], outsize, outdata)
+
+
 
 
 # class Column(object):
