@@ -179,22 +179,18 @@ class TestSemantics(unittest.TestCase):
             datai = [0] * numColumns
             sizei = [0] * numColumns
 
-            datarewind = [None] * numLevels
-            sizerewind = [None] * numLevels
+            # datarewind = [None] * numLevels
+            # sizerewind = [None] * numLevels
 
-            coli = 0
+            coli = None
             leveli = 0
             entry = 0
             while entry < numEntries:
                 if leveli < numLevels:
                     coli = levels[leveli]
-                    datarewind[leveli] = datai[coli]
-                    sizerewind[leveli] = sizei[coli]
-
-                # each real time through counts down
+                
+                # always count down
                 countdown[coli][deepi[coli]] -= 1
-
-                print ".".join(map(str, sizerewind)),
 
                 if deepi[coli] == columns[coli].numDeep:
                     # move forward in datai
@@ -202,6 +198,9 @@ class TestSemantics(unittest.TestCase):
                     datai[coli] += 1
 
                 else:
+                    # datarewind[leveli] = datai[coli]
+                    # sizerewind[leveli] = sizei[coli]
+
                     # move forward in sizei
                     leveli += 1
                     deepi[coli] += 1
@@ -213,22 +212,18 @@ class TestSemantics(unittest.TestCase):
 
                 # remove all completed countdowns
                 while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
-                    if leveli < len(datarewind): datarewind[leveli] = None   # just for show
-                    if leveli < len(sizerewind): sizerewind[leveli] = None   # just for show
+                    # if leveli < len(datarewind): datarewind[leveli] = None   # just for show
+                    # if leveli < len(sizerewind): sizerewind[leveli] = None   # just for show
                     leveli -= 1
 
                     countdown[coli][deepi[coli]] = None   # just for show
                     deepi[coli] -= 1
                     print CLOSE[coli],
 
-                    if leveli != 0 and levels[leveli] != levels[leveli - 1]:
-                        datai[levels[leveli]] = datarewind[leveli]
-                        sizei[levels[leveli]] = sizerewind[leveli]
-
                 if leveli == 0:
                     entry += 1
                     print
-
+                        
         # outsize = []
         # outdata = []
         # print
@@ -238,6 +233,6 @@ class TestSemantics(unittest.TestCase):
         outdata = []
         print
         # explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
-        explodeSized(1, 4, [0, 0, 1, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
+        explodeSized(1, 3, [0, 0, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, [0], ["A", "B", "C", "D"], [4])], outsize, outdata)
         print "outsize", outsize
         print "outdata", outdata
