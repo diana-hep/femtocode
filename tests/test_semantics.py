@@ -174,13 +174,11 @@ class TestSemantics(unittest.TestCase):
 
         # The Antikythera Mechanism
         def explodeSized(numEntries, numLevels, levels, numColumns, columns, outsize, outdata):
-            countdown = [[numEntries] + [None] * columns[i].numDeep for i in xrange(numColumns)]
+            countdown = [[None] + [None] * columns[i].numDeep for i in xrange(numColumns)]
             deepi = [0] * numColumns
             datai = [0] * numColumns
             sizei = [0] * numColumns
 
-            countdownrewind = [None] * numLevels
-            deeprewind = [None] * numLevels
             datarewind = [None] * numLevels
             sizerewind = [None] * numLevels
 
@@ -191,16 +189,12 @@ class TestSemantics(unittest.TestCase):
                 if levi < numLevels:
                     coli = levels[levi]
 
-                if countdown[coli][deepi[coli]] == 0:
-                    countdown[coli] = list(countdownrewind[levi])
-                    deepi[coli] = deeprewind[levi]
-                    datai[coli] = datarewind[levi]
-                    sizei[coli] = sizerewind[levi]
+                if deepi[coli] != 0:
+                    countdown[coli][deepi[coli]] -= 1
 
-                countdown[coli][deepi[coli]] -= 1
-                
                 for i in xrange(numColumns):
-                    print "CD[" + repr(i) + "]:" + ".".join(map(repr, countdown[i]))
+                    print "L" + repr(levi) + "C" + repr(coli) + " CD[" + repr(i) + "]:" + ".".join(map(repr, countdown[i])),
+                print
 
                 if deepi[coli] == columns[coli].numDeep:
                     # move forward in datai
@@ -208,10 +202,10 @@ class TestSemantics(unittest.TestCase):
                     datai[coli] += 1
 
                 else:
-                    countdownrewind[levi] = list(countdown[coli])
-                    deeprewind[levi] = deepi[coli]
                     datarewind[levi] = datai[coli]
                     sizerewind[levi] = sizei[coli]
+
+                    print "     SR:" + ".".join(map(repr, sizerewind))
 
                     # move forward in sizei
                     levi += 1
@@ -225,6 +219,7 @@ class TestSemantics(unittest.TestCase):
                 # remove all completed countdowns
                 while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
                     levi -= 1
+                    countdown[coli][deepi[coli]] = None   # just for show
                     deepi[coli] -= 1
                     print CLOSE[coli]
 
@@ -232,13 +227,91 @@ class TestSemantics(unittest.TestCase):
                     entry += 1
                     print
                         
-        # outsize = []
-        # outdata = []
-        # print
-        # explodeSized(3, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["one", "two", "three"], [0, 1, 1, 2, 0, 2])], outsize, outdata)
+        outsize = []
+        outdata = []
+        print
+        explodeSized(3, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["one", "two", "three"], [0, 1, 1, 2, 0, 2])], outsize, outdata)
 
         outsize = []
         outdata = []
         print
-        # explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+        explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+
+        outsize = []
+        outdata = []
+        print
         explodeSized(1, 3, [0, 0, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, [0], ["A", "B", "C", "D"], [4])], outsize, outdata)
+
+
+# class Column(object):
+#     def __init__(self, data, size):
+#         self.data = data
+#         self.datai = 0
+#         self.size = size
+#         self.sizei = 0
+
+# def go(d, levi, levels, columns):
+#     if levi == len(levels):
+#         print columns[d].data[columns[d].datai],
+#         columns[d].datai += 1
+
+#     else:
+#         column = columns[levels[levi]]
+#         repeat = column.size[column.sizei]
+#         column.sizei += 1
+
+#         startdatai = [None] * len(levels)
+#         startsizei = [None] * len(levels)
+#         for i in xrange(len(levels)):
+#             if levels[i] != levels[levi]:
+#                 startdatai[i] = columns[levels[i]].datai
+#                 startsizei[i] = columns[levels[i]].sizei
+
+#         print "[",
+
+#         for i in xrange(repeat):
+#             for i in xrange(len(levels)):
+#                 if levels[i] != levels[levi]:
+#                     columns[levels[i]].datai = startdatai[i]
+#                     columns[levels[i]].sizei = startsizei[i]
+
+#             go(d, levi + 1, levels, columns)
+
+#         print "]",
+
+# trick = Column(["one", "two", "three"], [0, 1, 1, 2, 0, 2])
+# for i in xrange(3):
+#     go(0, 0, [0, 0], [trick, trick])
+#     print
+# print
+
+# xss = Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])
+# go(0, 0, [0, 0], [xss, xss])
+# print
+# xs2 = Column(["W", "X", "Y", "Z"], [4])
+# go(0, 0, [0], [xs2])
+# print
+# print
+
+# go(0, 0, [0, 1], [Column(["W", "X", "Y", "Z"], [4]), Column(["W", "X", "Y", "Z"], [4])])
+# print
+# go(1, 0, [0, 1], [Column(["W", "X", "Y", "Z"], [4]), Column(["W", "X", "Y", "Z"], [4])])
+# print
+# print
+
+# go(0, 0, [0, 1, 1], [Column(["W", "X", "Y", "Z"], [4]), Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])])
+# print
+# go(1, 0, [0, 1, 1], [Column(["W", "X", "Y", "Z"], [4]), Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])])
+# print
+# print
+
+# go(0, 0, [0, 0, 1], [Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), Column(["W", "X", "Y", "Z"], [4])])
+# print
+# go(1, 0, [0, 0, 1], [Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), Column(["W", "X", "Y", "Z"], [4])])
+# print
+# print
+
+# go(0, 0, [0, 1, 0], [Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), Column(["W", "X", "Y", "Z"], [4])])
+# print
+# go(1, 0, [0, 1, 0], [Column(["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), Column(["W", "X", "Y", "Z"], [4])])
+# print
