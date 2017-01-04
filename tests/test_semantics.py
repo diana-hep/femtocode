@@ -159,13 +159,11 @@ class TestSemantics(unittest.TestCase):
 
     def test_prototype1(self):
         class UnsizedColumn(object):
-            def __init__(self, numEntries, data):
-                self.numEntries = numEntries
+            def __init__(self, data):
                 self.data = data
 
         class SizedColumn(object):
-            def __init__(self, numEntries, numDeep, fixedSizes, data, size):
-                self.numEntries = numEntries
+            def __init__(self, numDeep, fixedSizes, data, size):
                 self.numDeep = numDeep
                 self.fixedSizes = fixedSizes
                 self.data = data
@@ -181,20 +179,26 @@ class TestSemantics(unittest.TestCase):
             datai = [0] * numColumns
             sizei = [0] * numColumns
 
+            datarewind = [None] * numLevels
+            sizerewind = [None] * numLevels
+
+            coli = 0
             leveli = 0
             entry = 0
             while entry < numEntries:
                 if leveli < numLevels:
                     coli = levels[leveli]
-
-                print coli, countdown[0], countdown[1]
+                    datarewind[leveli] = datai[coli]
+                    sizerewind[leveli] = sizei[coli]
 
                 # each real time through counts down
                 countdown[coli][deepi[coli]] -= 1
 
+                print ".".join(map(str, sizerewind)),
+
                 if deepi[coli] == columns[coli].numDeep:
                     # move forward in datai
-                    # print columns[coli].data[datai[coli]],
+                    print columns[coli].data[datai[coli]],
                     datai[coli] += 1
 
                 else:
@@ -203,30 +207,37 @@ class TestSemantics(unittest.TestCase):
                     deepi[coli] += 1
                     countdown[coli][deepi[coli]] = columns[coli].fixedSizes[deepi[coli] - 1]
                     if countdown[coli][deepi[coli]] == 0:
-                        tmp = columns[coli].size[sizei[coli]]
-                        countdown[coli][deepi[coli]] = tmp
+                        countdown[coli][deepi[coli]] = columns[coli].size[sizei[coli]]
                         sizei[coli] += 1
-                    # print OPEN[0],
+                    print OPEN[coli],
 
                 # remove all completed countdowns
                 while deepi[coli] != 0 and countdown[coli][deepi[coli]] == 0:
+                    if leveli < len(datarewind): datarewind[leveli] = None   # just for show
+                    if leveli < len(sizerewind): sizerewind[leveli] = None   # just for show
                     leveli -= 1
-                    countdown[coli][deepi[coli]] = None
+
+                    countdown[coli][deepi[coli]] = None   # just for show
                     deepi[coli] -= 1
-                    # print CLOSE[0],
+                    print CLOSE[coli],
+
+                    if leveli != 0 and levels[leveli] != levels[leveli - 1]:
+                        datai[levels[leveli]] = datarewind[leveli]
+                        sizei[levels[leveli]] = sizerewind[leveli]
 
                 if leveli == 0:
                     entry += 1
-                    # print
+                    print
 
         # outsize = []
         # outdata = []
         # print
-        # explodeSized(3, None, None, 1, [SizedColumn(3, 2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
+        # explodeSized(3, 2, [0, 0], 1, [SizedColumn(2, [0, 0], [1.1, 2.2, 3.3], [0, 1, 1, 2, 0, 2])], outsize, outdata)
 
         outsize = []
         outdata = []
         print
-        explodeSized(1, 4, [0, 0, 1, 1], 2, [SizedColumn(1, 2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(1, 2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
+        # explodeSized(1, 2, [0, 0], 1, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2])], outsize, outdata)
+        explodeSized(1, 4, [0, 0, 1, 1], 2, [SizedColumn(2, [0, 0], ["a", "b", "c", "d", "e", "f"], [3, 2, 2, 2]), SizedColumn(2, [0, 0], ["A", "B", "C", "D", "E", "F"], [3, 2, 2, 2])], outsize, outdata)
         print "outsize", outsize
         print "outdata", outdata
