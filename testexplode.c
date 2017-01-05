@@ -4,7 +4,7 @@
 typedef int SIZE;
 typedef int LEVEL;
 
-void explode_entry(int numLevels, int levi, LEVEL* levels, int* si, int* startsi, SIZE** sizes) {
+void explode_entry(int numLevels, int numSizes, int levi, LEVEL* levels, int* si, int* startsi, SIZE** sizes) {
   if (levi == numLevels) {
     printf(".");
   }
@@ -13,17 +13,17 @@ void explode_entry(int numLevels, int levi, LEVEL* levels, int* si, int* startsi
     SIZE repeat = sizes[level][si[level]];
     si[level]++;
 
-    for (int j = 0;  j < numLevels;  j++)
-      if (levels[j] != levels[levi])
-        startsi[levi * numLevels + j] = sizes[levels[j]][si[levels[j]]];
-    
+    for (int j = 0;  j < numSizes;  j++) {
+      startsi[levi * numSizes + j] = si[j];
+    }
+
     printf("[");
     for (int i = 0;  i < repeat;  i++) {
-      for (int j = 0;  j < numLevels;  j++)
-        if (levels[j] != levels[levi])
-          sizes[levels[j]][si[levels[j]]] = startsi[levi * numLevels + j];
+      for (int j = 0;  j < numSizes;  j++)
+        if (j != level)
+          si[j] = startsi[levi * numSizes + j];
 
-      explode_entry(numLevels, levi + 1, levels, si, startsi, sizes);
+      explode_entry(numLevels, numSizes, levi + 1, levels, si, startsi, sizes);
     }
     printf("]");
   }
@@ -33,10 +33,11 @@ void explode(int numEntries, int numLevels, int numSizes, LEVEL* levels, SIZE** 
   int* si = malloc(numSizes * sizeof(int));
   for (int i = 0;  i < numSizes;  i++) si[i] = 0;
 
-  int* startsi = malloc(numLevels * numLevels * sizeof(int));
+  int* startsi = malloc(10 * numLevels * numSizes * sizeof(int));
+  for (int i = 0;  i < numLevels * numSizes;  i++) startsi[i] = 9;
   
   for (int i = 0;  i < numEntries;  i++) {
-    explode_entry(numLevels, 0, levels, si, startsi, sizes);
+    explode_entry(numLevels, numSizes, 0, levels, si, startsi, sizes);
     printf("\n");
   }
 
@@ -56,9 +57,15 @@ int main(int argc, char** argv) {
   /* SIZE* sizes[] = {xs2_size, xs2_size}; */
   /* explode(1, 2, 2, levels, sizes); */
 
+  /* SIZE xss_size[] = {3, 2, 2, 2}; */
+  /* SIZE xs2_size[] = {4}; */
+  /* LEVEL levels[] = {0, 0, 1}; */
+  /* SIZE* sizes[] = {xss_size, xs2_size}; */
+  /* explode(1, 3, 2, levels, sizes); */
+
   SIZE xss_size[] = {3, 2, 2, 2};
   SIZE xs2_size[] = {4};
-  LEVEL levels[] = {0, 0, 1};
+  LEVEL levels[] = {0, 1, 0};
   SIZE* sizes[] = {xss_size, xs2_size};
   explode(1, 3, 2, levels, sizes);
 
