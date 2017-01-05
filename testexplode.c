@@ -9,22 +9,32 @@ void explode_entry(uint32_t numLevels, uint32_t numSizes, uint32_t levi, uint32_
   else {
     uint32_t coli = levels[levi];
 
+    uint32_t variable = 0;
+    uint32_t sicoli;
     uint32_t repeat = fixedsizes[coli * maxdepth + depths[coli]];
-    if (repeat == 0)
+    if (repeat == 0) {
+      variable = 1;
       repeat = sizes[coli][si[coli]];
-    si[coli]++;
+      si[coli]++;
 
-    for (uint32_t j = 0;  j < numSizes;  j++)
-      startsi[levi * numSizes + j] = si[j];
+      for (uint32_t j = 0;  j < numSizes;  j++)
+        startsi[levi * numSizes + j] = si[j];
+    }
+    else
+      sicoli = si[coli];
 
     printf("[");
     depths[coli]++;
     for (uint32_t i = 0;  i < repeat;  i++) {
-      for (uint32_t j = 0;  j < numSizes;  j++)
-        if (j != coli)
-          si[j] = startsi[levi * numSizes + j];
+      if (variable) {
+        for (uint32_t j = 0;  j < numSizes;  j++)
+          if (j != coli)
+            si[j] = startsi[levi * numSizes + j];
+      }
+      else
+        si[coli] = sicoli;
 
-      explode_entry(numLevels, numSizes, levi + 1, levels, si, startsi, sizes, maxdepth, depths, fixedsizes);
+      explode_entry(numLevels, numSizes, levi + variable, levels, si, startsi, sizes, maxdepth, depths, fixedsizes);
     }
     depths[coli]--;
     printf("]");
@@ -73,29 +83,37 @@ int main(int argc, char** argv) {
   uint32_t* sizes1[] = {trick_size};
   explode(3, 2, 1, levels1, fixedsizes1, sizes1);
 
-  uint32_t xs2_fixedsize[] = {1, 0};
-  uint32_t xs2_size[] = {4};
+  printf("trick2\n");
+  uint32_t trick2_fixedsize[] = {3, 0, 0, 2};
+  uint32_t trick2_size[] = {0, 1, 1, 2, 0, 2};
+  uint32_t levels12[] = {0, 0, 0};
+  uint32_t* fixedsizes12[] = {trick2_fixedsize};
+  uint32_t* sizes12[] = {trick2_size};
+  explode(3, 2, 1, levels12, fixedsizes12, sizes12);
 
-  uint32_t xss_fixedsize[] = {2, 0, 0};
-  uint32_t xss_size[] = {3, 2, 2, 2};
+  /* uint32_t xs2_fixedsize[] = {1, 0}; */
+  /* uint32_t xs2_size[] = {4}; */
 
-  printf("xs2 \\otimes xs2\n");
-  uint32_t levels2[] = {0, 1};
-  uint32_t* fixedsizes2[] = {xs2_fixedsize, xs2_fixedsize};
-  uint32_t* sizes2[] = {xs2_size, xs2_size};
-  explode(1, 2, 2, levels2, fixedsizes2, sizes2);
+  /* uint32_t xss_fixedsize[] = {2, 0, 0}; */
+  /* uint32_t xss_size[] = {3, 2, 2, 2}; */
 
-  printf("xss \\otimes xs2\n");
-  uint32_t levels3[] = {0, 0, 1};
-  uint32_t* fixedsizes3[] = {xss_fixedsize, xs2_fixedsize};
-  uint32_t* sizes3[] = {xss_size, xs2_size};
-  explode(1, 3, 2, levels3, fixedsizes3, sizes3);
+  /* printf("xs2 \\otimes xs2\n"); */
+  /* uint32_t levels2[] = {0, 1}; */
+  /* uint32_t* fixedsizes2[] = {xs2_fixedsize, xs2_fixedsize}; */
+  /* uint32_t* sizes2[] = {xs2_size, xs2_size}; */
+  /* explode(1, 2, 2, levels2, fixedsizes2, sizes2); */
 
-  printf("xss[0] \\otimes xs2 \\otimes xss[1]\n");
-  uint32_t levels4[] = {0, 1, 0};
-  uint32_t* fixedsizes4[] = {xss_fixedsize, xs2_fixedsize};
-  uint32_t* sizes4[] = {xss_size, xs2_size};
-  explode(1, 3, 2, levels4, fixedsizes4, sizes4);
+  /* printf("xss \\otimes xs2\n"); */
+  /* uint32_t levels3[] = {0, 0, 1}; */
+  /* uint32_t* fixedsizes3[] = {xss_fixedsize, xs2_fixedsize}; */
+  /* uint32_t* sizes3[] = {xss_size, xs2_size}; */
+  /* explode(1, 3, 2, levels3, fixedsizes3, sizes3); */
+
+  /* printf("xss[0] \\otimes xs2 \\otimes xss[1]\n"); */
+  /* uint32_t levels4[] = {0, 1, 0}; */
+  /* uint32_t* fixedsizes4[] = {xss_fixedsize, xs2_fixedsize}; */
+  /* uint32_t* sizes4[] = {xss_size, xs2_size}; */
+  /* explode(1, 3, 2, levels4, fixedsizes4, sizes4); */
 
   return 0;
 }
