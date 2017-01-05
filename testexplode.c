@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <sys/time.h>
 
 void explode_entry(uint32_t numLevels, uint32_t numSizes, uint32_t levi, uint32_t* levels, uint32_t* si, uint32_t* startsi, uint32_t** sizes) {
   if (levi == numLevels) {
