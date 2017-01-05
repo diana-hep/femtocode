@@ -30,12 +30,7 @@ void explode_entry(uint32_t numLevels, uint32_t numSizes, uint32_t levi, uint32_
   }
 }
 
-// explode takes several 64-bit size arrays and produces a new 64-bit size array (if exploded is not NULL)
-// returns the number of 64-bit elements needed for that new size array
 uint64_t explode(uint64_t numEntries, uint32_t numLevels, uint32_t numSizes, uint32_t* levels, uint64_t** sizes, uint64_t* exploded) {
-  // numEntries is 64-bit because it can index a large number of events
-  // si and startsi are 64-bit because they can index a large sizes array
-  // everything else is 32-bit because they index a nesting level
   uint32_t* indexes = malloc((numLevels + 2*numSizes + 2*numLevels*numSizes) * sizeof(uint32_t));
 
   uint32_t* levels2 = &indexes[0];
@@ -56,6 +51,63 @@ uint64_t explode(uint64_t numEntries, uint32_t numLevels, uint32_t numSizes, uin
   return explodedsize;
 }
 
+void explodedata_entry(uint32_t numLevels, uint32_t numSizes, uint32_t levi, uint32_t* levels, uint64_t* si, uint64_t* startsi, uint64_t** sizes, uint32_t datacolumn, uint32_t datumbytes, char* data, uint64_t* explodedsize, char* exploded) {
+  if (levi == numLevels) {
+    printf(".");
+  }
+  else {
+    uint32_t coli = levels[levi];
+    uint64_t repeat = sizes[coli][si[coli]];
+    si[coli]++;
+
+    if (exploded != NULL) {
+      exploded[(*explodedsize) * datumbytes + 0] = 9;
+      exploded[(*explodedsize) * datumbytes + 1] = 0;
+      exploded[(*explodedsize) * datumbytes + 2] = 0;
+      exploded[(*explodedsize) * datumbytes + 3] = 0;
+      exploded[(*explodedsize) * datumbytes + 4] = 0;
+      exploded[(*explodedsize) * datumbytes + 5] = 0;
+      exploded[(*explodedsize) * datumbytes + 6] = 0;
+      exploded[(*explodedsize) * datumbytes + 7] = 0;
+    }
+    (*explodedsize)++;
+
+    for (uint32_t j = 0;  j < numSizes;  j++)
+      startsi[levi * numSizes + j] = si[j];
+
+    printf("[");
+    for (uint64_t i = 0;  i < repeat;  i++) {
+      for (uint32_t j = 0;  j < numSizes;  j++)
+        if (j != coli)
+          si[j] = startsi[levi * numSizes + j];
+
+      explodedata_entry(numLevels, numSizes, levi + 1, levels, si, startsi, sizes, datacolumn, datumbytes, data, explodedsize, exploded);
+    }
+    printf("]");
+  }
+}
+
+uint64_t explodedata(uint64_t numEntries, uint32_t numLevels, uint32_t numSizes, uint32_t* levels, uint64_t** sizes, uint32_t datacolumn, uint32_t datumbytes, void* data, void* exploded) {
+  uint32_t* indexes = malloc((numLevels + 2*numSizes + 2*numLevels*numSizes) * sizeof(uint32_t));
+
+  uint32_t* levels2 = &indexes[0];
+  for (uint32_t i = 0;  i < numLevels;  i++) levels2[i] = levels[i];
+
+  uint64_t* si = (uint64_t*)&indexes[numLevels];
+  for (uint32_t i = 0;  i < numSizes;  i++) si[i] = 0;
+
+  uint64_t* startsi = (uint64_t*)&indexes[numLevels + 2*numSizes];
+
+  uint64_t explodedsize = 0;
+  for (uint64_t entry = 0;  entry < numEntries;  entry++) {
+    explodedata_entry(numLevels, numSizes, 0, levels2, si, startsi, sizes, datacolumn, datumbytes, (char*)data, &explodedsize, (char*)exploded);
+    printf("\n");
+  }
+
+  free(indexes);
+  return explodedsize;
+}
+
 int main(int argc, char** argv) {
   uint64_t exploded_size;
   uint64_t* exploded = NULL;
@@ -68,6 +120,13 @@ int main(int argc, char** argv) {
   exploded = malloc(exploded_size * sizeof(uint64_t));
   explode(3, 2, 1, levels1, sizes1, exploded);
   printf("@size = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(3, 2, 1, levels1, sizes1, 0, 8, NULL, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(3, 2, 1, levels1, sizes1, 0, 8, NULL, exploded);
+  printf("@data = ");
   for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
   printf("\n\n");
   free(exploded);
@@ -83,6 +142,13 @@ int main(int argc, char** argv) {
   explode(1, 2, 2, levels2, sizes2, exploded);
   printf("@size = ");
   for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 2, 2, levels2, sizes2, 0, 8, NULL, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 2, 2, levels2, sizes2, 0, 8, NULL, exploded);
+  printf("@data = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
   printf("\n\n");
   free(exploded);
 
@@ -94,6 +160,13 @@ int main(int argc, char** argv) {
   explode(1, 3, 2, levels3, sizes3, exploded);
   printf("@size = ");
   for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 3, 2, levels3, sizes3, 0, 8, NULL, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels3, sizes3, 0, 8, NULL, exploded);
+  printf("@data = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
   printf("\n\n");
   free(exploded);
 
@@ -104,6 +177,13 @@ int main(int argc, char** argv) {
   exploded = malloc(exploded_size * sizeof(uint64_t));
   explode(1, 3, 2, levels4, sizes4, exploded);
   printf("@size = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 3, 2, levels4, sizes4, 0, 8, NULL, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels4, sizes4, 0, 8, NULL, exploded);
+  printf("@data = ");
   for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
   printf("\n\n");
   free(exploded);
