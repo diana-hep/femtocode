@@ -401,6 +401,8 @@ class TestStatements(unittest.TestCase):
 
         checkShredAndAssemble(union(null, real), [1.1, None, 2.2, None, 3.3])
 
+        checkShredAndAssemble(collection(collection(collection(collection(collection(real))))), [[[], [[[[3.14]]]], [[], [[], [[], [3.14]]]], [[[[1.1, 2.2, 3.3], []], []], []], [[[[1.1, 2.2, 3.3], [4.4]], []], [[[1.1, 2.2, 3.3], [4.4]]]]]], True)
+
         # a = []
         # b = [[1.1]]
         # c = [[], [2.2, 3.3]]
