@@ -115,6 +115,7 @@ int main(int argc, char** argv) {
   uint64_t exploded_size;
   uint64_t* exploded = NULL;
   char* exploded_char = NULL;
+  float* exploded_float = NULL;
 
   printf("trick\n");
   char trick_data[] = {'a', 'b', 'c'};
@@ -131,67 +132,134 @@ int main(int argc, char** argv) {
   exploded_size = explodedata(3, 2, 1, levels1, sizes1, 0, 1, trick_data, NULL);
   exploded_char = malloc(exploded_size * sizeof(char));
   explodedata(3, 2, 1, levels1, sizes1, 0, 1, trick_data, exploded_char);
-  printf("@data = ");
+  printf("@data(%ld) = ", exploded_size);
   for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
   printf("\n\n");
   free(exploded_char);
 
-  /* uint64_t xs2_size[] = {4}; */
-  /* uint64_t xss_size[] = {3, 2, 2, 2}; */
+  char xs2_datac[] = {'a', 'b', 'c', 'd'};
+  char xss_datac[] = {'A', 'B', 'C', 'D', 'E', 'F'};
+  float xs2_dataf[] = {1.1, 2.2, 3.3, 4.4};
+  float xss_dataf[] = {100, 200, 300, 400, 500, 600};
+  uint64_t xs2_size[] = {4};
+  uint64_t xss_size[] = {3, 2, 2, 2};
 
-  /* printf("xs2 \\otimes xs2\n"); */
-  /* uint32_t levels2[] = {0, 1}; */
-  /* uint64_t* sizes2[] = {xs2_size, xs2_size}; */
-  /* exploded_size = explode(1, 2, 2, levels2, sizes2, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explode(1, 2, 2, levels2, sizes2, exploded); */
-  /* printf("@size = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n"); */
-  /* free(exploded); */
-  /* exploded_size = explodedata(1, 2, 2, levels2, sizes2, 0, 8, NULL, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explodedata(1, 2, 2, levels2, sizes2, 0, 8, NULL, exploded); */
-  /* printf("@data = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n\n"); */
-  /* free(exploded); */
+  printf("xs2 \\otimes xs2\n");
+  uint32_t levels2[] = {0, 1};
+  uint64_t* sizes2[] = {xs2_size, xs2_size};
+  exploded_size = explode(1, 2, 2, levels2, sizes2, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explode(1, 2, 2, levels2, sizes2, exploded);
+  printf("@size = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 2, 2, levels2, sizes2, 0, 1, xs2_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 2, 2, levels2, sizes2, 0, 1, xs2_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 2, 2, levels2, sizes2, 1, 1, xs2_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 2, 2, levels2, sizes2, 1, 1, xs2_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 2, 2, levels2, sizes2, 0, 4, xs2_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 2, 2, levels2, sizes2, 0, 4, xs2_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n");
+  free(exploded_float);
+  exploded_size = explodedata(1, 2, 2, levels2, sizes2, 1, 4, xs2_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 2, 2, levels2, sizes2, 1, 4, xs2_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n\n");
+  free(exploded_float);
 
-  /* printf("xss \\otimes xs2\n"); */
-  /* uint32_t levels3[] = {0, 0, 1}; */
-  /* uint64_t* sizes3[] = {xss_size, xs2_size}; */
-  /* exploded_size = explode(1, 3, 2, levels3, sizes3, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explode(1, 3, 2, levels3, sizes3, exploded); */
-  /* printf("@size = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n"); */
-  /* free(exploded); */
-  /* exploded_size = explodedata(1, 3, 2, levels3, sizes3, 0, 8, NULL, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explodedata(1, 3, 2, levels3, sizes3, 0, 8, NULL, exploded); */
-  /* printf("@data = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n\n"); */
-  /* free(exploded); */
+  printf("xss \\otimes xs2\n");
+  uint32_t levels3[] = {0, 0, 1};
+  uint64_t* sizes3[] = {xss_size, xs2_size};
+  exploded_size = explode(1, 3, 2, levels3, sizes3, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explode(1, 3, 2, levels3, sizes3, exploded);
+  printf("@size = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 3, 2, levels3, sizes3, 0, 1, xss_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels3, sizes3, 0, 1, xss_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 3, 2, levels3, sizes3, 1, 1, xs2_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels3, sizes3, 1, 1, xs2_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 3, 2, levels3, sizes3, 0, 4, xss_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels3, sizes3, 0, 4, xss_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n");
+  free(exploded_float);
+  exploded_size = explodedata(1, 3, 2, levels3, sizes3, 1, 4, xs2_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels3, sizes3, 1, 4, xs2_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n\n");
+  free(exploded_float);
 
-  /* printf("xss[0] \\otimes xs2 \\otimes xss[1]\n"); */
-  /* uint32_t levels4[] = {0, 1, 0}; */
-  /* uint64_t* sizes4[] = {xss_size, xs2_size}; */
-  /* exploded_size = explode(1, 3, 2, levels4, sizes4, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explode(1, 3, 2, levels4, sizes4, exploded); */
-  /* printf("@size = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n"); */
-  /* free(exploded); */
-  /* exploded_size = explodedata(1, 3, 2, levels4, sizes4, 0, 8, NULL, NULL); */
-  /* exploded = malloc(exploded_size * sizeof(uint64_t)); */
-  /* explodedata(1, 3, 2, levels4, sizes4, 0, 8, NULL, exploded); */
-  /* printf("@data = "); */
-  /* for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]); */
-  /* printf("\n\n"); */
-  /* free(exploded); */
+  printf("xss[0] \\otimes xs2 \\otimes xss[1]\n");
+  uint32_t levels4[] = {0, 1, 0};
+  uint64_t* sizes4[] = {xss_size, xs2_size};
+  exploded_size = explode(1, 3, 2, levels4, sizes4, NULL);
+  exploded = malloc(exploded_size * sizeof(uint64_t));
+  explode(1, 3, 2, levels4, sizes4, exploded);
+  printf("@size = ");
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%ld ", exploded[i]);
+  printf("\n");
+  free(exploded);
+  exploded_size = explodedata(1, 3, 2, levels4, sizes4, 0, 1, xss_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels4, sizes4, 0, 1, xss_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 3, 2, levels4, sizes4, 1, 1, xs2_datac, NULL);
+  exploded_char = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels4, sizes4, 1, 1, xs2_datac, exploded_char);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%c ", exploded_char[i]);
+  printf("\n");
+  free(exploded_char);
+  exploded_size = explodedata(1, 3, 2, levels4, sizes4, 0, 4, xss_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels4, sizes4, 0, 4, xss_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n");
+  free(exploded_float);
+  exploded_size = explodedata(1, 3, 2, levels4, sizes4, 1, 4, xs2_dataf, NULL);
+  exploded_float = malloc(exploded_size * sizeof(uint64_t));
+  explodedata(1, 3, 2, levels4, sizes4, 1, 4, xs2_dataf, exploded_float);
+  printf("@data(%ld) = ", exploded_size);
+  for (uint64_t i = 0;  i < exploded_size;  i++) printf("%g ", exploded_float[i]);
+  printf("\n\n");
+  free(exploded_float);
 
   return 0;
 }
