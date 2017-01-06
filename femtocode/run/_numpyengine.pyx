@@ -28,12 +28,47 @@ cdef extern from "femtocoderun.h":
     ctypedef int LevelIndex
     ctypedef int ColumnIndex
     ctypedef int NumBytes
+
+    ArrayIndex explodesize(EntryCount numEntries,
+                           LevelIndex numLevels,
+                           ColumnIndex numSizeColumns,
+                           ColumnIndex* levelToColumnIndex,
+                           ItemCount** sizeColumns,
+                           ItemCount* exploded)
+
+    ArrayIndex explodedata(EntryCount numEntries,
+                           LevelIndex numLevels,
+                           ColumnIndex numSizeColumns,
+                           ColumnIndex* levelToColumnIndex,
+                           ItemCount** sizeColumns,
+                           ColumnIndex dataSizeColumn,
+                           NumBytes datumBytes,
+                           void* data,
+                           void* exploded)
+
     void plus_lll(ArrayIndex len, long* in1array, long* in2array, long* outarray)
     void plus_ldd(ArrayIndex len, long* in1array, double* in2array, double* outarray)
     void plus_dld(ArrayIndex len, double* in1array, long* in2array, double* outarray)
     void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray)
 
 cdef extern from "femtocoderun.c":
+    ArrayIndex explodesize(EntryCount numEntries,
+                           LevelIndex numLevels,
+                           ColumnIndex numSizeColumns,
+                           ColumnIndex* levelToColumnIndex,
+                           ItemCount** sizeColumns,
+                           ItemCount* exploded)
+
+    ArrayIndex explodedata(EntryCount numEntries,
+                           LevelIndex numLevels,
+                           ColumnIndex numSizeColumns,
+                           ColumnIndex* levelToColumnIndex,
+                           ItemCount** sizeColumns,
+                           ColumnIndex dataSizeColumn,
+                           NumBytes datumBytes,
+                           void* data,
+                           void* exploded)
+
     void plus_lll(ArrayIndex len, long* in1array, long* in2array, long* outarray)
     void plus_ldd(ArrayIndex len, long* in1array, double* in2array, double* outarray)
     void plus_dld(ArrayIndex len, double* in1array, long* in2array, double* outarray)

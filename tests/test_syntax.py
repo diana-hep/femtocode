@@ -854,5 +854,3 @@ class TestSyntax(unittest.TestCase):
 
         self.check("a and b and c and d and e", normalizeLogic(parse("a and (b and (c and (d and e)))")), linenumbers=False)
         self.check("a and b and c and d and e", normalizeLogic(parse("(((a and b) and c) and d) and e")), linenumbers=False)
-
-
