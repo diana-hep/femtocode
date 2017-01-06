@@ -22,7 +22,7 @@ from Cython.Build import cythonize
 
 import femtocode.version
 
-os.environ["CFLAGS"] = "-O3"
+# os.environ["CFLAGS"] = "-O3"
 
 setup(name = "femtocode",
       version = femtocode.version.__version__,
@@ -51,5 +51,5 @@ setup(name = "femtocode",
       platforms = "Any",
 
       ### FIXME: this should be split out into its own project
-      ext_modules = cythonize(os.path.join("femtocode", "run", "*.pyx"), language="c++")
+      ext_modules = cythonize(os.path.join("femtocode", "run", "*.pyx"))
       )
