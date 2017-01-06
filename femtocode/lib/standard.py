@@ -341,18 +341,19 @@ class Map(lispytree.BuiltinFunction):
         c = typedarg0.schema
         return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
-    def buildstatements(self, call, columns, replacements, refnumber):
-        argref, statements, refnumber = statementlist.build(call.args[0], columns, replacements, refnumber)
+    def buildstatements(self, call, columns, replacements, refnumber, explosions):
+        argref, statements, refnumber = statementlist.build(call.args[0], columns, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
         replacements[call.args[1].refs[0]] = argref
+        if argref.size is None:
+            raise ProgrammingError("first argument must be sized")
 
-        result, s, refnumber = statementlist.build(call.args[1].body, columns, replacements, refnumber)
-        statements.extend(s)
+        result, ss, refnumber = statementlist.build(call.args[1].body, columns, replacements, refnumber, explosions + (argref.size,))
+        statements.extend(ss)
 
         replacements[call] = replacements[call.args[1].body]
-
-        return statementlist.Ref(result.name, call.schema, result.columns), statements, refnumber
+        return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, refnumber
 
     def generate(self, args):
         return args[0].generate() + "(" + args[1].generate() + ")"

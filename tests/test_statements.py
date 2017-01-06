@@ -21,8 +21,12 @@ import re
 import sys
 import unittest
 
-from femtocode.typesystem import *
+import femtocode.parser as parser
+import femtocode.asts.lispytree as lispytree
+import femtocode.asts.typedtree as typedtree
+from femtocode.lib.standard import table
 from femtocode.asts.statementlist import *
+from femtocode.typesystem import *
 
 import sys
 
@@ -402,3 +406,18 @@ class TestStatements(unittest.TestCase):
         checkShredAndAssemble(union(null, real), [1.1, None, 2.2, None, 3.3])
 
         checkShredAndAssemble(collection(collection(collection(collection(collection(real))))), [[[], [[[[3.14]]]], [[], [[], [[], [3.14]]]], [[[[1.1, 2.2, 3.3], []], []], []], [[[[1.1, 2.2, 3.3], [4.4]], []], [[[1.1, 2.2, 3.3], [4.4]]]]]], False)
+
+    def test_statements(self):
+        columns = {}
+        columns.update(schemaToColumns("xss", collection(collection(real))))
+        columns.update(schemaToColumns("xs2", collection(real)))
+
+        lt = lispytree.build(parser.parse("xss.map(xs => xs.map(x => xs2.map(x2 => x + x2)))"), table.fork({"xss": lispytree.Ref("xss"), "xs2": lispytree.Ref("xs2")}))[0]
+        tt = typedtree.build(lt, SymbolTable({lispytree.Ref("xss"): collection(collection(real)), lispytree.Ref("xs2"): collection(real)}))[0]
+        print("")
+        result, ss, _ = build(tt, columns)
+
+        print("")
+        for statement in ss:
+            print(statement)
+        print("-> " + str(result))
