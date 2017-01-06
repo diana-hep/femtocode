@@ -312,8 +312,8 @@ class Ref(Statement):
         if self.size is None:
             sized = ""
         else:
-            sized = "[{0}]".format(self.size.name)
-        return name + sized
+            sized = ", {0}".format(self.size.name)
+        return "Ref({0}{1})".format(name, sized)
 
     def __eq__(self, other):
         return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
@@ -363,7 +363,7 @@ class ExplodeSize(Call):
 
     @property
     def fcnname(self):
-        return "explodesize"
+        return "$explodesize"
 
     @property
     def args(self):
@@ -373,7 +373,7 @@ class ExplodeSize(Call):
         return "statementlist.ExplodeSize({0}, {1})".format(self.column, self.levels)
 
     def __str__(self):
-        return "{0} := explodesize([{1}])".format(str(self.column), ", ".join(map(str, self.levels)))
+        return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.levels)))
 
 class ExplodeData(Call):
     def __init__(self, column, data, levels):
@@ -383,7 +383,7 @@ class ExplodeData(Call):
 
     @property
     def fcnname(self):
-        return "explodedata"
+        return "$explodedata"
 
     @property
     def args(self):
@@ -393,7 +393,7 @@ class ExplodeData(Call):
         return "statementlist.ExplodeData({0}, {1}, {2})".format(self.column, self.data, self.levels)
 
     def __str__(self):
-        return "{0} := explodedata({1}, [{2}])".format(str(self.column), str(self.data), ", ".join(map(str, self.levels)))
+        return "{0} := {1}({2}, [{3}])".format(str(self.column), self.fcnname, str(self.data), ", ".join(map(str, self.levels)))
 
 def exploderef(ref, replacements, refnumber, explosions):
     columnName = ColumnName("#" + repr(refnumber))
@@ -423,8 +423,8 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
     if replacements is None:
         replacements = {}
 
-    if tree in replacements:
-        return replacements[tree], [], refnumber
+    if (typedtree.TypedTree, tree) in replacements:
+        return replacements[(typedtree.TypedTree, tree)], [], refnumber
 
     elif isinstance(tree, typedtree.Ref):
         if tree.framenumber is None:
@@ -440,15 +440,15 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
                 raise ProgrammingError("cannot find {0} dataColumn in columns: {1}".format(tree.name, columns.keys()))
 
             ref = Ref(tree.name, tree.schema, dataColumn, sizeColumn)
-            replacements[tree] = ref
+            replacements[(typedtree.TypedTree, tree)] = ref
             return ref, [], refnumber
 
         else:
             raise ProgrammingError("should not encounter any deep references here")
 
     elif isinstance(tree, typedtree.Literal):
-        replacements[tree] = Literal(tree.value, tree.schema)
-        return replacements[tree], [], refnumber
+        replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)
+        return replacements[(typedtree.TypedTree, tree)], [], refnumber
 
     elif isinstance(tree, typedtree.Call):
         return tree.fcn.buildstatements(tree, columns, replacements, refnumber, explosions)
@@ -459,8 +459,6 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
 # mix-in for most BuiltinFunctions
 class BuildStatements(object):
     def buildstatements(self, call, columns, replacements, refnumber, explosions):
-        print "+++", map(str, explosions)
-
         args = []
         statements = []
         for arg in call.args:
@@ -489,7 +487,7 @@ class BuildStatements(object):
         ref = Ref(refnumber, call.schema, dataColumn, sizeColumn)
 
         refnumber += 1
-        replacements[call] = ref
+        replacements[(typedtree.TypedTree, call)] = ref
         statements.append(Call(dataColumn, self.name, args))
 
         return ref, statements, refnumber

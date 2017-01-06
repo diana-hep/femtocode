@@ -414,7 +414,6 @@ class TestStatements(unittest.TestCase):
 
         lt = lispytree.build(parser.parse("xss.map(xs => xs.map(x => xs2.map(x2 => x + x2)))"), table.fork({"xss": lispytree.Ref("xss"), "xs2": lispytree.Ref("xs2")}))[0]
         tt = typedtree.build(lt, SymbolTable({lispytree.Ref("xss"): collection(collection(real)), lispytree.Ref("xs2"): collection(real)}))[0]
-        print("")
         result, ss, _ = build(tt, columns)
 
         print("")
