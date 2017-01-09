@@ -461,7 +461,8 @@ class BuildStatements(object):
     def buildstatements(self, call, columns, replacements, refnumber, explosions):
         args = []
         statements = []
-        for arg in call.args:
+        sizeColumn = None
+        for i, arg in enumerate(call.args):
             computed, ss, refnumber = build(arg, columns, replacements, refnumber, explosions)
             statements.extend(ss)
 
@@ -471,19 +472,16 @@ class BuildStatements(object):
             else:
                 final = computed
 
-            args.append(final)
+            if i == 0:
+                sizeColumn = final.size
+            elif sizeColumn != final.size:
+                raise ProgrammingError("all arguments in the default buildStatements must have identical size columns: {0} vs {1}".format(sizeColumn, final.size))
+
+            args.append(final.data)
 
         columnName = ColumnName("#" + repr(refnumber))
         dataColumn = DataColumn(columnName, call.schema)
-
-        if len(args) > 0:
-            sizeColumn = args[0].size
-        else:
-            sizeColumn = None
-        for arg in args[1:]:
-            if arg.size != sizeColumn:
-                raise ProgrammingError("all arguments in the default buildStatements must have identical size columns: {0}".format([x.size for x in args]))
-
+                
         ref = Ref(refnumber, call.schema, dataColumn, sizeColumn)
 
         refnumber += 1
