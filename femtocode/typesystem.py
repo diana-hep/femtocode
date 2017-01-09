@@ -105,43 +105,43 @@ class almost(float):
 
     def __add__(self, other):
         return almost(self.real + other)
-    def __radd__(other, self):
-        return almost(self + other.real)
+    def __radd__(self, other):
+        return almost(self.real + other)
     def __sub__(self, other):
         return almost(self.real - other)
-    def __rsub__(other, self):
-        return almost(self - other.real)
+    def __rsub__(self, other):
+        return almost(self.real - other)
     def __mul__(self, other):
         return almost(self.real * other)
-    def __rmul__(other, self):
-        return almost(self * other.real)
+    def __rmul__(self, other):
+        return almost(self.real * other)
     def __pow__(self, other):
         return almost(self.real**other)
-    def __rpow__(other, self):
-        return almost(self**other.real)
+    def __rpow__(self, other):
+        return almost(self.real**other)
 
     def __div__(self, other):
         return almost(self.real / other)
-    def __rdiv__(other, self):
-        return almost(self / other.real)
+    def __rdiv__(self, other):
+        return almost(self.real / other)
     def __truediv__(self, other):
         return almost(1.0*self.real / other)
-    def __rtruediv__(other, self):
-        return almost(1.0*self / other.real)
+    def __rtruediv__(self, other):
+        return almost(1.0*self.real / other)
     def __floordiv__(self, other):
         return almost(self.real // other)
-    def __rfloordiv__(other, self):
-        return almost(self // other.real)
+    def __rfloordiv__(self, other):
+        return almost(self.real // other)
 
     def __mod__(self, other):
         return almost(self.real % other)
-    def __rmod__(other, self):
-        return almost(self % other.real)
+    def __rmod__(self, other):
+        return almost(self.real % other)
     def __divmod__(self, other):
         a, b = divmod(self.real, other)
         return (almost(a), almost(b))
-    def __rdivmod__(other, self):
-        a, b = divmod(self, other.real)
+    def __rdivmod__(self, other):
+        a, b = divmod(self.real, other)
         return (almost(a), almost(b))
 
 class Schema(object):
@@ -456,11 +456,18 @@ class Schema(object):
     def fromJsonString(obj):
         return Schema.fromJson(json.loads(obj))
 
+    @staticmethod
+    def fromJsonFile(file):
+        return Schema.fromJson(json.load(file))
+
     def toJson(self):
         return self._json_memo(set())
 
     def toJsonString(self):
         return json.dumps(self.toJson())
+
+    def toJsonFile(self, file):
+        json.dump(file, self.toJson())
 
 class Impossible(Schema):   # results in a compilation error
     order = 0

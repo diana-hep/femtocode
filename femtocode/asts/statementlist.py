@@ -21,7 +21,14 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class ColumnName(object):
+class Serializable(object):
+    def toJsonString(self):
+        return json.dumps(self.toJson())
+
+    def toJsonFile(self, file):
+        json.dump(file, self.toJson())
+
+class ColumnName(Serializable):
     sizeSuffix = "@size"
     tagSuffix = "@tag"
     
@@ -70,6 +77,9 @@ class ColumnName(object):
                 assert False, "bad ColumnName"
         return out
 
+    def toJson(self):
+        return str(self)
+
     def startswith(self, other):
         if isinstance(other, string_types):
             return self.seq[0] == other
@@ -94,7 +104,7 @@ class ColumnName(object):
         else:
             assert False, "calling endswith on {0}".format(other)
 
-class Column(object):
+class Column(Serializable):
     def __init__(self, name, schema):
         self.name = name
         self.schema = schema
@@ -104,6 +114,9 @@ class Column(object):
 
     def __str__(self):
         return str(self.name)
+
+    def toJson(self):
+        return self.name.toJson()
 
     def __eq__(self, other):
         return isinstance(other, self.__class__) and self.name == other.name and self.schema == other.schema
@@ -260,7 +273,101 @@ def schemaToColumns(name, schema, hasSize=False):
     else:
         assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
-class Statement(object): pass
+class Statement(Serializable): pass
+
+class Statements(Statement, list):
+    def __init__(self, *stmts):
+        self.stmts = list(stmts)
+
+    def __repr__(self):
+        return "statementlist.Statements({0})".join(", ".join(self.stmts))
+
+    def __str__(self):
+        return "\n".join(str(x) for x in self.stmts)
+
+    def toJson(self):
+        return [x.toJson() for x in self.stmts]
+
+    def __len__(self):
+        return len(self.stmts)
+
+    def __getitem__(self, key):
+        return self.stmts[key]
+
+    def __setitem__(self, key, value):
+        self.stmts[key] = value
+
+    def __delitem__(self, key):
+        del self.stmts[key]
+
+    def __iter__(self):
+        return iter(self.stmts)
+
+    def __reversed__(self):
+        return Statements(*list(reversed(self.stmts)))
+
+    def __contains__(self, item):
+        return item in self.stmts
+
+    def __add__(self, other):
+        if isinstance(other, Statements):
+            return Statements(*(self.stmts + other.stmts))
+        else:
+            return Statements(*(self.stmts + other))
+
+    def __radd__(self, other):
+        if isinstance(other, Statements):
+            return Statements(*(other.stmts + self.stmts))
+        else:
+            return Statements(*(other + self.stmts))
+
+    def __iadd__(self, other):
+        self.stmts += other.stmts
+
+    def __mul__(self, other):
+        return Statements(*(self.stmts * other))
+
+    def __rmul__(self, other):
+        return Statements(*(other * self.stmts))
+
+    def __imul__(self, other):
+        self.stmts *= other
+
+    def append(self, x):
+        return self.stmts.append(x)
+
+    def extend(self, x):
+        if isinstance(x, Statements):
+            return self.stmts.extend(x.stmts)
+        else:
+            return self.stmts.extend(x)
+
+    def insert(self, i, x):
+        return self.stmts.insert(i, x)
+
+    def remove(self, x):
+        return self.stmts.remove(x)
+
+    def pop(self, *args):
+        return self.stmts.pop(*args)
+
+    def clear(self):
+        return self.stmts.clear()
+
+    def index(self, *args):
+        return self.stmts.index(*args)
+
+    def count(self, x):
+        return self.stmts.count(x)
+
+    def sort(self, *args):
+        return self.stmts.sort(*args)
+
+    def reverse(self):
+        return self.stmts.reverse()
+
+    def copy(self):
+        return self.stmts.copy()
 
 class Ref(Statement):
     def __init__(self, name, schema, data, size):
@@ -283,6 +390,9 @@ class Ref(Statement):
             sized = ", {0}".format(self.size.name)
         return "Ref({0}{1})".format(name, sized)
 
+    def toJson(self):
+        return {"data": self.data.toJson(), "size": self.size.toJson()}
+
     def __eq__(self, other):
         return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
 
@@ -299,6 +409,9 @@ class Literal(Statement):
 
     def __str__(self):
         return repr(self.value)
+
+    def toJson(self):
+        return self.value
 
     def __eq__(self, other):
         return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
@@ -317,6 +430,9 @@ class Call(Statement):
 
     def __str__(self):
         return "{0} := {1}({2})".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)))
+
+    def toJson(self):
+        return {"to": self.column.toJson(), "fcn": self.fcnname, "args": [x.toJson() for x in self.args]}
 
     def __eq__(self, other):
         return isinstance(other, Call) and self.column == other.column and self.fcnname == other.fcnname and self.args == other.args
@@ -343,6 +459,9 @@ class ExplodeSize(Call):
     def __str__(self):
         return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.levels)))
 
+    def toJson(self):
+        return {"to": self.column.toJson(), "fcn": self.fcnname, "levels": [x.toJson() for x in self.levels]}
+
 class ExplodeData(Call):
     def __init__(self, column, data, levels):
         self.column = column
@@ -362,6 +481,9 @@ class ExplodeData(Call):
 
     def __str__(self):
         return "{0} := {1}({2}, [{3}])".format(str(self.column), self.fcnname, str(self.data), ", ".join(map(str, self.levels)))
+
+    def toJson(self):
+        return {"to": self.column.toJson(), "fcn": self.fcnname, "data": self.data.toJson(), "levels": [x.toJson() for x in self.levels]}
 
 def exploderef(ref, replacements, refnumber, explosions):
     columnName = ColumnName("#" + repr(refnumber))
@@ -392,7 +514,7 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
         replacements = {}
 
     if (typedtree.TypedTree, tree) in replacements:
-        return replacements[(typedtree.TypedTree, tree)], [], refnumber
+        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
 
     elif isinstance(tree, typedtree.Ref):
         assert tree.framenumber is None, "should not encounter any deep references here"
@@ -409,23 +531,23 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
 
         ref = Ref(tree.name, tree.schema, dataColumn, sizeColumn)
         replacements[(typedtree.TypedTree, tree)] = ref
-        return ref, [], refnumber
+        return ref, Statements(), refnumber
 
     elif isinstance(tree, typedtree.Literal):
         replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)
-        return replacements[(typedtree.TypedTree, tree)], [], refnumber
+        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
 
     elif isinstance(tree, typedtree.Call):
         return tree.fcn.buildstatements(tree, columns, replacements, refnumber, explosions)
 
     else:
-        raise ProgrammingError("unexpected in typedtree: {0}".format(tree))
+        assert False, "unexpected in typedtree: {0}".format(tree)
 
 # mix-in for most BuiltinFunctions
 class BuildStatements(object):
     def buildstatements(self, call, columns, replacements, refnumber, explosions):
         args = []
-        statements = []
+        statements = Statements()
         sizeColumn = None
         for i, arg in enumerate(call.args):
             computed, ss, refnumber = build(arg, columns, replacements, refnumber, explosions)

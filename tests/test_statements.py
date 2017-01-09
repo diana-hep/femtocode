@@ -401,7 +401,6 @@ class TestStatements(unittest.TestCase):
         tt = typedtree.build(lt, SymbolTable({lispytree.Ref("xss"): collection(collection(real)), lispytree.Ref("xs2"): collection(real)}))[0]
         result, ss, _ = build(tt, columns)
 
-        print("")
-        for statement in ss:
-            print(statement)
-        print("-> " + str(result))
+        print("\n{0}\n-> {1}".format(str(ss), str(result)))
+
+        print(ss.toJsonString())
