@@ -26,17 +26,13 @@ from femtocode.compiler import *
 from femtocode.run._numpyengine import *
 from femtocode.typesystem import *
 
-class NumpyEngine(Engine):
-    pass
-
-
 class NumpyDataset(Dataset):
     def __init__(self, **schemas):
         super(NumpyDataset, self).__init__(schemas, columns)
-        self.pages = dict((n, NumpyPage(c)) for n, c in self.columns.items())
+        self.stripes = dict((n, NumpyStripe(c)) for n, c in self.columns.items())
         self.entries = 0
 
-class NumpyPage(object):
+class NumpyStripe(object):
     def __init__(self, column):
         if isinstance(column.schema, Null):
             dtype = None

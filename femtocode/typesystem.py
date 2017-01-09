@@ -1386,8 +1386,10 @@ def _pretty(schema, depth, comma, memo):
     else:
         assert False, "unhandled kind"
 
-def pretty(schema, highlight=lambda t: "", indent="  ", prefix=""):
-    return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
+def pretty(schema, highlight=lambda t: "", indent="  ", prefix="", memo=None):
+    if memo is None:
+        memo = set()
+    return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", memo))
 
 def compare(one, two, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
     one = _pretty(one, 0, "", set())

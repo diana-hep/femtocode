@@ -26,8 +26,27 @@ import femtocode.asts.statementlist as statementlist
 from femtocode.lib.standard import table
 from femtocode.typesystem import *
 
+class EngineStep(object):
+    def __str__(self):
+        return "{0}({1})".format(self.name, ", ".join(map(repr, self.args)))
+
+class Code(object):
+    def __str__(self):
+        if "\n" in self.args[0]:
+            return "{0}(\'\'\'\n{1}\n\'\'\')".format(self.name, self.args[0])
+        else:
+            return "{0}({1})".format(self.name, json.dumps(self.args[0]))
+
+class DataSource(EngineStep): pass
+class Transformation(EngineStep): pass
+class Aggregation(EngineStep): pass
+class DataSink(EngineStep): pass
+
 class Dataset(object):
     def __init__(self, **schemas):
+        if len(schemas) == 0:
+            raise FemtocodeError("At least one column is required.")
+
         names = sorted(schemas.keys())
         for name in names:
             if re.match("^" + parser.t_NAME.__doc__ + "$", name) is None:
@@ -37,67 +56,91 @@ class Dataset(object):
 
         columns = {}
         for n, t in zip(names, types):
-            columns.update(schemaToColumns(n, t))
+            columns.update(statementlist.schemaToColumns(n, t))
 
         self.schemas = schemas
         self.columns = columns
-
-class EngineStep(object):
-    def __repr__(self):
-        return self.__class__.__name__
-
-    def __str__(self):
-        return "{0}({1})".format(self.name, ", ".join(map(repr, self.args)))
-
-class Code(object):
-    def __str__(self):
-        return "{0}(\'\'\'\n{1}\n\'\'\')".format(self.name, self.args[0])
-
-class DataSource(EngineStep): pass
-class Transformation(EngineStep): pass
-class Action(EngineStep): pass
-class DataSink(EngineStep): pass
-
-class Engine(object):
-    def __init__(self, *steps):
-        self.steps = steps
-        
-    def compile(self):
-        pass
-
-    def run(self):
-        raise NotImplementedError("This is a generic engine. Instantiate a specific engine, such as NumpyEngine.")
+        self.steps = []
 
     def __repr__(self):
-        return "{0}({1})".format(self.__class__.__name__, ", ".join(map(repr, self.steps)))
+        memo = set()
+        names = sorted(self.schemas.keys())
+        out = "{0}({1})".format(self.__class__.__name__, ", ".join(n + "=" + self.schemas[n]._repr_memo(memo) for n in names)) + self._short_chain()
+        if "\n" in out or len(out) > 80:
+            memo.clear()
+            return "{0}(\n  {1}\n   )".format(self.__class__.__name__, ",\n  ".join(n + "=" + pretty(self.schemas[n], prefix=" " * (len(n) + 3), memo=memo).lstrip(" ") for n in names)) + self._long_chain()
+        else:
+            return out
 
-    def __str__(self):
-        steps = map(str, self.steps)
-        slash = min(max(map(len, steps)) + 5, 80)
-        out = ["{0}()".format(self.__class__.__name__)]
-        trailing = False
-        for step in steps:
-            if trailing:
-                out[-1] += "." + step
-            else:
-                out[-1] += " " * (slash - len(out[-1])) + " \\"
-                out.append("    ." + step)
-            trailing = step.endswith("\'\'\')")
-        return "\n".join(out)
+    def _short_chain(self):
+        return "".join("." + str(x) for x in self.steps)
+
+    def _long_chain(self):
+        if len(self.steps) == 0:
+            return ""
+        else:
+            steps = map(str, self.steps)
+            slash = min(max(map(len, steps)) + 5, 80)
+            out = [""]
+            trailing = True
+            for step in steps:
+                if trailing:
+                    out[-1] += "." + step
+                else:
+                    out[-1] += " " * (slash - len(out[-1].split("\n")[-1])) + " \\"
+                    out.append("    ." + step)
+                trailing = step.endswith("\'\'\')")
+            return "\n".join(out)
+
+    @property
+    def issource(self):
+        return False
+
+    def _add_step(self, step):
+        if len(self.steps) == 0:
+            if self.issource and isinstance(step, DataSource):
+                raise FemtocodeError("Attempting to add a {0} to a {1}, but both are data sources.".format(step.__class__.__name__, self.__class__.__name__))
+            elif not self.issource and not isinstance(step, DataSource):
+                raise FemtocodeError("First step on a {0} must be a data source, not {1}.".format(self.__class__.__name__, step.__class__.__name__))
+
+        else:
+            last = self.steps[-1]
+            if isinstance(step, DataSource):
+                raise FemtocodeError("Attempting to add {0}, which is a data source, after {1}".format(step.__class__.__name__, last.__class__.__name__))
+            if isinstance(last, DataSink):
+                raise FemtocodeError("Attempting to add {0} after {1}, which is a data sink.".format(step.__class__.__name__, last.__class__.__name__))
+            if isinstance(last, Aggregation):
+                raise FemtocodeError("Attempting to add {0} after {1}, which is an aggregation.".format(step.__class__.__name__, last.__class__.__name__))
+
+        out = Dataset.__new__(Dataset)
+        out.schemas = self.schemas
+        out.columns = self.columns
+        out.steps = self.steps + [step]
+        return out
 
     def fromPython(self, data):
-        return self.__class__(*(self.steps + (FromPython(data),)))
+        return self._add_step(FromPython(data))
 
     def toPython(self):
-        return self.__class__(*(self.steps + (ToPython(),)))
+        return self._add_step(ToPython())
 
     def map(self, femtocode):
-        return self.__class__(*(self.steps + (Map(femtocode),)))
+        return self._add_step(Map(femtocode))
         
 class FromPython(DataSource):
     name = "fromPython"
     def __init__(self, data):
         self.args = (data,)
+
+    @staticmethod
+    def shred(obj, schema, columns, stripes, name):
+        if isinstance(name, string_types):
+            name = ColumnName(name)
+
+        # HERE
+
+
+
 
 class ToPython(DataSink):
     name = "toPython"
