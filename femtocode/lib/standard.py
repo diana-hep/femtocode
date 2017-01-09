@@ -346,8 +346,7 @@ class Map(lispytree.BuiltinFunction):
 
         # the argument of the UserFunction is the values of the collection
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = argref
-        if argref.size is None:
-            raise ProgrammingError("first argument must be sized")
+        assert argref.size is not None, "first argument must be sized"
 
         result, ss, refnumber = statementlist.build(call.args[1].body, columns, replacements, refnumber, explosions + (argref.size,))
         statements.extend(ss)

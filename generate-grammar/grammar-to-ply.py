@@ -328,30 +328,10 @@ from ast import literal_eval
 from femtocode.thirdparty.ply import lex
 from femtocode.thirdparty.ply import yacc
 
+from femtocode.defs import FemtocodeError
+from femtocode.defs import complain
 from femtocode.asts.parsingtree import *
 ''' % (datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S'), " ".join(sys.argv[1:])))
-
-W('''class ProgrammingError(Exception): pass   # my mistake, not the user; user should NEVER see this  :)
-class FemtocodeError(Exception): pass     # error in the user Femtocode
-
-def complain(message, source, pos, lineno, col_offset, sourceName, length):
-    start = source.rfind("\\n", 0, pos)
-    if start == -1: start = 0
-    start = source.rfind("\\n", 0, start)
-    if start == -1: start = 0
-    end = source.find("\\n", pos)
-    if end == -1:
-        snippet = source[start:]
-    else:
-        snippet = source[start:end]
-    snippet = "    " + snippet.replace("\\n", "\\n    ")
-    indicator = "-" * col_offset + "^" * length
-    if sourceName == "<string>":
-        where = ""
-    else:
-        where = "in \\"" + sourceName + "\\""
-    raise FemtocodeError("%s\n\nCheck line:col %d:%d (pos %d)%s:\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
-''')
 
 W("reserved = {\n%s  }\n" % "".join("  '%s': '%s',\n" % (literal, name) for literal, name in literal_to_name.items() if literal.isalpha()))
 

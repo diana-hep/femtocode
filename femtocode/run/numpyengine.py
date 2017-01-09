@@ -57,7 +57,7 @@ class NumpyColumn(object):
         elif isinstance(column.schema, String) and column.schema.charset == "unicode":
             dtype = numpy.unicode_
         else:
-            raise ProgrammingError("unexpected type in Column: {0} {1}".format(type(column.schema), column.schema))
+            assert False, "unexpected type in Column: {0} {1}".format(type(column.schema), column.schema)
 
         self.column = column
         self.growdata = []
@@ -78,8 +78,7 @@ class NumpyColumn(object):
         self.growdata.append(x)
 
     def finalize(self):
-        if self.data is None:
-            raise ProgrammingError("should not allocate array of NULLs")
+        assert self.data is not None, "should not allocate array of NULLs"
         data = numpy.empty(len(self.data) + len(self.growdata), dtype=self.data.dtype)
         data[:len(self.data)] = self.data
         data[len(self.data):] = self.growdata

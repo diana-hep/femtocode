@@ -165,8 +165,7 @@ class UserFunction(lispytree.UserFunction):
         return hash((UserFunction, self.refs, self.framenumber, self.body, self.schema))
 
 def buildUserFunction(fcn, schemas, frame):
-    if len(fcn.names) != len(schemas):
-        raise ProgrammingError("UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas)))
+    assert len(fcn.names) == len(schemas), "UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas))
 
     refs = [Ref(n, fcn.framenumber, s) for n, s in zip(fcn.names, schemas)]
     body = build(fcn.body, frame.fork(dict((lispytree.Ref(n, fcn.framenumber), s) for n, s in zip(fcn.names, schemas))))[0]
@@ -174,17 +173,14 @@ def buildUserFunction(fcn, schemas, frame):
 
 def build(tree, frame):
     if isinstance(tree, lispytree.Ref):
-        if frame.defined(tree):
-            return Ref(tree.name, tree.framenumber, frame[tree], tree.original), frame
-        else:
-            raise ProgrammingError("{0} was defined when building lispytree but is not defined when building typedtree".format(tree))
+        assert frame.defined(tree), "{0} was defined when building lispytree but is not defined when building typedtree".format(tree)
+        return Ref(tree.name, tree.framenumber, frame[tree], tree.original), frame
         
     elif isinstance(tree, lispytree.Literal):
         return Literal(tree.value, tree.schema, tree.original), frame
 
     elif isinstance(tree, lispytree.Call):
-        if not isinstance(tree.fcn, lispytree.BuiltinFunction):
-            raise ProgrammingError("only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree))
+        assert isinstance(tree.fcn, lispytree.BuiltinFunction), "only BuiltinFunctions should directly appear in lispytree.Call: {0}".format(tree)
 
         schema, typedargs, subframe = tree.fcn.buildtyped(tree.args, frame)
 
@@ -220,4 +216,4 @@ def build(tree, frame):
         return Call(tree.fcn, typedargs, schema, tree.original), subframe
 
     else:
-        raise ProgrammingError("unexpected in lispytree: {0}".format(tree))
+        assert False, "unexpected in lispytree: {0}".format(tree)

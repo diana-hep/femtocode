@@ -14,17 +14,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import femtocode.parser
 from femtocode.py23 import *
 
-def complain(message, p):
-    if p is None:
-        raise FemtocodeError(message)
-    else:
-        femtocode.parser.complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
+class FemtocodeError(Exception):
+    """Error in the user's Femtocode, not the system itself.
 
-ProgrammingError = femtocode.parser.ProgrammingError
-FemtocodeError = femtocode.parser.FemtocodeError
+    Usually raised within the 'complain' function, which is verbose and informative. May also be directly raised from a schema constructor (no line number to 'complain' about).
+
+    Errors in the system itself raise AssertionErrors.
+    """
+
+def complain(message, *args):
+    if len(args) == 0 or (len(args) == 1 and args[0] == None):
+        raise FemtocodeError(message)
+    elif len(args) == 1:
+        p, = args
+        return complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
+    else:
+        source, pos, lineno, col_offset, sourceName, length = args
+        start = source.rfind("\n", 0, pos)
+        if start == -1: start = 0
+        start = source.rfind("\n", 0, start)
+        if start == -1: start = 0
+        end = source.find("\n", pos)
+        if end == -1:
+            snippet = source[start:]
+        else:
+            snippet = source[start:end]
+        snippet = "    " + snippet.replace("\n", "\n    ")
+        indicator = "-" * col_offset + "^" * length
+        if sourceName == "<string>":
+            where = ""
+        else:
+            where = "in \"" + sourceName + "\""
+        raise FemtocodeError("%s\n\nCheck line:col %d:%d (pos %d)%s:\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
 
 class Function(object):
     def commutative(self):
@@ -37,8 +60,7 @@ class Function(object):
         return {}
 
     def sortargs(self, positional, named, original):
-        if len(named) > 0:
-            raise ProgrammingError("{0} function shouldn't get named arguments".format(self.name))
+        assert len(named) == 0, "{0} function shouldn't get named arguments".format(self.name)
         return positional
 
     @staticmethod
@@ -137,6 +159,5 @@ class SymbolTable(object):
 
     def __getitem__(self, x):
         out = self.get(x)
-        if out is None:
-            raise ProgrammingError("symbol \"{0}\" is required but is not in the SymbolTable".format(x))
+        assert out is not None, "symbol \"{0}\" is required but is not in the SymbolTable".format(x)
         return out

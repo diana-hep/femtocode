@@ -46,13 +46,13 @@ class BuiltinFunction(Function):
         return hash((self.__class__,))
 
     def buildtyped(self, args, typeframe):
-        raise ProgrammingError("missing implementation: {0}".format(self))
+        assert False, "missing implementation: {0}".format(self)
 
     def buildstatements(self, call, columns, replacements, refnumber):
-        raise ProgrammingError("missing implementation: {0}".format(self))
+        assert False, "missing implementation: {0}".format(self)
 
     def generate(self, args):
-        raise ProgrammingError("missing implementation: {0}".format(self))
+        assert False, "missing implementation: {0}".format(self)
 
 class UserFunction(Function):
     order = 1
@@ -159,7 +159,7 @@ class Literal(LispyTree):
         elif isinstance(self.value, Schema):
             self.schema = impossible
         else:
-            raise ProgrammingError("missing implementation")
+            assert False, "missing implementation"
 
     def __repr__(self):
         return "lispytree.Literal({0})".format(self.value)
@@ -261,10 +261,8 @@ def expandUserFunction(tree, frame):
         return UserFunction(names, framenumber, defaults, body, tree.original)
 
     elif isinstance(tree, Ref):
-        if frame.defined(tree.name):
-            return frame[tree.name]
-        else:
-            raise ProgrammingError("{0} exists without any such name in the SymbolFrame {1}".format(tree, frame))
+        assert frame.defined(tree.name), "{0} exists without any such name in the SymbolFrame {1}".format(tree, frame)
+        return frame[tree.name]
 
     elif isinstance(tree, Literal):
         return tree
@@ -273,7 +271,7 @@ def expandUserFunction(tree, frame):
         return Call.build(expandUserFunction(tree.fcn, frame), [expandUserFunction(x, frame) for x in tree.args], tree.original)
 
     else:
-        raise ProgrammingError("unrecognized functiontree: " + repr(tree))
+        assert False, "unrecognized functiontree: " + repr(tree)
 
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}
@@ -322,7 +320,8 @@ def buildSchema(tree):
             return ast.UnaryOp(tree.op, buildSchema(tree.operand), **pos(tree))
         elif isinstance(tree.op, parsingtree.USub):
             return ast.UnaryOp(tree.op, buildSchema(tree.operand), **pos(tree))
-        raise ProgrammingError("unrecognized UnaryOp: " + repr(tree.op))
+        else:
+            assert False, "unrecognized UnaryOp: " + repr(tree.op)
 
     elif isinstance(tree, parsingtree.Assignment):
         complain("Assignment ('=') not allowed in schema expression.", tree)
@@ -356,7 +355,7 @@ def buildSchema(tree):
             return buildSchema(tree.expression)
 
     else:
-        raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
+        assert False, "unrecognized element in parsingtree: " + repr(tree)
 
 def buildOrElevate(tree, frame, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef) or (isinstance(tree, parsingtree.Name) and frame.defined(tree.id) and isinstance(frame[tree.id], Function)):
@@ -396,7 +395,7 @@ def build(tree, frame):
         elif isinstance(tree.op, parsingtree.FloorDiv):
             return Call.build(frame["//"], [build(tree.left, frame)[0], build(tree.right, frame)[0]], tree), frame
         else:
-            raise ProgrammingError("unexpected binary operator: {0}".format(tree.op))
+            assert False, "unexpected binary operator: {0}".format(tree.op)
 
     elif isinstance(tree, parsingtree.BoolOp):
         # boolean operators flattened by normalizeLogic
@@ -407,7 +406,7 @@ def build(tree, frame):
             return Call.build(frame["or"], [build(x, frame)[0] for x in tree.values], tree), frame
 
         else:
-            raise ProgrammingError("unexpected boolean operator: {0}".format(tree.op))
+            assert False, "unexpected boolean operator: {0}".format(tree.op)
 
     elif isinstance(tree, parsingtree.Compare):
         # comparators flattened by normalizeLogic
@@ -442,7 +441,7 @@ def build(tree, frame):
             return Call.build(frame["not in"], [left, right], op), frame
 
         else:
-            raise ProgrammingError("unexpected comparison operator {0}".format(op))
+            assert False, "unexpected comparison operator {0}".format(op)
             
     elif isinstance(tree, parsingtree.List):
         return Call.build(frame["[]"], [build(x, frame)[0] for x in tree.elts]), frame
@@ -470,8 +469,7 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.Subscript):
         result = build(tree.value, frame)[0]
         if isinstance(tree.slice, parsingtree.Slice):
-            if len(tree.slice.dims) == 0:
-                raise ProgrammingError("unexpected subscript ExtSlice of zero dimensions in {0}".format(tree))
+            assert len(tree.slice.dims) < 0, "unexpected subscript ExtSlice of zero dimensions in {0}".format(tree)
             args = []
             for slic in tree.slice.dims:
                 if isinstance(slic, parsingtree.Slice):
@@ -483,7 +481,7 @@ def build(tree, frame):
                     value = build(slic.value, frame)[0]
                     args.extend([value, value, Literal(0, slic)])
                 else:
-                    raise ProgrammingError("unexpected slice type in ExtSlice: {0}".format(slic))
+                    assert False, "unexpected slice type in ExtSlice: {0}".format(slic)
             return Call.build(frame["[#:#:#,]"], [result] + args, tree), frame
 
         elif isinstance(tree.slice, parsingtree.ExtSlice):
@@ -494,14 +492,13 @@ def build(tree, frame):
 
         elif isinstance(tree.slice, parsingtree.Index):
             if isinstance(tree.slice.value, parsingtree.Tuple):
-                if len(tree.slice.value.elts) == 0:
-                    raise ProgrammingError("unexpected subscript tuple of length zero in {0}".format(tree))
+                assert len(tree.slice.value.elts) > 0, "unexpected subscript tuple of length zero in {0}".format(tree)
                 return Call.build(frame["[#,]"], [result] + [build(x, frame)[0] for x in tree.slice.value.elts], tree), frame
             else:
                 return Call.build(frame["[#,]"], [result, build(tree.slice.value, frame)[0]], tree), frame
 
         else:
-            raise ProgrammingError("unexpected subscript type: {0}".format(tree.slice))
+            assert False, "unexpected subscript type: {0}".format(tree.slice)
 
     elif isinstance(tree, parsingtree.UnaryOp):
         if isinstance(tree.op, parsingtree.Not):
@@ -511,7 +508,7 @@ def build(tree, frame):
         elif isinstance(tree.op, parsingtree.USub):
             return Call.build(frame["u-"], [build(tree.operand, frame)[0]], tree), frame
         else:
-            raise ProgrammingError("unexpected unary operator: {0}".format(tree.op))
+            assert False, "unexpected unary operator: {0}".format(tree.op)
 
     elif isinstance(tree, parsingtree.Assignment):
         result = build(tree.expression, frame)[0]
@@ -521,7 +518,7 @@ def build(tree, frame):
             for index, lvalue in enumerate(tree.lvalues):
                 frame[lvalue.id] = Call.build(frame["[#,]"], [result, Literal(index)], lvalue)
         else:
-            raise ProgrammingError("zero lvalues in assignment of {0}".format(tree.expression))
+            assert False, "zero lvalues in assignment of {0}".format(tree.expression)
         return None, frame
 
     elif isinstance(tree, parsingtree.AtArg):
@@ -582,4 +579,4 @@ def build(tree, frame):
         return build(parsingtree.normalizeLogic(tree.expression), frame)[0], frame
 
     else:
-        raise ProgrammingError("unrecognized element in parsingtree: " + repr(tree))
+        assert False, "unrecognized element in parsingtree: " + repr(tree)

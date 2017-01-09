@@ -18,7 +18,7 @@ import re
 import json
 
 from femtocode.parser import t_NAME
-from femtocode.defs import ProgrammingError, FemtocodeError
+from femtocode.defs import FemtocodeError
 from femtocode.py23 import *
 from femtocode.asts.statementlist import *
 

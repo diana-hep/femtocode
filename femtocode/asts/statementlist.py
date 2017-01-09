@@ -67,7 +67,7 @@ class ColumnName(object):
             elif isinstance(x, int):
                 out = out + "@" + repr(x)
             else:
-                raise ProgrammingError("bad ColumnName")
+                assert False, "bad ColumnName"
         return out
 
     def startswith(self, other):
@@ -80,7 +80,7 @@ class ColumnName(object):
             else:
                 return False
         else:
-            raise ProgrammingError("calling startswith on {0}".format(other))
+            assert False, "calling startswith on {0}".format(other)
 
     def endswith(self, other):
         if isinstance(other, string_types):
@@ -92,7 +92,7 @@ class ColumnName(object):
             else:
                 return False
         else:
-            raise ProgrammingError("calling endswith on {0}".format(other))
+            assert False, "calling endswith on {0}".format(other)
 
 class Column(object):
     def __init__(self, name, schema):
@@ -115,23 +115,18 @@ class DataColumn(Column):
     def __repr__(self):
         return "DataColumn({0}, {1})".format(self.name, self.schema)
 
-class RecursiveColumn(Column):
-    def __repr__(self):
-        return "RecursiveColumn({0}, {1})".format(self.name, self.schema)
-
 class SizeColumn(Column):
-    def __init__(self, name, depth):
+    def __init__(self, name):
         super(SizeColumn, self).__init__(name, integer(0, almost(inf)))
-        self.depth = depth
 
     def __repr__(self):
-        return "SizeColumn({0}, {1})".format(self.name, self.depth)
+        return "SizeColumn({0})".format(self.name)
 
     def __eq__(self, other):
-        return isinstance(other, SizeColumn) and self.name == other.name and self.depth == other.depth
+        return isinstance(other, SizeColumn) and self.name == other.name
 
     def __hash__(self):
-        return hash((SizeColumn, self.name, self.depth))
+        return hash((SizeColumn, self.name))
 
 class TagColumn(Column):
     def __init__(self, name, possibilities):
@@ -141,69 +136,42 @@ class TagColumn(Column):
     def __repr__(self):
         return "TagColumn({0}, {1})".format(self.name, self.possibilities)
 
-def isMinimallyRecursive(schema, nested=None):
-    if schema == nested:
-        return True
-
-    if nested is None:
-        nested = schema
-
-    if isinstance(schema, (Null, Boolean, Number, String)):
-        return False
-
-    elif isinstance(schema, Collection):
-        return isMinimallyRecursive(schema.items, nested)
-
-    elif isinstance(schema, Record):
-        return any(isMinimallyRecursive(t, nested) for t in schema.fields.values())
-
-    elif isinstance(schema, Union):
-        return any(isMinimallyRecursive(p, nested) for p in schema.possibilities)
-
-    else:
-        raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
-
-def schemaToColumns(name, schema, depth=0):
+def schemaToColumns(name, schema, hasSize=False):
     if isinstance(name, string_types):
         name = ColumnName(name)
 
-    if isMinimallyRecursive(schema):
-        if depth > 0:
+    if isinstance(schema, Null):
+        if hasSize:
             sizeName = name.size()
-            return {name: RecursiveColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
-        else:
-            return {name: RecursiveColumn(name, schema)}
-
-    elif isinstance(schema, Null):
-        if depth > 0:
-            sizeName = name.size()
-            return {sizeName: SizeColumn(sizeName, depth)}
+            return {sizeName: SizeColumn(sizeName)}
         else:
             return {}
 
     elif isinstance(schema, (Boolean, Number)):
-        if depth > 0:
+        if hasSize:
             sizeName = name.size()
-            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
         else:
             return {name: DataColumn(name, schema)}
 
     elif isinstance(schema, String):
-        if depth == 0 and schema.charset == "bytes" and schema.fewest == schema.most:
+        if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
             return {name: DataColumn(name, schema)}
         else:
             sizeName = name.size()
-            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName, depth)}
+            return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
 
     elif isinstance(schema, Collection):
-        return schemaToColumns(name, schema.items, depth + (1 if schema.fewest != schema.most else 0))
+        if schema.fewest != schema.most:
+            hasSize = True
+        return schemaToColumns(name, schema.items, hasSize)
 
     elif isinstance(schema, Record):
         out = {}
         for n, t in schema.fields.items():
-            out.update(schemaToColumns(name.rec(n), t, depth))
+            out.update(schemaToColumns(name.rec(n), t, hasSize))
 
-        collectiveSize = SizeColumn(name.size(), depth)
+        collectiveSize = SizeColumn(name.size())
 
         def thislevel(name, schema):
             for n, t in schema.fields.items():
@@ -238,7 +206,7 @@ def schemaToColumns(name, schema, depth=0):
                 return set(x.fields.keys()) == set(y.fields.keys()) and \
                        all(compatible(x.fields[n], y.fields[n]) for n in x.fields)
             elif x.__class__ == y.__class__:
-                raise ProgrammingError("missing case: {0} {1} {2}".format(type(x), x, y))
+                assert False, "missing case: {0} {1} {2}".format(type(x), x, y)
             else:
                 return False
 
@@ -270,15 +238,15 @@ def schemaToColumns(name, schema, depth=0):
             elif isinstance(c[0], Record):
                 flattened.append(Record(dict((n, union(*[p.fields[n] for p in c])) for n in c[0].fields)))
             else:
-                raise ProgrammingError("missing case: {0} {1}".format(type(c[0]), c))
+                assert False, "missing case: {0} {1}".format(type(c[0]), c)
 
         if len(flattened) == 1:
-            return schemaToColumns(name, flattened[0], depth)
+            return schemaToColumns(name, flattened[0], hasSize)
 
         else:
-            if depth > 0:
+            if hasSize:
                 sizeName = name.size()
-                out = {sizeName: SizeColumn(sizeName, depth)}
+                out = {sizeName: SizeColumn(sizeName)}
             else:
                 out = {}
 
@@ -286,11 +254,11 @@ def schemaToColumns(name, schema, depth=0):
             out[tagName] = TagColumn(tagName, flattened)
 
             for i, p in enumerate(flattened):
-                out.update(schemaToColumns(name.pos(i), p, depth))
+                out.update(schemaToColumns(name.pos(i), p, hasSize))
             return out
 
     else:
-        raise ProgrammingError("unexpected type: {0} {1}".format(type(schema), schema))
+        assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
 class Statement(object): pass
 
@@ -403,7 +371,7 @@ def exploderef(ref, replacements, refnumber, explosions):
     if (ExplodeSize, explosions) in replacements:
         explodedSize = replacements[(ExplodeSize, explosions)]
     else:
-        explodedSize = SizeColumn(columnName.size(), sum(x.depth for x in explosions))
+        explodedSize = SizeColumn(columnName.size())
         replacements[(ExplodeSize, explosions)] = explodedSize
         statements.append(ExplodeSize(explodedSize, explosions))
 
@@ -427,24 +395,21 @@ def build(tree, columns, replacements=None, refnumber=0, explosions=()):
         return replacements[(typedtree.TypedTree, tree)], [], refnumber
 
     elif isinstance(tree, typedtree.Ref):
-        if tree.framenumber is None:
-            dataColumn = None
-            sizeColumn = None
-            for n, c in columns.items():
-                if n.startswith(tree.name):
-                    if isinstance(c, DataColumn):
-                        dataColumn = c
-                    elif isinstance(c, SizeColumn):
-                        sizeColumn = c
-            if dataColumn is None:
-                raise ProgrammingError("cannot find {0} dataColumn in columns: {1}".format(tree.name, columns.keys()))
+        assert tree.framenumber is None, "should not encounter any deep references here"
 
-            ref = Ref(tree.name, tree.schema, dataColumn, sizeColumn)
-            replacements[(typedtree.TypedTree, tree)] = ref
-            return ref, [], refnumber
+        dataColumn = None
+        sizeColumn = None
+        for n, c in columns.items():
+            if n.startswith(tree.name):
+                if isinstance(c, DataColumn):
+                    dataColumn = c
+                elif isinstance(c, SizeColumn):
+                    sizeColumn = c
+        assert dataColumn is not None, "cannot find {0} dataColumn in columns: {1}".format(tree.name, columns.keys())
 
-        else:
-            raise ProgrammingError("should not encounter any deep references here")
+        ref = Ref(tree.name, tree.schema, dataColumn, sizeColumn)
+        replacements[(typedtree.TypedTree, tree)] = ref
+        return ref, [], refnumber
 
     elif isinstance(tree, typedtree.Literal):
         replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)

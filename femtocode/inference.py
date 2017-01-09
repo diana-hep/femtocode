@@ -44,7 +44,7 @@ def literal(schema, operator, value):
             return schema
 
         else:
-            raise ProgrammingError("unhandled operator: {0}".format(operator))
+            assert False, "unhandled operator: {0}".format(operator)
 
     elif isinstance(schema, Null):
         if value is None:
@@ -53,7 +53,7 @@ def literal(schema, operator, value):
             elif operator == "!=":
                 return impossible("The null type, excluding its only value (None), leaves no possible values.")
             else:
-                raise ProgrammingError("unhandled operator: {0}".format(operator))
+                assert False, "unhandled operator: {0}".format(operator)
 
         else:
             if operator == "==":
@@ -61,7 +61,7 @@ def literal(schema, operator, value):
             elif operator == "!=":
                 return null
             else:
-                raise ProgrammingError("unhandled operator: {0}".format(operator))
+                assert False, "unhandled operator: {0}".format(operator)
 
     elif isinstance(schema, Boolean):
         if isinstance(value, bool):
@@ -70,7 +70,7 @@ def literal(schema, operator, value):
             elif operator == "!=":
                 return boolean       # if value is True, variable could be False and vice-versa
             else:
-                raise ProgrammingError("unhandled operator: {0}".format(operator))
+                assert False, "unhandled operator: {0}".format(operator)
 
         else:
             if operator == "==":
@@ -78,7 +78,7 @@ def literal(schema, operator, value):
             elif operator == "!=":
                 return boolean
             else:
-                raise ProgrammingError("unhandled operator: {0}".format(operator))
+                assert False, "unhandled operator: {0}".format(operator)
 
     elif isinstance(schema, Number):
         if isinstance(value, (int, long, float)):
@@ -101,7 +101,7 @@ def literal(schema, operator, value):
                 return intersection(schema, Number(-inf, value, False))
 
             else:
-                raise ProgrammingError("unhandled operator: {0}".format(operator))
+                assert False, "unhandled operator: {0}".format(operator)
 
         else:
             return impossible("Numeric types can never be equal to {0}.".format(value))
@@ -117,23 +117,21 @@ def literal(schema, operator, value):
             return schema
 
         elif operator in ("size==", "size!=", "size>", "size>=", "size<", "size<="):
-            if isinstance(value, (int, long)):
-                operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
-                number = literal(Number(schema.fewest, schema.most, True), operator, value)
-                if isinstance(number, Number):
-                    return String(schema.charset, number.min, number.max)
-                elif isinstance(number, Union):
-                    return Union([String(schema.charset, p.min, p.max) for p in number.possibilities])
-                elif isinstance(number, Impossible):
-                    return impossible("Size of {0} can never be {1} {2}.".format(schema, operator, value))
-                else:
-                    raise ProgrammingError("literal(Number, \"{0}\", value) is {1}".format(operator, number))
+            assert isinstance(value, (int, long)), "operator {0} unexpected for value {1}".format(operator, value)
 
+            operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
+            number = literal(Number(schema.fewest, schema.most, True), operator, value)
+            if isinstance(number, Number):
+                return String(schema.charset, number.min, number.max)
+            elif isinstance(number, Union):
+                return Union([String(schema.charset, p.min, p.max) for p in number.possibilities])
+            elif isinstance(number, Impossible):
+                return impossible("Size of {0} can never be {1} {2}.".format(schema, operator, value))
             else:
-                raise ProgrammingError("operator {0} unexpected for value {1}".format(operator, value))
-
+                assert False, "literal(Number, \"{0}\", value) is {1}".format(operator, number)
+                
         else:
-            raise ProgrammingError("unhandled operator: {0}".format(operator))
+            assert False, "unhandled operator: {0}".format(operator)
 
     elif isinstance(schema, Collection):
         if operator == "==":
@@ -152,21 +150,19 @@ def literal(schema, operator, value):
                 return schema
 
         elif operator in ("size==", "size!=", "size>", "size>=", "size<", "size<="):
-            if isinstance(value, (int, long)):
-                operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
-                number = literal(Number(schema.fewest, schema.most, True), operator, value)
-                if isinstance(number, Number):
-                    return Collection(schema.items, number.min, number.max, schema.ordered)
-                elif isinstance(number, Union):
-                    return Union([Collection(schema.items, p.min, p.max, schema.ordered) for p in number.possibilities])
-                elif isinstance(number, Impossible):
-                    return impossible("Size of collection can never be {1} {2} for\n".format(operator, value, pretty(schema)))
-                else:
-                    raise ProgrammingError("literal(Number, \"{0}\", value) is {1}".format(operator, number))
+            assert isinstance(value, (int, long)), "operator {0} unexpected for value {1}".format(operator, value)
 
+            operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
+            number = literal(Number(schema.fewest, schema.most, True), operator, value)
+            if isinstance(number, Number):
+                return Collection(schema.items, number.min, number.max, schema.ordered)
+            elif isinstance(number, Union):
+                return Union([Collection(schema.items, p.min, p.max, schema.ordered) for p in number.possibilities])
+            elif isinstance(number, Impossible):
+                return impossible("Size of collection can never be {1} {2} for\n".format(operator, value, pretty(schema)))
             else:
-                raise ProgrammingError("operator {0} unexpected for value {1}".format(operator, value))
-
+                assert False, "literal(Number, \"{0}\", value) is {1}".format(operator, number)
+                
         elif operator == "ordered":
             if schema.ordered:
                 return schema
@@ -180,7 +176,7 @@ def literal(schema, operator, value):
                 return schema
 
         else:
-            raise ProgrammingError("unhandled operator: {0}".format(operator))
+            assert False, "unhandled operator: {0}".format(operator)
 
     elif isinstance(schema, Record):
         if operator == "==":
@@ -193,10 +189,10 @@ def literal(schema, operator, value):
             return schema
 
         else:
-            raise ProgrammingError("unhandled operator: {0}".format(operator))
+            assert False, "unhandled operator: {0}".format(operator)
 
     else:
-        raise ProgrammingError("unhandled schema: {0}".format(schema))
+        assert False, "unhandled schema: {0}".format(schema)
 
 def _combineTwoUnions(one, two, operation):
     possibilities = []
@@ -251,9 +247,8 @@ def _combineSecondUnion(other, two, operation):
         return union(*possibilities)
 
 def add(*args):
-    if len(args) == 0:
-        raise ProgrammingError("inference.add called with 0 arguments")
-    elif len(args) == 1:
+    assert len(args) > 0, "inference.add called with 0 arguments"
+    if len(args) == 1:
         return args[0]
     elif len(args) > 2:
         return add(add(args[0], args[1]), *args[2:])
@@ -302,12 +297,11 @@ def add(*args):
                 return Number(newmin, newmax, one.whole and two.whole)
 
         else:
-            raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+            assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def subtract(*args):
-    if len(args) == 0:
-        raise ProgrammingError("inference.subtract called with 0 arguments")
-    elif len(args) == 1:
+    assert len(args) > 0, "inference.subtract called with 0 arguments"
+    if len(args) == 1:
         return args[0]
     elif len(args) > 2:
         return subtract(subtract(args[0], args[1]), *args[2:])
@@ -356,7 +350,7 @@ def subtract(*args):
                 return Number(newmin, newmax, one.whole and two.whole)
 
         else:
-            raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+            assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def _expandMinusPlus(interval, intermediate=False):
     if interval.min < 0.0 and 0.0 not in interval:
@@ -412,9 +406,8 @@ def _expandMinusPlus(interval, intermediate=False):
     return intervalMinus, intervalPlus
 
 def multiply(*args):
-    if len(args) == 0:
-        raise ProgrammingError("inference.multiply called with 0 arguments")
-    elif len(args) == 1:
+    assert len(args) > 0, "inference.multiply called with 0 arguments"
+    if len(args) == 1:
         return args[0]
     elif len(args) > 2:
         return multiply(multiply(args[0], args[1]), *args[2:])
@@ -557,18 +550,16 @@ def multiply(*args):
                     else:
                         cases.append(a * b)
 
-            if any(math.isnan(x) for x in cases):
-                raise ProgrammingError("nan encountered in multiply cases: {0}".format(cases))
+            assert not any(math.isnan(x) for x in cases), "nan encountered in multiply cases: {0}".format(cases)
 
             return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
 
         else:
-            raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+            assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def divide(*args):
-    if len(args) == 0:
-        raise ProgrammingError("inference.divide called with 0 arguments")
-    elif len(args) == 1:
+    assert len(args) > 0, "inference.divide called with 0 arguments"
+    if len(args) == 1:
         return args[0]
     elif len(args) > 2:
         return divide(divide(args[0], args[1]), *args[2:])
@@ -707,13 +698,12 @@ def divide(*args):
                     else:
                         cases.append(1.0 * a / b)
 
-            if any(math.isnan(x) for x in cases):
-                raise ProgrammingError("nan encountered in divide cases: {0}".format(cases))
+            assert not any(math.isnan(x) for x in cases), "nan encountered in divide cases: {0}".format(cases)
 
             return Number(almost.min(*cases), almost.max(*cases), False)
 
         else:
-            raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+            assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def power(one, two):
     if isinstance(one, Union) and isinstance(two, Union):
@@ -878,13 +868,12 @@ def power(one, two):
                     else:
                         cases.append(inf)
 
-        if any(math.isnan(x) for x in cases):
-            raise ProgrammingError("nan encountered in power cases: {0}".format(cases))
+        assert not any(math.isnan(x) for x in cases), "nan encountered in power cases: {0}".format(cases)
 
         return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole and two.min >= 0)
     
     else:
-        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+        assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def modulo(one, two):
     if isinstance(one, Union) and isinstance(two, Union):
@@ -943,10 +932,9 @@ def modulo(one, two):
                     cases.append(0.0)
                     cases.append(almost(two.min.real))
 
-        if any(math.isnan(x) for x in cases):
-            raise ProgrammingError("nan encountered in modulo cases: {0}".format(cases))
+        assert not any(math.isnan(x) for x in cases), "nan encountered in modulo cases: {0}".format(cases)
 
         return Number(almost.min(*cases), almost.max(*cases), one.whole and two.whole)
 
     else:
-        raise ProgrammingError("unhandled schemas: {0} {1}".format(one, two))
+        assert False, "unhandled schemas: {0} {1}".format(one, two)

@@ -20,7 +20,7 @@ import math
 import re
 
 from femtocode.parser import t_NAME
-from femtocode.defs import FemtocodeError, ProgrammingError
+from femtocode.defs import FemtocodeError
 from femtocode.py23 import *
 
 inf = float("inf")
@@ -1377,7 +1377,7 @@ def _pretty(schema, depth, comma, memo):
         return [(depth, "union(", schema)] + types + [(depth + 1, "){0}".format(comma), schema)]
 
     else:
-        raise ProgrammingError("unhandled kind")
+        assert False, "unhandled kind"
 
 def pretty(schema, highlight=lambda t: "", indent="  ", prefix=""):
     return "\n".join("{0}{1}{2}{3}".format(prefix, highlight(subschema), indent * depth, line) for depth, line, subschema in _pretty(schema, 0, "", set()))
@@ -1597,7 +1597,7 @@ def union(*types):
                 elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities):
                     out = Union([String(one.charset, p.min, p.max) for p in number.possibilities])
                 else:
-                    raise ProgrammingError("union(Number, Number) is {0}".format(number))
+                    assert False, "union(Number, Number) is {0}".format(number)
             else:
                 out = Union([one, two])
 
@@ -1620,7 +1620,7 @@ def union(*types):
                 elif isinstance(number, Union) and all(isinstance(p, Number) and p.whole for p in number.possibilities):
                     out = Union([Collection(items, p.min, p.max, ordered) for p in number.possibilities])
                 else:
-                    raise ProgrammingError("union(Number, Number) is {0}".format(number))
+                    assert False, "union(Number, Number) is {0}".format(number)
                 
             else:
                 out = Union([one, two])
@@ -1637,7 +1637,7 @@ def union(*types):
                 out = Union([one, two])
 
         else:
-            raise ProgrammingError("unhandled case")
+            assert False, "unhandled case"
             
         # don't lose any aliases because one and two have been replaced by their union
         out._aliases.update(one._aliases)
@@ -1749,7 +1749,7 @@ def intersection(*types):
                 elif isinstance(number, Impossible):
                     out = impossible("Size intervals of {0} and {1} do not overlap.".format(one, two))
                 else:
-                    raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
+                    assert False, "intersection(Number, Number) is {0}".format(number)
             else:
                 out = impossible("Charsets {0} and {1} do not overlap.".format(one, two))
 
@@ -1774,7 +1774,7 @@ def intersection(*types):
                 elif isinstance(number, Impossible):
                     out = impossible("Size intervals of collections do not overlap in\n{0}".format(compare(one, two)))
                 else:
-                    raise ProgrammingError("intersection(Number, Number) is {0}".format(number))
+                    assert False, "intersection(Number, Number) is {0}".format(number)
             else:
                 out = impossible("Item schemas of collections do not overlap in\n{0}".format(compare(one, two)))
 
@@ -1793,7 +1793,7 @@ def intersection(*types):
                 out = impossible("Field sets differ in\n{0}".format(compare(one, two)))
 
         else:
-            raise ProgrammingError("unhandled case")
+            assert False, "unhandled case"
             
         # don't lose any aliases because one and two have been replaced by their union
         out._aliases.update(one._aliases)
@@ -1868,7 +1868,7 @@ def difference(universal, excluded):
             elif isinstance(number, Impossible):
                 out = impossible("Size range of {0} completely covers {1}.".format(excluded, universal))
             else:
-                raise ProgrammingError("difference(Number, Number) is {0}".format(number))
+                assert False, "difference(Number, Number) is {0}".format(number)
         else:
             out = universal()
 
@@ -1904,7 +1904,7 @@ def difference(universal, excluded):
                 elif isinstance(number, Impossible):
                     pass
                 else:
-                    raise ProgrammingError("difference(Number, Number) is {0}".format(number))
+                    assert False, "difference(Number, Number) is {0}".format(number)
 
             if len(possibilities) == 0:
                 out = impossible("Size and contents completely covered in\n{0}".format(compare(universal, excluded, ("universal set", "exclusion region"))))
@@ -1935,7 +1935,7 @@ def difference(universal, excluded):
             out = universal()
 
     else:
-        raise ProgrammingError("unhandled case")
+        assert False, "unhandled case"
 
     # don't lose any aliases because universal and excluded have been replaced by their union
     out._aliases.update(universal._aliases)
