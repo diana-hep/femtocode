@@ -22,27 +22,21 @@ except ImportError as err:
             raise err
     numpy = FakeNumpy()
 
-from femtocode.asts.statementlist import *
-from femtocode.run.defs import *
+from femtocode.compiler import *
 from femtocode.run._numpyengine import *
 from femtocode.typesystem import *
 
+class NumpyEngine(Engine):
+    pass
+
+
 class NumpyDataset(Dataset):
     def __init__(self, **schemas):
-        names = sorted(schemas.keys())
-        Dataset.checknames(names)
-
-        types = resolve([schemas[n] for n in names])
-
-        columns = {}
-        for n, t in zip(names, types):
-            columns.update(schemaToColumns(n, t))
-                
-        columns = dict((n, NumpyColumn(c)) for n, c in columns.items())
-
         super(NumpyDataset, self).__init__(schemas, columns)
+        self.pages = dict((n, NumpyPage(c)) for n, c in self.columns.items())
+        self.entries = 0
 
-class NumpyColumn(object):
+class NumpyPage(object):
     def __init__(self, column):
         if isinstance(column.schema, Null):
             dtype = None
