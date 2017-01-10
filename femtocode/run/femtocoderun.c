@@ -155,12 +155,6 @@ void plus_ldd(ArrayIndex len, int64_t* in1array, double* in2array, double* outar
     outarray[i] = in1array[i] + in2array[i];
 }
 
-void plus_dld(ArrayIndex len, double* in1array, int64_t* in2array, double* outarray) {
-  ArrayIndex i;
-  for (i = 0;  i < len;  i++)
-    outarray[i] = in1array[i] + in2array[i];
-}
-
 void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray) {
   ArrayIndex i;
   for (i = 0;  i < len;  i++)

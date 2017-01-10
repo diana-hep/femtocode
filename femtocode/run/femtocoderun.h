@@ -47,7 +47,6 @@ ArrayIndex explodedata(EntryCount numEntries,
 
 void plus_lll(ArrayIndex len, int64_t* in1array, int64_t* in2array, int64_t* outarray);
 void plus_ldd(ArrayIndex len, int64_t* in1array, double* in2array, double* outarray);
-void plus_dld(ArrayIndex len, double* in1array, int64_t* in2array, double* outarray);
 void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray);
 
 #endif /* FEMTOCODE_RUN */

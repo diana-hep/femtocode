@@ -448,7 +448,7 @@ class ExplodeSize(Call):
 
     @property
     def fcnname(self):
-        return "$explodesize"
+        return "explodesize"
 
     @property
     def args(self):
@@ -471,7 +471,7 @@ class ExplodeData(Call):
 
     @property
     def fcnname(self):
-        return "$explodedata"
+        return "explodedata"
 
     @property
     def args(self):
@@ -574,6 +574,8 @@ class BuildStatements(object):
 
         refnumber += 1
         replacements[(typedtree.TypedTree, call)] = ref
-        statements.append(Call(dataColumn, self.name, args))
+
+        fcnname, fcnargs = self.kernel(args)
+        statements.append(Call(dataColumn, fcnname, fcnargs))
 
         return ref, statements, refnumber

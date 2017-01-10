@@ -63,7 +63,17 @@ class Add(statementlist.BuildStatements, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
-        
+
+    def kernel(self, columns):
+        if columns[0].schema.whole and columns[1].schema.whole:
+            return "plus_lll", columns
+        elif columns[0].schema.whole and not columns[1].schema.whole:
+            return "plus_ldd", columns
+        elif not columns[0].schema.whole and columns[1].schema.whole:
+            return "plus_ldd", [columns[1], columns[0]]
+        elif not columns[0].schema.whole and not columns[1].schema.whole:
+            return "plus_ddd", columns
+
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
 

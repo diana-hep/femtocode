@@ -48,7 +48,6 @@ cdef extern from "femtocoderun.h":
 
     void plus_lll(ArrayIndex len, long* in1array, long* in2array, long* outarray)
     void plus_ldd(ArrayIndex len, long* in1array, double* in2array, double* outarray)
-    void plus_dld(ArrayIndex len, double* in1array, long* in2array, double* outarray)
     void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray)
 
 cdef extern from "femtocoderun.c":
@@ -71,52 +70,28 @@ cdef extern from "femtocoderun.c":
 
     void plus_lll(ArrayIndex len, long* in1array, long* in2array, long* outarray)
     void plus_ldd(ArrayIndex len, long* in1array, double* in2array, double* outarray)
-    void plus_dld(ArrayIndex len, double* in1array, long* in2array, double* outarray)
     void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray)
 
-def plus(in1, in2, out):
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def lll(Py_ssize_t len,
-        numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
-        numpy.ndarray[long, ndim=1, mode="c"] in2 not None,
-        numpy.ndarray[long, ndim=1, mode="c"] out not None):
-        plus_lll(len, &in1[0], &in2[0], &out[0])
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def numpy_plus_lll(Py_ssize_t len,
+    numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[long, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[long, ndim=1, mode="c"] out not None):
+    plus_lll(len, &in1[0], &in2[0], &out[0])
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def ldd(Py_ssize_t len,
-        numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
-        numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
-        numpy.ndarray[double, ndim=1, mode="c"] out not None):
-        plus_ldd(len, &in1[0], &in2[0], &out[0])
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def numpy_plus_ldd(Py_ssize_t len,
+    numpy.ndarray[long, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] out not None):
+    plus_ldd(len, &in1[0], &in2[0], &out[0])
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def dld(Py_ssize_t len,
-        numpy.ndarray[double, ndim=1, mode="c"] in1 not None,
-        numpy.ndarray[long, ndim=1, mode="c"] in2 not None,
-        numpy.ndarray[double, ndim=1, mode="c"] out not None):
-        plus_dld(len, &in1[0], &in2[0], &out[0])
-
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def ddd(Py_ssize_t len,
-        numpy.ndarray[double, ndim=1, mode="c"] in1 not None,
-        numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
-        numpy.ndarray[double, ndim=1, mode="c"] out not None):
-        plus_ddd(len, &in1[0], &in2[0], &out[0])
-
-    if isinstance(in1, numpy.ndarray) and isinstance(in2, numpy.ndarray) and isinstance(out, numpy.ndarray) and len(in1) == len(in2) == len(out):
-        if in1.dtype == numpy.int64 and in2.dtype == numpy.int64 and out.dtype == numpy.int64:
-            lll(len(in1), in1, in2, out)
-        elif in1.dtype == numpy.int64 and in2.dtype == numpy.float64 and out.dtype == numpy.float64:
-            ldd(len(in1), in1, in2, out)
-        elif in1.dtype == numpy.float64 and in2.dtype == numpy.int64 and out.dtype == numpy.float64:
-            dld(len(in1), in1, in2, out)
-        elif in1.dtype == numpy.float64 and in2.dtype == numpy.float64 and out.dtype == numpy.float64:
-            ddd(len(in1), in1, in2, out)
-        else:
-            raise ProgrammingError("bad numpy type combination: {0} {1} {2}".format(in1.dtype, in2.dtype, out.dtype))
-    else:
-        raise ProgrammingError("bad array input: {0} ({1}) {2} ({3}) {4} ({5})".format(in1, len(in1), in2, len(in2), out, len(out)))
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def numpy_plus_ddd(Py_ssize_t len,
+    numpy.ndarray[double, ndim=1, mode="c"] in1 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] in2 not None,
+    numpy.ndarray[double, ndim=1, mode="c"] out not None):
+    plus_ddd(len, &in1[0], &in2[0], &out[0])

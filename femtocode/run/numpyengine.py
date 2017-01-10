@@ -24,7 +24,7 @@ except ImportError as err:
             raise err
     numpy = FakeNumpy()
 
-from femtocode.run._numpyengine import *
+import femtocode.run._numpyengine as _numpyengine
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.compiler import Dataset
@@ -56,16 +56,27 @@ class NumpyEngine(object):
                 assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
             dtypes[name] = dtype
 
-        if compiled["source"]["type"] == "literal":
+        print compiled
+
+        if compiled["source"]["type"] == "literal" and compiled["result"]["type"] == "toPython":
             numEntries = compiled["source"]["numEntries"]
             stripes = {}
             for name in compiled["inputs"]:
-                stripes[name] = numpy.array(compiled["source"]["stripes"][name], dtype=dtype)
+                stripes[name] = numpy.array(compiled["source"]["stripes"][name], dtype=dtypes[name])
 
-            print "HERE"
+            for name in compiled["temporaries"]:
+                if name + "@size" in compiled["temporaries"]:
+                    raise NotImplementedError
+                else:
+                    size = compiled["source"]["numEntries"]
 
+                stripes[name] = numpy.empty(size, dtype=dtypes[name])
 
+            for statement in compiled["statements"]:
+                fcn = getattr(_numpyengine, "numpy_" + statement["fcn"])
+                fcn(*([size] + [stripes[x] for x in statement["args"]] + [stripes[statement["to"]]]))
 
+            print compiled["result"]   # HERE!!!
 
         else:
             raise NotImplementedError

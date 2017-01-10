@@ -73,9 +73,9 @@ class Workflow(object):
             symbolTable[n] = lispytree.Ref(n)
             typeTable[lispytree.Ref(n)] = t
 
-        targets, actions = (), ()
+        targets, actions, result = (), (), None
         for step in lin[1:]:
-            targets, actions, symbolTable = step._propagate(targets, actions, symbolTable)
+            targets, actions, result, symbolTable = step._propagate(targets, actions, result, symbolTable)
 
         expr = parser.parse(expression)
         lt, _ = lispytree.build(expr, symbolTable)
@@ -91,8 +91,8 @@ class Workflow(object):
     def typeCompare(self, expr1, expr2, libs=None, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
         return compare(self.type(expr1, libs), self.type(expr2, libs), header, between, indent, prefix, width)
 
-    def _propagate(self, targets, actions, symbolTable):
-        return targets, actions, symbolTable
+    def _propagate(self, targets, actions, result, symbolTable):
+        return targets, actions, result, symbolTable
 
     def compile(self, libs=None):
         symbolTable = SymbolTable(standard.table.asdict())
@@ -121,9 +121,9 @@ class Workflow(object):
             symbolTable[n] = lispytree.Ref(n)
             typeTable[lispytree.Ref(n)] = t
 
-        targets, actions = (), ()
+        targets, actions, result = (), (), None
         for step in lin[1:]:
-            targets, actions, symbolTable = step._propagate(targets, actions, symbolTable)
+            targets, actions, result, symbolTable = step._propagate(targets, actions, result, symbolTable)
 
         if not isinstance(lin[-1], (DataSink, Aggregation)):
             raise FemtocodeError("Workflows must end with a data sink or aggregation, not {0}.".format(lin[-1]))
@@ -149,7 +149,7 @@ class Workflow(object):
                 "inputs": dict((n.toJson(), c.schema.toJson()) for n, c in lin[0].columns.items()),
                 "temporaries": dict((s.column.name.toJson(), s.column.schema.toJson()) for s in statements),
                 "statements": statements.toJson(),
-                "actions": [action.toJson(actionsToRefs) for action in actions]}
+                "result": result.toJson(actionsToRefs)}
 
     def compileString(self, libs=None):
         return json.dumps(self.compile(libs))
@@ -333,10 +333,10 @@ class toPython(DataSink):
         out.expression = self.expression
         return out
 
-    def _propagate(self, targets, actions, symbolTable):
+    def _propagate(self, targets, actions, result, symbolTable):
         expr = parser.parse(self.expression)
         lt, symbolTable = lispytree.build(expr, symbolTable.fork())
-        return targets + (lt,), actions + (self,), symbolTable
+        return targets + (lt,), actions + (self,), self, symbolTable
 
     def toJson(self, actionsToRefs):
         return {"type": "toPython", "ref": actionsToRefs[id(self)].toJson()}
@@ -424,7 +424,7 @@ class define(Transformation):
         out.quantities = self.quantities
         return out
 
-    def _propagate(self, targets, actions, symbolTable):
+    def _propagate(self, targets, actions, result, symbolTable):
         newSymbols = {}
 
         for name, expression in self.quantities.items():
@@ -432,7 +432,7 @@ class define(Transformation):
             lt, _ = lispytree.build(expr, symbolTable.fork())
             newSymbols[name] = lt
 
-        return targets, actions, symbolTable.fork(newSymbols)
+        return targets, actions, result, symbolTable.fork(newSymbols)
 
 class Dataset(Workflow):
     def __init__(self, **schemas):
