@@ -23,7 +23,7 @@ import femtocode.parser as parser
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.typedtree as typedtree
 import femtocode.asts.statementlist as statementlist
-from femtocode.lib.standard import table
+import femtocode.lib.standard as standard
 from femtocode.typesystem import *
 
 class Workflow(object):
@@ -50,6 +50,42 @@ class Workflow(object):
         if out[0].__class__ == Workflow:
             del out[0]
         return out
+
+    def type(self, expression, libs=None):
+        symbolTable = SymbolTable(standard.table.asdict())
+        if libs is not None:
+            for lib in libs:
+                symbolTable = symbolTable.fork(libs.asdict())
+        symbolTable = symbolTable.fork()
+        typeTable = SymbolTable()
+
+        lin = self.linearize()
+        if len(lin) == 0:
+            raise FemtocodeError("Workflow is empty.")
+
+        if not isinstance(lin[0], Dataset):
+            raise FemtocodeError("Workflows must begin with a Dataset, not {0}.".format(lin[0]))
+
+        for n, t in lin[0].schemas.items():
+            symbolTable[n] = lispytree.Ref(n)
+            typeTable[lispytree.Ref(n)] = t
+
+        for step in lin[1:]:
+            symbolTable = step.propagateSymbols(symbolTable)
+
+        expr = parser.parse(expression)
+        lt, _ = lispytree.build(expr, symbolTable)
+        if isinstance(lt, lispytree.UserFunction):
+            raise FemtocodeError("Cannot express the type of a user-defined function.")
+
+        tt, _ = typedtree.build(lt, typeTable)
+        return tt.schema
+
+    def prettyType(self, expression, libs=None, highlight=lambda t: "", indent="  ", prefix=""):
+        return pretty(self.type(expression, libs), highlight, indent, prefix)
+
+    def propagateSymbols(self, symbolTable):
+        return symbolTable
 
     def _short_chain(self, steps):
         return ".".join(str(x) for x in steps)
@@ -157,6 +193,16 @@ class define(Transformation):
         out = super(define, self)._copy()
         out.quantities = self.quantities
         return out
+
+    def propagateSymbols(self, symbolTable):
+        newSymbols = {}
+
+        for name, expression in self.quantities.items():
+            expr = parser.parse(expression)
+            lt, _ = lispytree.build(expr, symbolTable.fork())
+            newSymbols[name] = lt
+
+        return symbolTable.fork(newSymbols)
 
 class Dataset(Workflow):
     def __init__(self, **schemas):

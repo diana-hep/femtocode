@@ -123,6 +123,14 @@ class SymbolTable(object):
     def itemsHere(self):
         return self.values.items()
 
+    def asdict(self):
+        if self.parent is not None:
+            out = self.parent.asdict()
+        else:
+            out = {}
+        out.update(self.values)
+        return out
+
     def keys(self, exclude=None):
         out = set(self.values.keys())
         if self.parent is not None and self.parent is not exclude:
