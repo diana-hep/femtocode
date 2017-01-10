@@ -141,11 +141,30 @@ class Workflow(object):
             ref, ss, refnumber = statementlist.build(tt, lin[0].columns, replacements, refnumber)
             statements.extend(ss)
             actionsToRefs[id(action)] = ref
-        
-        return {"version": version, "dataset": lin[0].toJson(), "source": source.sourceToJson(lin[0].schemas, lin[0].columns), "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
+
+        memo = set()
+        return {"version": version,
+                "source": source.sourceToJson(lin[0].schemas, lin[0].columns),
+                "schemas": dict((n, t._json_memo(memo)) for n, t in lin[0].schemas.items()),
+                "inputs": dict((n.toJson(), c.schema.toJson()) for n, c in lin[0].columns.items()),
+                "temporaries": dict((s.column.name.toJson(), s.column.schema.toJson()) for s in statements),
+                "statements": statements.toJson(),
+                "actions": [action.toJson(actionsToRefs) for action in actions]}
 
     def compileString(self, libs=None):
         return json.dumps(self.compile(libs))
+
+    def run(self, libs=None):
+        compiled = self.compile(libs)
+
+        # we know this is a Dataset because the above succeeded
+        if self.engine is None:
+            raise FemtocodeError("No engine has been associated with this Dataset.")
+
+        return self.engine.run(compiled)
+        
+    def submit(self, libs=None):
+        raise NotImplementedError("submit is like run, but it returns a Future that reports progress and partial results are inspectable")
 
     def _short_chain(self, steps):
         return ".".join(str(x) for x in steps)
@@ -453,8 +472,3 @@ class Dataset(Workflow):
         out.columns = self.columns
         out.engine = self.engine
         return out
-
-    def toJson(self):
-        memo = set()
-        return {"schemas": dict((n, t._json_memo(memo)) for n, t in self.schemas.items()),
-                "columns": dict((n.toJson(), c.toJson()) for n, c in self.columns.items())}

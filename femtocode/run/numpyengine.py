@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 try:
     import numpy
 except ImportError as err:
@@ -22,62 +24,48 @@ except ImportError as err:
             raise err
     numpy = FakeNumpy()
 
-from femtocode.compiler import *
 from femtocode.run._numpyengine import *
+from femtocode.py23 import *
 from femtocode.typesystem import *
+from femtocode.compiler import Dataset
 
-class NumpyDataset(Dataset):
-    def __init__(self, **schemas):
-        super(NumpyDataset, self).__init__(schemas, columns)
-        self.stripes = dict((n, NumpyStripe(c)) for n, c in self.columns.items())
-        self.entries = 0
+def NumpyDataset(**schemas):
+    out = Dataset(**schemas)
+    out.engine = NumpyEngine()
+    return out
 
-class NumpyStripe(object):
-    def __init__(self, column):
-        if isinstance(column.schema, Null):
-            dtype = None
-        elif isinstance(column.schema, Boolean):
-            dtype = numpy.bool_
-        elif isinstance(column.schema, Number) and column.schema.whole:
-            dtype = numpy.int64
-        elif isinstance(column.schema, Number):
-            dtype = numpy.float64
-        elif isinstance(column.schema, String) and column.schema.charset == "bytes":
-            dtype = numpy.int8
-        elif isinstance(column.schema, String) and column.schema.charset == "unicode":
-            dtype = numpy.unicode_
+class NumpyEngine(object):
+    def run(self, compiled):
+        if isinstance(compiled, string_types):
+            compiled = json.loads(compiled)
+
+        dtypes = {}
+        for name, schemaJson in compiled["inputs"].items() + compiled["temporaries"].items():
+            schema = Schema.fromJson(schemaJson)
+            if isinstance(schema, Boolean):
+                dtype = numpy.bool_
+            elif isinstance(schema, Number) and schema.whole:
+                dtype = numpy.int64
+            elif isinstance(schema, Number):
+                dtype = numpy.float64
+            elif isinstance(schema, String) and schema.charset == "bytes":
+                dtype = numpy.int8
+            elif isinstance(schema, String) and schema.charset == "unicode":
+                dtype = numpy.unicode_
+            else:
+                assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
+            dtypes[name] = dtype
+
+        if compiled["source"]["type"] == "literal":
+            numEntries = compiled["source"]["numEntries"]
+            stripes = {}
+            for name in compiled["inputs"]:
+                stripes[name] = numpy.array(compiled["source"]["stripes"][name], dtype=dtype)
+
+            print "HERE"
+
+
+
+
         else:
-            assert False, "unexpected type in Column: {0} {1}".format(type(column.schema), column.schema)
-
-        self.column = column
-        self.growdata = []
-        if dtype is not None:
-            self.data = numpy.empty(0, dtype=dtype)
-        else:
-            self.data = None
-
-    @property
-    def schema(self):
-        return self.column.schema
-
-    def clear(self):
-        self.data = numpy.empty(0, dtype=self.data.dtype)
-        self.growdata = []
-
-    def append(self, x):
-        self.growdata.append(x)
-
-    def finalize(self):
-        assert self.data is not None, "should not allocate array of NULLs"
-        data = numpy.empty(len(self.data) + len(self.growdata), dtype=self.data.dtype)
-        data[:len(self.data)] = self.data
-        data[len(self.data):] = self.growdata
-        self.data = data
-        self.growdata = []
-
-    def extend(self, other):
-        if isinstance(other, numpy.ndarray) and len(other.shape) == 1 and self.dtype == other.dtype:
-            data = numpy.empty(len(self.data) + len(other), dtype=self.dtype)
-            data[:len(self.data)] = self.data
-            data[len(self.data):] = other
-            self.data = data
+            raise NotImplementedError
