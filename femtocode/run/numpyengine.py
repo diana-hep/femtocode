@@ -27,7 +27,9 @@ except ImportError as err:
 import femtocode.run._numpyengine as _numpyengine
 from femtocode.py23 import *
 from femtocode.typesystem import *
+from femtocode.asts.statementlist import ColumnName
 from femtocode.compiler import Dataset
+from femtocode.compiler import toPython
 
 def NumpyDataset(**schemas):
     out = Dataset(**schemas)
@@ -56,8 +58,6 @@ class NumpyEngine(object):
                 assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
             dtypes[name] = dtype
 
-        print compiled
-
         if compiled["source"]["type"] == "literal" and compiled["result"]["type"] == "toPython":
             numEntries = compiled["source"]["numEntries"]
             stripes = {}
@@ -65,7 +65,8 @@ class NumpyEngine(object):
                 stripes[name] = numpy.array(compiled["source"]["stripes"][name], dtype=dtypes[name])
 
             for name in compiled["temporaries"]:
-                if name + "@size" in compiled["temporaries"]:
+                sizeName = ColumnName.parse(name).size()
+                if sizeName in compiled["temporaries"]:
                     raise NotImplementedError
                 else:
                     size = compiled["source"]["numEntries"]
@@ -76,7 +77,13 @@ class NumpyEngine(object):
                 fcn = getattr(_numpyengine, "numpy_" + statement["fcn"])
                 fcn(*([size] + [stripes[x] for x in statement["args"]] + [stripes[statement["to"]]]))
 
-            print compiled["result"]   # HERE!!!
+            schema = Schema.fromJson(compiled["result"]["ref"]["schema"])
+            columns = dict((ColumnName.parse(n), None) for n in stripes)   # FIXME: faked; remove this dependency!
+            stripes2 = dict((ColumnName.parse(n), s) for n, s in stripes.items())
+            indexes = dict((ColumnName.parse(n), 0) for n in stripes)
+            name = ColumnName(compiled["result"]["ref"]["data"])
+
+            return [toPython.assemble(schema, columns, stripes2, indexes, name) for i in xrange(numEntries)]
 
         else:
             raise NotImplementedError

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import json
 
 import femtocode.asts.typedtree as typedtree
@@ -32,6 +33,36 @@ class ColumnName(Serializable):
     sizeSuffix = "@size"
     tagSuffix = "@tag"
     
+    @staticmethod
+    def parse(name):
+        if name.endswith(ColumnName.sizeSuffix):
+            issize = True
+            name = name[:-len(ColumnName.sizeSuffix)]
+        else:
+            issize = False
+
+        if name.endswith(ColumnName.tagSuffix):
+            istag = True
+            name = name[:-len(ColumnName.tagSuffix)]
+        else:
+            istag = False
+
+        m = re.match("^([^@]*)@([0-9]+)$", name)
+        if m is not None:
+            name = m.group(1)
+            pos = int(m.group(2))
+        else:
+            pos = None
+
+        out = ColumnName(*name.split("."))
+        if issize:
+            out = out.size()
+        if istag:
+            out = out.tag()
+        if pos is not None:
+            out = out.pos(pos)
+        return out
+
     def __init__(self, *seq):
         assert all(isinstance(x, string_types) for x in seq), "ColumnName parts must all be strings, not {0}.".format(seq)
         self.seq = seq
@@ -392,7 +423,9 @@ class Ref(Statement):
         return "Ref({0}{1})".format(name, sized)
 
     def toJson(self):
-        return {"data": self.data.toJson(), "size": None if self.size is None else self.size.toJson()}
+        return {"schema": self.schema.toJson(),
+                "data": self.data.toJson(),
+                "size": None if self.size is None else self.size.toJson()}
 
     def __eq__(self, other):
         return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size

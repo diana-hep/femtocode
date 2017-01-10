@@ -137,6 +137,7 @@ class Workflow(object):
         refnumber = 0
         statements = statementlist.Statements()
         actionsToRefs = {}
+        actionsToTypes = {}
         for tt, action in zip(typedtrees, actions):
             ref, ss, refnumber = statementlist.build(tt, lin[0].columns, replacements, refnumber)
             statements.extend(ss)
@@ -350,7 +351,13 @@ class toPython(DataSink):
             stripe = stripes[name]
             out = stripe[indexes[name]]
             indexes[name] += 1
-            return out
+
+            if isinstance(schema, Boolean):
+                return bool(out)
+            elif schema.whole:
+                return int(out)
+            else:
+                return float(out)
 
         elif isinstance(schema, String):
             stripe = stripes[name]
