@@ -107,6 +107,14 @@ class Workflow(object):
         if not isinstance(lin[0], Dataset):
             raise FemtocodeError("Workflows must begin with a Dataset, not {0}.".format(lin[0]))
 
+        source = None
+        for x in lin:
+            if isinstance(x, DataSource):
+                source = x
+                break
+        if source is None:
+            raise FemtocodeError("Workflows must contain a data source.")
+
         for n, t in lin[0].schemas.items():
             symbolTable[n] = lispytree.Ref(n)
             typeTable[lispytree.Ref(n)] = t
@@ -132,7 +140,10 @@ class Workflow(object):
             statements.extend(ss)
             actionsToRefs[id(action)] = ref
         
-        return {"version": version, "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
+        return {"version": version, "dataset": lin[0].toJson(), "source": source.sourceToJson(), "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
+
+    def compileString(self, libs=None):
+        return json.dumps(self.compile(libs))
 
     def _short_chain(self, steps):
         return ".".join(str(x) for x in steps)
@@ -194,14 +205,27 @@ class Action(object):
     def toJson(self, actionsToRefs):
         raise NotImplementedError
 
-class DataSource(Workflow): pass
+class DataSource(Workflow):
+    def sourceToJson(self, schemas, columns):
+        raise NotImplementedError
+
 class Transformation(Workflow): pass
 class Aggregation(Action, Workflow): pass
 class DataSink(Action, Workflow): pass
 
 class fromPython(DataSource):
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, **data):
+        if len(data) == 0:
+            raise FemtocodeError("No data supplied in fromPython.")
+
+        for n, d in data.items():
+            try:
+                for datum in d:
+                    break
+            except TypeError:
+                raise FemtocodeError("Data supplied as {0} in fromPython is not iterable.".format(json.dumps(n)))
+
+        self.data = **data
         super(fromPython, self).__init__()
 
     def _format_args(self):
@@ -212,14 +236,71 @@ class fromPython(DataSource):
         out.data = self.data
         return out
 
+    def sourceToJson(self, schemas, columns):
+        stripes = dict((statementlist.ColumnName(n), []) for n in columns)
+        numEntries = None
+        for name in self.data:
+            if name not in schemas:
+                raise FemtocodeError("Name {0} found in fromPython but not in dataset schemas.".format(json.dumps(name)))
+
+            schema = schemas[name]
+            columnName = statementlist.ColumnName(name)
+            total = 0
+            for datum in self.data[name]:
+                shred(datum, schema, columns, stripes, columnName)
+                total += 1
+
+            if numEntries is None:
+                numEntries = total
+            elif numEntries != total:
+                raise FemtocodeError("Data supplied as {0} in fromPython has a different number of entries than the others ({1} vs {2}).".format(name, total, numEntries))
+
+        return {"type": "literal", "numEntries": numEntries, "stripes": dict((n.toJson(), s) for n, s in stripes.items())}
+
     @staticmethod
-    def shred(obj, schema, columns, stripes, name):
+    def shred(datum, schema, columns, stripes, name):
         if isinstance(name, string_types):
-            name = ColumnName(name)
+            name = statementlist.ColumnName(name)
 
-        # HERE
+        if datum not in schema:
+            raise FemtocodeError("Datum {0} is not an instance of schema:\n\n{1}".format(datum, pretty(schema, prefix="    ")))
 
+        if isinstance(schema, Null):
+            pass
 
+        elif isinstance(schema, (Boolean, Number)):
+            stripes[name].append(datum)
+
+        elif isinstance(schema, String):
+            stripes[name].extend(list(datum))
+            if schema.charset != "bytes" or schema.fewest != schema.most:
+                sizeName = name.size()
+                stripes[sizeName].append(len(datum))
+
+        elif isinstance(schema, Collection):
+            if schema.fewest != schema.most:
+                size = len(datum)
+                for n, s in stripes.items():
+                    if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
+                        s.append(size)
+            items = schema.items
+            for x in datum:
+                shred(x, items, columns, stripes, name)
+
+        elif isinstance(schema, Record):
+            for n, t in schema.fields.items():
+                shred(getattr(datum, n), t, columns, stripes, name.rec(n))
+
+        elif isinstance(schema, Union):
+            ctag = columns[name.tag()]
+            for i, p in enumerate(ctag.possibilities):
+                if datum in p:
+                    stripes[name.tag()].append(i)
+                    shred(datum, p, columns, stripes, name.pos(i))
+                    break
+
+        else:
+            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
 class toPython(DataSink):
     def __init__(self, expression):
@@ -309,3 +390,8 @@ class Dataset(Workflow):
         out.columns = self.columns
         out.engine = self.engine
         return out
+
+    def toJson(self):
+        memo = set()
+        return {"schemas": dict((n, t._json_memo(memo)) for n, t in schemas.items()),
+                "columns": dict((n, c.toJson()) for n, c in columns.items())}
