@@ -24,6 +24,7 @@ import femtocode.asts.lispytree as lispytree
 import femtocode.asts.typedtree as typedtree
 import femtocode.asts.statementlist as statementlist
 import femtocode.lib.standard as standard
+from femtocode.version import version
 from femtocode.typesystem import *
 
 class Workflow(object):
@@ -70,8 +71,9 @@ class Workflow(object):
             symbolTable[n] = lispytree.Ref(n)
             typeTable[lispytree.Ref(n)] = t
 
+        targets, actions = (), ()
         for step in lin[1:]:
-            symbolTable = step.propagateSymbols(symbolTable)
+            targets, actions, symbolTable = step._propagate(targets, actions, symbolTable)
 
         expr = parser.parse(expression)
         lt, _ = lispytree.build(expr, symbolTable)
@@ -81,11 +83,56 @@ class Workflow(object):
         tt, _ = typedtree.build(lt, typeTable)
         return tt.schema
 
-    def prettyType(self, expression, libs=None, highlight=lambda t: "", indent="  ", prefix=""):
+    def typeString(self, expression, libs=None, highlight=lambda t: "", indent="  ", prefix=""):
         return pretty(self.type(expression, libs), highlight, indent, prefix)
 
-    def propagateSymbols(self, symbolTable):
-        return symbolTable
+    def typeCompare(self, expr1, expr2, libs=None, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
+        return compare(self.type(expr1, libs), self.type(expr2, libs), header, between, indent, prefix, width)
+
+    def _propagate(self, targets, actions, symbolTable):
+        return targets, actions, symbolTable
+
+    def compile(self, libs=None):
+        symbolTable = SymbolTable(standard.table.asdict())
+        if libs is not None:
+            for lib in libs:
+                symbolTable = symbolTable.fork(libs.asdict())
+        symbolTable = symbolTable.fork()
+        typeTable = SymbolTable()
+
+        lin = self.linearize()
+        if len(lin) == 0:
+            raise FemtocodeError("Workflow is empty.")
+
+        if not isinstance(lin[0], Dataset):
+            raise FemtocodeError("Workflows must begin with a Dataset, not {0}.".format(lin[0]))
+
+        for n, t in lin[0].schemas.items():
+            symbolTable[n] = lispytree.Ref(n)
+            typeTable[lispytree.Ref(n)] = t
+
+        targets, actions = (), ()
+        for step in lin[1:]:
+            targets, actions, symbolTable = step._propagate(targets, actions, symbolTable)
+
+        if not isinstance(lin[-1], (DataSink, Aggregation)):
+            raise FemtocodeError("Workflows must end with a data sink or aggregation, not {0}.".format(lin[-1]))
+
+        typedtrees = []
+        for target in targets:
+            tt, typeTable = typedtree.build(target, typeTable)
+            typedtrees.append(tt)
+
+        replacements = {}
+        refnumber = 0
+        statements = statementlist.Statements()
+        actionsToRefs = {}
+        for tt, action in zip(typedtrees, actions):
+            ref, ss, refnumber = statementlist.build(tt, lin[0].columns, replacements, refnumber)
+            statements.extend(ss)
+            actionsToRefs[id(action)] = ref
+        
+        return {"version": version, "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
 
     def _short_chain(self, steps):
         return ".".join(str(x) for x in steps)
@@ -137,16 +184,20 @@ class Workflow(object):
     def fromPython(self, data):
         return self._add_step(fromPython(data))
 
-    def toPython(self):
-        return self._add_step(toPython())
+    def toPython(self, expression):
+        return self._add_step(toPython(expression))
 
     def define(self, **quantities):
         return self._add_step(define(**quantities))
 
+class Action(object):
+    def toJson(self, actionsToRefs):
+        raise NotImplementedError
+
 class DataSource(Workflow): pass
 class Transformation(Workflow): pass
-class Aggregation(Workflow): pass
-class DataSink(Workflow): pass
+class Aggregation(Action, Workflow): pass
+class DataSink(Action, Workflow): pass
 
 class fromPython(DataSource):
     def __init__(self, data):
@@ -170,10 +221,26 @@ class fromPython(DataSource):
 
 
 
-
 class toPython(DataSink):
+    def __init__(self, expression):
+        self.expression = expression
+        super(toPython, self).__init__()
+
     def _format_args(self):
-        return ""
+        return self._format_code(self.expression)
+
+    def _copy(self):
+        out = super(toPython, self)._copy()
+        out.expression = self.expression
+        return out
+
+    def _propagate(self, targets, actions, symbolTable):
+        expr = parser.parse(self.expression)
+        lt, symbolTable = lispytree.build(expr, symbolTable.fork())
+        return targets + (lt,), actions + (self,), symbolTable
+
+    def toJson(self, actionsToRefs):
+        return {"type": "toPython", "ref": actionsToRefs[id(self)].toJson()}
 
 class define(Transformation):
     def __init__(self, **quantities):
@@ -194,7 +261,7 @@ class define(Transformation):
         out.quantities = self.quantities
         return out
 
-    def propagateSymbols(self, symbolTable):
+    def _propagate(self, targets, actions, symbolTable):
         newSymbols = {}
 
         for name, expression in self.quantities.items():
@@ -202,7 +269,7 @@ class define(Transformation):
             lt, _ = lispytree.build(expr, symbolTable.fork())
             newSymbols[name] = lt
 
-        return symbolTable.fork(newSymbols)
+        return targets, actions, symbolTable.fork(newSymbols)
 
 class Dataset(Workflow):
     def __init__(self, **schemas):
@@ -222,6 +289,7 @@ class Dataset(Workflow):
 
         self.schemas = schemas
         self.columns = columns
+        self.engine = None
 
         super(Dataset, self).__init__()
 
@@ -239,4 +307,5 @@ class Dataset(Workflow):
         out = super(Dataset, self)._copy()
         out.schemas = self.schemas
         out.columns = self.columns
+        out.engine = self.engine
         return out

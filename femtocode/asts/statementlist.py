@@ -391,7 +391,7 @@ class Ref(Statement):
         return "Ref({0}{1})".format(name, sized)
 
     def toJson(self):
-        return {"data": self.data.toJson(), "size": self.size.toJson()}
+        return {"data": self.data.toJson(), "size": None if self.size is None else self.size.toJson()}
 
     def __eq__(self, other):
         return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
