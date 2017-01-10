@@ -140,7 +140,7 @@ class Workflow(object):
             statements.extend(ss)
             actionsToRefs[id(action)] = ref
         
-        return {"version": version, "dataset": lin[0].toJson(), "source": source.sourceToJson(), "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
+        return {"version": version, "dataset": lin[0].toJson(), "source": source.sourceToJson(lin[0].schemas, lin[0].columns), "statements": statements.toJson(), "actions": [action.toJson(actionsToRefs) for action in actions]}
 
     def compileString(self, libs=None):
         return json.dumps(self.compile(libs))
@@ -192,8 +192,8 @@ class Workflow(object):
 
         return out
 
-    def fromPython(self, data):
-        return self._add_step(fromPython(data))
+    def fromPython(self, **data):
+        return self._add_step(fromPython(**data))
 
     def toPython(self, expression):
         return self._add_step(toPython(expression))
@@ -225,7 +225,7 @@ class fromPython(DataSource):
             except TypeError:
                 raise FemtocodeError("Data supplied as {0} in fromPython is not iterable.".format(json.dumps(n)))
 
-        self.data = **data
+        self.data = data
         super(fromPython, self).__init__()
 
     def _format_args(self):
@@ -237,7 +237,7 @@ class fromPython(DataSource):
         return out
 
     def sourceToJson(self, schemas, columns):
-        stripes = dict((statementlist.ColumnName(n), []) for n in columns)
+        stripes = dict((statementlist.ColumnName(n) if isinstance(n, string_types) else n, []) for n in columns)
         numEntries = None
         for name in self.data:
             if name not in schemas:
@@ -247,7 +247,7 @@ class fromPython(DataSource):
             columnName = statementlist.ColumnName(name)
             total = 0
             for datum in self.data[name]:
-                shred(datum, schema, columns, stripes, columnName)
+                fromPython.shred(datum, schema, columns, stripes, columnName)
                 total += 1
 
             if numEntries is None:
@@ -285,18 +285,18 @@ class fromPython(DataSource):
                         s.append(size)
             items = schema.items
             for x in datum:
-                shred(x, items, columns, stripes, name)
+                fromPython.shred(x, items, columns, stripes, name)
 
         elif isinstance(schema, Record):
             for n, t in schema.fields.items():
-                shred(getattr(datum, n), t, columns, stripes, name.rec(n))
+                fromPython.shred(getattr(datum, n), t, columns, stripes, name.rec(n))
 
         elif isinstance(schema, Union):
             ctag = columns[name.tag()]
             for i, p in enumerate(ctag.possibilities):
                 if datum in p:
                     stripes[name.tag()].append(i)
-                    shred(datum, p, columns, stripes, name.pos(i))
+                    fromPython.shred(datum, p, columns, stripes, name.pos(i))
                     break
 
         else:
@@ -393,5 +393,5 @@ class Dataset(Workflow):
 
     def toJson(self):
         memo = set()
-        return {"schemas": dict((n, t._json_memo(memo)) for n, t in schemas.items()),
-                "columns": dict((n, c.toJson()) for n, c in columns.items())}
+        return {"schemas": dict((n, t._json_memo(memo)) for n, t in self.schemas.items()),
+                "columns": dict((n.toJson(), c.toJson()) for n, c in self.columns.items())}

@@ -33,6 +33,7 @@ class ColumnName(Serializable):
     tagSuffix = "@tag"
     
     def __init__(self, *seq):
+        assert all(isinstance(x, string_types) for x in seq), "ColumnName parts must all be strings, not {0}.".format(seq)
         self.seq = seq
 
     def size(self):
