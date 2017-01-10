@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 import re
+import sys
 import json
 
 from femtocode.defs import *
@@ -258,10 +260,7 @@ class fromPython(DataSource):
         return {"type": "literal", "numEntries": numEntries, "stripes": dict((n.toJson(), s) for n, s in stripes.items())}
 
     @staticmethod
-    def shred(datum, schema, columns, stripes, name):
-        if isinstance(name, string_types):
-            name = statementlist.ColumnName(name)
-
+    def shred(datum, schema, columns, stripes, name):   # NB: columns is ONLY used by Union
         if datum not in schema:
             raise FemtocodeError("Datum {0} is not an instance of schema:\n\n{1}".format(datum, pretty(schema, prefix="    ")))
 
@@ -322,6 +321,70 @@ class toPython(DataSink):
 
     def toJson(self, actionsToRefs):
         return {"type": "toPython", "ref": actionsToRefs[id(self)].toJson()}
+
+    @staticmethod
+    def assemble(schema, columns, stripes, indexes, name):   # NB: columns is ONLY used by Union
+        if isinstance(schema, Null):
+            return None
+
+        elif isinstance(schema, (Boolean, Number)):
+            stripe = stripes[name]
+            out = stripe[indexes[name]]
+            indexes[name] += 1
+            return out
+
+        elif isinstance(schema, String):
+            stripe = stripes[name]
+            index = indexes[name]
+            if schema.charset == "bytes" and schema.fewest == schema.most:
+                size = schema.fewest
+            else:
+                sizeName = name.size()
+                sizeStripe = stripes[sizeName]
+                size = sizeStripe.data[indexes[sizeName]]
+                indexes[sizeName] += 1
+
+            start = index
+            end = index + size
+
+            if schema.charset == "bytes":
+                if sys.version_info[0] >= 3:
+                    out = bytes(stripe[start:end])
+                else:
+                    out = b"".join(stripe[start:end])
+            else:
+                out = u"".join(stripe[start:end])
+
+            indexes[name] += 1
+            return out
+
+        elif isinstance(schema, Collection):
+            if schema.fewest == schema.most:
+                size = schema.fewest
+            else:
+                size = None
+                for n, s in stripes.items():
+                    if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
+                        size = s[indexes[n]]
+                        indexes[n] += 1
+                assert size is not None, "Misaligned collection index"
+
+            items = schema.items
+            return [assemble(items, columns, stripes, indexes, name) for i in xrange(size)]
+
+        elif isinstance(schema, Record):
+            ns = list(schema.fields.keys())
+            return namedtuple("tmp", ns)(*[assemble(schema.fields[n], columns, stripes, indexes, name.rec(n)) for n in ns])
+
+        elif isinstance(schema, Union):
+            tagName = name.tag()
+            stag = stripes[tagName]
+            pos = stag[indexes[tagName]]
+            indexes[tagName] += 1
+            return assemble(columns[tagName].possibilities[pos], columns, stripes, name.pos(pos))
+
+        else:
+            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
 class define(Transformation):
     def __init__(self, **quantities):
