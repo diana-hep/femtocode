@@ -42,7 +42,7 @@ class NumpyEngine(object):
             compiled = json.loads(compiled)
 
         dtypes = {}
-        for name, schemaJson in compiled["inputs"].items() + compiled["temporaries"].items():
+        for name, schemaJson in list(compiled["inputs"].items()) + list(compiled["temporaries"].items()):
             schema = Schema.fromJson(schemaJson)
             if isinstance(schema, Boolean):
                 dtype = numpy.bool_

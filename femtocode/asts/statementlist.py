@@ -91,6 +91,22 @@ class ColumnName(Serializable):
     def __hash__(self):
         return hash((ColumnName, self.seq))
 
+    def __lt__(self, other):
+        if isinstance(other, ColumnName):
+            for x, y in zip(self.seq, other.seq):
+                if isinstance(x, string_types) and isinstance(y, string_types):
+                    if x != y:
+                        return x < y
+                elif isinstance(x, int) and isinstance(y, int):
+                    if x != y:
+                        return x < y
+                else:
+                    return isinstance(x, int)
+            return len(self.seq) < len(other.seq)
+
+        else:
+            raise TypeError("unorderable types: {0}() < {1}()".format(type(self), type(other)))
+
     def __repr__(self):
         return "ColumnName({0})".format(", ".join(map(json.dumps, self.seq)))
 
