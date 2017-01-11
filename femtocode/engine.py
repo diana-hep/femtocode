@@ -130,7 +130,8 @@ class DefaultEngine(object):
             indexes = dict((n, 0) for n in stripes2)
             name = ColumnName(query["result"]["ref"]["data"])
             
-            return [assemble(schema, columns, stripes2, indexes, name) for i in xrange(numEntries)]
+            for i in xrange(numEntries):
+                yield assemble(schema, columns, stripes2, indexes, name)
 
         else:
             raise NotImplementedError
