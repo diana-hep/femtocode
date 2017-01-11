@@ -72,6 +72,13 @@ cdef extern from "femtocoderun.c":
     void plus_ldd(ArrayIndex len, long* in1array, double* in2array, double* outarray)
     void plus_ddd(ArrayIndex len, double* in1array, double* in2array, double* outarray)
 
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# def numpy_explodesize(long numEntries, int numLevels, int numSizeColumns,
+    
+
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def numpy_plus_lll(Py_ssize_t len,
