@@ -73,10 +73,10 @@ class DefaultEngine(object):
         sizeColumnsType = (ctypes.POINTER(self.ItemCount) * len(uniqueSizeColumns))
         sizeColumns = sizeColumnsType(*[ctypes.cast(ctypes.pointer(stripes[x]), sizeColumnsType._type_) for x in uniqueSizeColumns])
 
-        dataSizeColumn = self.ColumnIndex(levels.index(datasize))
+        dataSizeColumn = self.ColumnIndex(uniqueSizeColumns.index(datasize))
         dataArray = stripes[data]
-        datumBytes = ctypes.sizeof(dataArray._type_)
-        
+        datumBytes = self.NumBytes(ctypes.sizeof(dataArray._type_))
+
         return femtocoderun.explodedata(numEntries, numLevels, numSizeColumns, levelToColumnIndex, sizeColumns, dataSizeColumn, datumBytes, dataArray, exploded)
 
     def run(self, query):
