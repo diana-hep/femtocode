@@ -106,42 +106,42 @@ class almost(float):
     def __add__(self, other):
         return almost(self.real + other)
     def __radd__(self, other):
-        return almost(self.real + other)
+        return almost(other + self.real)
     def __sub__(self, other):
         return almost(self.real - other)
     def __rsub__(self, other):
-        return almost(self.real - other)
+        return almost(other - self.real)
     def __mul__(self, other):
         return almost(self.real * other)
     def __rmul__(self, other):
-        return almost(self.real * other)
+        return almost(other * self.real)
     def __pow__(self, other):
         return almost(self.real**other)
     def __rpow__(self, other):
-        return almost(self.real**other)
+        return almost(other**self.real)
 
     def __div__(self, other):
         return almost(self.real / other)
     def __rdiv__(self, other):
-        return almost(self.real / other)
+        return almost(other / self.real)
     def __truediv__(self, other):
         return almost(1.0*self.real / other)
     def __rtruediv__(self, other):
-        return almost(1.0*self.real / other)
+        return almost(1.0*other / self.real)
     def __floordiv__(self, other):
         return almost(self.real // other)
     def __rfloordiv__(self, other):
-        return almost(self.real // other)
+        return almost(other // self.real)
 
     def __mod__(self, other):
         return almost(self.real % other)
     def __rmod__(self, other):
-        return almost(self.real % other)
+        return almost(other % self.real)
     def __divmod__(self, other):
         a, b = divmod(self.real, other)
         return (almost(a), almost(b))
     def __rdivmod__(self, other):
-        a, b = divmod(self.real, other)
+        a, b = divmod(other, self.real)
         return (almost(a), almost(b))
 
 class Schema(object):
