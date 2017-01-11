@@ -15,14 +15,14 @@
 # limitations under the License.
 
 import sys
-import os
-import os.path
-from setuptools import setup, find_packages
-from Cython.Build import cythonize
+from setuptools import setup, find_packages, Extension
 
 import femtocode.version
 
-# os.environ["CFLAGS"] = "-O3"
+femtocoderun = Extension(
+    "femtocoderun",
+    sources=["femtocoderun.c"],
+    extra_compile_args=["-O3"])
 
 setup(name = "femtocode",
       version = femtocode.version.__version__,
@@ -50,7 +50,5 @@ setup(name = "femtocode",
                      "Topic :: Scientific/Engineering :: Physics",
                      ],
       platforms = "Any",
-
-      ### FIXME: this should be split out into its own project
-      ext_modules = cythonize(os.path.join("femtocode", "run", "*.pyx"))
+      ext_modules = [femtocoderun]
       )

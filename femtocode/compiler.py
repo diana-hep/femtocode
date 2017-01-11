@@ -28,6 +28,8 @@ import femtocode.asts.statementlist as statementlist
 import femtocode.lib.standard as standard
 from femtocode.version import version
 from femtocode.typesystem import *
+from femtocode.engine import DefaultEngine
+from femtocode.engine import shred
 
 class Workflow(object):
     def __init__(self, *steps):
@@ -157,11 +159,6 @@ class Workflow(object):
 
     def run(self, libs=None):
         compiled = self.compile(libs)
-
-        # we know this is a Dataset because the above succeeded
-        if self.engine is None:
-            raise FemtocodeError("No engine has been associated with this Dataset.")
-
         return self.engine.run(compiled)
         
     def submit(self, libs=None):
@@ -269,7 +266,7 @@ class fromPython(DataSource):
             columnName = statementlist.ColumnName(name)
             total = 0
             for datum in self.data[name]:
-                fromPython.shred(datum, schema, columns, stripes, columnName)
+                shred(datum, schema, columns, stripes, columnName)
                 total += 1
 
             if numEntries is None:
@@ -278,48 +275,6 @@ class fromPython(DataSource):
                 raise FemtocodeError("Data supplied as {0} in fromPython has a different number of entries than the others ({1} vs {2}).".format(name, total, numEntries))
 
         return {"type": "literal", "numEntries": numEntries, "stripes": dict((n.toJson(), s) for n, s in stripes.items())}
-
-    @staticmethod
-    def shred(datum, schema, columns, stripes, name):   # NB: columns is ONLY used by Union
-        if datum not in schema:
-            raise FemtocodeError("Datum {0} is not an instance of schema:\n\n{1}".format(datum, pretty(schema, prefix="    ")))
-
-        if isinstance(schema, Null):
-            pass
-
-        elif isinstance(schema, (Boolean, Number)):
-            stripes[name].append(datum)
-
-        elif isinstance(schema, String):
-            stripes[name].extend(list(datum))
-            if schema.charset != "bytes" or schema.fewest != schema.most:
-                sizeName = name.size()
-                stripes[sizeName].append(len(datum))
-
-        elif isinstance(schema, Collection):
-            if schema.fewest != schema.most:
-                size = len(datum)
-                for n, s in stripes.items():
-                    if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
-                        s.append(size)
-            items = schema.items
-            for x in datum:
-                fromPython.shred(x, items, columns, stripes, name)
-
-        elif isinstance(schema, Record):
-            for n, t in schema.fields.items():
-                fromPython.shred(getattr(datum, n), t, columns, stripes, name.rec(n))
-
-        elif isinstance(schema, Union):
-            ctag = columns[name.tag()]
-            for i, p in enumerate(ctag.possibilities):
-                if datum in p:
-                    stripes[name.tag()].append(i)
-                    fromPython.shred(datum, p, columns, stripes, name.pos(i))
-                    break
-
-        else:
-            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
 class toPython(DataSink):
     def __init__(self, expression):
@@ -341,76 +296,6 @@ class toPython(DataSink):
 
     def toJson(self, actionsToRefs):
         return {"type": "toPython", "ref": actionsToRefs[id(self)].toJson()}
-
-    @staticmethod
-    def assemble(schema, columns, stripes, indexes, name):   # NB: columns is ONLY used by Union
-        if isinstance(schema, Null):
-            return None
-
-        elif isinstance(schema, (Boolean, Number)):
-            stripe = stripes[name]
-            out = stripe[indexes[name]]
-            indexes[name] += 1
-
-            if isinstance(schema, Boolean):
-                return bool(out)
-            elif schema.whole:
-                return int(out)
-            else:
-                return float(out)
-
-        elif isinstance(schema, String):
-            stripe = stripes[name]
-            index = indexes[name]
-            if schema.charset == "bytes" and schema.fewest == schema.most:
-                size = schema.fewest
-            else:
-                sizeName = name.size()
-                sizeStripe = stripes[sizeName]
-                size = sizeStripe.data[indexes[sizeName]]
-                indexes[sizeName] += 1
-
-            start = index
-            end = index + size
-
-            if schema.charset == "bytes":
-                if sys.version_info[0] >= 3:
-                    out = bytes(stripe[start:end])
-                else:
-                    out = b"".join(stripe[start:end])
-            else:
-                out = u"".join(stripe[start:end])
-
-            indexes[name] += 1
-            return out
-
-        elif isinstance(schema, Collection):
-            if schema.fewest == schema.most:
-                size = schema.fewest
-            else:
-                size = None
-                for n, s in stripes.items():
-                    if n.startswith(name) and n.endswith(ColumnName.sizeSuffix):
-                        size = s[indexes[n]]
-                        indexes[n] += 1
-                assert size is not None, "Misaligned collection index"
-
-            items = schema.items
-            return [assemble(items, columns, stripes, indexes, name) for i in xrange(size)]
-
-        elif isinstance(schema, Record):
-            ns = list(schema.fields.keys())
-            return namedtuple("tmp", ns)(*[assemble(schema.fields[n], columns, stripes, indexes, name.rec(n)) for n in ns])
-
-        elif isinstance(schema, Union):
-            tagName = name.tag()
-            stag = stripes[tagName]
-            pos = stag[indexes[tagName]]
-            indexes[tagName] += 1
-            return assemble(columns[tagName].possibilities[pos], columns, stripes, name.pos(pos))
-
-        else:
-            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
 class define(Transformation):
     def __init__(self, **quantities):
@@ -459,7 +344,7 @@ class Dataset(Workflow):
 
         self.schemas = schemas
         self.columns = columns
-        self.engine = None
+        self.engine = DefaultEngine()
 
         super(Dataset, self).__init__()
 

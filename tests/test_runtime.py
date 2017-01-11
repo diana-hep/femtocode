@@ -19,19 +19,19 @@ import re
 import sys
 import unittest
 
-from femtocode.run.numpyengine import *
+import os.path
+import ctypes
 
-import sys
+from femtocode.compiler import Dataset
+from femtocode.typesystem import *
 
 if sys.version_info.major >= 3:
     long = int
     basestring = str
 
-class TestNumpyEngine(unittest.TestCase):
+class TestRuntime(unittest.TestCase):
     def runTest(self):
         pass
 
     def test_simple1(self):
-        self.assertEqual(NumpyDataset(x=integer, y=real).fromPython(x=list(range(10)), y=list(range(0, 1000, 100))).toPython("x + y").run(), [0.0, 101.0, 202.0, 303.0, 404.0, 505.0, 606.0, 707.0, 808.0, 909.0])
-
-
+        self.assertEqual(Dataset(x=integer, y=real).fromPython(x=list(range(10)), y=list(range(0, 1000, 100))).toPython("x + y").run(), [0.0, 101.0, 202.0, 303.0, 404.0, 505.0, 606.0, 707.0, 808.0, 909.0])
