@@ -33,5 +33,8 @@ class TestRuntime(unittest.TestCase):
     def runTest(self):
         pass
 
-    def test_simple1(self):
+    def test_plus(self):
         self.assertEqual(Dataset(x=integer, y=real).fromPython(x=list(range(10)), y=list(range(0, 1000, 100))).toPython("x + y").run(), [0.0, 101.0, 202.0, 303.0, 404.0, 505.0, 606.0, 707.0, 808.0, 909.0])
+
+    def test_explode(self):
+        print Dataset(xss=collection(collection(integer)), ys=collection(integer)).fromPython(xss=[[[100, 200], [300, 400], [500, 600]]], ys=[[1, 2, 3, 4]]).toPython("xss.map(xs => xs.map(x => ys.map(y => x + y)))").run()

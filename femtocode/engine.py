@@ -24,53 +24,112 @@ from femtocode.typesystem import *
 from femtocode.asts.statementlist import ColumnName
 
 class DefaultEngine(object):
-    def run(self, compiled):
+    EntryCount = ctypes.c_uint64
+    ItemCount = ctypes.c_uint64
+    ArrayIndex = ctypes.c_uint64
+    LevelIndex = ctypes.c_uint32
+    ColumnIndex = ctypes.c_uint32
+    NumBytes = ctypes.c_uint32
+
+    def gettype(self, name, schema):
+        if name.endswith(ColumnName.sizeSuffix):
+            return self.ItemCount
+        elif isinstance(schema, Boolean):
+            return ctypes.c_bool
+        elif isinstance(schema, Number) and schema.whole:
+            return ctypes.c_int64
+        elif isinstance(schema, Number):
+            return ctypes.c_double
+        elif isinstance(schema, String):
+            return ctypes.c_char
+        else:
+            assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
+
+    def explodesize(self, numEntries, levels, stripes, femtocoderun, exploded):
+        assert not any("#" in level for level in levels), "explodesize must not be called on temporary stripes: {0}".format(levels)
+
+        numEntries = self.EntryCount(numEntries)
+        numLevels = self.LevelIndex(len(levels))
+
+        uniqueSizeColumns = list(set(levels))
+        numSizeColumns = self.ColumnIndex(len(uniqueSizeColumns))
+
+        levelToColumnIndex = (self.ColumnIndex * len(levels))(*[uniqueSizeColumns.index(x) for x in levels])
+
+        sizeColumnsType = (ctypes.POINTER(self.ItemCount) * len(uniqueSizeColumns))
+        sizeColumns = sizeColumnsType(*[ctypes.cast(ctypes.pointer(stripes[x]), sizeColumnsType._type_) for x in uniqueSizeColumns])
+
+        return femtocoderun.explodesize(numEntries, numLevels, numSizeColumns, levelToColumnIndex, sizeColumns, exploded)
+
+    def explodedata(self, numEntries, levels, data, datasize, stripes, femtocoderun, exploded):
+        numEntries = self.EntryCount(numEntries)
+        numLevels = self.LevelIndex(len(levels))
+
+        uniqueSizeColumns = list(set(levels))
+        numSizeColumns = self.ColumnIndex(len(uniqueSizeColumns))
+
+        levelToColumnIndex = (self.ColumnIndex * len(levels))(*[uniqueSizeColumns.index(x) for x in levels])
+
+        sizeColumnsType = (ctypes.POINTER(self.ItemCount) * len(uniqueSizeColumns))
+        sizeColumns = sizeColumnsType(*[ctypes.cast(ctypes.pointer(stripes[x]), sizeColumnsType._type_) for x in uniqueSizeColumns])
+
+        dataSizeColumn = self.ColumnIndex(levels.index(datasize))
+        dataArray = stripes[data]
+        datumBytes = ctypes.sizeof(dataArray._type_)
+        
+        return femtocoderun.explodedata(numEntries, numLevels, numSizeColumns, levelToColumnIndex, sizeColumns, dataSizeColumn, datumBytes, dataArray, exploded)
+
+    def run(self, query):
         location = glob.glob(os.path.join(os.path.split(os.path.split(__file__)[0])[0], "femtocoderun*.so"))[0]
         femtocoderun = ctypes.cdll.LoadLibrary(location)
 
-        if isinstance(compiled, string_types):
-            compiled = json.loads(compiled)
+        if isinstance(query, string_types):
+            query = json.loads(query)
 
-        types = {}
-        for name, schemaJson in list(compiled["inputs"].items()) + list(compiled["temporaries"].items()):
-            schema = Schema.fromJson(schemaJson)
-            if isinstance(schema, Boolean):
-                types[name] = ctypes.c_bool
-            elif isinstance(schema, Number) and schema.whole:
-                types[name] = ctypes.c_int64
-            elif isinstance(schema, Number):
-                types[name] = ctypes.c_double
-            elif isinstance(schema, String):
-                types[name] = ctypes.c_char
-            else:
-                assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
-
-        if compiled["source"]["type"] == "literal" and compiled["result"]["type"] == "toPython":
-            numEntries = compiled["source"]["numEntries"]
+        if query["source"]["type"] == "literal" and query["result"]["type"] == "toPython":
+            numEntries = query["source"]["numEntries"]
             stripes = {}
-            for name in compiled["inputs"]:
-                lst = compiled["source"]["stripes"][name]
-                stripes[name] = (types[name] * len(lst))(*lst)
+            for name, schemaJson in query["inputs"].items():
+                lst = query["source"]["stripes"][name]
+                stripes[name] = (self.gettype(name, Schema.fromJson(schemaJson)) * len(lst))(*lst)
 
-            for name in compiled["temporaries"]:
-                sizeName = ColumnName.parse(name).size()
-                if sizeName in compiled["temporaries"]:
-                    raise NotImplementedError
+            for statement in query["statements"]:
+                if statement["fcn"] == "explodesize":
+                    size = self.explodesize(query["source"]["numEntries"], statement["levels"], stripes, femtocoderun, ctypes.c_size_t(0))
+
+                elif statement["fcn"] == "explodedata":
+                    size = self.explodedata(query["source"]["numEntries"], statement["levels"], statement["data"], statement["size"], stripes, femtocoderun, ctypes.c_size_t(0))
+
                 else:
-                    size = compiled["source"]["numEntries"]
+                    size = None
+                    for arg in statement["args"]:
+                        if size is None:
+                            size = len(stripes[arg])
+                        else:
+                            assert size == len(stripes[arg]), "All arguments of an ordinary function must have equal sizes: {0} vs {1}.".format(size, len(stripes[arg]))
 
-                stripes[name] = (types[name] * size)()
+                name = statement["to"]
+                stripes[name] = (self.gettype(name, Schema.fromJson(query["temporaries"][name])) * size)()
 
-            for statement in compiled["statements"]:
-                fcn = getattr(femtocoderun, statement["fcn"])
-                fcn(*([size] + [stripes[x] for x in statement["args"]] + [stripes[statement["to"]]]))
+            for statement in query["statements"]:
+                if statement["fcn"] == "explodesize":
+                    self.explodesize(query["source"]["numEntries"], statement["levels"], stripes, femtocoderun, stripes[statement["to"]])
 
-            schema = Schema.fromJson(compiled["result"]["ref"]["schema"])
-            columns = dict((ColumnName.parse(n), None) for n in stripes)   # FIXME: faked; remove this dependency!
-            stripes2 = dict((ColumnName.parse(n), s) for n, s in stripes.items())
-            indexes = dict((ColumnName.parse(n), 0) for n in stripes)
-            name = ColumnName(compiled["result"]["ref"]["data"])
+                elif statement["fcn"] == "explodedata":
+                    self.explodedata(query["source"]["numEntries"], statement["levels"], statement["data"], statement["size"], stripes, femtocoderun, stripes[statement["to"]])
 
+                else:
+                    fcn = getattr(femtocoderun, statement["fcn"])
+                    fcn(*([size] + [stripes[x] for x in statement["args"]] + [stripes[statement["to"]]]))
+            
+            schema = Schema.fromJson(query["result"]["ref"]["schema"])
+            stripes2 = dict([(ColumnName.parse(n), s) for n, s in stripes.items()])
+            if query["result"]["ref"]["size"] is not None:
+                stripes2[ColumnName(query["result"]["ref"]["data"]).size()] = stripes[query["result"]["ref"]["size"]]  # link the result to its size
+            columns = stripes2   # FIXME: faked; remove this dependency!
+            indexes = dict((n, 0) for n in stripes2)
+            name = ColumnName(query["result"]["ref"]["data"])
+            
             return [assemble(schema, columns, stripes2, indexes, name) for i in xrange(numEntries)]
 
         else:

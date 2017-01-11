@@ -139,7 +139,6 @@ class Workflow(object):
         refnumber = 0
         statements = statementlist.Statements()
         actionsToRefs = {}
-        actionsToTypes = {}
         for tt, action in zip(typedtrees, actions):
             ref, ss, refnumber = statementlist.build(tt, lin[0].columns, replacements, refnumber)
             statements.extend(ss)

@@ -22,9 +22,7 @@ limitations under the License.
 #include "femtocoderun.h"
 
 void explodesize_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIndex levi, ColumnIndex* levelToColumnIndex, ArrayIndex* si, ArrayIndex* startsi, ItemCount** sizeColumns, ArrayIndex* explodedlen, ItemCount* exploded) {
-  if (levi == numLevels) {
-    printf(".");
-  }
+  if (levi == numLevels) { }
   else {
     ColumnIndex coli = levelToColumnIndex[levi];
     ItemCount repeat = sizeColumns[coli][si[coli]];
@@ -39,7 +37,6 @@ void explodesize_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIn
     for (j = 0;  j < numSizeColumns;  j++)
       startsi[levi * numSizeColumns + j] = si[j];
 
-    printf("[");
     for (i = 0;  i < repeat;  i++) {
       for (j = 0;  j < numSizeColumns;  j++)
         if (j != coli)
@@ -47,7 +44,6 @@ void explodesize_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIn
 
       explodesize_entry(numLevels, numSizeColumns, levi + 1, levelToColumnIndex, si, startsi, sizeColumns, explodedlen, exploded);
     }
-    printf("]");
   }
 }
 
@@ -68,10 +64,8 @@ ArrayIndex explodesize(EntryCount numEntries, LevelIndex numLevels, ColumnIndex 
 
   startsi = (ArrayIndex*)&indexes[numLevels + 2*numSizeColumns];
 
-  for (entry = 0;  entry < numEntries;  entry++) {
+  for (entry = 0;  entry < numEntries;  entry++)
     explodesize_entry(numLevels, numSizeColumns, 0, levelToColumnIndex2, si, startsi, sizeColumns, &explodedlen, exploded);
-    printf("\n");
-  }
 
   free(indexes);
   return explodedlen;
@@ -79,8 +73,6 @@ ArrayIndex explodesize(EntryCount numEntries, LevelIndex numLevels, ColumnIndex 
 
 void explodedata_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIndex levi, ColumnIndex* levelToColumnIndex, ArrayIndex* si, ArrayIndex* startsi, ArrayIndex* di, ArrayIndex* startdi, ItemCount** sizeColumns, ColumnIndex dataSizeColumn, NumBytes datumBytes, char* data, ArrayIndex* explodedlen, char* exploded) {
   if (levi == numLevels) {
-    printf(".");
-
     if (exploded != NULL) {
       NumBytes j;
       for (j = 0;  j < datumBytes;  j++)
@@ -100,7 +92,6 @@ void explodedata_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIn
       startsi[levi * numSizeColumns + j] = si[j];
     startdi[levi] = *di;
 
-    printf("[");
     for (i = 0;  i < repeat;  i++) {
       for (j = 0;  j < numSizeColumns;  j++)
         if (j != coli)
@@ -111,7 +102,6 @@ void explodedata_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIn
 
       explodedata_entry(numLevels, numSizeColumns, levi + 1, levelToColumnIndex, si, startsi, di, startdi, sizeColumns, dataSizeColumn, datumBytes, data, explodedlen, exploded);
     }
-    printf("]");
   }
 }
 
@@ -136,7 +126,6 @@ ArrayIndex explodedata(EntryCount numEntries, LevelIndex numLevels, ColumnIndex 
 
   for (entry = 0;  entry < numEntries;  entry++) {
     explodedata_entry(numLevels, numSizeColumns, 0, levelToColumnIndex2, si, startsi, &di, startdi, sizeColumns, dataSizeColumn, datumBytes, (char*)data, &explodedlen, (char*)exploded);
-    printf("\n");
   }
 
   free(indexes);

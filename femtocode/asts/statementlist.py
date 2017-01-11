@@ -513,9 +513,10 @@ class ExplodeSize(Call):
         return {"to": self.column.toJson(), "fcn": self.fcnname, "levels": [x.toJson() for x in self.levels]}
 
 class ExplodeData(Call):
-    def __init__(self, column, data, levels):
+    def __init__(self, column, data, size, levels):
         self.column = column
         self.data = data
+        self.size = size
         self.levels = levels
 
     @property
@@ -524,16 +525,16 @@ class ExplodeData(Call):
 
     @property
     def args(self):
-        return (self.data, self.levels)
+        return (self.data, self.size, self.levels)
 
     def __repr__(self):
-        return "statementlist.ExplodeData({0}, {1}, {2})".format(self.column, self.data, self.levels)
+        return "statementlist.ExplodeData({0}, {1}, {2}, {3})".format(self.column, self.data, self.size, self.levels)
 
     def __str__(self):
-        return "{0} := {1}({2}, [{3}])".format(str(self.column), self.fcnname, str(self.data), ", ".join(map(str, self.levels)))
+        return "{0} := {1}({2}, {3}, [{4}])".format(str(self.column), self.fcnname, str(self.data), str(self.size), ", ".join(map(str, self.levels)))
 
     def toJson(self):
-        return {"to": self.column.toJson(), "fcn": self.fcnname, "data": self.data.toJson(), "levels": [x.toJson() for x in self.levels]}
+        return {"to": self.column.toJson(), "fcn": self.fcnname, "data": self.data.toJson(), "size": self.size.toJson(), "levels": [x.toJson() for x in self.levels]}
 
 def exploderef(ref, replacements, refnumber, explosions):
     columnName = ColumnName("#" + repr(refnumber))
@@ -552,7 +553,7 @@ def exploderef(ref, replacements, refnumber, explosions):
     else:
         explodedData = DataColumn(columnName, ref.data.schema)
         replacements[(ExplodeData, ref.name, explosions)] = explodedData
-        statements.append(ExplodeData(explodedData, ref.data, explosions))
+        statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
 
     if len(statements) == 0:
         return ref, [], refnumber
