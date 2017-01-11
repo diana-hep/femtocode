@@ -16,6 +16,7 @@
 
 import json
 import ctypes
+import glob
 import os.path
 
 from femtocode.py23 import *
@@ -24,11 +25,8 @@ from femtocode.asts.statementlist import ColumnName
 
 class DefaultEngine(object):
     def run(self, compiled):
-        location = os.path.join(os.path.split(os.path.split(__file__)[0])[0], "femtocoderun.so")
-        try:
-            femtocoderun = ctypes.cdll.LoadLibrary(location)
-        except OSError:
-            raise ImportError("Could not load femtocoderun.so.\n\n    Expected path: {0}".format(location))
+        location = glob.glob(os.path.join(os.path.split(os.path.split(__file__)[0])[0], "femtocoderun*.so"))[0]
+        femtocoderun = ctypes.cdll.LoadLibrary(location)
 
         if isinstance(compiled, string_types):
             compiled = json.loads(compiled)
