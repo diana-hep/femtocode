@@ -490,6 +490,30 @@ class Call(Statement):
     def __hash__(self):
         return hash((Call, self.column, self.fcnname, self.args))
 
+class Explode(Call):
+    def __init__(self, column, data, size, numLevels):
+        self.column = column
+        self.data = data
+        self.size = size
+        self.numLevels = numLevels
+
+    @property
+    def fcnname(self):
+        return "explode"
+
+    @property
+    def args(self):
+        return (self.data, self.size, self.numLevels)
+
+    def __repr__(self):
+        return "statementlist.Explode({0}, {1}, {2}, {3})".format(self.column, self.data, self.size, self.numLevels)
+
+    def __str__(self):
+        return "{0} := {1}({2}, {3}, {4})".format(str(self.column), self.fcnname, str(self.data), str(self.size), self.numLevels)
+
+    def toJson(self):
+        return {"to": self.column.toJson(), "fcn": self.fcnname, "data": self.data.toJson(), "size": self.size.toJson(), "numLevels": self.numLevels}
+
 class ExplodeSize(Call):
     def __init__(self, column, levels):
         self.column = column
@@ -537,27 +561,40 @@ class ExplodeData(Call):
         return {"to": self.column.toJson(), "fcn": self.fcnname, "data": self.data.toJson(), "size": self.size.toJson(), "levels": [x.toJson() for x in self.levels]}
 
 def exploderef(ref, replacements, refnumber, explosions):
-    columnName = ColumnName("#" + repr(refnumber))
+    if ref.size is None and len(set(explosions)) == 1:
+        statements = []
 
-    statements = []
+        if (Explode, ref.name, explosions) in replacements:
+            explodedData = replacements[(Explode, ref.name, explosions)]
+        else:
+            columnName = ColumnName("#" + repr(refnumber))
+            explodedData = DataColumn(columnName, ref.data.schema)
+            replacements[(Explode, ref.name, explosions)] = explodedData
+            statements.append(Explode(explodedData, ref.data, explosions[0], len(explosions)))
 
-    if (ExplodeSize, explosions) in replacements:
-        explodedSize = replacements[(ExplodeSize, explosions)]
-    else:
-        explodedSize = SizeColumn(columnName.size())
-        replacements[(ExplodeSize, explosions)] = explodedSize
-        statements.append(ExplodeSize(explodedSize, explosions))
+        return Ref(refnumber, ref.data.schema, explodedData, explosions[0]), statements, refnumber + 1
 
-    if (ExplodeData, ref.name, explosions) in replacements:
-        explodedData = replacements[(ExplodeData, ref.name, explosions)]
-    else:
-        explodedData = DataColumn(columnName, ref.data.schema)
-        replacements[(ExplodeData, ref.name, explosions)] = explodedData
-        statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
-
-    if len(statements) == 0:
+    elif set([ref.size]) == set(explosions):
         return ref, [], refnumber
+
     else:
+        columnName = ColumnName("#" + repr(refnumber))
+        statements = []
+
+        if (ExplodeSize, explosions) in replacements:
+            explodedSize = replacements[(ExplodeSize, explosions)]
+        else:
+            explodedSize = SizeColumn(columnName.size())
+            replacements[(ExplodeSize, explosions)] = explodedSize
+            statements.append(ExplodeSize(explodedSize, explosions))
+
+        if (ExplodeData, ref.name, explosions) in replacements:
+            explodedData = replacements[(ExplodeData, ref.name, explosions)]
+        else:
+            explodedData = DataColumn(columnName, ref.data.schema)
+            replacements[(ExplodeData, ref.name, explosions)] = explodedData
+            statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
+
         return Ref(refnumber, ref.data.schema, explodedData, explodedSize), statements, refnumber + 1
 
 def build(tree, columns, replacements=None, refnumber=0, explosions=()):

@@ -36,7 +36,10 @@ class TestRuntime(unittest.TestCase):
     def test_plus(self):
         self.assertEqual(list(Dataset(x=integer, y=real).fromPython(x=list(range(10)), y=list(range(0, 1000, 100))).toPython("x + y").run()), [0.0, 101.0, 202.0, 303.0, 404.0, 505.0, 606.0, 707.0, 808.0, 909.0])
 
-    def test_explode(self):
+    def test_simple_explode(self):
+        self.assertEqual(list(Dataset(xs=collection(integer), y=integer).fromPython(xs=[[1, 2, 3, 4], [], [5, 6, 7]], y=[100, 200, 300]).toPython("xs.map(x => x + y)").run()), [[101, 102, 103, 104], [], [305, 306, 307]])
+
+    def test_complex_explode(self):
         # scala> val xss = List(List(100, 200), List(300, 400), List(500, 600))
         # xss: List[List[Int]] = List(List(100, 200), List(300, 400), List(500, 600))
 

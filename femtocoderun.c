@@ -21,6 +21,42 @@ limitations under the License.
 
 #include "femtocoderun.h"
 
+ArrayIndex explode(EntryCount numEntries, LevelIndex numLevels, ItemCount* sizeColumn, NumBytes datumBytes, void* data, void* exploded) {
+  LevelIndex* countdown = malloc((numLevels + 1) * sizeof(LevelIndex));
+  LevelIndex deepi = 0;
+  ArrayIndex sizei = 0;
+  ArrayIndex entry = 0;
+  ArrayIndex explodedlen = 0;
+  
+  while (entry < numEntries) {
+    if (deepi != 0)
+      countdown[deepi] -= 1;
+
+    if (deepi == numLevels) {
+      if (exploded != NULL) {
+        NumBytes j;
+        for (j = 0;  j < datumBytes;  j++)
+          ((char*)exploded)[explodedlen * datumBytes + j] = ((char*)data)[entry * datumBytes + j];
+      }
+      explodedlen++;
+    }
+    else {
+      deepi++;
+      countdown[deepi] = sizeColumn[sizei];
+      sizei++;
+    }
+
+    while (deepi != 0  &&  countdown[deepi] == 0)
+      deepi--;
+
+    if (deepi == 0)
+      entry++;
+  }
+
+  free(countdown);
+  return explodedlen;
+}
+
 void explodesize_entry(LevelIndex numLevels, ColumnIndex numSizeColumns, LevelIndex levi, ColumnIndex* levelToColumnIndex, ArrayIndex* si, ArrayIndex* startsi, ItemCount** sizeColumns, ArrayIndex* explodedlen, ItemCount* exploded) {
   if (levi == numLevels) { }
   else {

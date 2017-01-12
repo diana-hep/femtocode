@@ -31,6 +31,8 @@ class DefaultEngine(object):
     ColumnIndex = ctypes.c_uint32
     NumBytes = ctypes.c_uint32
 
+    NULL = ctypes.POINTER(None)(0)
+
     def gettype(self, name, schema):
         if name.endswith(ColumnName.sizeSuffix):
             return self.ItemCount
@@ -44,6 +46,21 @@ class DefaultEngine(object):
             return ctypes.c_char
         else:
             assert False, "unexpected column schema: {0} {1}".format(type(schema), schema)
+
+    def explode(self, numEntries, data, size, numLevels, stripes, femtocoderun, exploded):
+        numEntries = self.EntryCount(numEntries)
+        numLevels = self.LevelIndex(numLevels)
+
+        sizeColumn = stripes[size]
+
+        if exploded is self.NULL:
+            dataColumn = self.NULL
+            datumBytes = self.NumBytes(0)
+        else:
+            dataColumn = stripes[data]
+            datumBytes = self.NumBytes(ctypes.sizeof(dataColumn._type_))
+        
+        return femtocoderun.explode(numEntries, numLevels, sizeColumn, datumBytes, dataColumn, exploded)
 
     def explodesize(self, numEntries, levels, stripes, femtocoderun, exploded):
         assert not any("#" in level for level in levels), "explodesize must not be called on temporary stripes: {0}".format(levels)
@@ -74,10 +91,14 @@ class DefaultEngine(object):
         sizeColumns = sizeColumnsType(*[ctypes.cast(ctypes.pointer(stripes[x]), sizeColumnsType._type_) for x in uniqueSizeColumns])
 
         dataSizeColumn = self.ColumnIndex(uniqueSizeColumns.index(datasize))
-        dataArray = stripes[data]
-        datumBytes = self.NumBytes(ctypes.sizeof(dataArray._type_))
+        if exploded is self.NULL:
+            dataColumn = self.NULL
+            datumBytes = self.NumBytes(0)
+        else:
+            dataColumn = stripes[data]
+            datumBytes = self.NumBytes(ctypes.sizeof(dataColumn._type_))
 
-        return femtocoderun.explodedata(numEntries, numLevels, numSizeColumns, levelToColumnIndex, sizeColumns, dataSizeColumn, datumBytes, dataArray, exploded)
+        return femtocoderun.explodedata(numEntries, numLevels, numSizeColumns, levelToColumnIndex, sizeColumns, dataSizeColumn, datumBytes, dataColumn, exploded)
 
     def run(self, query):
         location = glob.glob(os.path.join(os.path.split(os.path.split(__file__)[0])[0], "femtocoderun*.so"))[0]
@@ -94,11 +115,14 @@ class DefaultEngine(object):
                 stripes[name] = (self.gettype(name, Schema.fromJson(schemaJson)) * len(lst))(*lst)
 
             for statement in query["statements"]:
-                if statement["fcn"] == "explodesize":
-                    size = self.explodesize(query["source"]["numEntries"], statement["levels"], stripes, femtocoderun, ctypes.c_size_t(0))
+                if statement["fcn"] == "explode":
+                    size = self.explode(query["source"]["numEntries"], statement["data"], statement["size"], statement["numLevels"], stripes, femtocoderun, self.NULL)
+
+                elif statement["fcn"] == "explodesize":
+                    size = self.explodesize(query["source"]["numEntries"], statement["levels"], stripes, femtocoderun, self.NULL)
 
                 elif statement["fcn"] == "explodedata":
-                    size = self.explodedata(query["source"]["numEntries"], statement["levels"], statement["data"], statement["size"], stripes, femtocoderun, ctypes.c_size_t(0))
+                    size = self.explodedata(query["source"]["numEntries"], statement["levels"], statement["data"], statement["size"], stripes, femtocoderun, self.NULL)
 
                 else:
                     size = None
@@ -112,7 +136,10 @@ class DefaultEngine(object):
                 stripes[name] = (self.gettype(name, Schema.fromJson(query["temporaries"][name])) * size)()
 
             for statement in query["statements"]:
-                if statement["fcn"] == "explodesize":
+                if statement["fcn"] == "explode":
+                    self.explode(query["source"]["numEntries"], statement["data"], statement["size"], statement["numLevels"], stripes, femtocoderun, stripes[statement["to"]])
+                
+                elif statement["fcn"] == "explodesize":
                     self.explodesize(query["source"]["numEntries"], statement["levels"], stripes, femtocoderun, stripes[statement["to"]])
 
                 elif statement["fcn"] == "explodedata":

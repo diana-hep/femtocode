@@ -28,6 +28,13 @@ typedef uint32_t LevelIndex;
 typedef uint32_t ColumnIndex;
 typedef uint32_t NumBytes;
 
+ArrayIndex explode(EntryCount numEntries,
+                   LevelIndex numLevels,
+                   ItemCount* sizeColumn,
+                   NumBytes datumBytes,
+                   void* data,
+                   void* exploded);
+
 ArrayIndex explodesize(EntryCount numEntries,
                        LevelIndex numLevels,
                        ColumnIndex numSizeColumns,
