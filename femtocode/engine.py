@@ -126,17 +126,16 @@ class DefaultEngine(object):
             stripes2 = dict([(ColumnName.parse(n), s) for n, s in stripes.items()])
             if query["result"]["ref"]["size"] is not None:
                 stripes2[ColumnName(query["result"]["ref"]["data"]).size()] = stripes[query["result"]["ref"]["size"]]  # link the result to its size
-            columns = stripes2   # FIXME: faked; remove this dependency!
             indexes = dict((n, 0) for n in stripes2)
             name = ColumnName(query["result"]["ref"]["data"])
             
             for i in xrange(numEntries):
-                yield assemble(schema, columns, stripes2, indexes, name)
+                yield assemble(schema, stripes2, indexes, name)
 
         else:
             raise NotImplementedError
 
-def shred(datum, schema, columns, stripes, name):   # NB: columns is ONLY used by Union
+def shred(datum, schema, stripes, name):
     if datum not in schema:
         raise FemtocodeError("Datum {0} is not an instance of schema:\n\n{1}".format(datum, pretty(schema, prefix="    ")))
 
@@ -160,24 +159,23 @@ def shred(datum, schema, columns, stripes, name):   # NB: columns is ONLY used b
                     s.append(size)
         items = schema.items
         for x in datum:
-            shred(x, items, columns, stripes, name)
+            shred(x, items, stripes, name)
 
     elif isinstance(schema, Record):
         for n, t in schema.fields.items():
-            shred(getattr(datum, n), t, columns, stripes, name.rec(n))
+            shred(getattr(datum, n), t, stripes, name.rec(n))
 
     elif isinstance(schema, Union):
-        ctag = columns[name.tag()]
-        for i, p in enumerate(ctag.possibilities):
+        for i, p in enumerate(schema.possibilities):
             if datum in p:
                 stripes[name.tag()].append(i)
-                shred(datum, p, columns, stripes, name.pos(i))
+                shred(datum, p, stripes, name.pos(i))
                 break
 
     else:
         assert False, "unexpected type: {0} {1}".format(type(schema), schema)
 
-def assemble(schema, columns, stripes, indexes, name):   # NB: columns is ONLY used by Union
+def assemble(schema, stripes, indexes, name):
     if isinstance(schema, Null):
         return None
 
@@ -230,18 +228,18 @@ def assemble(schema, columns, stripes, indexes, name):   # NB: columns is ONLY u
             assert size is not None, "Misaligned collection index"
 
         items = schema.items
-        return [assemble(items, columns, stripes, indexes, name) for i in xrange(size)]
+        return [assemble(items, stripes, indexes, name) for i in xrange(size)]
 
     elif isinstance(schema, Record):
         ns = list(schema.fields.keys())
-        return namedtuple("tmp", ns)(*[assemble(schema.fields[n], columns, stripes, indexes, name.rec(n)) for n in ns])
+        return namedtuple("tmp", ns)(*[assemble(schema.fields[n], stripes, indexes, name.rec(n)) for n in ns])
 
     elif isinstance(schema, Union):
         tagName = name.tag()
         stag = stripes[tagName]
         pos = stag[indexes[tagName]]
         indexes[tagName] += 1
-        return assemble(columns[tagName].possibilities[pos], columns, stripes, name.pos(pos))
+        return assemble(schema.possibilities[pos], stripes, indexes, name.pos(pos))
 
     else:
         assert False, "unexpected type: {0} {1}".format(type(schema), schema)

@@ -265,7 +265,7 @@ class fromPython(DataSource):
             columnName = statementlist.ColumnName(name)
             total = 0
             for datum in self.data[name]:
-                shred(datum, schema, columns, stripes, columnName)
+                shred(datum, schema, stripes, columnName)
                 total += 1
 
             if numEntries is None:
