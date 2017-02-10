@@ -26,7 +26,7 @@ class TestFastReader(unittest.TestCase):
 
     def test_fastReader(self):
         data = numpy.ones(120463, dtype=numpy.float64) * 1.1
-        size = numpy.ones(48131, dtype=numpy.int64) * 999
+        size = numpy.ones(48131, dtype=numpy.uint64) * 999
 
         print(fillarrays("file:/home/pivarski/storage/data/00000000-0000-0000-0000-000000000000.root", "Events", [("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", data, size)]))
 
