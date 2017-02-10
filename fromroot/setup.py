@@ -22,7 +22,7 @@ import numpy.distutils.misc_util
 
 import femtocode.version
 
-root2numpy = Extension("_fastreader", [os.path.join("femtocode", "fromroot", "_fastreader.cpp")])
+root2numpy = Extension("femtocode.fromroot._fastreader", [os.path.join("femtocode", "fromroot", "_fastreader.cpp")])
 
 setup(name = "femtocode-fromroot",
       version = femtocode.version.__version__,

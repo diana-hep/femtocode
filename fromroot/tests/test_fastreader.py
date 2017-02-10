@@ -18,13 +18,10 @@ import unittest
 
 from femtocode.fromroot._fastreader import fillarrays
 
-if sys.version_info.major >= 3:
-    long = int
-    basestring = str
-
 class TestFastReader(unittest.TestCase):
     def runTest(self):
         pass
 
     def test_fastReader(self):
         print(fillarrays)
+        print(fillarrays())

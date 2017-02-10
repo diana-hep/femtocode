@@ -21,15 +21,36 @@ static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's 
 static PyObject *fillarrays(PyObject *self, PyObject *args);
 
 static PyMethodDef module_methods[] = {
-  {"fillarrays", fillarrays, METH_VARARGS, fillarrays_docstring},
+  {"fillarrays", (PyCFunction)fillarrays, METH_VARARGS, fillarrays_docstring},
   {NULL, NULL, 0, NULL}
 };
 
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
+  PyModuleDef_HEAD_INIT,
+  "_fastreader",
+  NULL,
+  0,
+  module_methods,
+  NULL,
+  NULL,
+  NULL,
+  NULL
+};
+
+PyMODINIT_FUNC PyInit__fastreader(void) {
+  PyObject *module = PyModule_Create(&moduledef);
+  if (module != NULL)
+    import_array();
+  return module;
+}
+#else
 PyMODINIT_FUNC init_fastreader(void) {
-  PyObject *m = Py_InitModule3("_fastreader", module_methods, module_docstring);
-  if (m != NULL)
+  PyObject *module = Py_InitModule3("_fastreader", module_methods, module_docstring);
+  if (module != NULL)
     import_array();
 }
+#endif
 
 static PyObject *fillarrays(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", 3.14);
