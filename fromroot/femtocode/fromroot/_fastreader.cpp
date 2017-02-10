@@ -250,9 +250,25 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     }
   }
 
+  Long64_t numEntries = ttree->GetEntries();
 
+  for (Long64_t entry = 0;  entry < numEntries;  entry++) {
+    for (int i = 0;  i < numArrays;  i++) {
+      std::cout << "one" << std::endl;
 
+      branchArrayInfos[i].dataBranch->GetEntry(entry);
 
+      std::cout << "two " << branchArrayInfos[i].sizeForEntry << std::endl;
+
+      for (int item = 0;  item < branchArrayInfos[i].sizeForEntry;  item++) {
+        
+        std::cout << "three " << ((Double_t*)branchArrayInfos[i].bufferForEntry)[item] << std::endl;
+
+      }
+
+      std::cout << "four" << std::endl;
+    }
+  }
 
 
 
