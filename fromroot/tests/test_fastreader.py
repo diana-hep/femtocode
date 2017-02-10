@@ -25,6 +25,10 @@ class TestFastReader(unittest.TestCase):
         pass
 
     def test_fastReader(self):
-        array = numpy.ones(10, dtype=numpy.float64) * 1.1
+        data = numpy.ones(120463, dtype=numpy.float64) * 1.1
+        size = numpy.ones(48131, dtype=numpy.int64) * 999
 
-        print(fillarrays("root://cmseos.fnal.gov//store/user/pivarski/femtocodetest/RunIISpring16MiniAODv2_SMS-T1tttt_TuneCUETP8M1_13TeV-madgraphMLM-pythia8_MINIAODSIM_PUSpring16Fast_80X_mcRun2_asymptotic_2016_miniAODv2_v0-v1/00000000-0000-0000-0000-000000000000.root", "Events", [("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", array)]))
+        print(fillarrays("file:/home/pivarski/storage/data/00000000-0000-0000-0000-000000000000.root", "Events", [("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", data, size)]))
+
+
+# "root://cmseos.fnal.gov//store/user/pivarski/femtocodetest/RunIISpring16MiniAODv2_SMS-T1tttt_TuneCUETP8M1_13TeV-madgraphMLM-pythia8_MINIAODSIM_PUSpring16Fast_80X_mcRun2_asymptotic_2016_miniAODv2_v0-v1/00000000-0000-0000-0000-000000000000.root"
