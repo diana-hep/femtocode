@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
+
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
@@ -55,5 +57,25 @@ PyMODINIT_FUNC init_fastreader(void) {
 #endif
 
 static PyObject *fillarrays(PyObject *self, PyObject *args) {
-  return Py_BuildValue("d", 3.14);
+  char* fileName;
+  char* treeName;
+  PyObject *branches_arrays;
+
+  if (!PyArg_ParseTuple(args, "ssO", &fileName, &treeName, &branches_arrays))
+    return NULL;
+
+  std::cout << "HERE " << fileName << " " << treeName << std::endl;
+
+  if (!PySequence_Check(branches_arrays)) {
+    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of (string, array) pairs");
+    return NULL;
+  }
+
+  for (Py_ssize_t i = 0;  i < PySequence_Length(branches_arrays);  i++) {
+    std::cout << "WOWIE" << std::endl;
+  }
+
+
+
+  return Py_BuildValue("O", Py_None);
 }

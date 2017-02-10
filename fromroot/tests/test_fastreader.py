@@ -16,6 +16,8 @@
 
 import unittest
 
+import numpy
+
 from femtocode.fromroot._fastreader import fillarrays
 
 class TestFastReader(unittest.TestCase):
@@ -23,5 +25,6 @@ class TestFastReader(unittest.TestCase):
         pass
 
     def test_fastReader(self):
-        print(fillarrays)
-        print(fillarrays())
+        one = numpy.ones(10, dtype=numpy.double) * 1.1
+        two = numpy.ones(10, dtype=numpy.uint64) * 2
+        print(fillarrays("fileName", "treeName", [("one", one), ("two", two)]))
