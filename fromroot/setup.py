@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import setup, find_packages, Extension
+import numpy.distutils.misc_util
 
 import femtocode.version
+
+root2numpy = Extension("_fastreader", [os.path.join("femtocode", "fromroot", "_fastreader.cpp")])
 
 setup(name = "femtocode-fromroot",
       version = femtocode.version.__version__,
@@ -44,5 +49,7 @@ setup(name = "femtocode-fromroot",
                      "Topic :: Scientific/Engineering :: Mathematics",
                      "Topic :: Scientific/Engineering :: Physics",
                      ],
-      platforms = "Any"
+      platforms = "Any",
+      ext_modules = [root2numpy],
+      include_dirs=numpy.distutils.misc_util.get_numpy_include_dirs()
       )
