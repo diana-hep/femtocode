@@ -355,6 +355,12 @@ class TestStatements(unittest.TestCase):
 
         rec1 = namedtuple("rec1", ["x", "y"])
         rec2 = namedtuple("rec2", ["a", "b"])
+        rec3 = namedtuple("rec3", ["a", "b"])
+        checkShredAndAssemble(record(x=collection(record(a=real, b=real)), y=record(a=collection(real), b=collection(real))),
+                  [rec1([rec2(1.1, 2.2)], rec3([], [3.3, 4.4]))], True)
+
+        rec1 = namedtuple("rec1", ["x", "y"])
+        rec2 = namedtuple("rec2", ["a", "b"])
         checkShredAndAssemble(record(x=real, y=collection(record(a=real, b=collection(real)), 1, 1)),
                   [rec1(1, [rec2(2, [3, 4])]),
                    rec1(6, [rec2(9, [10, 11])])])
