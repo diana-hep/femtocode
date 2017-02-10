@@ -15,16 +15,11 @@
 # limitations under the License.
 
 import sys
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages
 
 import femtocode.version
 
-femtocoderun = Extension(
-    "femtocoderun",
-    sources=["femtocoderun.c"],
-    extra_compile_args=["-O3"])
-
-setup(name = "femtocode",
+setup(name = "femtocode-server",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
@@ -38,7 +33,7 @@ setup(name = "femtocode",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = [],
+      install_requires = ["femtocode"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!
@@ -49,6 +44,5 @@ setup(name = "femtocode",
                      "Topic :: Scientific/Engineering :: Mathematics",
                      "Topic :: Scientific/Engineering :: Physics",
                      ],
-      platforms = "Any",
-      ext_modules = [femtocoderun]
+      platforms = "Any"
       )
