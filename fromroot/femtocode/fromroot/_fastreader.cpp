@@ -15,6 +15,8 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
+#include <TFile.h>
+
 static char module_docstring[] = "Simple, streamlined Numpy array-filling from ROOT.";
 static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's TTree.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    arrays: list of (string, Numpy array) tuples; first element is TBranch name, second is a preallocated array.\n\nRaises IndexError if more values are found in the ROOT file than are allocated in the array.";
 
