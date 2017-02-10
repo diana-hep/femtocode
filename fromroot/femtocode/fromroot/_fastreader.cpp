@@ -251,39 +251,40 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   uint64_t item;
   uint64_t sizeForEntry;
 
-  // for (entry = 0;  entry < numEntries;  entry++) {
-  //   for (i = 0;  i < numArrays;  i++) {
-  //     branchArrayInfos[i].dataBranch->GetEntry(entry);
-  //     sizeForEntry = branchArrayInfos[i].sizeForEntry;
+  for (entry = 0;  entry < numEntries;  entry++) {
+    for (i = 0;  i < numArrays;  i++) {
+      branchArrayInfos[i].dataBranch->GetEntry(entry);
+      sizeForEntry = branchArrayInfos[i].sizeForEntry;
 
-  //     if (branchArrayInfos[i].flat) {
-  //       // FIXME: implement
-  //     }
-  //     else {
-  //       branchArrayInfos[i]
-
-
-
-  //       // if (PyArray_SETITEM(branchArrayInfos[i].sizeArray, &sizeForEntry, NULL) != 0) {
-  //       //   PyErr_SetString(PyExc_IOError, "failed to fill size array");
-  //       //   return NULL;
-  //       // }
+      if (branchArrayInfos[i].flat) {
+        // FIXME: implement
+      }
+      else {
+        ((uint64_t*)branchArrayInfos[i].sizePointer)[branchArrayInfos[i].sizeIndex] = sizeForEntry;
+        branchArrayInfos[i].sizeIndex++;
 
 
 
+        // if (PyArray_SETITEM(branchArrayInfos[i].sizeArray, &sizeForEntry, NULL) != 0) {
+        //   PyErr_SetString(PyExc_IOError, "failed to fill size array");
+        //   return NULL;
+        // }
 
-  //       for (item = 0;  item < sizeForEntry;  item++) {
+
+
+
+        for (item = 0;  item < sizeForEntry;  item++) {
         
-  //         ((Double_t*)branchArrayInfos[i].bufferForEntry)[item];
+          ((Double_t*)branchArrayInfos[i].bufferForEntry)[item];
 
 
-  //       }
-  //     }
+        }
+      }
 
 
 
-  //   }
-  // }
+    }
+  }
 
 
 
