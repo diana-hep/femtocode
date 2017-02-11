@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
 #include <vector>
 #include <string>
 
@@ -105,10 +104,6 @@ public:
 };
 
 static PyObject* fillarrays(PyObject* self, PyObject* args) {
-  struct timeval startTime;
-
-  gettimeofday(&startTime, 0);
-
   char* fileName;
   char* treeName;
   PyObject* branches_arrays;
