@@ -83,8 +83,20 @@ public:
   bool flat;
 
   BranchArrayInfo(void* dataPointer, void* sizePointer, char* dataName, char* sizeName, int64_t dataLength, int64_t sizeLength, char dataType, int dataItemBytes, bool flat):
-    dataIndex(0), sizeIndex(0), dataBranch(NULL), bufferForEntry(NULL), sizeForEntry(0),
-    dataPointer(dataPointer), sizePointer(sizePointer), dataName(dataName), sizeName(sizeName), dataLength(dataLength), sizeLength(sizeLength), dataType(dataType), dataItemBytes(dataItemBytes), flat(flat) { }
+    dataIndex(0),
+    sizeIndex(0),
+    dataBranch(NULL),
+    bufferForEntry(NULL),
+    sizeForEntry(0),
+    dataItemBytes(dataItemBytes),
+    dataPointer(dataPointer),
+    sizePointer(sizePointer),
+    dataName(dataName),
+    sizeName(sizeName),
+    dataLength(dataLength),
+    sizeLength(sizeLength),
+    dataType(dataType),
+    flat(flat) { }
 
   ~BranchArrayInfo() {
     if (bufferForEntry != NULL) delete bufferForEntry;
@@ -142,6 +154,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
         PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of (string, array) or (string, string, array, array) tuples");
         return NULL;
       }
+      sizePointer = NULL;
       sizeName = NULL;
       sizeArray = NULL;
       sizeLength = 0;
@@ -254,39 +267,31 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   for (entry = 0;  entry < numEntries;  entry++) {
     for (i = 0;  i < numArrays;  i++) {
       branchArrayInfos[i].dataBranch->GetEntry(entry);
-      sizeForEntry = branchArrayInfos[i].sizeForEntry;
 
       if (branchArrayInfos[i].flat) {
         // FIXME: implement
       }
       else {
-        ((uint64_t*)branchArrayInfos[i].sizePointer)[branchArrayInfos[i].sizeIndex] = sizeForEntry;
-        branchArrayInfos[i].sizeIndex++;
+        sizeForEntry = branchArrayInfos[i].sizeForEntry;
 
-
-
-        // if (PyArray_SETITEM(branchArrayInfos[i].sizeArray, &sizeForEntry, NULL) != 0) {
-        //   PyErr_SetString(PyExc_IOError, "failed to fill size array");
-        //   return NULL;
-        // }
-
-
-
+        if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
+          ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
+        else {
+          PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
+          return NULL;
+        }
 
         for (item = 0;  item < sizeForEntry;  item++) {
-        
-          ((Double_t*)branchArrayInfos[i].bufferForEntry)[item];
-
-
+          if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength)
+            ((Double_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((Double_t*)branchArrayInfos[i].bufferForEntry)[item];
+          else {
+            PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
+            return NULL;
+          }
         }
       }
-
-
-
     }
   }
-
-
 
   return Py_BuildValue("O", Py_None);
 }
