@@ -42,7 +42,7 @@ class TestFastReader(unittest.TestCase):
         data = numpy.zeros(self.numEvents, dtype=numpy.float64)
 
         fillarrays(self.fileName, self.treeName, [("recoBeamSpot_offlineBeamSpot__HLT.obj.position_.fCoordinates.fZ", data)])
-        print("data ({} MB) {}".format(len(data) / 8.0 / 1024**2, data))
+        print("data ({} MB) {}".format(len(data) * 8.0 / 1024**2, data))
 
     def test_structured(self):
         data = numpy.zeros(self.numElectrons, dtype=numpy.float64)
@@ -50,8 +50,8 @@ class TestFastReader(unittest.TestCase):
 
         fillarrays(self.fileName, self.treeName, [("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", data, size)])
 
-        print("data ({} MB) {}".format(len(data) / 8.0 / 1024**2, data))
-        print("size ({} MB) {}".format(len(size) / 8.0 / 1024**2, size))
+        print("data ({} MB) {}".format(len(data) * 8.0 / 1024**2, data))
+        print("size ({} MB) {}".format(len(size) * 8.0 / 1024**2, size))
 
     def test_structured2(self):
         data = numpy.zeros(self.numJets, dtype=numpy.float64)
@@ -61,9 +61,9 @@ class TestFastReader(unittest.TestCase):
         fillarrays(self.fileName, self.treeName, [("patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patJets_slimmedJets__PAT.obj", data, size)])
         endTime = time.time()
 
-        print("data ({} MB) {}".format(len(data) / 8.0 / 1024**2, data))
-        print("size ({} MB) {}".format(len(size) / 8.0 / 1024**2, size))
-        mb = (len(data) + len(size)) / 8.0 / 1024**2
+        print("data ({} MB) {}".format(len(data) * 8.0 / 1024**2, data))
+        print("size ({} MB) {}".format(len(size) * 8.0 / 1024**2, size))
+        mb = (len(data) + len(size)) * 8.0 / 1024**2
         sec = endTime - startTime
         print("{} MB in {} sec at {} MB/sec".format(mb, sec, mb/sec))
 
@@ -74,7 +74,7 @@ class TestFastReader(unittest.TestCase):
         startTime = time.time()
         fillarrays("/home/pivarski/storage/data/TrackResonanceNtuple.root", "TrackResonanceNtuple/twoMuon", [("mass_mumu", mass_mumu)])
         endTime = time.time()
-        mb = len(mass_mumu) / 4.0 / 1024**2
+        mb = len(mass_mumu) * 4.0 / 1024**2
         sec = endTime - startTime
         print("mass_mumu ({} MB in {} sec at {} MB/sec) {}".format(mb, sec, mb/sec, mass_mumu))
 
@@ -84,7 +84,7 @@ class TestFastReader(unittest.TestCase):
         startTime = time.time()
         fillarrays("/home/pivarski/storage/data/TrackResonanceNtuple.root", "TrackResonanceNtuple/twoTrack", [("mass_piP", mass_piP), ("mass_KK", mass_KK), ("mass_pipi", mass_pipi)])
         endTime = time.time()
-        mb = (len(mass_piP) + len(mass_KK) + len(mass_pipi)) / 4.0 / 1024**2
+        mb = (len(mass_piP) + len(mass_KK) + len(mass_pipi)) * 4.0 / 1024**2
         sec = endTime - startTime
         print("mass_piP ({} MB in {} sec at {} MB/sec) {}".format(mb, sec, mb/sec, mass_piP))
 
@@ -184,6 +184,6 @@ class TestFastReader(unittest.TestCase):
         print("jetAK8_eta {}".format(jetAK8_eta))
         print("jetAK8_phi {}".format(jetAK8_phi))
 
-        totalMB = sum([len(beam_x), len(beam_y), len(beam_z), len(electron_size), len(electron_pt), len(electron_eta), len(electron_phi), len(muon_size), len(muon_pt), len(muon_eta), len(muon_phi), len(tau_size), len(tau_pt), len(tau_eta), len(tau_phi), len(photon_size), len(photon_pt), len(photon_eta), len(photon_phi), len(jet_size), len(jet_pt), len(jet_eta), len(jet_phi), len(jetAK8_size), len(jetAK8_pt), len(jetAK8_eta), len(jetAK8_phi)]) / 8.0 / 1024**2
+        totalMB = sum([len(beam_x), len(beam_y), len(beam_z), len(electron_size), len(electron_pt), len(electron_eta), len(electron_phi), len(muon_size), len(muon_pt), len(muon_eta), len(muon_phi), len(tau_size), len(tau_pt), len(tau_eta), len(tau_phi), len(photon_size), len(photon_pt), len(photon_eta), len(photon_phi), len(jet_size), len(jet_pt), len(jet_eta), len(jet_phi), len(jetAK8_size), len(jetAK8_pt), len(jetAK8_eta), len(jetAK8_phi)]) * 8.0 / 1024**2
 
         print("{} MB in {} sec at {} MB/sec".format(totalMB, endTime - startTime, totalMB / (endTime - startTime)))
