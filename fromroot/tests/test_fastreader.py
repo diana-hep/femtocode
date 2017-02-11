@@ -53,6 +53,41 @@ class TestFastReader(unittest.TestCase):
         print("data ({} MB) {}".format(len(data) / 8.0 / 1024**2, data))
         print("size ({} MB) {}".format(len(size) / 8.0 / 1024**2, size))
 
+    def test_structured2(self):
+        data = numpy.zeros(self.numJets, dtype=numpy.float64)
+        size = numpy.zeros(self.numEvents, dtype=numpy.uint64)
+
+        startTime = time.time()
+        fillarrays(self.fileName, self.treeName, [("patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patJets_slimmedJets__PAT.obj", data, size)])
+        endTime = time.time()
+
+        print("data ({} MB) {}".format(len(data) / 8.0 / 1024**2, data))
+        print("size ({} MB) {}".format(len(size) / 8.0 / 1024**2, size))
+        mb = (len(data) + len(size)) / 8.0 / 1024**2
+        sec = endTime - startTime
+        print("{} MB in {} sec at {} MB/sec".format(mb, sec, mb/sec))
+
+    def test_subdir(self):
+        # "root://cmseos.fnal.gov//store/user/pivarski/TrackResonanceNtuple.root"
+
+        mass_mumu = numpy.zeros(751919, dtype=numpy.float32)
+        startTime = time.time()
+        fillarrays("/home/pivarski/storage/data/TrackResonanceNtuple.root", "TrackResonanceNtuple/twoMuon", [("mass_mumu", mass_mumu)])
+        endTime = time.time()
+        mb = len(mass_mumu) / 4.0 / 1024**2
+        sec = endTime - startTime
+        print("mass_mumu ({} MB in {} sec at {} MB/sec) {}".format(mb, sec, mb/sec, mass_mumu))
+
+        mass_piP = numpy.zeros(1989730, dtype=numpy.float32)
+        mass_KK = numpy.zeros(1989730, dtype=numpy.float32)
+        mass_pipi = numpy.zeros(1989730, dtype=numpy.float32)
+        startTime = time.time()
+        fillarrays("/home/pivarski/storage/data/TrackResonanceNtuple.root", "TrackResonanceNtuple/twoTrack", [("mass_piP", mass_piP), ("mass_KK", mass_KK), ("mass_pipi", mass_pipi)])
+        endTime = time.time()
+        mb = (len(mass_piP) + len(mass_KK) + len(mass_pipi)) / 4.0 / 1024**2
+        sec = endTime - startTime
+        print("mass_piP ({} MB in {} sec at {} MB/sec) {}".format(mb, sec, mb/sec, mass_piP))
+
     def test_many(self):
         toget = []
 
