@@ -63,15 +63,13 @@ class TestFastReader(unittest.TestCase):
         toget.append(("recoBeamSpot_offlineBeamSpot__HLT.obj.position_.fCoordinates.fY", beam_y))
         toget.append(("recoBeamSpot_offlineBeamSpot__HLT.obj.position_.fCoordinates.fZ", beam_z))
 
-        electron_size1 = numpy.ones(self.numEvents, dtype=numpy.uint64)
-        electron_size2 = numpy.ones(self.numEvents, dtype=numpy.uint64)
-        electron_size3 = numpy.ones(self.numEvents, dtype=numpy.uint64)
+        electron_size = numpy.ones(self.numEvents, dtype=numpy.uint64)
         electron_pt = numpy.ones(self.numElectrons, dtype=numpy.float64)
         electron_eta = numpy.ones(self.numElectrons, dtype=numpy.float64)
         electron_phi = numpy.ones(self.numElectrons, dtype=numpy.float64)
-        toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", electron_pt, electron_size1))
-        toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta", "patElectrons_slimmedElectrons__PAT.obj", electron_eta, electron_size2))
-        # toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi", "patElectrons_slimmedElectrons__PAT.obj", electron_phi, electron_size3))
+        toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", electron_pt, electron_size))
+        toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta", "patElectrons_slimmedElectrons__PAT.obj", electron_eta, electron_size))
+        toget.append(("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi", "patElectrons_slimmedElectrons__PAT.obj", electron_phi, electron_size))
 
         fillarrays(self.fileName, self.treeName, toget)
 
@@ -79,9 +77,7 @@ class TestFastReader(unittest.TestCase):
         print("beam_y {}".format(beam_y))
         print("beam_z {}".format(beam_z))
 
-        print("electron_size1 {}".format(electron_size1))
-        print("electron_size2 {}".format(electron_size2))
-        print("electron_size3 {}".format(electron_size3))
+        print("electron_size {}".format(electron_size))
         print("electron_pt {}".format(electron_pt))
         print("electron_eta {}".format(electron_eta))
         print("electron_phi {}".format(electron_phi))

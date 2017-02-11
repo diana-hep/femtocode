@@ -67,7 +67,6 @@ class BranchArrayInfo {
 public:
   int64_t dataIndex;
   int64_t sizeIndex;
-
   TBranch* dataBranch;
   char* bufferForEntry;
   Int_t sizeForEntry;
@@ -79,10 +78,11 @@ public:
   char* sizeName;
   int64_t dataLength;
   int64_t sizeLength;
+  int whichSize;
   char dataType;
   bool flat;
 
-  BranchArrayInfo(void* dataPointer, void* sizePointer, char* dataName, char* sizeName, int64_t dataLength, int64_t sizeLength, char dataType, int dataItemBytes, bool flat):
+  BranchArrayInfo(void* dataPointer, void* sizePointer, char* dataName, char* sizeName, int64_t dataLength, int64_t sizeLength, char dataType, int dataItemBytes, bool flat, int whichSize):
     dataIndex(0),
     sizeIndex(0),
     dataBranch(NULL),
@@ -95,6 +95,7 @@ public:
     sizeName(sizeName),
     dataLength(dataLength),
     sizeLength(sizeLength),
+    whichSize(whichSize),
     dataType(dataType),
     flat(flat) { }
 
@@ -210,7 +211,14 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
 
     dataItemBytes = PyArray_DESCR(dataArray)->elsize;
 
-    branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, dataItemBytes, flat));
+    int whichSize = i;
+    for (int j = 0;  j < i;  j++)
+      if (sizePointer == branchArrayInfos[j].sizePointer) {
+        whichSize = j;
+        break;
+      }
+
+    branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, dataItemBytes, flat, whichSize));
   }
 
   // FIXME: Are the ROOT references new? borrowed? stolen?
@@ -257,7 +265,8 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       branchArrayInfos[i].bufferForEntry = new char[bufferSize * branchArrayInfos[i].dataItemBytes];
 
       ttree->SetBranchAddress(branchArrayInfos[i].dataName, branchArrayInfos[i].bufferForEntry);
-      ttree->SetBranchAddress(branchArrayInfos[i].sizeName, &(branchArrayInfos[i].sizeForEntry));
+      if (branchArrayInfos[i].whichSize == i)
+        ttree->SetBranchAddress(branchArrayInfos[i].sizeName, &(branchArrayInfos[i].sizeForEntry));
     }
   }
 
@@ -304,13 +313,15 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       }
 
       else {
-        sizeForEntry = branchArrayInfos[i].sizeForEntry;
+        sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
 
-        if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
-          ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
-        else {
-          PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
-          return NULL;
+        if (branchArrayInfos[i].whichSize == i) {
+          if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
+            ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
+          else {
+            PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
+            return NULL;
+          }
         }
 
         for (item = 0;  item < sizeForEntry;  item++) {
