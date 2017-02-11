@@ -223,6 +223,11 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   TFile* tfile = TFile::Open(fileName);
   gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
 
+  if (tfile == NULL  ||  !tfile->IsOpen()) {
+    PyErr_SetString(PyExc_IOError, "could not open file");
+    return NULL;
+  }
+
   TTree* ttree;
   tfile->GetObject(treeName, ttree);
   if (ttree == NULL) {
