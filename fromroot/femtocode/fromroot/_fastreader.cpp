@@ -12,17 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
-#include <sys/time.h>
-#include <ctime>
-
-double diffsec(struct timeval startTime) {
-  struct timeval endTime;
-  gettimeofday(&endTime, 0);
-  return 1e-6*(1e6*(endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec));
-}
-
-
 #include <vector>
 #include <string>
 
@@ -133,9 +122,6 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   int numArrays = PySequence_Length(branches_arrays);
   std::vector<BranchArrayInfo> branchArrayInfos;
 
-  std::cout << "ONE " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
-
   for (Py_ssize_t i = 0;  i < numArrays;  i++) {
     // Doesn't need to be fast, but PySequence_Fast_GET_ITEM returns a borrowed reference, which is nice because I don't have to handle references.
     PyObject* branch_array = PySequence_Fast_GET_ITEM(branches_arrays, i);
@@ -226,9 +212,6 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, dataItemBytes, flat));
   }
 
-  std::cout << "TWO " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
-
   // FIXME: Are the ROOT references new? borrowed? stolen?
 
   Int_t oldLevel = gErrorIgnoreLevel;   // error message suppression is not thread safe
@@ -236,18 +219,12 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   TFile* tfile = TFile::Open(fileName);
   gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
 
-  std::cout << "THREE " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
-
   TTree* ttree;
   tfile->GetObject(treeName, ttree);
   if (ttree == NULL) {
     PyErr_SetString(PyExc_IOError, "bad or missing TTree");
     return NULL;
   }
-
-  std::cout << "FOUR " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
 
   for (int i = 0;  i < numArrays;  i++) {
     TBranch* dataBranch = ttree->GetBranch(branchArrayInfos[i].dataName);
@@ -258,14 +235,8 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     branchArrayInfos[i].dataBranch = dataBranch;
   }
 
-  std::cout << "FIVE " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
-
   // fragile: the placement of this function call matters
   ttree->SetMakeClass(1);
-
-  std::cout << "SIX " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
 
   for (int i = 0;  i < numArrays;  i++) {
     if (branchArrayInfos[i].flat) {
@@ -290,17 +261,11 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     }
   }
 
-  std::cout << "SEVEN " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
-
   Long64_t numEntries = ttree->GetEntries();
   Long64_t entry;
   int i;
   uint64_t item;
   uint64_t sizeForEntry;
-
-  std::cout << "EIGHT " << diffsec(startTime) << " sec" << std::endl;
-  gettimeofday(&startTime, 0);
 
   for (entry = 0;  entry < numEntries;  entry++) {
     for (i = 0;  i < numArrays;  i++) {
@@ -330,8 +295,6 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       }
     }
   }
-
-  std::cout << "NINE " << diffsec(startTime) << " sec" << std::endl;
 
   return Py_BuildValue("O", Py_None);
 }
