@@ -27,7 +27,7 @@ class TestDeclare(unittest.TestCase):
 
     def test_config(self):
         definition = """
-sources:
+define:
   - MuOnia-2016-CF-23Sep2016-v1:
       format: root
       paths:
@@ -40,68 +40,71 @@ sources:
         - root://cmseos.fnal.gov//store/data/Run2016C/MuOnia/AOD/PromptReco-v2/*/*.root
         - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/PromptReco-v2/*/*.root
 
-dataset:
-  name: MuOnia
+  - small:
+      format: root
+      paths:
+        - root://cmseos.fnal.gov//store/user/pivarski/femtocodetest/*/*.root
 
-  sources:
-    - MuOnia-2016C
-    - MuOnia-2016F
+name: MuOnia
 
-  schema:
+source:
+  - small
 
-    muons:
-      type: collection
-      items:
-        type: record
-        fields:
-          pt:
-            type: real
-            min: 0
-            max: almost(inf)
-            source:
-              data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
-              size: patMuons_slimmedMuons__PAT.obj
-              dtype: float64
-          eta:
-            type: double
-            source:
-              data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
-              size: patMuons_slimmedMuons__PAT.obj
-              dtype: float64
-          phi:
-            type: double
-            min: -pi
-            max: pi
-            source:
-              data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
-              size: patMuons_slimmedMuons__PAT.obj
-              dtype: float64
+schema:
 
-    jets:
-      type: collection
-      items:
-        type: record
-        fields:
-          pt:
-            type: real
-            min: 0
-            max: almost(inf)
-            source:
-              data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
-              size: patJets_slimmedJets__PAT.obj
-              dtype: float64
-          eta:
-            type: double
-            source:
-              data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
-              size: patJets_slimmedJets__PAT.obj
-              dtype: float64
-          phi:
-            type: double
-            min: -pi
-            max: pi
-            source:
-              data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
-              size: patJets_slimmedJets__PAT.obj
-              dtype: float64
+  muons:
+    type: collection
+    items:
+      type: record
+      fields:
+        pt:
+          type: real
+          min: 0
+          max: almost(inf)
+          source:
+            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
+            size: patMuons_slimmedMuons__PAT.obj
+            dtype: float64
+        eta:
+          type: double
+          source:
+            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
+            size: patMuons_slimmedMuons__PAT.obj
+            dtype: float64
+        phi:
+          type: double
+          min: -pi
+          max: pi
+          source:
+            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
+            size: patMuons_slimmedMuons__PAT.obj
+            dtype: float64
+
+  jets:
+    type: collection
+    items:
+      type: record
+      fields:
+        pt:
+          type: real
+          min: 0
+          max: almost(inf)
+          source:
+            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
+            size: patJets_slimmedJets__PAT.obj
+            dtype: float64
+        eta:
+          type: double
+          source:
+            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
+            size: patJets_slimmedJets__PAT.obj
+            dtype: float64
+        phi:
+          type: double
+          min: -pi
+          max: pi
+          source:
+            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
+            size: patJets_slimmedJets__PAT.obj
+            dtype: float64
 """

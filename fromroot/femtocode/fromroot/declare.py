@@ -56,6 +56,14 @@ def filesFromPath(path):
         for x in glob.glob(url.path):
             yield x
 
+## class DatasetDefinition(object):
+    
+
+
+
+
+## strictyaml.load(definition)
+
 
 
 
