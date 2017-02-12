@@ -39,17 +39,17 @@ def filesFromPath(path):
                 for x in listing.dirlist:
                     for y in search(path.rstrip("/") + "/" + x.name):
                         yield y
-            elif exists(path):
+            else:
                 yield path
 
-        m = re.match(r"(^[^\*\[\]\{\}]*/)*", url.path)
+        m = re.match(r"(^[^\?\*\[\]\{\}]*/)*", url.path)
         if m is None:
             path = url.path
         else:
             path = m.group(1)
 
         for x in search(path):
-            if glob.fnmatch.fnmatchcase(x, url.path):
+            if m is None or glob.fnmatch.fnmatchcase(x, url.path):
                 yield url.scheme + "://" + url.netloc + x
 
     else:

@@ -31,12 +31,14 @@ sources:
   - MuOnia-2016-CF-23Sep2016-v1:
       format: root
       paths:
-        - root://cmseos.fnal.gov//store/data/Run2016{C,F}/MuOnia/AOD/23Sep2016-v1/*/*.root
+        - root://cmseos.fnal.gov//store/data/Run2016C/MuOnia/AOD/23Sep2016-v1/*/*.root
+        - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/23Sep2016-v1/*/*.root
 
   - MuOnia-2016-CF-PromptReco-v2:
       format: root
       paths:
-        - root://cmseos.fnal.gov//store/data/Run2016{C,F}/MuOnia/AOD/PromptReco-v2/*/*.root
+        - root://cmseos.fnal.gov//store/data/Run2016C/MuOnia/AOD/PromptReco-v2/*/*.root
+        - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/PromptReco-v2/*/*.root
 
 dataset:
   name: MuOnia
