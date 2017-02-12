@@ -27,7 +27,7 @@ from XRootD.client.flags import OpenFlags
 
 def filesFromPath(path):
     url = urlparse(path)
-    if url.scheme is not None:
+    if url.scheme != "":
         fs = XRootD.client.FileSystem(url.scheme + "://" + url.netloc)
 
         def exists(path):
@@ -42,7 +42,7 @@ def filesFromPath(path):
             else:
                 yield path
 
-        m = re.match(r"(^[^\?\*\[\]\{\}]*/)*", url.path)
+        m = re.match(r"(^[^\?\*\[\]\{\}]*/).*[\?\*\[\]\{\}].*", url.path)
         if m is None:
             path = url.path
         else:
