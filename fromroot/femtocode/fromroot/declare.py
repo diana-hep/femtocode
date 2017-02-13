@@ -21,9 +21,9 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-import strictyaml
-import XRootD.client
-from XRootD.client.flags import OpenFlags
+# import strictyaml
+# import XRootD.client
+# from XRootD.client.flags import OpenFlags
 
 def filesFromPath(path):
     url = urlparse(path)
