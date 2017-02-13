@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import json
 import glob
 import re
@@ -23,7 +24,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-from femtocode.typesystem import *
+import femtocode.typesystem
 
 import strictyaml
 
@@ -82,8 +83,140 @@ class DatasetDeclaration(object):
             raise DatasetDeclaration.Error("unrecognized keys in {0}: {1}".format(where, ", ".join(sorted(unrecognized))))
 
     @staticmethod
+    def _asbool(value):
+        if isinstance(value, bool):
+            return value
+        elif value == "True" or value == "true":
+            return True
+        elif value == "False" or value == "false":
+            return True
+        else:
+            raise DatasetDeclaration.Error("value should be boolean: {0}".format(value))
+
+    @staticmethod
+    def _aslimit(value):
+        if isinstance(value, string_types):
+            module = ast.parse(value)
+            if isinstance(module, ast.Module) and len(module.body) == 1 and isinstance(module.body[0], ast.Expr):
+                expr = module.body[0].value
+                if isinstance(expr, ast.Num):
+                    return expr.n
+
+                elif isinstance(expr, ast.Name) and expr.id == "inf":
+                    return femtocode.typesystem.inf
+
+                elif isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.USub):
+                    if isinstance(expr.operand, ast.Num):
+                        return -expr.operand.n
+
+                    elif isinstance(expr.operand, ast.Name) and expr.operand.id == "inf":
+                        return -femtocode.typesystem.inf
+
+                elif isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id == "almost" and len(expr.args) == 1 and len(expr.keywords) == 0 and expr.kwargs is None and expr.starargs is None:
+                    if isinstance(expr.args[0], ast.Num):
+                        return femtocode.typesystem.almost(expr.args[0].n)
+
+                    elif isinstance(expr.args[0], ast.Name) and expr.args[0].id == "inf":
+                        return femtocode.typesystem.almost(femtocode.typesystem.inf)
+
+                    elif isinstance(expr.args[0], ast.UnaryOp) and isinstance(expr.args[0].op, ast.USub):
+                        if isinstance(expr.args[0].operand, ast.Num):
+                            return femtocode.typesystem.almost(-expr.args[0].operand.n)
+
+                        elif isinstance(expr.args[0].operand, ast.Name) and expr.args[0].operand.id == "inf":
+                            return femtocode.typesystem.almost(-femtocode.typesystem.inf)
+
+            raise DatasetDeclaration.Error("couldn't parse as a min/max/least/most limit: {0}".format(value))
+
+        elif isinstance(value, (int, long, float)):
+            return value
+
+        elif isinstance(value, femtocode.typesystem.almost) and isinstance(value.real, (int, long, float)):
+            return value
+
+        else:
+            raise DatasetDeclaration.Error("unrecognized type for min/max/least/most limit: {0}".format(value))
+
+    @staticmethod
     def _toschema(quantity):
-        raise NotImplementedError
+        if quantity in ("boolean", "number", "real", "integer", "extended", "string", "collection", "vector", "matrix", "tensor", "record"):
+            return DatasetDeclaration._toschema({"type": quantity})
+
+        elif isinstance(quantity, dict):
+            if quantity.get("type") == "boolean":
+                return femtocode.typesystem.boolean
+
+            elif quantity.get("type") == "number" or quantity.get("type") == "real":
+                return femtocode.typesystem.Number(
+                    min=DatasetDeclaration._aslimit(quantity.get("min", "almost(-inf)")),
+                    max=DatasetDeclaration._aslimit(quantity.get("max", "almost(inf)")),
+                    whole=DatasetDeclaration._asbool(quantity.get("whole", False)))
+
+            elif quantity.get("type") == "integer":
+                return femtocode.typesystem.Number(
+                    min=DatasetDeclaration._aslimit(quantity.get("min", "almost(-inf)")),
+                    max=DatasetDeclaration._aslimit(quantity.get("max", "almost(inf)")),
+                    whole=DatasetDeclaration._asbool(quantity.get("whole", True)))
+
+            elif quantity.get("type") == "extended":
+                return femtocode.typesystem.Number(
+                    min=DatasetDeclaration._aslimit(quantity.get("min", "-inf")),
+                    max=DatasetDeclaration._aslimit(quantity.get("max", "inf")),
+                    whole=DatasetDeclaration._asbool(quantity.get("whole", False)))
+
+            elif quantity.get("type") == "string":
+                return femtocode.typesystem.String(
+                    charset=quantity.get("charset", "bytes"),
+                    fewest=DatasetDeclaration._aslimit(quantity.get("fewest", 0)),
+                    most=DatasetDeclaration._aslimit(quantity.get("most", "almost(inf)")))
+
+            elif quantity.get("type") == "collection":
+                return femtocode.typesystem.Collection(
+                    items=DatasetDeclaration._toschema(quantity.get("items")),
+                    fewest=DatasetDeclaration._aslimit(quantity.get("fewest", 0)),
+                    most=DatasetDeclaration._aslimit(quantity.get("most", "almost(inf)")))
+
+            elif quantity.get("type") in ("vector", "matrix", "tensor"):
+                dimensions = str(quantity.get("dimensions", ""))
+                dimensions = re.split(r"\s*,\s*", dimensions.strip())
+                for i, x in enumerate(dimensions):
+                    try:
+                        dimensions[i] = int(dimensions[i])
+                    except ValueError:
+                        raise DatasetDeclaration.Error("dimensions must be comma-separated integers")
+                    
+                if quantity["type"] == "vector":
+                    if len(dimensions) != 1:
+                        raise DatasetDeclaration.Error("vectors should have exactly one dimension")
+                    return femtocode.typesystem.vector(
+                        DatasetDeclaration._toschema(quantity.get("items")),
+                        *dimensions)
+
+                elif quantity["type"] == "matrix":
+                    if len(dimensions) != 2:
+                        raise DatasetDeclaration.Error("matrices should have exactly two dimensions")
+                    return femtocode.typesystem.matrix(
+                        DatasetDeclaration._toschema(quantity.get("items")),
+                        *dimensions)
+
+                elif quantity["type"] == "tensor":
+                    if len(dimensions) <= 2:
+                        raise DatasetDeclaration.Error("tensors should have more than two dimensions")
+                    return femtocode.typesystem.tensor(
+                        DatasetDeclaration._toschema(quantity.get("items")),
+                        *dimensions)
+
+            elif quantity.get("type") == "record":
+                fields = quantity.get("fields")
+                if not isinstance(fields, dict):
+                    raise DatasetDeclaration.Error("record needs a fields, and that must be a mapping")
+                return femtocode.typesystem.record(**dict((k, DatasetDeclaration._toschema(v)) for k, v in fields.items()))
+
+            else:
+                raise DatasetDeclaration.Error("type specification not recognized or not supported for ROOT extraction: type {0}, keys {1}".format(quantity.get("type"), ", ".join(sorted(set(quantity.keys()).difference(set(["type"]))))))
+
+        else:
+            raise DatasetDeclaration.Error("type specification must be a string or dict: {0}".format(quantity))
 
     class Source(object):
         @staticmethod
@@ -125,14 +258,12 @@ class DatasetDeclaration(object):
                 return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm)
 
 
-
-
 # boolean
+# number: min max whole
 # integer: min max
 # real: min max
 # extended: min max
 # string: charset (only bytes), fewest, most
-
 # collection: items, fewest, most, ordered
 # vector: items, dimensions
 # matrix: items, dimensions
