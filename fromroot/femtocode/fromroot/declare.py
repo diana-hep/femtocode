@@ -75,9 +75,21 @@ def filesFromPath(path):
 class DatasetDeclaration(object):
     class Error(Exception): pass
 
+    @staticmethod
+    def _unrecognized(observe, expect, where):
+        unrecognized = set(observe).difference(set(expect))
+        if len(unrecognized) > 0:
+            raise DatasetDeclaration.Error("unrecognized keys in {0}: {1}".format(where, ", ".join(sorted(unrecognized))))
+
+    @staticmethod
+    def _toschema(quantity):
+        raise NotImplementedError
+
     class Source(object):
         @staticmethod
         def fromJson(source):
+            DatasetDeclaration._unrecognized(source.keys(), ["format", "paths"], "dataset declaration source")
+
             format = source["format"]
             if not isinstance(format, string_types):
                 raise DatasetDeclaration.Error("dataset declaration source needs a name, and that name must be a string")
@@ -89,11 +101,54 @@ class DatasetDeclaration(object):
             return DatasetDeclaration.Source(format, paths)
 
         def __init__(self, format, paths):
+            if len(paths) == 0:
+                raise DatasetDeclaration.Error("dataset declaration source path is empty")
             self.format = format
             self.paths = paths
 
         def __repr__(self):
             return "DatasetDeclaration.Source({0}, [{1}])".format(json.dumps(self.format), ", ".join(json.dumps(x) for x in self.paths))
+
+    class Quantity(object):
+        @staticmethod
+        def fromJson(quantity, sources):
+            tpe = quantity.get("type")
+            if not isinstance(tpe, string_types):
+                raise DatasetDeclaration.Error("dataset declaration quantity needs a type, and that must be a string")
+
+            if "alias" in quantity:
+                raise DatasetDeclaration.Error("datasets from ROOT do not support recursive types, so the 'alias' keyword is not allowed")
+
+            if tpe == "boolean":
+                DatasetDeclaration._unrecognized(quantity.keys(), ["from"], "boolean type")
+                frm = DatasetDeclaration.Primitive.fromJson(quantity.get("from"), sources)
+                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm)
+
+
+
+
+# boolean
+# integer: min max
+# real: min max
+# extended: min max
+# string: charset (only bytes), fewest, most
+
+# collection: items, fewest, most, ordered
+# vector: items, dimensions
+# matrix: items, dimensions
+# tensor: items, dimensions
+# record: fields
+
+
+
+
+    class Structure(Quantity):
+        def __init__(self):
+            pass
+
+    class Primitive(Quantity):
+        def __init__(self):
+            pass
 
     @staticmethod
     def fromYamlString(declaration):
@@ -128,6 +183,11 @@ class DatasetDeclaration(object):
             else:
                 raise DatasetDeclaration.Error("unrecognized object in dataset declaration: {0}".format(obj))
 
+        if not isinstance(declaration, dict):
+            raise DatasetDeclaration.Error("dataset declaration must be a dict (after parsing JSON or YAML)")
+
+        DatasetDeclaration._unrecognized(declaration.keys(), ["define", "name", "source", "schema"], "dataset declaration")
+
         definitions = declaration.get("define", {})
         if not isinstance(definitions, dict):
             raise DatasetDeclaration.Error("dataset definitions must be a dict: {0}".format(definitions))
@@ -157,37 +217,3 @@ class DatasetDeclaration(object):
 
     def __repr__(self):
         return "DatasetDeclaration({0}, {1}, {2})".format(json.dumps(self.name), repr(self.source), ", ".join("{0}={1}".format(k, repr(v)) for k, v in self.fields.items()))
-
-
-
-
-
-
-
-# boolean
-# integer: min max
-# real: min max
-# extended: min max
-# string: charset (only bytes), fewest, most
-
-# collection: items, fewest, most, ordered
-# vector: items, dimensions
-# matrix: items, dimensions
-# tensor: items, dimensions
-# record: fields
-
-
-
-
-
-
-# def _filesFromPath(path):
-#     # FIXME: move this to a C function to remove dependence on PyROOT and therefore Python 2
-#     import ROOT
-#     for x in ROOT.TSystemDirectory(path, path).GetListOfFiles():
-#         yield x.GetName()
-
-# def filteredFilesFromPath(path, filter):
-#     for x in _filesFromPath(path):
-#         if glob.fnmatch.fnmatch(x, filter):
-#             yield path.rstrip("/") + "/" + x
