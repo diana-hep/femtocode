@@ -21,40 +21,52 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-# import strictyaml
-# import XRootD.client
-# from XRootD.client.flags import OpenFlags
+import strictyaml
 
 def filesFromPath(path):
     url = urlparse(path)
-    if url.scheme != "":
-        fs = XRootD.client.FileSystem(url.scheme + "://" + url.netloc)
+    if url.scheme == "":
+        for x in glob.glob(url.path):
+            yield x
+
+    elif url.scheme == "root":
+        import XRootD.client
+        from XRootD.client.flags import OpenFlags
+
+        fs = XRootD.client.FileSystem("{0}://{1}".format(url.scheme, url.netloc))
 
         def exists(path):
             return fs.locate(path, OpenFlags.NONE)[0].ok
 
-        def search(path):
-            status, listing = fs.dirlist(path)
-            if status.ok:
-                for x in listing.dirlist:
-                    for y in search(path.rstrip("/") + "/" + x.name):
-                        yield y
+        def search(path, patterns):
+            fullpath = "".join("/" + x for x in path)
+
+            if len(patterns) > 0 and re.search(r"[\*\?\[\]\{\}]", patterns[0]) is None:
+                if exists(fullpath + "/" + patterns[0]):
+                    for x in search(path + [patterns[0]], patterns[1:]):
+                        yield x
+
             else:
-                yield path
+                status, listing = fs.dirlist(fullpath)
+                if status.ok:
+                    for x in listing.dirlist:
+                        if len(patterns) == 0 or glob.fnmatch.fnmatchcase(x.name, patterns[0]):
+                            for y in search(path + [x.name], patterns[1:]):
+                                yield y
 
-        m = re.match(r"(^[^\?\*\[\]\{\}]*/).*[\?\*\[\]\{\}].*", url.path)
-        if m is None:
-            path = url.path
-        else:
-            path = m.group(1)
+                else:
+                    if len(patterns) == 0:
+                        yield fullpath
 
-        for x in search(path):
-            if m is None or glob.fnmatch.fnmatchcase(x, url.path):
-                yield url.scheme + "://" + url.netloc + x
+        patterns = re.split(r"/+", url.path.strip("/"))
+        for x in search([], patterns):
+            yield "{0}://{1}/{2}".format(url.scheme, url.netloc, x)
 
     else:
-        for x in glob.glob(url.path):
-            yield x
+        raise IOError("unknown protocol: {0}".format(url.scheme))
+
+
+
 
 ## class DatasetDefinition(object):
     
@@ -62,7 +74,7 @@ def filesFromPath(path):
 
 
 
-## strictyaml.load(definition)
+
 
 
 
