@@ -22,29 +22,7 @@ except ImportError:
     from urllib.parse import urlparse
 
 from femtocode.fromroot.declare import DatasetDeclaration
-
-def getPaths(quantity):
-    if isinstance(quantity, DatasetDeclaration):
-        for x in quantity.fields.values():
-            for y in getPaths(x):
-                yield y
-
-    elif isinstance(quantity, DatasetDeclaration.Collection):
-        for x in getPaths(quantity.items):
-            yield x
-
-    elif isinstance(quantity, DatasetDeclaration.Record):
-        for field in quantity.fields.values():
-            for x in getPaths(field):
-                yield x
-
-    elif isinstance(quantity, DatasetDeclaration.Primitive):
-        for source in quantity.frm.sources:
-            for path in source.paths:
-                yield path
-
-    else:
-        assert False, "expected either a DatasetDeclaration or a Quantity"
+from femtocode.fromroot._fastreader import fillarrays
 
 def filesFromPath(path):
     url = urlparse(path)
@@ -97,13 +75,64 @@ def filesFromPath(path):
     else:
         raise IOError("unknown protocol: {0}".format(url.scheme))
 
+def getPaths(quantity):
+    if isinstance(quantity, DatasetDeclaration):
+        for x in quantity.fields.values():
+            for y in getPaths(x):
+                yield y
 
+    elif isinstance(quantity, DatasetDeclaration.Collection):
+        for x in getPaths(quantity.items):
+            yield x
+
+    elif isinstance(quantity, DatasetDeclaration.Record):
+        for field in quantity.fields.values():
+            for x in getPaths(field):
+                yield x
+
+    elif isinstance(quantity, DatasetDeclaration.Primitive):
+        for source in quantity.frm.sources:
+            for path in source.paths:
+                yield (path, source.tree)
+
+    else:
+        assert False, "expected either a DatasetDeclaration or a Quantity"
+
+def getBranchesForPaths(quantity, paths):
+    if isinstance(quantity, DatasetDeclaration):
+        for x in quantity.fields.values():
+            getBranchesForPaths(x, paths)
+
+    elif isinstance(quantity, DatasetDeclaration.Collection):
+        getBranchesForPaths(quantity.items, paths)
+
+    elif isinstance(quantity, DatasetDeclaration.Record):
+        for field in quantity.fields.values():
+            getBranchesForPaths(field, paths)
+
+    elif isinstance(quantity, DatasetDeclaration.Primitive):
+        for source in quantity.frm.sources:
+            for path in source.paths:
+                paths[(path, source.tree)].append((quantity.frm.data, quantity.frm.size))
+
+################################################################################
+
+declaration = DatasetDeclaration.fromYamlString(declaration)
 
 pathsToFiles = {}
-for path in set(getPaths(declaration)):
-    pathsToFiles[path] = []
+for path, tree in set(getPaths(declaration)):
+    pathsToFiles[(path, tree)] = []
     for file in filesFromPath(path):
-        pathsToFiles[path].append(file)
+        pathsToFiles[(path, tree)].append(file)
 
+pathsToBranches = dict((x, []) for x in pathsToFiles)
+getBranchesForPaths(declaration, pathsToBranches)
 
+for (path, tree), files in pathsToFiles.items():
+    for file in files:
+        sizeToData = {}
+        for dataName, sizeName in pathsToBranches[(path, tree)]:
+            if sizeName is not None:
+                sizeToData[sizeName] = dataName   # get rid of duplicate sizeNames
 
+        lengths = fillarrays(file, tree, [(dataName, sizeName, None, None) for sizeName, dataName in sizeToData.items()])

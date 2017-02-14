@@ -14,20 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Column(object):
-    def __init__(self, name, size=None):
-        self.name = name
-        self.size = size
+class Segment(object):
+    def __init__(self, dataName, dataLength, dataType, sizeName):
+        self.dataName = dataName
+        self.dataLength = dataLength
+        self.dataType = dataType
+        self.sizeName = sizeName
 
 class Group(object):
-    def __init__(self, id, numEntries, lengths):
+    def __init__(self, id, numEntries, segments):
         self.id = id
         self.numEntries = numEntries
-        self.lengths = lengths
+        self.segments = segments
 
 class Dataset(object):
-    def __init__(self, name, schema, numEntries, columns):
+    def __init__(self, name, schema, numEntries, groups):
         self.name = name
         self.schema = schema
         self.numEntries = numEntries
-        self.columns = columns
+        self.groups = groups

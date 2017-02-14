@@ -198,7 +198,7 @@ class DatasetDeclaration(object):
     class Source(object):
         @staticmethod
         def fromYaml(source):
-            DatasetDeclaration._unrecognized(source.keys(), ["format", "paths"], (source.lc.line, source.lc.col), "dataset declaration source")
+            DatasetDeclaration._unrecognized(source.keys(), ["format", "tree", "paths"], (source.lc.line, source.lc.col), "dataset declaration source")
 
             format = source.get("format")
             if format is None:
@@ -210,21 +210,28 @@ class DatasetDeclaration(object):
             if not isinstance(groupsize, (int, long)) or groupsize < 1:
                 raise DatasetDeclaration.Error(source.lc.get("groupsize"), "groupsize must be a positive integer")
 
+            tree = source.get("tree")
+            if tree is None:
+                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "source needs a tree")
+            elif not isinstance(tree, string_types):
+                raise DataestDeclaration.Error(source.lc.get("tree"), "source tree must be a string")
+
             paths = source.get("paths")
             if paths is None:
                 raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "source needs a paths")
             elif not isinstance(paths, CommentedSeq) or not all(isinstance(x, string_types) for x in paths):
-                raise DatasetDeclaration.Error(source.lc.get("paths"), "dataset declaration source path must be a list of strings (denoted with '-' in YAML)")
+                raise DatasetDeclaration.Error(source.lc.get("paths"), "source path must be a list of strings (denoted with '-' in YAML)")
 
-            return DatasetDeclaration.Source(format, groupsize, paths)
+            return DatasetDeclaration.Source(format, groupsize, tree, paths)
 
-        def __init__(self, format, groupsize, paths):
+        def __init__(self, format, groupsize, tree, paths):
             self.format = format
             self.groupsize = groupsize
+            self.tree = tree
             self.paths = paths
 
         def __repr__(self):
-            return "DatasetDeclaration.Source({0}, {1}, [{2}])".format(json.dumps(self.format), self.groupsize, ", ".join(json.dumps(x) for x in self.paths))
+            return "DatasetDeclaration.Source({0}, {1}, {2}, [{3}])".format(json.dumps(self.format), self.groupsize, json.dumps(self.tree), ", ".join(json.dumps(x) for x in self.paths))
 
     class From(object):
         @staticmethod

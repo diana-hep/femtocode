@@ -30,25 +30,28 @@ class TestDeclare(unittest.TestCase):
 define:
   MuOnia-2016-CF-23Sep2016-v1:
     format: root
-    groupsize: 1   # 1 file per group
+    groupsize: 10   # 10 files per group
+    tree: Events
     paths:
       - root://cmseos.fnal.gov//store/data/Run2016[CF]/MuOnia/AOD/23Sep2016-v1/*/*.root
 
   MuOnia-2016-CF-PromptReco-v2:
     format: root
+    tree: Events
     paths:
       - root://cmseos.fnal.gov//store/data/Run2016C/MuOnia/AOD/PromptReco-v2/*/*.root
       - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/PromptReco-v2/
 
-  small:
+  local:
     format: root
+    tree: Events
     paths:
-      - root://cmseos.fnal.gov//store/user/pivarski/femtocodetest/*/*.root
+      - /home/pivarski/storage/data/00000000-0000-0000-0000-000000000000.root
 
 name: MuOnia
 
 sources:
-  - small
+  - local
 
 schema:
 

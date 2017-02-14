@@ -16,16 +16,16 @@
 
 import femtocode.dataset
 
-class ROOTColumn(femtocode.dataset.Column):
-    def __init__(self, name, dtype, branch, size=None):
-        super(ROOTColumn, self).__init__(name, size)
-        self.dtype = dtype
-
-class ROOTGroup(femtocode.dataset.Group):
-    def __init__(self, id, numEntries, lengths, files):
-        super(ROOTGroup, self).__init__(id, numEntries, lengths)
+class ROOTSegment(object):
+    def __init__(self, dataName, dataLength, dataType, sizeName, files, treeName):
+        super(ROOTSegment, self).__init__(dataName, dataLength, dataType, sizeName)
         self.files = files
+        self.treeName = treeName
 
-class ROOTDataset(femtocode.dataset.Dataset):
-    def __init__(self, name, schema, numEntries, columns):
-        super(ROOTDataset, self).__init__(name, schema, numEntries, columns)
+class ROOTGroup(object):
+    def __init__(self, id, numEntries, segments):
+        super(ROOTGroup, self).__init__(id, numEntries, segments)
+
+class ROOTDataset(object):
+    def __init__(self, name, schema, numEntries, groups):
+        super(ROOTDataset, self).__init__(name, schema, numEntries, groups)
