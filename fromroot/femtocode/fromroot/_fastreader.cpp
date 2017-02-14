@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
 #include <vector>
 #include <string>
 
@@ -26,15 +27,12 @@
 #include <TBranchElement.h>
 
 static char module_docstring[] = "Simple, streamlined Numpy array-filling from ROOT.";
-static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's TTree.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    arrays: list of (string, array) or (string, string, array, array) tuples: (data name, data array) or (data name, size name, data array, size array). Arrays must be preallocated.\n\nRaises IndexError if more values are found in the ROOT file than are allocated in the array.";
-static char getsizes_docstring[] = "Returns the number of entries and number of objects per entry for several size arrays.\n\nparams:\n    fileName: string, can include root:// protocol\n    treeName: string, can include directory slashes\n    arrays: tuple of N strings, names of the 'counter' TBranches.\n\nreturns:\n    tuple of N+1 ints: numEntries followed by the total number of each object.";
+static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's TTree.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    arrays: list of (string, array) or (string, string, array, array) tuples: (data name, data array) or (data name, size name, data array, size array). Arrays must be preallocated or pass None just to get the allocation size.\n\nreturns:\n    tuple of N+1 ints: total number of entries followed by the total number of each object.\n\nraises:\n    IndexError if more values are found in the ROOT file than are allocated in the array.";
 
 static PyObject* fillarrays(PyObject* self, PyObject* args);
-static PyObject* getsizes(PyObject* self, PyObject* args);
 
 static PyMethodDef module_methods[] = {
   {"fillarrays", (PyCFunction)fillarrays, METH_VARARGS, fillarrays_docstring},
-  {"getsizes", (PyCFunction)getsizes, METH_VARARGS, getsizes_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -67,30 +65,28 @@ PyMODINIT_FUNC init_fastreader(void) {
 
 class BranchArrayInfo {
 public:
-  int64_t dataIndex;
-  int64_t sizeIndex;
+  uint64_t dataIndex;
+  uint64_t sizeIndex;
   TBranch* dataBranch;
   char* bufferForEntry;
   Int_t sizeForEntry;
 
-  int dataItemBytes;
   void* dataPointer;
   void* sizePointer;
   char* dataName;
   char* sizeName;
-  int64_t dataLength;
-  int64_t sizeLength;
+  uint64_t dataLength;
+  uint64_t sizeLength;
   int whichSize;
   char dataType;
   bool flat;
 
-  BranchArrayInfo(void* dataPointer, void* sizePointer, char* dataName, char* sizeName, int64_t dataLength, int64_t sizeLength, char dataType, int dataItemBytes, bool flat, int whichSize):
+  BranchArrayInfo(void* dataPointer, void* sizePointer, char* dataName, char* sizeName, uint64_t dataLength, int64_t sizeLength, char dataType, bool flat, int whichSize):
     dataIndex(0),
     sizeIndex(0),
     dataBranch(NULL),
     bufferForEntry(NULL),
     sizeForEntry(0),
-    dataItemBytes(dataItemBytes),
     dataPointer(dataPointer),
     sizePointer(sizePointer),
     dataName(dataName),
@@ -137,10 +133,9 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     void* sizePointer;
     char* dataName;
     char* sizeName;
-    int64_t dataLength;
-    int64_t sizeLength;
+    uint64_t dataLength;
+    uint64_t sizeLength;
     char dataType;
-    int dataItemBytes;
     bool flat;
 
     if (PySequence_Size(branch_array) == 2)
@@ -168,55 +163,74 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
         return NULL;
       }
 
-      sizePointer = PyArray_DATA(sizeArray);
+      if (sizeArray == Py_None) {
+        sizePointer = NULL;
+        sizeLength = 0;
+      }
+      else if (PyArray_Check(sizeArray)) {
+        sizePointer = PyArray_DATA(sizeArray);
 
-      int ndim = PyArray_NDIM(sizeArray);
-      if (ndim != 1) {
-        PyErr_SetString(PyExc_TypeError, "size arrays must be one-dimensional");
+        int ndim = PyArray_NDIM(sizeArray);
+        if (ndim != 1) {
+          PyErr_SetString(PyExc_TypeError, "size arrays must be one-dimensional");
+          return NULL;
+        }
+        sizeLength = PyArray_DIM(sizeArray, 0);
+
+        if (PyArray_DESCR(sizeArray)->type != 'L') {
+          PyErr_SetString(PyExc_TypeError, "size arrays must be uint64");
+          return NULL;
+        }
+      }
+      else {
+        PyErr_SetString(PyExc_TypeError, "size array must be a Numpy array or None");
         return NULL;
       }
-      sizeLength = PyArray_DIM(sizeArray, 0);
-
-      if (PyArray_DESCR(sizeArray)->type != 'L') {
-        PyErr_SetString(PyExc_TypeError, "size arrays must be uint64");
-        return NULL;
-      }
     }
-
-    dataPointer = PyArray_DATA(dataArray);
-
-    int ndim = PyArray_NDIM(dataArray);
-    if (ndim != 1) {
-      PyErr_SetString(PyExc_TypeError, "data arrays must be one-dimensional");
-      return NULL;
-    }
-    dataLength = PyArray_DIM(dataArray, 0);
-
-    dataType = PyArray_DESCR(dataArray)->type;
-    switch (dataType) {
-    case 'B':  // numpy.uint8
-    case 'd':  // numpy.float64
-    case 'l':  // numpy.int64
-    case 'L':  // numpy.uint64
-    case 'f':  // numpy.float32
-    case 'i':  // numpy.int32
-    case 'I':  // numpy.uint32
-      break;
-    default:
-      PyErr_SetString(PyExc_TypeError, "data dtype not supported (only uint8, float64, int64, uint64, float32, int32, uint32)");
-      return NULL;
-    }
-
-    dataItemBytes = PyArray_DESCR(dataArray)->elsize;
 
     int whichSize = i;
-    for (int j = 0;  j < i;  j++)
-      if (sizePointer == branchArrayInfos[j].sizePointer) {
-        whichSize = j;
+    if (dataArray == Py_None) {
+      dataPointer = NULL;
+      dataLength = 0;
+      dataType = '?';
+    }
+    else if (PyArray_Check(dataArray)) {
+      dataPointer = PyArray_DATA(dataArray);
+
+      int ndim = PyArray_NDIM(dataArray);
+      if (ndim != 1) {
+        PyErr_SetString(PyExc_TypeError, "data arrays must be one-dimensional");
+        return NULL;
+      }
+      dataLength = PyArray_DIM(dataArray, 0);
+
+      dataType = PyArray_DESCR(dataArray)->type;
+      switch (dataType) {
+      case 'B':  // numpy.uint8
+      case 'd':  // numpy.float64
+      case 'l':  // numpy.int64
+      case 'L':  // numpy.uint64
+      case 'f':  // numpy.float32
+      case 'i':  // numpy.int32
+      case 'I':  // numpy.uint32
         break;
+      default:
+        PyErr_SetString(PyExc_TypeError, "data dtype not supported (only uint8, float64, int64, uint64, float32, int32, uint32)");
+        return NULL;
       }
 
-    branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, dataItemBytes, flat, whichSize));
+      for (int j = 0;  j < i;  j++)
+        if (sizePointer == branchArrayInfos[j].sizePointer) {
+          whichSize = j;
+          break;
+        }
+    }
+    else {
+      PyErr_SetString(PyExc_TypeError, "data array must be a Numpy or None");
+      return NULL;
+    }
+
+    branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, flat, whichSize));
   }
 
   // FIXME: Are the ROOT references new? borrowed? stolen?
@@ -251,8 +265,10 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   ttree->SetMakeClass(1);
 
   for (int i = 0;  i < numArrays;  i++) {
+    int dataItemBytes = ((TLeaf*)(branchArrayInfos[i].dataBranch->GetListOfLeaves()->First()))->GetLenType();
+
     if (branchArrayInfos[i].flat) {
-      branchArrayInfos[i].bufferForEntry = new char[branchArrayInfos[i].dataItemBytes];
+      branchArrayInfos[i].bufferForEntry = new char[2 * dataItemBytes];
 
       ttree->SetBranchAddress(branchArrayInfos[i].dataName, branchArrayInfos[i].bufferForEntry);
     }
@@ -265,7 +281,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       TBranchElement *branchElement = (TBranchElement*)branchArrayInfos[i].dataBranch;
 
       int bufferSize = ((TLeaf*)(branchElement->GetListOfLeaves()->First()))->GetLeafCount()->GetMaximum();
-      branchArrayInfos[i].bufferForEntry = new char[bufferSize * branchArrayInfos[i].dataItemBytes];
+      branchArrayInfos[i].bufferForEntry = new char[bufferSize * 2 * dataItemBytes];
 
       ttree->SetBranchAddress(branchArrayInfos[i].dataName, branchArrayInfos[i].bufferForEntry);
       if (branchArrayInfos[i].whichSize == i)
@@ -277,79 +293,39 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   Long64_t entry;
   int i;
   uint64_t item;
-  uint64_t sizeForEntry;
+  uint64_t sizeForEntry = 0;
 
   for (entry = 0;  entry < numEntries;  entry++) {
     for (i = 0;  i < numArrays;  i++) {
       branchArrayInfos[i].dataBranch->GetEntry(entry);
 
-      if (branchArrayInfos[i].flat) {
-        if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
-          switch (branchArrayInfos[i].dataType) {
-          case 'B':  // numpy.uint8
-            ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'd':  // numpy.float64
-            ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'l':  // numpy.int64
-            ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'L':  // numpy.uint64
-            ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'f':  // numpy.float32
-            ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'i':  // numpy.int32
-            ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          case 'I':  // numpy.uint32
-            ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[0];
-            break;
-          }
-        }
-        else {
-          PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
-          return NULL;
-        }
+      if (branchArrayInfos[i].dataPointer == NULL) {
+        branchArrayInfos[i].dataLength += branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
       }
-
       else {
-        sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
-
-        if (branchArrayInfos[i].whichSize == i) {
-          if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
-            ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
-          else {
-            PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
-            return NULL;
-          }
-        }
-
-        for (item = 0;  item < sizeForEntry;  item++) {
+        if (branchArrayInfos[i].flat) {
           if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
             switch (branchArrayInfos[i].dataType) {
             case 'B':  // numpy.uint8
-              ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[item];
+              ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'd':  // numpy.float64
-              ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[item];
+              ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'l':  // numpy.int64
-              ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[item];
+              ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'L':  // numpy.uint64
-              ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[item];
+              ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'f':  // numpy.float32
-              ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[item];
+              ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'i':  // numpy.int32
-              ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[item];
+              ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             case 'I':  // numpy.uint32
-              ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[item];
+              ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[0];
               break;
             }
           }
@@ -358,95 +334,62 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
             return NULL;
           }
         }
+
+        else {
+          sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
+
+          if (branchArrayInfos[i].whichSize == i) {
+            if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
+              ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
+            else {
+              PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
+              return NULL;
+            }
+          }
+
+          for (item = 0;  item < sizeForEntry;  item++) {
+            if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
+              switch (branchArrayInfos[i].dataType) {
+              case 'B':  // numpy.uint8
+                ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'd':  // numpy.float64
+                ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'l':  // numpy.int64
+                ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'L':  // numpy.uint64
+                ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'f':  // numpy.float32
+                ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'i':  // numpy.int32
+                ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              case 'I':  // numpy.uint32
+                ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                break;
+              }
+            }
+            else {
+              PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
+              return NULL;
+            }
+          }
+        }
       }
     }
   }
 
-  return Py_BuildValue("O", Py_None);
-}
-
-static PyObject* getsizes(PyObject* self, PyObject* args) {
-  char* fileName;
-  char* treeName;
-  PyObject* py_branchNames;
-
-  if (!PyArg_ParseTuple(args, "ssO", &fileName, &treeName, &py_branchNames))
-    return NULL;
-
-  if (!PySequence_Check(py_branchNames)) {
-    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
-    return NULL;
-  }
-
-  int numBranches = PySequence_Length(py_branchNames);
-  std::vector<char*> branchNames;
-
-  for (int i = 0;  i < numBranches;  i++) {
-    PyObject* branchName = PySequence_Fast_GET_ITEM(py_branchNames, i);
-    if (!PyBytes_Check(branchName)) {
-      PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
-      return NULL;
-    }
-    branchNames.push_back(PyBytes_AsString(branchName));
-  }
-
-  Int_t oldLevel = gErrorIgnoreLevel;   // error message suppression is not thread safe
-  gErrorIgnoreLevel = kError;           // but oh well...
-  TFile* tfile = TFile::Open(fileName);
-  gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
-
-  if (tfile == NULL  ||  !tfile->IsOpen()) {
-    PyErr_SetString(PyExc_IOError, "could not open file");
-    return NULL;
-  }
-
-  TTree* ttree;
-  tfile->GetObject(treeName, ttree);
-  if (ttree == NULL) {
-    PyErr_SetString(PyExc_IOError, "bad or missing TTree");
-    return NULL;
-  }
-
-  std::vector<TBranch*> branches;
-  std::vector<Int_t> sizesForEntry;
-  std::vector<uint64_t> totals;
-  for (int i = 0;  i < numBranches;  i++) {
-    branches.push_back(ttree->GetBranch(branchNames[i]));
-    sizesForEntry.push_back(0);
-    totals.push_back(0);
-  }
-
-  // fragile: the placement of this function call matters
-  ttree->SetMakeClass(1);
-
-  char bufferForEntry[1000];
-
-  ttree->SetBranchAddress("patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", bufferForEntry);
-
-  for (int i = 0;  i < numBranches;  i++) {
-    ttree->SetBranchAddress(branchNames[i], &sizesForEntry[i]);
-  }
-
-  Long64_t numEntries = ttree->GetEntries();
-  Long64_t entry;
-  int i;
-
-  if (numBranches > 0) {
-    for (entry = 0;  entry < numEntries;  entry++) {
-      for (i = 0;  i < numBranches;  i++) {
-        branches[i]->GetEntry(entry);
-        totals[i] += sizesForEntry[i];
-      }
-    }
-  }
-
-  PyObject* out = PyTuple_New(numBranches + 1);
+  PyObject* out = PyTuple_New(numArrays + 1);
   if (PyTuple_SetItem(out, 0, PyLong_FromLong(numEntries)) != 0) {
     PyErr_SetString(PyExc_IOError, "could not fill output tuple");
     return NULL;
   }
-  for (i = 0;  i < numBranches;  i++) {
-    if (PyTuple_SetItem(out, i + 1, PyLong_FromLong(totals[i])) != 0) {
+  for (i = 0;  i < numArrays;  i++) {
+    if (PyTuple_SetItem(out, i + 1, PyLong_FromLong(branchArrayInfos[i].dataLength)) != 0) {
       PyErr_SetString(PyExc_IOError, "could not fill output tuple");
       return NULL;
     }
