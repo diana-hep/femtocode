@@ -20,8 +20,9 @@ class Column(object):
         self.size = size
 
 class Group(object):
-    def __init__(self, id, lengths):
+    def __init__(self, id, numEntries, lengths):
         self.id = id
+        self.numEntries = numEntries
         self.lengths = lengths
 
 class Dataset(object):

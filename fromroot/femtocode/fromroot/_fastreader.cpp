@@ -27,11 +27,14 @@
 
 static char module_docstring[] = "Simple, streamlined Numpy array-filling from ROOT.";
 static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's TTree.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    arrays: list of (string, array) or (string, string, array, array) tuples: (data name, data array) or (data name, size name, data array, size array). Arrays must be preallocated.\n\nRaises IndexError if more values are found in the ROOT file than are allocated in the array.";
+static char getsizes_docstring[] = "Returns the number of entries and number of objects per entry for several size arrays.\n\nparams:\n    fileName: string, can include root:// protocol\n    treeName: string, can include directory slashes\n    arrays: tuple of N strings, names of the 'counter' TBranches.\n\nreturns:\n    tuple of N+1 ints: numEntries followed by the total number of each object.";
 
 static PyObject* fillarrays(PyObject* self, PyObject* args);
+static PyObject* getsizes(PyObject* self, PyObject* args);
 
 static PyMethodDef module_methods[] = {
   {"fillarrays", (PyCFunction)fillarrays, METH_VARARGS, fillarrays_docstring},
+  {"getsizes", (PyCFunction)getsizes, METH_VARARGS, getsizes_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -360,4 +363,94 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   }
 
   return Py_BuildValue("O", Py_None);
+}
+
+static PyObject* getsizes(PyObject* self, PyObject* args) {
+  char* fileName;
+  char* treeName;
+  PyObject* py_branchNames;
+
+  if (!PyArg_ParseTuple(args, "ssO", &fileName, &treeName, &py_branchNames))
+    return NULL;
+
+  if (!PySequence_Check(py_branchNames)) {
+    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
+    return NULL;
+  }
+
+  int numBranches = PySequence_Length(py_branchNames);
+  std::vector<char*> branchNames;
+
+  for (int i = 0;  i < numBranches;  i++) {
+    PyObject* branchName = PySequence_Fast_GET_ITEM(py_branchNames, i);
+    if (!PyBytes_Check(branchName)) {
+      PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
+      return NULL;
+    }
+    branchNames.push_back(PyBytes_AsString(branchName));
+  }
+
+  Int_t oldLevel = gErrorIgnoreLevel;   // error message suppression is not thread safe
+  gErrorIgnoreLevel = kError;           // but oh well...
+  TFile* tfile = TFile::Open(fileName);
+  gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
+
+  if (tfile == NULL  ||  !tfile->IsOpen()) {
+    PyErr_SetString(PyExc_IOError, "could not open file");
+    return NULL;
+  }
+
+  TTree* ttree;
+  tfile->GetObject(treeName, ttree);
+  if (ttree == NULL) {
+    PyErr_SetString(PyExc_IOError, "bad or missing TTree");
+    return NULL;
+  }
+
+  std::vector<TBranch*> branches;
+  std::vector<Int_t> sizesForEntry;
+  std::vector<uint64_t> totals;
+  for (int i = 0;  i < numBranches;  i++) {
+    branches.push_back(ttree->GetBranch(branchNames[i]));
+    sizesForEntry.push_back(0);
+    totals.push_back(0);
+  }
+
+  // fragile: the placement of this function call matters
+  ttree->SetMakeClass(1);
+
+  char bufferForEntry[1000];
+
+  ttree->SetBranchAddress("patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", bufferForEntry);
+
+  for (int i = 0;  i < numBranches;  i++) {
+    ttree->SetBranchAddress(branchNames[i], &sizesForEntry[i]);
+  }
+
+  Long64_t numEntries = ttree->GetEntries();
+  Long64_t entry;
+  int i;
+
+  if (numBranches > 0) {
+    for (entry = 0;  entry < numEntries;  entry++) {
+      for (i = 0;  i < numBranches;  i++) {
+        branches[i]->GetEntry(entry);
+        totals[i] += sizesForEntry[i];
+      }
+    }
+  }
+
+  PyObject* out = PyTuple_New(numBranches + 1);
+  if (PyTuple_SetItem(out, 0, PyLong_FromLong(numEntries)) != 0) {
+    PyErr_SetString(PyExc_IOError, "could not fill output tuple");
+    return NULL;
+  }
+  for (i = 0;  i < numBranches;  i++) {
+    if (PyTuple_SetItem(out, i + 1, PyLong_FromLong(totals[i])) != 0) {
+      PyErr_SetString(PyExc_IOError, "could not fill output tuple");
+      return NULL;
+    }
+  }
+
+  return out;
 }

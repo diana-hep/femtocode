@@ -21,6 +21,31 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
+from femtocode.fromroot.declare import DatasetDeclaration
+
+def getPaths(quantity):
+    if isinstance(quantity, DatasetDeclaration):
+        for x in quantity.fields.values():
+            for y in getPaths(x):
+                yield y
+
+    elif isinstance(quantity, DatasetDeclaration.Collection):
+        for x in getPaths(quantity.items):
+            yield x
+
+    elif isinstance(quantity, DatasetDeclaration.Record):
+        for field in quantity.fields.values():
+            for x in getPaths(field):
+                yield x
+
+    elif isinstance(quantity, DatasetDeclaration.Primitive):
+        for source in quantity.frm.sources:
+            for path in source.paths:
+                yield path
+
+    else:
+        assert False, "expected either a DatasetDeclaration or a Quantity"
+
 def filesFromPath(path):
     url = urlparse(path)
     if url.scheme == "":
@@ -71,4 +96,14 @@ def filesFromPath(path):
 
     else:
         raise IOError("unknown protocol: {0}".format(url.scheme))
+
+
+
+pathsToFiles = {}
+for path in set(getPaths(declaration)):
+    pathsToFiles[path] = []
+    for file in filesFromPath(path):
+        pathsToFiles[path].append(file)
+
+
 

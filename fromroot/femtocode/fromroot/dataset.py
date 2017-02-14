@@ -17,13 +17,14 @@
 import femtocode.dataset
 
 class ROOTColumn(femtocode.dataset.Column):
-    def __init__(self, name, dtype, size=None):
+    def __init__(self, name, dtype, branch, size=None):
         super(ROOTColumn, self).__init__(name, size)
         self.dtype = dtype
 
 class ROOTGroup(femtocode.dataset.Group):
-    def __init__(self, id, lengths):
-        super(ROOTGroup, self).__init__(id, lengths)
+    def __init__(self, id, numEntries, lengths, files):
+        super(ROOTGroup, self).__init__(id, numEntries, lengths)
+        self.files = files
 
 class ROOTDataset(femtocode.dataset.Dataset):
     def __init__(self, name, schema, numEntries, columns):
