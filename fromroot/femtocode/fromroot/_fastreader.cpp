@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
 #include <vector>
 #include <string>
 
@@ -116,6 +115,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   }
 
   int numArrays = PySequence_Length(branches_arrays);
+  int numArraysToLoad = 0;
   std::vector<BranchArrayInfo> branchArrayInfos;
 
   for (Py_ssize_t i = 0;  i < numArrays;  i++) {
@@ -230,6 +230,9 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       return NULL;
     }
 
+    if (dataPointer != NULL  ||  sizeName != NULL)
+      numArraysToLoad++;
+   
     branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, flat, whichSize));
   }
 
@@ -295,87 +298,89 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   uint64_t item;
   uint64_t sizeForEntry = 0;
 
-  for (entry = 0;  entry < numEntries;  entry++) {
-    for (i = 0;  i < numArrays;  i++) {
-      branchArrayInfos[i].dataBranch->GetEntry(entry);
+  if (numArraysToLoad > 0) {
+    for (entry = 0;  entry < numEntries;  entry++) {
+      for (i = 0;  i < numArrays;  i++) {
+        branchArrayInfos[i].dataBranch->GetEntry(entry);
 
-      if (branchArrayInfos[i].dataPointer == NULL) {
-        branchArrayInfos[i].dataLength += branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
-      }
-      else {
-        if (branchArrayInfos[i].flat) {
-          if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
-            switch (branchArrayInfos[i].dataType) {
-            case 'B':  // numpy.uint8
-              ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'd':  // numpy.float64
-              ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'l':  // numpy.int64
-              ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'L':  // numpy.uint64
-              ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'f':  // numpy.float32
-              ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'i':  // numpy.int32
-              ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            case 'I':  // numpy.uint32
-              ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[0];
-              break;
-            }
-          }
-          else {
-            PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
-            return NULL;
-          }
+        if (branchArrayInfos[i].dataPointer == NULL) {
+          branchArrayInfos[i].dataLength += branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
         }
-
         else {
-          sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
-
-          if (branchArrayInfos[i].whichSize == i) {
-            if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
-              ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
-            else {
-              PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
-              return NULL;
-            }
-          }
-
-          for (item = 0;  item < sizeForEntry;  item++) {
+          if (branchArrayInfos[i].flat) {
             if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
               switch (branchArrayInfos[i].dataType) {
               case 'B':  // numpy.uint8
-                ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[item];
+                ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'd':  // numpy.float64
-                ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[item];
+                ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'l':  // numpy.int64
-                ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'L':  // numpy.uint64
-                ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'f':  // numpy.float32
-                ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[item];
+                ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'i':  // numpy.int32
-                ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               case 'I':  // numpy.uint32
-                ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[0];
                 break;
               }
             }
             else {
               PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
               return NULL;
+            }
+          }
+
+          else {
+            sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
+
+            if (branchArrayInfos[i].whichSize == i) {
+              if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
+                ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
+              else {
+                PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
+                return NULL;
+              }
+            }
+
+            for (item = 0;  item < sizeForEntry;  item++) {
+              if (branchArrayInfos[i].dataIndex < branchArrayInfos[i].dataLength) {
+                switch (branchArrayInfos[i].dataType) {
+                case 'B':  // numpy.uint8
+                  ((uint8_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint8_t*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'd':  // numpy.float64
+                  ((double*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((double*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'l':  // numpy.int64
+                  ((int64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'L':  // numpy.uint64
+                  ((uint64_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint64_t*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'f':  // numpy.float32
+                  ((float*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((float*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'i':  // numpy.int32
+                  ((int32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((int32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                case 'I':  // numpy.uint32
+                  ((uint32_t*)(branchArrayInfos[i].dataPointer))[branchArrayInfos[i].dataIndex++] = ((uint32_t*)branchArrayInfos[i].bufferForEntry)[item];
+                  break;
+                }
+              }
+              else {
+                PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
+                return NULL;
+              }
             }
           }
         }
