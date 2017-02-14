@@ -30,6 +30,7 @@ class TestDeclare(unittest.TestCase):
 define:
   MuOnia-2016-CF-23Sep2016-v1:
     format: root
+    groupsize: 1   # 1 file per group
     paths:
       - root://cmseos.fnal.gov//store/data/Run2016{C,F}/MuOnia/AOD/23Sep2016-v1/*/*.root
 
@@ -65,13 +66,13 @@ schema:
             size: patMuons_slimmedMuons__PAT.obj
             dtype: float64
         eta:
-          type: double
+          type: real
           from:
             data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
             size: patMuons_slimmedMuons__PAT.obj
             dtype: float64
         phi:
-          type: double
+          type: real
           min: -pi
           max: pi
           from:
@@ -93,13 +94,13 @@ schema:
             size: patJets_slimmedJets__PAT.obj
             dtype: float64
         eta:
-          type: double
+          type: real
           from:
             data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
             size: patJets_slimmedJets__PAT.obj
             dtype: float64
         phi:
-          type: double
+          type: real
           min: -pi
           max: pi
           from:
@@ -107,7 +108,7 @@ schema:
             size: patJets_slimmedJets__PAT.obj
             dtype: float64
         mass:
-          type: double
+          type: real
           min: 0
           max: almost(inf)
           from:
