@@ -32,13 +32,13 @@ define:
     format: root
     groupsize: 1   # 1 file per group
     paths:
-      - root://cmseos.fnal.gov//store/data/Run2016{C,F}/MuOnia/AOD/23Sep2016-v1/*/*.root
+      - root://cmseos.fnal.gov//store/data/Run2016[CF]/MuOnia/AOD/23Sep2016-v1/*/*.root
 
   MuOnia-2016-CF-PromptReco-v2:
     format: root
     paths:
       - root://cmseos.fnal.gov//store/data/Run2016C/MuOnia/AOD/PromptReco-v2/*/*.root
-      - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/PromptReco-v2/*/*.root
+      - root://cmseos.fnal.gov//store/data/Run2016F/MuOnia/AOD/PromptReco-v2/
 
   small:
     format: root

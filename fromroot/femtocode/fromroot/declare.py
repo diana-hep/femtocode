@@ -15,15 +15,10 @@
 # limitations under the License.
 
 import ast
-import glob
 import json
 import math
 import re
 from femtocode.py23 import *
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 
 import femtocode.typesystem
 
@@ -31,51 +26,6 @@ import numpy
 import ruamel.yaml
 from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.comments import CommentedSeq
-
-def filesFromPath(path):
-    url = urlparse(path)
-    if url.scheme == "":
-        for x in glob.glob(url.path):
-            yield x
-
-    elif url.scheme == "root":
-        if "**" in url.path:
-            raise NotImplementedError("** wildcards not supported in XRootD")
-
-        import XRootD.client
-        from XRootD.client.flags import OpenFlags
-
-        fs = XRootD.client.FileSystem("{0}://{1}".format(url.scheme, url.netloc))
-
-        def exists(path):
-            return fs.locate(path, OpenFlags.NONE)[0].ok
-
-        def search(path, patterns):
-            fullpath = "".join("/" + x for x in path)
-
-            if len(patterns) > 0 and re.search(r"[\*\?\[\]\{\}]", patterns[0]) is None:
-                if exists(fullpath + "/" + patterns[0]):
-                    for x in search(path + [patterns[0]], patterns[1:]):
-                        yield x
-
-            else:
-                status, listing = fs.dirlist(fullpath)
-                if status.ok:
-                    for x in listing.dirlist:
-                        if len(patterns) == 0 or glob.fnmatch.fnmatchcase(x.name, patterns[0]):
-                            for y in search(path + [x.name], patterns[1:]):
-                                yield y
-
-                else:
-                    if len(patterns) == 0:
-                        yield fullpath
-
-        patterns = re.split(r"/+", url.path.strip("/"))
-        for x in search([], patterns):
-            yield "{0}://{1}/{2}".format(url.scheme, url.netloc, x)
-
-    else:
-        raise IOError("unknown protocol: {0}".format(url.scheme))
 
 class DatasetDeclaration(object):
     class Error(Exception):
