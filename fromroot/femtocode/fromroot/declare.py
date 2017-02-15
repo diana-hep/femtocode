@@ -108,7 +108,7 @@ class DatasetDeclaration(object):
 
     @staticmethod
     def _toschema(quantity):
-        if quantity in ("boolean", "number", "real", "integer", "extended", "string", "collection", "vector", "matrix", "tensor", "record"):
+        if quantity in ("boolean", "number", "real", "integer", "extended", "collection", "vector", "matrix", "tensor", "record"):
             return DatasetDeclaration._toschema({"type": quantity})
 
         elif isinstance(quantity, CommentedMap):
@@ -138,12 +138,6 @@ class DatasetDeclaration(object):
                     min=DatasetDeclaration._aslimit(quantity.get("min", "-inf"), maybe("min")),
                     max=DatasetDeclaration._aslimit(quantity.get("max", "inf"), maybe("max")),
                     whole=DatasetDeclaration._asbool(quantity.get("whole", False), maybe("whole")))
-
-            elif quantity.get("type") == "string":
-                return femtocode.typesystem.String(
-                    charset=quantity.get("charset", "bytes"),
-                    fewest=DatasetDeclaration._aslimit(quantity.get("fewest", 0), maybe("fewest")),
-                    most=DatasetDeclaration._aslimit(quantity.get("most", "almost(inf)"), maybe("most")))
 
             elif quantity.get("type") == "collection":
                 return femtocode.typesystem.Collection(
@@ -285,59 +279,57 @@ class DatasetDeclaration(object):
             if tpe == "boolean":
                 DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type"], (quantity.lc.line, quantity.lc.col), "boolean type")
                 frm = DatasetDeclaration.From.fromYaml(quantity.get("from"), sources)
-                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm)
+                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm, (quantity.lc.line, quantity.lc.col))
 
             elif tpe in ("number", "integer", "real", "extended"):
                 DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type", "min", "max", "whole"], (quantity.lc.line, quantity.lc.col), "number type")
                 frm = DatasetDeclaration.From.fromYaml(quantity.get("from"), sources)
-                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm)
-
-            elif tpe == "string":
-                DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type", "charset", "fewest", "most"], (quantity.lc.line, quantity.lc.col), "string type")
-                frm = DatasetDeclaration.From.fromYaml(quantity.get("from"), sources)
-                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm)
+                return DatasetDeclaration.Primitive(DatasetDeclaration._toschema(quantity), frm, (quantity.lc.line, quantity.lc.col))
 
             elif tpe == "collection":
                 DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type", "items", "fewest", "most", "ordered"], (quantity.lc.line, quantity.lc.col), "collection type")
-                return DatasetDeclaration.Collection(DatasetDeclaration._toschema(quantity), DatasetDeclaration.Quantity.fromYaml(quantity["items"], sources))
+                return DatasetDeclaration.Collection(DatasetDeclaration._toschema(quantity), DatasetDeclaration.Quantity.fromYaml(quantity["items"], sources), (quantity.lc.line, quantity.lc.col))
 
             elif tpe in ("vector", "matrix", "tensor"):
                 DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type", "items", "dimensions"], (quantity.lc.line, quantity.lc.col), "vector/matrix/tensor type")
-                return DatasetDeclaration.Collection(DatasetDeclaration._toschema(quantity), DatasetDeclaration.Quantity.fromYaml(quantity["items"], sources))
+                return DatasetDeclaration.Collection(DatasetDeclaration._toschema(quantity), DatasetDeclaration.Quantity.fromYaml(quantity["items"], sources), (quantity.lc.line, quantity.lc.col))
 
             elif tpe == "record":
                 DatasetDeclaration._unrecognized(quantity.keys(), ["from", "type", "fields"], (quantity.lc.line, quantity.lc.col), "record type")
-                return DatasetDeclaration.Record(DatasetDeclaration._toschema(quantity), **dict((k, DatasetDeclaration.Quantity.fromYaml(v, sources)) for k, v in quantity["fields"].items()))
+                return DatasetDeclaration.Record(DatasetDeclaration._toschema(quantity), dict((k, DatasetDeclaration.Quantity.fromYaml(v, sources)) for k, v in quantity["fields"].items()), (quantity.lc.line, quantity.lc.col))
 
             else:
                 if tpe is None:
                     raise DatasetDeclaration.Error((quantity.lc.line, quantity.lc.col), "quantity needs a type")
                 elif not isinstance(tpe, string_types):
-                    raise DatasetDeclaration.Error(quantity.lc.key("type"), "quantity must be one of {0}".format(", ".join(["boolean", "number", "integer", "real", "extended", "string", "collection", "vector", "matrix", "tensor", "record"])))
+                    raise DatasetDeclaration.Error(quantity.lc.key("type"), "quantity must be one of {0}".format(", ".join(["boolean", "number", "integer", "real", "extended", "collection", "vector", "matrix", "tensor", "record"])))
 
     class Collection(Quantity):
-        def __init__(self, schema, items):
+        def __init__(self, schema, items, lc):
             self.schema = schema
             self.items = items
+            self.lc = lc
 
         def __repr__(self):
-            return "DatasetDeclaration.Collection({0}, {1})".format(self.schema, repr(self.items))
+            return "DatasetDeclaration.Collection({0}, {1}, {2})".format(self.schema, repr(self.items), self.lc)
 
     class Record(Quantity):
-        def __init__(self, schema, **fields):
+        def __init__(self, schema, fields, lc):
             self.schema = schema
             self.fields = fields
+            self.lc = lc
 
         def __repr__(self):
-            return "DatasetDeclaration.Record({0}, {1})".format(self.schema, ", ".join("{0}={1}".format(k, repr(v)) for k, v in self.fields.items()))
+            return "DatasetDeclaration.Record({0}, {1}, {2})".format(self.schema, ", ".join("{0}={1}".format(k, repr(v)) for k, v in self.fields.items()), self.lc)
 
     class Primitive(Quantity):
-        def __init__(self, schema, frm):
+        def __init__(self, schema, frm, lc):
             self.schema = schema
             self.frm = frm
+            self.lc = lc
 
         def __repr__(self):
-            return "DatasetDeclaration.Primitive({0}, {1})".format(self.schema, self.frm)
+            return "DatasetDeclaration.Primitive({0}, {1}, {2})".format(self.schema, self.frm, self.lc)
 
     @staticmethod
     def fromYamlString(declaration):

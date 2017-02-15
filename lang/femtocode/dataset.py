@@ -15,21 +15,22 @@
 # limitations under the License.
 
 class Segment(object):
-    def __init__(self, dataName, dataLength, dataType, sizeName):
+    def __init__(self, dataName, dataLength, dataType, sizeName, numEntries):
         self.dataName = dataName
         self.dataLength = dataLength
         self.dataType = dataType
         self.sizeName = sizeName
+        self.numEntries = numEntries
 
 class Group(object):
-    def __init__(self, id, numEntries, segments):
+    def __init__(self, id, segments, numEntries):
         self.id = id
-        self.numEntries = numEntries
         self.segments = segments
+        self.numEntries = numEntries
 
 class Dataset(object):
-    def __init__(self, name, schema, numEntries, groups):
+    def __init__(self, name, schema, groups, numEntries):
         self.name = name
         self.schema = schema
-        self.numEntries = numEntries
         self.groups = groups
+        self.numEntries = numEntries

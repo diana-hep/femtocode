@@ -21,6 +21,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
+from femtocode.fromroot.dataset import *
 from femtocode.fromroot.declare import DatasetDeclaration
 from femtocode.fromroot._fastreader import fillarrays
 
@@ -75,6 +76,24 @@ def filesFromPath(path):
     else:
         raise IOError("unknown protocol: {0}".format(url.scheme))
 
+def sanityCheck(quantity, collectionDepth=0):
+    if isinstance(quantity, DatasetDeclaration):
+        for x in quantity.fields.values():
+            sanityCheck(x, collectionDepth)
+
+    elif isinstance(quantity, DatasetDeclaration.Collection):
+        sanityCheck(quantity.items, collectionDepth + 1)
+
+    elif isinstance(quantity, DatasetDeclaration.Record):
+        for name, field in quantity.fields.items():
+            sanityCheck(field, collectionDepth)
+
+    elif isinstance(quantity, DatasetDeclaration.Primitive):
+        if quantity.frm.size is None and collectionDepth != 0:
+            raise DatasetDeclaration.Error(quantity.lc, "field has no declared 'size' but it is nested within a collection")
+        elif quantity.frm.size is not None and collectionDepth == 0:
+            raise DatasetDeclaration.Error(quantity.lc, "field has a 'size' attribute but it is not nested within a collection")
+
 def getPaths(quantity):
     if isinstance(quantity, DatasetDeclaration):
         for x in quantity.fields.values():
@@ -115,9 +134,61 @@ def getBranchesForPaths(quantity, paths):
             for path in source.paths:
                 paths[(path, source.tree)].append((quantity.frm.data, quantity.frm.size))
 
+def assignFilesToSegments(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name=None)
+    if isinstance(quantity, DatasetDeclaration):
+        for k, v in quantity.fields.items():
+            assignFilesToSegments(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, k)
+
+    elif isinstance(quantity, DatasetDeclaration.Collection):
+        assignFilesToSegments(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name)
+
+    elif isinstance(quantity, DatasetDeclaration.Record):
+        for k, v in quantity.fields.items():
+            assignFilesToSegments(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name, name + "." + k)
+
+        # FIXME: and then check
+
+    elif isinstance(quantity, DatasetDeclaration.Primitive):
+        segments = []
+
+        group = 0
+        index = 0
+        for source in primitive.frm.sources:
+            for path in source.paths:
+                for file in pathsToFiles[(path, source.tree)]:
+                    numEntries = filesToNumEntries[(file, source.tree)]
+                    if quantity.frm.size is None:
+                        dataLength = numEntries
+                    else:
+                        dataLength = fileColumnsToLengths[(file, source.tree, primitive.frm.data)]
+
+                    if index == 0:
+                        segments.append(ROOTSegment(
+                            quantity.frm.data,
+                            dataLength,
+                            quantity.frm.dtype,
+                            quantity.frm.size,
+                            numEntries))
+                    else:
+                        segments[-1].dataLength += dataLength
+                        segments[-1].numEntries += numEntries
+
+                    index += 1
+                    if index > source.groupsize:
+                        index = 0
+                        group += 1
+
+        # HERE!!! Return it somehow!
+
+                        
+    else:
+        assert False, "expected either a DatasetDeclaration or a Quantity"
+
 ################################################################################
 
 declaration = DatasetDeclaration.fromYamlString(declaration)
+
+sanityCheck(declaration)
 
 pathsToFiles = {}
 for path, tree in set(getPaths(declaration)):
@@ -128,6 +199,8 @@ for path, tree in set(getPaths(declaration)):
 pathsToBranches = dict((x, []) for x in pathsToFiles)
 getBranchesForPaths(declaration, pathsToBranches)
 
+filesToNumEntries = {}
+fileColumnsToLengths = {}
 for (path, tree), files in pathsToFiles.items():
     for file in files:
         sizeToData = {}
@@ -135,4 +208,18 @@ for (path, tree), files in pathsToFiles.items():
             if sizeName is not None:
                 sizeToData[sizeName] = dataName   # get rid of duplicate sizeNames
 
-        lengths = fillarrays(file, tree, [(dataName, sizeName, None, None) for sizeName, dataName in sizeToData.items()])
+        dataSizeNoDuplicates = [(dataName, sizeName) for sizeName, dataName in sizeToData.items()]
+
+        lengths = fillarrays(file, tree, [(dataName, sizeName, None, None) for dataName, sizeName in dataSizeNoDuplicates])
+        filesToNumEntries[(file, tree)] = int(lengths[0])
+        for (dataName, sizeName), length in zip(dataSizeNoDuplicates, lengths[1:]):
+            fileColumnsToLengths[(file, tree, dataName)] = int(length)
+
+groups = assignFilesToSegments(declaration, filesToNumEntries, fileColumnsToLengths, pathsToFiles)
+
+dataset = ROOTDataset(
+    declaration.name,
+    dict((k, v.schema) for k, v in declaration.fields.items()),
+    [])
+
+
