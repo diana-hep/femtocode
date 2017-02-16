@@ -16,6 +16,8 @@
 
 import json
 
+from femtocode.typesystem import Schema
+
 def level(name):
     try:
         index = name.rindex("[")
@@ -26,7 +28,7 @@ def level(name):
 class Metadata(object):
     def toJsonString(self):
         return json.dumps(self.toJson())
-
+    
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength):
         self.numEntries = numEntries
@@ -37,6 +39,18 @@ class Segment(Metadata):
 
     def toJson(self):
         return {"numEntries": self.numEntries, "dataLength": self.dataLength}
+
+    @classmethod
+    def fromJson(cls, segment):
+        return Segment(
+            segment["numEntries"],
+            segment["dataLength"])
+
+    def __eq__(self, other):
+        return other.__class__ == Segment and self.numEntries == other.numEntries and self.dataLength == other.dataLength
+
+    def __hash__(self):
+        return hash((Segment, self.numEntries, self.dataLength))
 
 class Group(Metadata):
     def __init__(self, id, segments, numEntries):
@@ -50,6 +64,19 @@ class Group(Metadata):
     def toJson(self):
         return {"id": self.id, "segments": dict((k, v.toJson()) for k, v in self.segments.items()), "numEntries": self.numEntries}
 
+    @classmethod
+    def fromJson(cls, group):
+        return Group(
+            group["id"],
+            dict((k, Segment.fromJson(v)) for k, v in group["segments"].items()),
+            group["numEntries"])
+
+    def __eq__(self, other):
+        return other.__class__ == Group and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries
+
+    def __hash__(self):
+        return hash((Group, self.id, tuple(self.segments.items()), self.numEntries))
+
 class Column(Metadata):
     def __init__(self, data, size, dataType):
         self.data = data
@@ -61,6 +88,19 @@ class Column(Metadata):
 
     def toJson(self):
         return {"data": self.data, "size": self.size, "dataType": str(self.dataType)}
+
+    @classmethod
+    def fromJson(cls, column):
+        return Column(
+            column["data"],
+            column["size"],
+            column["dataType"])
+
+    def __eq__(self, other):
+        return other.__class__ == Column and self.data == other.data and self.size == other.size and self.dataType == other.dataType
+
+    def __hash__(self):
+        return hash((Column, self.data, self.size, self.dataType))
 
 class Dataset(Metadata):
     def __init__(self, name, schema, columns, groups, numEntries):
@@ -75,3 +115,22 @@ class Dataset(Metadata):
 
     def toJson(self):
         return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((k, v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
+
+    @classmethod
+    def fromJsonString(cls, dataset):
+        return cls.fromJson(json.loads(dataset))
+
+    @classmethod
+    def fromJson(cls, dataset):
+        return Dataset(
+            dataset["name"],
+            dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
+            dict((k, Column.fromJson(v)) for k, v in dataset["columns"].items()),
+            [Group.fromJson(x) for x in dataset["groups"]],
+            dataset["numEntries"])
+
+    def __eq__(self, other):
+        return other.__class__ == Dataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+
+    def __hash__(self):
+        return hash((Dataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))

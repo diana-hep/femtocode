@@ -25,7 +25,7 @@ class TestDeclare(unittest.TestCase):
     def runTest(self):
         pass
 
-    def test_config(self):
+    def test_real(self):
         declaration = """
 define:
   MuOnia-2016-CF-23Sep2016-v1:
@@ -125,5 +125,9 @@ schema:
 """
 
         dataset = ROOTDataset.fromYamlString(declaration)
-        print(dataset.toJsonString())
-        
+
+        asjson = dataset.toJson()
+
+        self.assertEqual(asjson, {"groups": [{"files": ["/home/pivarski/storage/data/00000000-0000-0000-0000-000000000000.root"], "segments": {"muons[].phi": {"files": None, "numEntries": 48131, "dataLength": 132274}, "jets[].phi": {"files": None, "numEntries": 48131, "dataLength": 806177}, "jets[].pt": {"files": None, "numEntries": 48131, "dataLength": 806177}, "muons[].pt": {"files": None, "numEntries": 48131, "dataLength": 132274}, "jets[].mass": {"files": None, "numEntries": 48131, "dataLength": 806177}, "jets[].eta": {"files": None, "numEntries": 48131, "dataLength": 806177}, "muons[].eta": {"files": None, "numEntries": 48131, "dataLength": 132274}}, "numEntries": 48131, "id": 0}], "numEntries": 48131, "name": "MuOnia", "columns": {"muons[].phi": {"dataBranch": "patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi", "dataType": "float64", "tree": "Events", "sizeBranch": "patMuons_slimmedMuons__PAT.obj", "data": "muons[].phi", "size": "muons[].phi@size"}, "jets[].phi": {"dataBranch": "patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi", "dataType": "float64", "tree": "Events", "sizeBranch": "patJets_slimmedJets__PAT.obj", "data": "jets[].phi", "size": "jets[].phi@size"}, "jets[].pt": {"dataBranch": "patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "dataType": "float64", "tree": "Events", "sizeBranch": "patJets_slimmedJets__PAT.obj", "data": "jets[].pt", "size": "jets[].pt@size"}, "muons[].pt": {"dataBranch": "patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "dataType": "float64", "tree": "Events", "sizeBranch": "patMuons_slimmedMuons__PAT.obj", "data": "muons[].pt", "size": "muons[].pt@size"}, "jets[].mass": {"dataBranch": "patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fMass", "dataType": "float64", "tree": "Events", "sizeBranch": "patJets_slimmedJets__PAT.obj", "data": "jets[].mass", "size": "jets[].mass@size"}, "jets[].eta": {"dataBranch": "patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta", "dataType": "float64", "tree": "Events", "sizeBranch": "patJets_slimmedJets__PAT.obj", "data": "jets[].eta", "size": "jets[].eta@size"}, "muons[].eta": {"dataBranch": "patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta", "dataType": "float64", "tree": "Events", "sizeBranch": "patMuons_slimmedMuons__PAT.obj", "data": "muons[].eta", "size": "muons[].eta@size"}}, "schema": {"jets": {"items": {"fields": {"phi": {"max": 3.141592653589793, "type": "real", "min": -3.141592653589793}, "eta": "real", "mass": {"max": {"almost": "inf"}, "type": "real", "min": 0}, "pt": {"max": {"almost": "inf"}, "type": "real", "min": 0}}, "type": "record"}, "type": "collection"}, "muons": {"items": {"fields": {"phi": {"max": 3.141592653589793, "type": "real", "min": -3.141592653589793}, "eta": "real", "pt": {"max": {"almost": "inf"}, "type": "real", "min": 0}}, "type": "record"}, "type": "collection"}}})
+
+        self.assertEqual(ROOTDataset.fromJson(asjson), dataset)

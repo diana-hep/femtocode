@@ -24,6 +24,7 @@ from femtocode.dataset import Dataset
 from femtocode.fromroot.declare import DatasetDeclaration
 from femtocode.fromroot._fastreader import fillarrays
 from femtocode.fromroot.xrootd import filesFromPath
+from femtocode.typesystem import Schema
 
 class ROOTSegment(Segment):
     def __init__(self, numEntries, dataLength, files):
@@ -35,6 +36,26 @@ class ROOTSegment(Segment):
         out["files"] = self.files
         return out
 
+    @classmethod
+    def fromJson(cls, segment):
+        out = cls.__new__(cls)
+        out.numEntries = segment["numEntries"]
+        out.dataLength = segment["dataLength"]
+        return out
+
+    @classmethod
+    def fromJson(cls, segment):
+        return ROOTSegment(
+            segment["numEntries"],
+            segment["dataLength"],
+            segment["files"])
+
+    def __eq__(self, other):
+        return other.__class__ == ROOTSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.files == other.files
+
+    def __hash__(self):
+        return hash((ROOTSegment, self.numEntries, self.dataLength, None if self.files is None else tuple(self.files)))
+
 class ROOTGroup(Group):
     def __init__(self, id, segments, numEntries, files):
         super(ROOTGroup, self).__init__(id, segments, numEntries)
@@ -44,6 +65,20 @@ class ROOTGroup(Group):
         out = super(ROOTGroup, self).toJson()
         out["files"] = self.files
         return out
+
+    @classmethod
+    def fromJson(cls, group):
+        return ROOTGroup(
+            group["id"],
+            dict((k, ROOTSegment.fromJson(v)) for k, v in group["segments"].items()),
+            group["numEntries"],
+            group["files"])
+
+    def __eq__(self, other):
+        return other.__class__ == ROOTGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.files == other.files
+
+    def __hash__(self):
+        return hash((ROOTGroup, self.id, tuple(self.segments.items()), self.numEntries, None if self.files is None else tuple(self.files)))
 
 class ROOTColumn(Column):
     def __init__(self, data, size, dataType, tree, dataBranch, sizeBranch):
@@ -58,6 +93,22 @@ class ROOTColumn(Column):
         out["dataBranch"] = self.dataBranch
         out["sizeBranch"] = self.sizeBranch
         return out
+
+    @classmethod
+    def fromJson(cls, column):
+        return ROOTColumn(
+            column["data"],
+            column["size"],
+            column["dataType"],
+            column["tree"],
+            column["dataBranch"],
+            column["sizeBranch"])
+
+    def __eq__(self, other):
+        return other.__class__ == ROOTColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType and self.tree == other.tree and self.dataBranch == other.dataBranch and self.sizeBranch == other.sizeBranch
+
+    def __hash__(self):
+        return hash((ROOTColumn, self.data, self.size, self.dataType, self.tree, self.dataBranch, self.sizeBranch))
 
 class ROOTDataset(Dataset):
     @staticmethod
@@ -294,3 +345,18 @@ class ROOTDataset(Dataset):
 
     def __init__(self, name, schema, columns, groups, numEntries):
         super(ROOTDataset, self).__init__(name, schema, columns, groups, numEntries)
+
+    @classmethod
+    def fromJson(cls, dataset):
+        return ROOTDataset(
+            dataset["name"],
+            dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
+            dict((k, ROOTColumn.fromJson(v)) for k, v in dataset["columns"].items()),
+            [ROOTGroup.fromJson(x) for x in dataset["groups"]],
+            dataset["numEntries"])
+
+    def __eq__(self, other):
+        return other.__class__ == ROOTDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+
+    def __hash__(self):
+        return hash((ROOTDataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
