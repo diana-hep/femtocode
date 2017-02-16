@@ -225,7 +225,7 @@ class ROOTDataset(Dataset):
                 for (dataName, sizeName), length in zip(dataSizeNoDuplicates, lengths[1:]):
                     sizeToLength[sizeName] = int(length)
 
-                # no allowing duplicate sizeNames (to get all the dataNames)
+                # now allowing duplicate sizeNames (to get all the dataNames)
                 for dataName, sizeName in pathsToBranches[(path, tree)]:
                     if sizeName is None:
                         fileColumnsToLengths[(file, tree, dataName)] = filesToNumEntries[(file, tree)]

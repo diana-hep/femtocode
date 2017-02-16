@@ -29,11 +29,17 @@ class Segment(object):
         self.dataLength = dataLength
         self.dataType = dataType
 
+    def __repr__(self):
+        return "<{0} {1} at 0x{2:012x}>".format(self.__class__.__name__, self.data, id(self))
+
 class Group(object):
     def __init__(self, id, segments, numEntries):
         self.id = id
         self.segments = segments
         self.numEntries = numEntries
+
+    def __repr__(self):
+        return "<{0} {1} at 0x{2:012x}>".format(self.__class__.__name__, self.id, id(self))
 
 class Dataset(object):
     def __init__(self, name, schema, groups, numEntries):
@@ -41,3 +47,6 @@ class Dataset(object):
         self.schema = schema
         self.groups = groups
         self.numEntries = numEntries
+
+    def __repr__(self):
+        return "<{0} {1} at 0x{2:012x}>".format(self.__class__.__name__, self.name, id(self))

@@ -121,3 +121,7 @@ schema:
 """
 
         dataset = ROOTDataset.fromYamlString(declaration)
+        print(dataset)
+        print(dataset.groups)
+        print(dataset.groups[0].segments)
+        
