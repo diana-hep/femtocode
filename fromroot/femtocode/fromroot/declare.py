@@ -223,7 +223,7 @@ class DatasetDeclaration(object):
     class From(object):
         @staticmethod
         def fromYaml(frm, sources):
-            DatasetDeclaration._unrecognized(frm.keys(), ["tree", "data", "size", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
+            DatasetDeclaration._unrecognized(frm.keys(), ["tree", "data", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
 
             tree = frm.get("tree")
             if tree is None:
@@ -236,10 +236,6 @@ class DatasetDeclaration(object):
                 raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a data field")
             elif not isinstance(data, string_types):
                 raise DatasetDeclaration.Error(frm.lc.key("data"), "data field must be a string")
-
-            size = frm.get("size")
-            if size is not None and not isinstance(size, string_types):
-                raise DatasetDeclaration.Error(frm.lc.key("size"), "column-from size field must be a string or null")
 
             dtype = frm.get("dtype")
             if dtype is None:
@@ -256,17 +252,16 @@ class DatasetDeclaration(object):
                 raise DatasetDeclaration.Error(frm.lc.key("sources"), "column-sources must be a list (denoted with '-' in YAML)")
             src = [x if isinstance(x, DatasetDeclaration.Source) else DatasetDeclaration.Source.fromYaml(x) for x in src]
 
-            return DatasetDeclaration.From(tree, data, size, dtype, src)
+            return DatasetDeclaration.From(tree, data, dtype, src)
 
-        def __init__(self, tree, data, size, dtype, sources):
+        def __init__(self, tree, data, dtype, sources):
             self.tree = tree
             self.data = data
-            self.size = size
             self.dtype = dtype
             self.sources = sources
 
         def __repr__(self):
-            return "DatasetDeclaration.From({0}, {1}, {2}, {3}, {4})".format(self.tree, self.data, self.size, self.dtype, self.sources)
+            return "DatasetDeclaration.From({0}, {1}, {2}, {3})".format(self.tree, self.data, self.dtype, self.sources)
 
     class Quantity(object):
         @staticmethod

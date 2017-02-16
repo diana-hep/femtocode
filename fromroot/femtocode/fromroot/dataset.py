@@ -118,25 +118,6 @@ class ROOTDataset(Dataset):
         return ROOTDataset.fromDeclaration(DatasetDeclaration.fromYamlString(declaration))
 
     @staticmethod
-    def _sanityCheck(quantity, collectionDepth=0):
-        if isinstance(quantity, DatasetDeclaration):
-            for x in quantity.fields.values():
-                ROOTDataset._sanityCheck(x, collectionDepth)
-
-        elif isinstance(quantity, DatasetDeclaration.Collection):
-            ROOTDataset._sanityCheck(quantity.items, collectionDepth + 1)
-
-        elif isinstance(quantity, DatasetDeclaration.Record):
-            for name, field in quantity.fields.items():
-                ROOTDataset._sanityCheck(field, collectionDepth)
-
-        elif isinstance(quantity, DatasetDeclaration.Primitive):
-            if quantity.frm.size is None and collectionDepth != 0:
-                raise DatasetDeclaration.Error(quantity.lc, "field has no declared 'size' but it is nested within a collection")
-            elif quantity.frm.size is not None and collectionDepth == 0:
-                raise DatasetDeclaration.Error(quantity.lc, "field has a 'size' attribute but it is not nested within a collection")
-
-    @staticmethod
     def _getPaths(quantity):
         if isinstance(quantity, DatasetDeclaration):
             for x in quantity.fields.values():
@@ -179,7 +160,7 @@ class ROOTDataset(Dataset):
                     paths[(path, quantity.frm.tree)].append(quantity.frm.data)
 
     @staticmethod
-    def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name=None):
+    def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name=None):
         if isinstance(quantity, DatasetDeclaration) or isinstance(quantity, DatasetDeclaration.Record):
             newColumns = {}
 
@@ -190,7 +171,7 @@ class ROOTDataset(Dataset):
                 else:
                     subname = name + "." + k
 
-                columns, groups = ROOTDataset._makeGroups(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, subname)
+                columns, groups = ROOTDataset._makeGroups(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, subname)
 
                 for n, c in columns.items():
                     assert n not in newColumns
@@ -255,15 +236,25 @@ class ROOTDataset(Dataset):
             return newColumns, newGroups
 
         elif isinstance(quantity, DatasetDeclaration.Collection):
-            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name + "[]")
+            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name + "[]")
 
         elif isinstance(quantity, DatasetDeclaration.Primitive):
+            sizeBranch = ()
+            for source in quantity.frm.sources:
+                for path in source.paths:
+                    for file in pathsToFiles[(path, quantity.frm.tree)]:
+                        b = fileColumnsToSize[(file, quantity.frm.tree, quantity.frm.data)]
+                        if sizeBranch == ():
+                            sizeBranch = b
+                        elif sizeBranch != b:
+                            raise DatasetDeclaration.Error(quantity.frm.loc, "branch {0} has a counter branch in some files and not others".format(json.dumps(quantity.frm.data)))
+
             column = ROOTColumn(name,
-                                name + "@size" if quantity.frm.size is not None else None,
+                                name + "@size" if sizeBranch is not None else None,
                                 quantity.frm.dtype,
                                 quantity.frm.tree,
                                 quantity.frm.data,
-                                quantity.frm.size)
+                                sizeBranch)
             segments = []
 
             groupid = 0
@@ -300,8 +291,6 @@ class ROOTDataset(Dataset):
 
     @staticmethod
     def fromDeclaration(declaration, fillarrays=fillarrays):
-        ROOTDataset._sanityCheck(declaration)
-
         pathsToFiles = {}
         for path, tree in set(ROOTDataset._getPaths(declaration)):
             pathsToFiles[(path, tree)] = []
@@ -313,6 +302,7 @@ class ROOTDataset(Dataset):
 
         filesToNumEntries = {}
         fileColumnsToLengths = {}
+        fileColumnsToSize = {}
         for (path, tree), files in pathsToFiles.items():
             for file in files:
                 datas = [dataName for dataName in pathsToBranches[(path, tree)]]
@@ -333,12 +323,13 @@ class ROOTDataset(Dataset):
 
                 # now allowing duplicate sizeNames (to get all the dataNames)
                 for dataName, sizeName in zip(datas, sizes):
+                    fileColumnsToSize[(file, tree, dataName)] = sizeName
                     if sizeName is None:
                         fileColumnsToLengths[(file, tree, dataName)] = filesToNumEntries[(file, tree)]
                     else:
                         fileColumnsToLengths[(file, tree, dataName)] = sizeToLength[sizeName]
 
-        columns, groups = ROOTDataset._makeGroups(declaration, filesToNumEntries, fileColumnsToLengths, pathsToFiles)
+        columns, groups = ROOTDataset._makeGroups(declaration, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize)
 
         return ROOTDataset(
             declaration.name,

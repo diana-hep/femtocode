@@ -64,14 +64,12 @@ schema:
           from:
             tree: Events
             data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
-            size: patMuons_slimmedMuons__PAT.obj
             dtype: float64
         eta:
           type: real
           from:
             tree: Events
             data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
-            size: patMuons_slimmedMuons__PAT.obj
             dtype: float64
         phi:
           type: real
@@ -80,7 +78,6 @@ schema:
           from:
             tree: Events
             data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
-            size: patMuons_slimmedMuons__PAT.obj
             dtype: float64
 
   jets:
@@ -95,14 +92,12 @@ schema:
           from:
             tree: Events
             data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
-            size: patJets_slimmedJets__PAT.obj
             dtype: float64
         eta:
           type: real
           from:
             tree: Events
             data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
-            size: patJets_slimmedJets__PAT.obj
             dtype: float64
         phi:
           type: real
@@ -111,7 +106,6 @@ schema:
           from:
             tree: Events
             data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
-            size: patJets_slimmedJets__PAT.obj
             dtype: float64
         mass:
           type: real
@@ -120,7 +114,6 @@ schema:
           from:
             tree: Events
             data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fM
-            size: patJets_slimmedJets__PAT.obj
             dtype: float64
 """
 
