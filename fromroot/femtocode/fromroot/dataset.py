@@ -24,6 +24,7 @@ from femtocode.dataset import Column
 from femtocode.dataset import Dataset
 from femtocode.fromroot.declare import DatasetDeclaration
 from femtocode.fromroot._fastreader import fillarrays
+from femtocode.fromroot._fastreader import getsize
 from femtocode.fromroot.xrootd import filesFromPath
 from femtocode.typesystem import Schema
 
@@ -175,7 +176,7 @@ class ROOTDataset(Dataset):
         elif isinstance(quantity, DatasetDeclaration.Primitive):
             for source in quantity.frm.sources:
                 for path in source.paths:
-                    paths[(path, quantity.frm.tree)].append((quantity.frm.data, quantity.frm.size))
+                    paths[(path, quantity.frm.tree)].append(quantity.frm.data)
 
     @staticmethod
     def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, name=None):
@@ -314,16 +315,13 @@ class ROOTDataset(Dataset):
         fileColumnsToLengths = {}
         for (path, tree), files in pathsToFiles.items():
             for file in files:
-                # FIXME
-                # missing = missingbranches(file, tree, pathsToBranches[(path, tree)])
-                # if len(missing) > 0:
-                #     raise DatasetDeclaration.Error(declaration, "file {0} tree {1} is missing {2}".format(file, tree, missing))
+                datas = [dataName for dataName in pathsToBranches[(path, tree)]]
+                sizes = getsize(file, tree, datas)
 
                 sizeToData = {}
-                for dataName, sizeName in pathsToBranches[(path, tree)]:
+                for dataName, sizeName in zip(datas, sizes):
                     if sizeName is not None:
                         sizeToData[sizeName] = dataName   # get rid of duplicate sizeNames
-
                 dataSizeNoDuplicates = [(dataName, sizeName) for sizeName, dataName in sizeToData.items()]
 
                 lengths = fillarrays(file, tree, [(dataName, sizeName, None, None) for dataName, sizeName in dataSizeNoDuplicates])
@@ -334,7 +332,7 @@ class ROOTDataset(Dataset):
                     sizeToLength[sizeName] = int(length)
 
                 # now allowing duplicate sizeNames (to get all the dataNames)
-                for dataName, sizeName in pathsToBranches[(path, tree)]:
+                for dataName, sizeName in zip(datas, sizes):
                     if sizeName is None:
                         fileColumnsToLengths[(file, tree, dataName)] = filesToNumEntries[(file, tree)]
                     else:

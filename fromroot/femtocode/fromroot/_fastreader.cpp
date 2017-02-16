@@ -415,7 +415,7 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
     return NULL;
 
   if (!PySequence_Check(branches)) {
-    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of (string, string) pairs");
+    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
     return NULL;
   }
   int numBranches = PySequence_Length(branches);
@@ -441,12 +441,16 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
 
   for (Py_ssize_t i = 0;  i < numBranches;  i++) {
     PyObject* pyDataName = PySequence_Fast_GET_ITEM(branches, i);
-    if (!PyBytes_Check(pyDataName)) {
+    const char* dataName;
+    if (PyBytes_Check(pyDataName))
+      dataName = PyBytes_AsString(pyDataName);
+    else if (PyUnicode_Check(pyDataName))
+      dataName = PyUnicode_AsUTF8AndSize(pyDataName, NULL);
+    else {
       PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
       return NULL;
     }
 
-    char* dataName = PyBytes_AsString(pyDataName);
     TBranch* tbranch = ttree->GetBranch(dataName);
 
     if (tbranch == NULL) {
@@ -457,12 +461,11 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
 
     bool filled = false;
     if (tbranch->IsA()->InheritsFrom("TBranchElement")) {
-      TBranchElement* branchElement = (TBranchElement*)tbranch;
-      TLeaf* counter = ((TLeaf*)(branchElement->GetListOfLeaves()->First()))->GetLeafCount();
+      TLeaf* counter = ((TLeaf*)(tbranch->GetListOfLeaves()->First()))->GetLeafCount();
 
       if (counter != NULL) {
         const char* sizeName = counter->GetBranch()->GetName();
-        PyObject* pySizeName = PyBytes_FromString(sizeName);
+        PyObject* pySizeName = PyUnicode_FromString(sizeName);
 
         if (pySizeName == NULL  ||  PyList_SetItem(out, i, pySizeName) != 0) {
           PyErr_SetString(PyExc_RuntimeError, "could not fill output");
