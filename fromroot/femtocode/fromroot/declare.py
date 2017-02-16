@@ -192,11 +192,11 @@ class DatasetDeclaration(object):
     class Source(object):
         @staticmethod
         def fromYaml(source):
-            DatasetDeclaration._unrecognized(source.keys(), ["format", "tree", "paths"], (source.lc.line, source.lc.col), "dataset declaration source")
+            DatasetDeclaration._unrecognized(source.keys(), ["format", "paths"], (source.lc.line, source.lc.col), "dataset declaration source")
 
             format = source.get("format")
             if format is None:
-                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "source needs a name")
+                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "column-source needs a name")
             elif not isinstance(format, string_types):
                 raise DatasetDeclaration.Error(source.lc.get("format"), "name must be a string")
 
@@ -204,69 +204,69 @@ class DatasetDeclaration(object):
             if not isinstance(groupsize, (int, long)) or groupsize < 1:
                 raise DatasetDeclaration.Error(source.lc.get("groupsize"), "groupsize must be a positive integer")
 
-            tree = source.get("tree")
-            if tree is None:
-                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "source needs a tree")
-            elif not isinstance(tree, string_types):
-                raise DataestDeclaration.Error(source.lc.get("tree"), "source tree must be a string")
-
             paths = source.get("paths")
             if paths is None:
-                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "source needs a paths")
+                raise DatasetDeclaration.Error((source.lc.line, source.lc.col), "column-source needs a paths")
             elif not isinstance(paths, CommentedSeq) or not all(isinstance(x, string_types) for x in paths):
                 raise DatasetDeclaration.Error(source.lc.get("paths"), "source path must be a list of strings (denoted with '-' in YAML)")
 
-            return DatasetDeclaration.Source(format, groupsize, tree, paths)
+            return DatasetDeclaration.Source(format, groupsize, paths)
 
-        def __init__(self, format, groupsize, tree, paths):
+        def __init__(self, format, groupsize, paths):
             self.format = format
             self.groupsize = groupsize
-            self.tree = tree
             self.paths = paths
 
         def __repr__(self):
-            return "DatasetDeclaration.Source({0}, {1}, {2}, [{3}])".format(json.dumps(self.format), self.groupsize, json.dumps(self.tree), ", ".join(json.dumps(x) for x in self.paths))
+            return "DatasetDeclaration.Source({0}, {1}, [{2}])".format(json.dumps(self.format), self.groupsize, ", ".join(json.dumps(x) for x in self.paths))
 
     class From(object):
         @staticmethod
         def fromYaml(frm, sources):
-            DatasetDeclaration._unrecognized(frm.keys(), ["data", "size", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
+            DatasetDeclaration._unrecognized(frm.keys(), ["tree", "data", "size", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
+
+            tree = frm.get("tree")
+            if tree is None:
+                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a tree")
+            elif not isinstance(tree, string_types):
+                raise DataestDeclaration.Error(frm.lc.get("tree"), "column-from tree must be a string")
 
             data = frm.get("data")
             if data is None:
-                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column needs a data field")
+                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a data field")
             elif not isinstance(data, string_types):
                 raise DatasetDeclaration.Error(frm.lc.key("data"), "data field must be a string")
 
             size = frm.get("size")
             if size is not None and not isinstance(size, string_types):
-                raise DatasetDeclaration.Error(frm.lc.key("size"), "column size field must be a string or null")
+                raise DatasetDeclaration.Error(frm.lc.key("size"), "column-from size field must be a string or null")
 
             dtype = frm.get("dtype")
             if dtype is None:
-                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column needs a dtype field")
+                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a dtype field")
             try:
                 dtype = numpy.dtype(dtype)
             except TypeError:
-                raise DatasetDeclaration.Error(frm.lc.key("dtype"), "column dtype field must be a Numpy dtype")
+                raise DatasetDeclaration.Error(frm.lc.key("dtype"), "column-from dtype field must be a Numpy dtype")
 
             src = frm.get("sources")
             if src is None:
                 src = sources
             elif not isinstance(src, CommentedSeq):
-                raise DatasetDeclaration.Error(frm.lc.key("sources"), "data column sources must be a list (denoted with '-' in YAML)")
+                raise DatasetDeclaration.Error(frm.lc.key("sources"), "column-sources must be a list (denoted with '-' in YAML)")
             src = [x if isinstance(x, DatasetDeclaration.Source) else DatasetDeclaration.Source.fromYaml(x) for x in src]
 
-            return DatasetDeclaration.From(data, size, dtype, src)
+            return DatasetDeclaration.From(tree, data, size, dtype, src)
 
-        def __init__(self, data, size, dtype, sources):
+        def __init__(self, tree, data, size, dtype, sources):
+            self.tree = tree
             self.data = data
             self.size = size
             self.dtype = dtype
             self.sources = sources
 
         def __repr__(self):
-            return "DatasetDeclaration.From({0}, {1}, {2}, {3})".format(self.data, self.size, self.dtype, self.sources)
+            return "DatasetDeclaration.From({0}, {1}, {2}, {3}, {4})".format(self.tree, self.data, self.size, self.dtype, self.sources)
 
     class Quantity(object):
         @staticmethod
