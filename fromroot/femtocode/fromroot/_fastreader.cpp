@@ -27,11 +27,14 @@
 
 static char module_docstring[] = "Simple, streamlined Numpy array-filling from ROOT.";
 static char fillarrays_docstring[] = "Fills N arrays at once from a ROOT file's TTree.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    arrays: list of (string, array) or (string, string, array, array) tuples: (data name, data array) or (data name, size name, data array, size array). Arrays must be preallocated or pass None just to get the allocation size.\n\nreturns:\n    tuple of N+1 ints: total number of entries followed by the total number of each object.\n\nraises:\n    IndexError if more values are found in the ROOT file than are allocated in the array.";
+static char getsize_docstring[] = "Get size branch names for each data branch.\n\nparams:\n    fileName: string, can include root:// protocol\n    ttreeName: string, can include directory slashes\n    data: list of string names.\n\nreturns:\n    list (same length) of size branch names with None if the branch is flat.\n\nraises:\n    IOError if any branch is not found.";
 
 static PyObject* fillarrays(PyObject* self, PyObject* args);
+static PyObject* getsize(PyObject* self, PyObject* args);
 
 static PyMethodDef module_methods[] = {
   {"fillarrays", (PyCFunction)fillarrays, METH_VARARGS, fillarrays_docstring},
+  {"getsize", (PyCFunction)getsize, METH_VARARGS, getsize_docstring},
   {NULL, NULL, 0, NULL}
 };
 
@@ -397,6 +400,83 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     if (PyTuple_SetItem(out, i + 1, PyLong_FromLong(branchArrayInfos[i].dataLength)) != 0) {
       PyErr_SetString(PyExc_IOError, "could not fill output tuple");
       return NULL;
+    }
+  }
+
+  return out;
+}
+
+static PyObject* getsize(PyObject* self, PyObject* args) {
+  char* fileName;
+  char* treeName;
+  PyObject* branches;
+
+  if (!PyArg_ParseTuple(args, "ssO", &fileName, &treeName, &branches))
+    return NULL;
+
+  if (!PySequence_Check(branches)) {
+    PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of (string, string) pairs");
+    return NULL;
+  }
+  int numBranches = PySequence_Length(branches);
+
+  Int_t oldLevel = gErrorIgnoreLevel;   // error message suppression is not thread safe
+  gErrorIgnoreLevel = kError;           // but oh well...
+  TFile* tfile = TFile::Open(fileName);
+  gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
+
+  if (tfile == NULL  ||  !tfile->IsOpen()) {
+    PyErr_SetString(PyExc_IOError, "could not open file");
+    return NULL;
+  }
+
+  TTree* ttree;
+  tfile->GetObject(treeName, ttree);
+  if (ttree == NULL) {
+    PyErr_SetString(PyExc_IOError, "bad or missing TTree");
+    return NULL;
+  }
+
+  PyObject* out = PyList_New(numBranches);
+
+  for (Py_ssize_t i = 0;  i < numBranches;  i++) {
+    PyObject* pyDataName = PySequence_Fast_GET_ITEM(branches, i);
+    if (!PyBytes_Check(pyDataName)) {
+      PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
+      return NULL;
+    }
+
+    char* dataName = PyBytes_AsString(pyDataName);
+    TBranch* tbranch = ttree->GetBranch(dataName);
+
+    if (tbranch == NULL) {
+      std::string err = std::string("TFile \"") + std::string(fileName) + std::string("\", TTree \"") + std::string(treeName) + std::string("\" does not have TBranch \"") + std::string(dataName) + std::string("\"");
+      PyErr_SetString(PyExc_IOError, err.c_str());
+      return NULL;
+    }
+
+    bool filled = false;
+    if (tbranch->IsA()->InheritsFrom("TBranchElement")) {
+      TBranchElement* branchElement = (TBranchElement*)tbranch;
+      TLeaf* counter = ((TLeaf*)(branchElement->GetListOfLeaves()->First()))->GetLeafCount();
+
+      if (counter != NULL) {
+        const char* sizeName = counter->GetBranch()->GetName();
+        PyObject* pySizeName = PyBytes_FromString(sizeName);
+
+        if (pySizeName == NULL  ||  PyList_SetItem(out, i, pySizeName) != 0) {
+          PyErr_SetString(PyExc_RuntimeError, "could not fill output");
+          return NULL;
+        }
+        filled = true;
+      }
+    }
+
+    if (!filled) {
+      if (PyList_SetItem(out, i, Py_BuildValue("O", Py_None)) != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "could not fill output");
+        return NULL;
+      }
     }
   }
 

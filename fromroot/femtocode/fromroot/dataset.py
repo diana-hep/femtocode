@@ -297,7 +297,7 @@ class ROOTDataset(Dataset):
             assert False, "expected either a DatasetDeclaration or a Quantity"
 
     @staticmethod
-    def fromDeclaration(declaration):
+    def fromDeclaration(declaration, fillarrays=fillarrays):
         ROOTDataset._sanityCheck(declaration)
 
         pathsToFiles = {}
@@ -313,6 +313,11 @@ class ROOTDataset(Dataset):
         fileColumnsToLengths = {}
         for (path, tree), files in pathsToFiles.items():
             for file in files:
+                # FIXME
+                # missing = missingbranches(file, tree, pathsToBranches[(path, tree)])
+                # if len(missing) > 0:
+                #     raise DatasetDeclaration.Error(declaration, "file {0} tree {1} is missing {2}".format(file, tree, missing))
+
                 sizeToData = {}
                 for dataName, sizeName in pathsToBranches[(path, tree)]:
                     if sizeName is not None:
