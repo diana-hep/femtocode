@@ -16,6 +16,7 @@
 
 import json
 
+from femtocode.py23 import *
 from femtocode.dataset import level
 from femtocode.dataset import Segment
 from femtocode.dataset import Group
