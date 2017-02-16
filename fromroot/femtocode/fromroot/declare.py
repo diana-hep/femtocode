@@ -404,11 +404,12 @@ class DatasetDeclaration(object):
             raise DatasetDeclaration.Error(declaration.lc.key("schema"), "schema must not be empty")
         fields = dict((k, DatasetDeclaration.Quantity.fromYaml(resolve(v, declaration.lc.key("schema"), definitions, None), sources)) for k, v in fields.items())
 
-        return DatasetDeclaration(name, **fields)
+        return DatasetDeclaration(name, fields, (declaration.lc.line, declaration.lc.col))
 
-    def __init__(self, name, **fields):
+    def __init__(self, name, fields, lc):
         self.name = name
         self.fields = fields
+        self.lc = lc
 
     def __repr__(self):
         return "DatasetDeclaration({0}, {1})".format(json.dumps(self.name), ", ".join("{0}={1}".format(k, repr(v)) for k, v in self.fields.items()))

@@ -14,13 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+def level(name):
+    try:
+        index = name.rindex("[")
+        return name[:index]
+    except ValueError:
+        return None
+
 class Segment(object):
-    def __init__(self, dataName, dataLength, dataType, sizeName, numEntries):
-        self.dataName = dataName
+    def __init__(self, data, size, numEntries, dataLength, dataType):
+        self.data = data
+        self.size = size
+        self.numEntries = numEntries
         self.dataLength = dataLength
         self.dataType = dataType
-        self.sizeName = sizeName
-        self.numEntries = numEntries
 
 class Group(object):
     def __init__(self, id, segments, numEntries):

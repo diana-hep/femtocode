@@ -19,7 +19,7 @@ import unittest
 
 import numpy
 
-import femtocode.fromroot.declare as declare
+from femtocode.fromroot.dataset import ROOTDataset
 
 class TestDeclare(unittest.TestCase):
     def runTest(self):
@@ -119,3 +119,5 @@ schema:
             size: patJets_slimmedJets__PAT.obj
             dtype: float64
 """
+
+        dataset = ROOTDataset.fromYamlString(declaration)
