@@ -442,6 +442,8 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
   for (Py_ssize_t i = 0;  i < numBranches;  i++) {
     PyObject* pyDataName = PySequence_Fast_GET_ITEM(branches, i);
     const char* dataName;
+
+#if PY_MAJOR_VERSION >= 3
     if (PyBytes_Check(pyDataName))
       dataName = PyBytes_AsString(pyDataName);
     else if (PyUnicode_Check(pyDataName))
@@ -450,6 +452,14 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
       PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
       return NULL;
     }
+#else
+    if (PyString_Check(pyDataName))
+      dataName = PyString_AsString(pyDataName);
+    else {
+      PyErr_SetString(PyExc_TypeError, "third argument must be a sequence of strings");
+      return NULL;
+    }
+#endif
 
     TBranch* tbranch = ttree->GetBranch(dataName);
 
@@ -465,7 +475,12 @@ static PyObject* getsize(PyObject* self, PyObject* args) {
 
       if (counter != NULL) {
         const char* sizeName = counter->GetBranch()->GetName();
+
+#if PY_MAJOR_VERSION >= 3
         PyObject* pySizeName = PyUnicode_FromString(sizeName);
+#else
+        PyObject* pySizeName = PyString_FromString(sizeName);
+#endif
 
         if (pySizeName == NULL  ||  PyList_SetItem(out, i, pySizeName) != 0) {
           PyErr_SetString(PyExc_RuntimeError, "could not fill output");
