@@ -63,13 +63,13 @@ schema:
           max: almost(inf)
           from:
             tree: Events
-            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
+            branch: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
             dtype: float64
         eta:
           type: real
           from:
             tree: Events
-            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
+            branch: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
             dtype: float64
         phi:
           type: real
@@ -77,7 +77,7 @@ schema:
           max: pi
           from:
             tree: Events
-            data: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
+            branch: patMuons_slimmedMuons__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
             dtype: float64
 
   jets:
@@ -91,13 +91,13 @@ schema:
           max: almost(inf)
           from:
             tree: Events
-            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
+            branch: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPt
             dtype: float64
         eta:
           type: real
           from:
             tree: Events
-            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
+            branch: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fEta
             dtype: float64
         phi:
           type: real
@@ -105,7 +105,7 @@ schema:
           max: pi
           from:
             tree: Events
-            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
+            branch: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fPhi
             dtype: float64
         mass:
           type: real
@@ -113,7 +113,7 @@ schema:
           max: almost(inf)
           from:
             tree: Events
-            data: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fM
+            branch: patJets_slimmedJets__PAT.obj.m_state.p4Polar_.fCoordinates.fM
             dtype: float64
 """
 

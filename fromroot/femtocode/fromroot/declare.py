@@ -223,7 +223,7 @@ class DatasetDeclaration(object):
     class From(object):
         @staticmethod
         def fromYaml(frm, sources):
-            DatasetDeclaration._unrecognized(frm.keys(), ["tree", "data", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
+            DatasetDeclaration._unrecognized(frm.keys(), ["tree", "branch", "dtype", "sources"], (frm.lc.line, frm.lc.col), "data column from mapping")
 
             tree = frm.get("tree")
             if tree is None:
@@ -231,11 +231,11 @@ class DatasetDeclaration(object):
             elif not isinstance(tree, string_types):
                 raise DataestDeclaration.Error(frm.lc.get("tree"), "column-from tree must be a string")
 
-            data = frm.get("data")
-            if data is None:
-                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a data field")
-            elif not isinstance(data, string_types):
-                raise DatasetDeclaration.Error(frm.lc.key("data"), "data field must be a string")
+            branch = frm.get("branch")
+            if branch is None:
+                raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a branch field")
+            elif not isinstance(branch, string_types):
+                raise DatasetDeclaration.Error(frm.lc.key("branch"), "branch field must be a string")
 
             dtype = frm.get("dtype")
             if dtype is None:
@@ -252,16 +252,16 @@ class DatasetDeclaration(object):
                 raise DatasetDeclaration.Error(frm.lc.key("sources"), "column-sources must be a list (denoted with '-' in YAML)")
             src = [x if isinstance(x, DatasetDeclaration.Source) else DatasetDeclaration.Source.fromYaml(x) for x in src]
 
-            return DatasetDeclaration.From(tree, data, dtype, src)
+            return DatasetDeclaration.From(tree, branch, dtype, src)
 
-        def __init__(self, tree, data, dtype, sources):
+        def __init__(self, tree, branch, dtype, sources):
             self.tree = tree
-            self.data = data
+            self.branch = branch
             self.dtype = dtype
             self.sources = sources
 
         def __repr__(self):
-            return "DatasetDeclaration.From({0}, {1}, {2}, {3})".format(self.tree, self.data, self.dtype, self.sources)
+            return "DatasetDeclaration.From({0}, {1}, {2}, {3})".format(self.tree, self.branch, self.dtype, self.sources)
 
     class Quantity(object):
         @staticmethod

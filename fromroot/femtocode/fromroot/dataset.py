@@ -157,7 +157,7 @@ class ROOTDataset(Dataset):
         elif isinstance(quantity, DatasetDeclaration.Primitive):
             for source in quantity.frm.sources:
                 for path in source.paths:
-                    paths[(path, quantity.frm.tree)].append(quantity.frm.data)
+                    paths[(path, quantity.frm.tree)].append(quantity.frm.branch)
 
     @staticmethod
     def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name=None):
@@ -243,17 +243,17 @@ class ROOTDataset(Dataset):
             for source in quantity.frm.sources:
                 for path in source.paths:
                     for file in pathsToFiles[(path, quantity.frm.tree)]:
-                        b = fileColumnsToSize[(file, quantity.frm.tree, quantity.frm.data)]
+                        b = fileColumnsToSize[(file, quantity.frm.tree, quantity.frm.branch)]
                         if sizeBranch == ():
                             sizeBranch = b
                         elif sizeBranch != b:
-                            raise DatasetDeclaration.Error(quantity.frm.loc, "branch {0} has a counter branch in some files and not others".format(json.dumps(quantity.frm.data)))
+                            raise DatasetDeclaration.Error(quantity.frm.loc, "branch {0} has a counter branch in some files and not others".format(json.dumps(quantity.frm.branch)))
 
             column = ROOTColumn(name,
                                 name + "@size" if sizeBranch is not None else None,
                                 quantity.frm.dtype,
                                 quantity.frm.tree,
-                                quantity.frm.data,
+                                quantity.frm.branch,
                                 sizeBranch)
             segments = []
 
@@ -264,7 +264,7 @@ class ROOTDataset(Dataset):
                 for path in source.paths:
                     for file in pathsToFiles[(path, quantity.frm.tree)]:
                         numEntries = filesToNumEntries[(file, quantity.frm.tree)]
-                        dataLength = fileColumnsToLengths[(file, quantity.frm.tree, quantity.frm.data)]
+                        dataLength = fileColumnsToLengths[(file, quantity.frm.tree, quantity.frm.branch)]
 
                         if index == 0:
                             segments.append(ROOTSegment(
@@ -305,29 +305,29 @@ class ROOTDataset(Dataset):
         fileColumnsToSize = {}
         for (path, tree), files in pathsToFiles.items():
             for file in files:
-                datas = [dataName for dataName in pathsToBranches[(path, tree)]]
-                sizes = getsize(file, tree, datas)
+                branches = [branch for branch in pathsToBranches[(path, tree)]]
+                sizes = getsize(file, tree, branches)
 
-                sizeToData = {}
-                for dataName, sizeName in zip(datas, sizes):
-                    if sizeName is not None:
-                        sizeToData[sizeName] = dataName   # get rid of duplicate sizeNames
-                dataSizeNoDuplicates = [(dataName, sizeName) for sizeName, dataName in sizeToData.items()]
+                sizeToBranch = {}
+                for branch, size in zip(branches, sizes):
+                    if size is not None:
+                        sizeToBranch[size] = branch   # get rid of duplicate sizes
+                branchSizeNoDuplicates = [(branch, size) for size, branch in sizeToBranch.items()]
 
-                lengths = fillarrays(file, tree, [(dataName, sizeName, None, None) for dataName, sizeName in dataSizeNoDuplicates])
+                lengths = fillarrays(file, tree, [(branch, size, None, None) for branch, size in branchSizeNoDuplicates])
                 filesToNumEntries[(file, tree)] = int(lengths[0])
 
                 sizeToLength = {}
-                for (dataName, sizeName), length in zip(dataSizeNoDuplicates, lengths[1:]):
-                    sizeToLength[sizeName] = int(length)
+                for (branch, size), length in zip(branchSizeNoDuplicates, lengths[1:]):
+                    sizeToLength[size] = int(length)
 
-                # now allowing duplicate sizeNames (to get all the dataNames)
-                for dataName, sizeName in zip(datas, sizes):
-                    fileColumnsToSize[(file, tree, dataName)] = sizeName
-                    if sizeName is None:
-                        fileColumnsToLengths[(file, tree, dataName)] = filesToNumEntries[(file, tree)]
+                # now allowing duplicate sizes (to get all the branches)
+                for branch, size in zip(branches, sizes):
+                    fileColumnsToSize[(file, tree, branch)] = size
+                    if size is None:
+                        fileColumnsToLengths[(file, tree, branch)] = filesToNumEntries[(file, tree)]
                     else:
-                        fileColumnsToLengths[(file, tree, dataName)] = sizeToLength[sizeName]
+                        fileColumnsToLengths[(file, tree, branch)] = sizeToLength[size]
 
         columns, groups = ROOTDataset._makeGroups(declaration, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize)
 
