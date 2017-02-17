@@ -19,7 +19,7 @@ from setuptools import setup, find_packages
 
 import femtocode.version
 
-setup(name = "femtocode-fast",
+setup(name = "femtocode-llvm",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
@@ -33,7 +33,7 @@ setup(name = "femtocode-fast",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = ["femtocode"],
+      install_requires = ["femtocode", "numba", "numpy"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!

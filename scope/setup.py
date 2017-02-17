@@ -19,7 +19,7 @@ from setuptools import setup, find_packages
 
 import femtocode.version
 
-setup(name = "femtocode-server",
+setup(name = "femtocode-scope",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
@@ -33,7 +33,7 @@ setup(name = "femtocode-server",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = ["femtocode"],
+      install_requires = ["femtocode", "femtocode-fromroot"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!
