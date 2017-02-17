@@ -14,32 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-class Message(object):
-    @staticmethod
-    def send(obj, topic=None, protocol=pickle.HIGHEST_PROTOCOL):
-        out = pickle.dumps(obj, protocol)
-        if topic is None:
-            return out
-        elif isinstance(topic, str):
-            return topic.encode() + b" " + out
-        elif isinstance(topic, bytes):
-            return topic + b" " + out
-        else:
-            assert False, "topic must be a string, bytes, or None"
-
-    @staticmethod
-    def recv(message, topic=None):
-        if isinstance(topic, str):
-            topic = topic.encode()
-        if topic is not None:
-            if message.startswith(topic + b" "):
-                message = message[len(topic) + 1:]
-        return pickle.loads(message)
+class Message(object): pass
                 
 class Query(Message):
     def __init__(self, dataset, workflow):
