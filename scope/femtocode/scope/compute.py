@@ -25,7 +25,7 @@ import zmq.eventloop.zmqstream
 import zmq.eventloop.ioloop
 
 from femtocode.scope.messages import *
-
+        
 class QueryStore(multiprocessing.Process):
     def __init__(self, from_accumulate):
         super(QueryStore, self).__init__()
@@ -34,28 +34,46 @@ class QueryStore(multiprocessing.Process):
 
     def run(self):
         context = zmq.Context()
-        socket = context.socket(zmq.PAIR)
-        socket.connect(self.from_accumulate)
-        stream = zmq.eventloop.zmqstream.ZMQStream(socket)
 
         compiledQueries = {}
 
-        def respond_to_accumulate(messages):
+        def install(messages):
             for message in messages:
-                obj = pickle.loads(message)
-                if isinstance(obj, InstallCompiledQuery):
-                    compiledQueries[obj.compiledQuery.id] = obj.compiledQuery
-                elif isinstance(obj, RemoveCompiledQuery):
-                    try:
-                        del compiledQueries[obj.queryid]
-                    except KeyError:
-                        pass
-                elif isinstance(obj, RemoveAllCompiledQueries):
-                    compiledQueries.clear()
-
+                compiledQuery = Message.recv(message, b"install")
+                compiledQueries[compiledQuery.id] = compiledQuery
                 print(compiledQueries)
 
-        stream.on_recv(respond_to_accumulate)
+        install_socket = context.socket(zmq.SUB)
+        install_socket.setsockopt(zmq.SUBSCRIBE, "install")
+        install_stream = zmq.eventloop.zmqstream.ZMQStream(install_socket)
+        install_stream.on_recv(install)
+
+        def remove(messages):
+            for message in messages:
+                queryid = Message.recv(message, b"remove")
+                try:
+                    del compiledQueries[queryid]
+                except KeyError:
+                    pass
+                print(compiledQueries)
+
+        remove_socket = context.socket(zmq.SUB)
+        remove_socket.setsockopt(zmq.SUBSCRIBE, "remove")
+        remove_stream = zmq.eventloop.zmqstream.ZMQStream(remove_socket)
+        remove_stream.on_recv(remove)
+
+        def clear(messages):
+            compiledQueries.clear()
+            print(compiledQueries)
+
+        clear_socket = context.socket(zmq.SUB)
+        clear_socket.setsockopt(zmq.SUBSCRIBE, "clear")
+        clear_stream = zmq.eventloop.zmqstream.ZMQStream(clear_socket)
+        clear_stream.on_recv(clear)
+
+        for x in install_socket, remove_socket, clear_socket:
+            x.connect(self.from_accumulate)
+
         zmq.eventloop.ioloop.IOLoop.instance().start()
 
 
