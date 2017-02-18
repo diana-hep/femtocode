@@ -84,7 +84,7 @@ class CacheMaster(threading.Thread):
 
     def run(self):
         while True:
-            print(self.newWork.get())
+            print("{} has to do {}".format(minion, self.newWork.get()))
 
 cacheMaster = CacheMaster()
 cacheMaster.start()

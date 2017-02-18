@@ -38,9 +38,10 @@ class Query(Message):
 
 class CompiledQuery(Message):
     __slots__ = ("tallyman", "queryid")
-    def __init__(self, tallyman, queryid):
+    def __init__(self, tallyman, queryid, numGroups):
         self.tallyman = tallyman
         self.queryid = queryid
+        self.numGroups = numGroups
 
 class Heartbeat(Message):
     __slots__ = ("identity",)

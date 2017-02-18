@@ -23,17 +23,15 @@ except ImportError:
 
 from femtocode.scope.messages import *
 from femtocode.scope.communication import *
-
-
-
-
+from femtocode.scope.util import *
+from femtocode.scope.assignment import *
 
 
 
 import sys
 import time
 tallyman = sys.argv[1]
-minions = set(sys.argv[2:])
+minions = sys.argv[2:]
 
 gabos = context.socket(zmq.REP)
 gabos.bind("tcp://*:5556")
@@ -44,26 +42,29 @@ startTime = time.time()
 def now():
     return time.time() - startTime
 
-class MinionWatcher(threading.Thread):
+class ActiveQuery(Message):
+    __slots__ = ("query", "assignments", "todo")
+    def __init__(self, query, assignments, todo):
+        self.query = query
+        self.assignments = assignments
+        self.todo = todo
+
+class Foreman(threading.Thread):
     delay = 1.0
     deadThreshold = 10
 
     def __init__(self):
-        super(MinionWatcher, self).__init__()
+        super(Foreman, self).__init__()
         self.lastMessage = {}
         self.lastMessageLock = threading.Lock()
+        self.newQueries = queue.Queue()
+        self.activeQueries = {}
         self.daemon = True
 
     def update(self, minion):
+        # can be called from other threads
         with self.lastMessageLock:
             self.lastMessage[minion] = now()
-
-    def living(self):
-        with self.lastMessageLock:
-            return set(self.lastMessage.keys())
-
-    def dead(self):
-        return self.living().difference(minions)
 
     def run(self):
         while True:
@@ -73,16 +74,31 @@ class MinionWatcher(threading.Thread):
                         print("{} is dead".format(minion))
                         del self.lastMessage[minion]
 
-            time.sleep(self.delay)
-            print(self.living())
+            queries = drainQueue(self.newQueries)
 
-minionWatcher = MinionWatcher()
-minionWatcher.start()
+            if len(queries) > 0:
+                with self.lastMessageLock:
+                    survivors = sorted(self.lastMessage)
+
+                for query in queries:
+                    responsibilities, unassigned = assign(0, query.numGroups, minions, survivors)
+                    slack = assignExtra(0, query.numGroups, unassigned, survivors)
+                    assignments = dict((minion, [resp] + slack[minion]) for minion, resp in responsibilities.items())
+                    todo = set(range(query.numGroups))
+
+                    self.activeQueries[query.queryid] = ActiveQuery(query, assignments, todo)
+
+            time.sleep(self.delay)
+
+foreman = Foreman()
+foreman.start()
 
 print("tallyman {} starting".format(tallyman))
 
 time.sleep(1)
-queryBroadcast.send(CompiledQuery(tallyman, 1))
+query = CompiledQuery(tallyman, 1, 100)
+foreman.newQueries.put(query)
+queryBroadcast.send(query)
 
 while True:
     message = gabos.recv_pyobj()
@@ -90,14 +106,14 @@ while True:
     if isinstance(message, GiveMeWork):
         if message.minion in minions:
             assert message.tallyman == tallyman
-            minionWatcher.update(message.minion)
+            foreman.update(message.minion)
             gabos.send_pyobj(HeresSomeWork(tallyman, message.queryid, [1, 2, 3]))
         else:
             gabos.send(b"")
 
     elif isinstance(message, Heartbeat):
         if message.identity in minions:
-            minionWatcher.update(message.identity)
+            foreman.update(message.identity)
             gabos.send_pyobj(Heartbeat(tallyman))
         else:
             gabos.send(b"")
