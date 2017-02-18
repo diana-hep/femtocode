@@ -33,36 +33,71 @@ from femtocode.scope.communication import *
 import sys
 import time
 tallyman = sys.argv[1]
-minions = sys.argv[2:]
+minions = set(sys.argv[2:])
 
 gabos = context.socket(zmq.REP)
 gabos.bind("tcp://*:5556")
 
 queryBroadcast = Broadcast("5557")
-time.sleep(1)
+
+startTime = time.time()
+def now():
+    return time.time() - startTime
+
+class MinionWatcher(threading.Thread):
+    delay = 1.0
+    deadThreshold = 10
+
+    def __init__(self):
+        super(MinionWatcher, self).__init__()
+        self.lastMessage = {}
+        self.lastMessageLock = threading.Lock()
+        self.daemon = True
+
+    def update(self, minion):
+        with self.lastMessageLock:
+            self.lastMessage[minion] = now()
+
+    def living(self):
+        with self.lastMessageLock:
+            return set(self.lastMessage.keys())
+
+    def dead(self):
+        return self.living().difference(minions)
+
+    def run(self):
+        while True:
+            with self.lastMessageLock:
+                for minion, lastMessage in list(self.lastMessage.items()):
+                    if now() > lastMessage + (self.delay * self.deadThreshold):
+                        print("{} is dead".format(minion))
+                        del self.lastMessage[minion]
+
+            time.sleep(self.delay)
+            print(self.living())
+
+minionWatcher = MinionWatcher()
+minionWatcher.start()
 
 print("tallyman {} starting".format(tallyman))
 
-startTime = time.time()
-lastMessage = {}
-
+time.sleep(1)
 queryBroadcast.send(CompiledQuery(tallyman, 1))
+
 while True:
     message = gabos.recv_pyobj()
     print(message)
     if isinstance(message, GiveMeWork):
         if message.minion in minions:
             assert message.tallyman == tallyman
-            lastMessage[message.minion] = time.time() - startTime
-            print("lastMessage {}".format(lastMessage))
+            minionWatcher.update(message.minion)
             gabos.send_pyobj(HeresSomeWork(tallyman, message.queryid, [1, 2, 3]))
         else:
             gabos.send(b"")
 
     elif isinstance(message, Heartbeat):
         if message.identity in minions:
-            lastMessage[message.identity] = time.time() - startTime
-            print("lastMessage {}".format(lastMessage))
+            minionWatcher.update(message.identity)
             gabos.send_pyobj(Heartbeat(tallyman))
         else:
             gabos.send(b"")
