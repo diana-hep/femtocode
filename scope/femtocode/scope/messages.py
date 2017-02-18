@@ -48,13 +48,15 @@ class Heartbeat(Message):
         self.identity = identity
 
 class GiveMeWork(Message):
-    __slots__ = ("minion", "queryid")
-    def __init__(self, minion, queryid):
+    __slots__ = ("minion", "tallyman", "queryid")
+    def __init__(self, minion, tallyman, queryid):
         self.minion = minion
+        self.tallyman = tallyman
         self.queryid = queryid
 
 class HeresSomeWork(Message):
-    __slots__ = ("queryid", "groups")
-    def __init__(self, queryid, groups):
+    __slots__ = ("tallyman", "queryid", "groups")
+    def __init__(self, tallyman, queryid, groups):
+        self.tallyman = tallyman
         self.queryid = queryid
         self.groups = groups

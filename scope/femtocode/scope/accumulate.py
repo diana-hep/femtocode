@@ -52,9 +52,10 @@ while True:
     print(message)
     if isinstance(message, GiveMeWork):
         if message.minion in minions:
+            assert message.tallyman == tallyman
             lastMessage[message.minion] = time.time() - startTime
             print("lastMessage {}".format(lastMessage))
-            gabos.send_pyobj(HeresSomeWork(message.queryid, [1, 2, 3]))
+            gabos.send_pyobj(HeresSomeWork(tallyman, message.queryid, [1, 2, 3]))
         else:
             gabos.send(b"")
 
