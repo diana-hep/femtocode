@@ -14,43 +14,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
 import multiprocessing
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 
 from femtocode.scope.messages import *
 from femtocode.scope.communication import *
+from femtocode.scope.util import *
 
-class QueryStore(multiprocessing.Process):
-    def __init__(self, from_accumulate):
-        super(QueryStore, self).__init__()
-        self.from_accumulate = from_accumulate
-        # self.daemon = True
+import sys
+import time
+
+minion = sys.argv[1]
+
+class WorkItem(Message):
+    __slots__ = ("query", "groups")
+    def __init__(self, query, groups):
+        self.query = query
+        self.groups = groups
+
+class Gabo(threading.Thread):
+    delay = 1.0
+
+    def __init__(self, tallyman, newWork, firstQuery):
+        super(Gabo, self).__init__()
+        self.tallyman = tallyman
+        self.newWork = newWork
+        self.newQueries = queue.Queue()
+        self.newQueries.put(firstQuery)
+        self.daemon = True
 
     def run(self):
-        compiledQueries = {}
+        gabo = context.socket(zmq.REQ)
+        gabo.connect("tcp://127.0.0.1:5556")
+        while True:
+            queries = drainQueue(self.newQueries)
 
-        def install(compiledQuery):
-            compiledQueries[compiledQuery.id] = compiledQuery
-            print(compiledQueries)
+            for query in queries:
+                gabo.send_pyobj(GiveMeWork(minion, query.queryid))
+                heresSomeWork = gabo.recv_pyobj()
+                assert heresSomeWork.queryid == query.queryid
+                self.newWork.put(WorkItem(query, heresSomeWork.groups))
 
-        installer = Listen(self.from_accumulate, "install", install)
+            if len(queries) == 0:
+                gabo.send_pyobj(Heartbeat(minion))
+                heartbeat = gabo.recv_pyobj()
+                assert heartbeat.identity == self.tallyman
 
-        def remove(queryid):
-            try:
-                del compiledQueries[queryid]
-            except KeyError:
-                pass
-            print(compiledQueries)
+            time.sleep(self.delay)
 
-        remover = Listen(self.from_accumulate, "remove", remove)
+class CacheMaster(threading.Thread):
+    def __init__(self):
+        super(CacheMaster, self).__init__()
+        self.newWork = queue.Queue()
+        self.daemon = True
 
-        def clear(dummy):
-            compiledQueries.clear()
-            print(compiledQueries)
+    def run(self):
+        while True:
+            print(self.newWork.get())
 
-        clearer = Listen(self.from_accumulate, "clear", clear)
+cacheMaster = CacheMaster()
+cacheMaster.start()
 
-        loop()
+gabos = {}
+def respondToQuery(query):
+    gabos[query.tallyman] = Gabo(query.tallyman, cacheMaster.newWork, query)
+    gabos[query.tallyman].start()
 
-queryStore = QueryStore("tcp://127.0.0.1:5557")
+print("minion {} starting".format(minion))
+listener = Listen("tcp://127.0.0.1:5557", respondToQuery)
 
-queryStore.start()
+loop()

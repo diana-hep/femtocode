@@ -28,16 +28,8 @@ context = zmq.Context()
 
 class Broadcast(object):
     @staticmethod
-    def serialize(topic, message, protocol=pickle.HIGHEST_PROTOCOL):
-        out = pickle.dumps(message, protocol)
-        if topic is None:
-            return out
-        elif isinstance(topic, str):
-            return topic.encode() + b" " + out
-        elif isinstance(topic, bytes):
-            return topic + b" " + out
-        else:
-            assert False, "topic must be a string, bytes, or None"
+    def serialize(message, protocol=pickle.HIGHEST_PROTOCOL):
+        return pickle.dumps(message, protocol)
 
     def __init__(self, port, protocol=pickle.HIGHEST_PROTOCOL):
         self.port = port
@@ -46,31 +38,25 @@ class Broadcast(object):
         self.socket = context.socket(zmq.PUB)
         self.socket.bind("tcp://*:{0}".format(self.port))
 
-    def send(self, topic, message):
-        self.socket.send(self.serialize(topic, message, self.protocol))
+    def send(self, message):
+        self.socket.send(self.serialize(message, self.protocol))
 
 class Listen(object):
     @staticmethod
-    def deserialize(topic, message):
-        if isinstance(topic, str):
-            topic = topic.encode()
-        if topic is not None:
-            if message.startswith(topic + b" "):
-                message = message[len(topic) + 1:]
+    def deserialize(message):
         return pickle.loads(message)
 
-    def __init__(self, address, topic, callback):
+    def __init__(self, address, callback):
         self.callback = callback
         self.address = address
-        self.topic = topic
 
         self.socket = context.socket(zmq.SUB)
-        self.socket.setsockopt(zmq.SUBSCRIBE, "" if self.topic is None else self.topic)
+        self.socket.setsockopt(zmq.SUBSCRIBE, b"")
         self.stream = zmq.eventloop.zmqstream.ZMQStream(self.socket)
 
         def handle(messages):
             for message in messages:
-                callback(self.deserialize(topic, message))
+                callback(self.deserialize(message))
 
         self.stream.on_recv(handle)
         self.socket.connect(self.address)
