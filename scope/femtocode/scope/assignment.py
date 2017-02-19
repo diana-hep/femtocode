@@ -14,39 +14,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def assign(offset, numGroups, minions, survivors):
-    fairShare = numGroups // len(minions)
+def assign(offset, numGroups, index, outof):
+    fairShare = numGroups // outof
+    oindex = (index + offset) % outof
 
+    start = oindex * fairShare
+    if oindex == outof - 1:
+        stop = numGroups
+    else:
+        stop = (oindex+1) * fairShare
+
+    return slice(start, stop)
+
+def regress(offset, numGroups, outof, depth):
+    fairShare = numGroups // outof
+    if depth == 0:
+        # exactly agree with assign
+        return lambda i: (min(i // fairShare, outof - 1) - offset) % outof
+    elif depth < outof:
+        # different edge-case handling, but exactly subdivide an assignment among all workers
+        return lambda i: ((i * outof**depth // fairShare) % outof - offset) % outof
+    else:
+        # just round-robin; continue until each group has been assigned to some surviving worker
+        return lambda i: (i + depth - offset) % outof
+
+def assignAsSlices(offset, numGroups, workers):
     assignments = {}
-
-    unassigned = []
-    for i, minion in enumerate(minions):
-        j = (i + offset) % len(minions)
-
-        if j == len(minions) - 1:
-            assignment = slice(j * fairShare, None)
-        else:
-            assignment = slice(j * fairShare, (j+1) * fairShare)
-
-        if minion in survivors:
-            assignments[minion] = assignment
-        else:
-            unassigned.append(assignment)
-
-    return assignments, unassigned
-
-def assignExtra(offset, numGroups, unassigned, survivors):
-    assignments = {}
-
-    j = offset
-    for slce in unassigned:
-        for group in range(numGroups)[slce]:
-            j = j % len(survivors)
-            minion = survivors[j]
-            j += 1
-
-            if minion not in assignments:
-                assignments[minion] = []
-            assignments[minion].append(group)
-
+    for i, x in enumerate(workers):
+        assignments[x] = assign(offset, numGroups, i, len(workers))
     return assignments
+
+def reassign(offset, numGroups, workers, survivors):
+    pass
+
+
+
+
+
+
+
+
+
+
+# def assignExtra(offset, numGroups, unassigned, survivors):
+#     assignments = {}
+
+#     j = offset
+#     for slce in unassigned:
+#         for group in range(numGroups)[slce]:
+#             j = j % len(survivors)
+#             minion = survivors[j]
+#             j += 1
+
+#             if minion not in assignments:
+#                 assignments[minion] = []
+#             assignments[minion].append(group)
+
+#     return assignments
