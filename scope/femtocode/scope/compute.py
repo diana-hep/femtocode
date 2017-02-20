@@ -35,7 +35,7 @@ class WorkItem(Message):
     __slots__ = ("query", "groups")
     def __init__(self, foreman, query, groups):
         self.foreman = foreman
-        self.query = query
+        self.query = query   # (foreman, queryid, dataset, inputs, numGroups)
         self.groups = groups
 
 class Gabo(threading.Thread):

@@ -197,10 +197,6 @@ print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
 print("submit 1!")
-foreman.todoQueries.put(CompiledQuery(foremanName, 1, 100))
-
-time.sleep(8)
-print("submit 2!")
-foreman.todoQueries.put(CompiledQuery(foremanName, 2, 100))
+foreman.todoQueries.put(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], 100))
 
 time.sleep(100)

@@ -18,6 +18,12 @@ class Message(object):
     def __repr__(self):
         return "{0}({1})".format(self.__class__.__name__, ", ".join(repr(getattr(self, n)) for n in self.__slots__))
                 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and all(getattr(self, n) == getattr(other, n) for n in self.__slots__)
+
+    def __hash__(self):
+        return hash((self.__class__,) + tuple(getattr(self, n) for n in self.__slots__))
+
 class Query(Message):
     __slots__ = ("dataset", "workflow")
     def __init__(self, dataset, workflow):
@@ -36,10 +42,12 @@ class Query(Message):
 #         # self.sequence = sequence
 #         self.assignments = assignments
 class CompiledQuery(Message):
-    __slots__ = ("foreman", "queryid", "numGroups")
-    def __init__(self, foreman, queryid, numGroups):
+    __slots__ = ("foreman", "queryid", "dataset", "inputs", "numGroups")
+    def __init__(self, foreman, queryid, dataset, inputs, numGroups):
         self.foreman = foreman
         self.queryid = queryid
+        self.dataset = dataset
+        self.inputs = inputs
         self.numGroups = numGroups
 
 class Heartbeat(Message):
