@@ -70,7 +70,6 @@ class Gabo(threading.Thread):
             for queryid, groups in message.assignment.items():
                 assert queryid in self.queries
                 self.newWork.put(WorkItem(self.foreman, self.queries[queryid], groups))
-                del self.queries[queryid]
 
         else:
             assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
@@ -82,12 +81,12 @@ class Gabo(threading.Thread):
             try:
                 for query in newQueries:
                     self.queries[query.queryid] = query
-                    gabo.send_pyobj(ResponseToQuery(minionName, self.foreman, query.queryid))
-                    self.handle(gabo.recv_pyobj())
+                    self.gabo.send_pyobj(ResponseToQuery(minionName, self.foreman, query.queryid))
+                    self.handle(self.gabo.recv_pyobj())
 
                 if len(newQueries) == 0:
-                    gabo.send_pyobj(Heartbeat(minionName))
-                    self.handle(gabo.recv_pyobj())
+                    self.gabo.send_pyobj(Heartbeat(minionName))
+                    self.handle(self.gabo.recv_pyobj())
 
             except zmq.Again:
                 print("{} is dead".format(self.foreman))
@@ -117,7 +116,7 @@ def respondToCall(query):
         gabos[query.foreman] = Gabo(query.foreman, cacheMaster.newWork, query)
         gabos[query.foreman].start()
 
-print("minionName {} starting".format(minionName))
+print("minion {} starting".format(minionName))
 listener = Listen("tcp://127.0.0.1:5557", respondToCall)
 
 loop()

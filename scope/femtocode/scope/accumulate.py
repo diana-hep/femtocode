@@ -50,13 +50,13 @@ class Foreman(threading.Thread):
     responseThreshold = 3   # beats of the drum
     deadThreshold = 10      # beats of the drum
 
-    def __init__(self):
-        super(Foreman, self).__init__(queryPort, gaboPort)
+    def __init__(self, queryPort, gaboPort):
+        super(Foreman, self).__init__()
 
         # treat as thread-local
         self.queryBroadcast = Broadcast(queryPort)
         self.gabos = context.socket(zmq.REP)
-        self.gabos.bind("tcp://*:".format(gaboPort))
+        self.gabos.bind("tcp://*:{0}".format(gaboPort))
         self.gabos.RCVTIMEO = int(self.drumbeat * 1000)
 
         self.todoQueries = queue.Queue()   # [CompiledQuery]
@@ -112,12 +112,19 @@ class Foreman(threading.Thread):
                 for minion in minionNames:
                     # what new groupids have been assigned to this minion since oldAssignments?
                     delta = set(newAssignments[minion]).difference(oldAssignments.get(minion, []))
+
                     # new work may accumulate if we don't hear from a minion for a few cycles
-                    self.deltaAssignments[minion][queryid] = list(self.deltaAssignments.get(minion, {}).get(queryid, set()).union(delta))
+                    if minion not in self.deltaAssignments:
+                        self.deltaAssignments[minion] = {}
+                    self.deltaAssignments[minion][queryid] = self.deltaAssignments[minion].get(queryid, set()).union(delta)
+
+                    # don't bother minions if you're not actually going to give them work
+                    if len(self.deltaAssignments[minion][queryid]) == 0:
+                        del self.deltaAssignments[minion]
 
                 self.assignments[queryid] = newAssignments
 
-        print("updateWork assignments ".format(self.assignments))
+        print("updateWork assignments {}".format(self.assignments))
 
     def callForWork(self):
         now = time.time()
@@ -132,7 +139,7 @@ class Foreman(threading.Thread):
             self.queryBroadcast.send(newQuery)
             self.unassigned[newQuery.queryid] = QueryInfo(now, newQuery)
 
-        print("unassigned ".format(self.unassigned))
+        print("unassigned {}".format(self.unassigned))
 
         # queries that have been in self.unassigned for the requisite number of drumbeats
         for queryid, queryInfo in list(self.unassigned.items()):
@@ -145,10 +152,17 @@ class Foreman(threading.Thread):
 
                 # everything is new; just add them to self.deltaAssignments and self.assignments
                 for minion in minionNames:
-                    self.deltaAssignments[minion][queryid] = newAssignments[minion]
-                self.assignments[newQuery.queryid] = newAssignments
+                    if len(newAssignments[minion]) > 0:
+                        if minion not in self.deltaAssignments:
+                            self.deltaAssignments[minion] = {}
+                        self.deltaAssignments[minion][queryid] = set(newAssignments[minion])
+                    else:
+                        dropIfPresent(self.deltaAssignments, minion)
 
-        print("callForWork assignments ".format(self.assignments))
+                self.assignments[queryid] = newAssignments
+                del self.unassigned[queryid]
+
+        print("callForWork assignments {}".format(self.assignments))
 
     def run(self):
         while True:
@@ -179,9 +193,12 @@ class Foreman(threading.Thread):
 
                 assignment = self.deltaAssignments.get(minion, {})
                 for queryid in assignment:
-                    assert queryid in self.minionInfos.get(minion)
+                    assert queryid in self.minionInfos.get(minion).queriesKnown
+                dropIfPresent(self.deltaAssignments, minion)
 
                 if len(assignment) > 0:
+                    print("sending work assignment {}".format(assignment))
+
                     self.gabos.send_pyobj(WorkAssignment(foremanName, assignment))
                 else:
                     self.gabos.send_pyobj(Heartbeat(foremanName))
@@ -194,7 +211,7 @@ print("foreman {} starting".format(foremanName))
 time.sleep(1)
 foreman.todoQueries.put(CompiledQuery(foremanName, 1, 100))
 
-time.sleep(8)
-foreman.todoQueries.put(CompiledQuery(foremanName, 2, 100))
+# time.sleep(8)
+# foreman.todoQueries.put(CompiledQuery(foremanName, 2, 100))
 
 time.sleep(100)
