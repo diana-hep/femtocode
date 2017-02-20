@@ -14,60 +14,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-def assign(offset, numGroups, index, outof):
-    fairShare = numGroups // outof
-    oindex = (index + offset) % outof
+import math
 
-    start = oindex * fairShare
-    if oindex == outof - 1:
-        stop = numGroups
+def divceil(numer, denom):
+    return int(math.ceil(float(numer) / float(denom)))
+
+def assignIndex(offset, groupid, numGroups, outof, depth):
+    fairShare = divceil(numGroups, outof)
+    if depth < outof:
+        return (groupid * outof**depth // fairShare - offset) % outof
     else:
-        stop = (oindex+1) * fairShare
+        return (groupid + depth - offset) % outof
 
-    return slice(start, stop)
+def assign(offset, numGroups, workers, survivors):
+    # must have somebody to give work to
+    assert len(survivors) > 0
+    # survivors must be members of the set of workers
+    assert set(survivors).difference(workers) == set()
 
-def regress(offset, numGroups, outof, depth):
-    fairShare = numGroups // outof
-    if depth == 0:
-        # exactly agree with assign
-        return lambda i: (min(i // fairShare, outof - 1) - offset) % outof
-    elif depth < outof:
-        # different edge-case handling, but exactly subdivide an assignment among all workers
-        return lambda i: ((i * outof**depth // fairShare) % outof - offset) % outof
-    else:
-        # just round-robin; continue until each group has been assigned to some surviving worker
-        return lambda i: (i + depth - offset) % outof
+    # assign with a deterministic algorithm that will always give the same work to survivors
+    # and redistribute dead workers' work the same way to the survivors
+    assignments = dict((worker, []) for worker in workers)
+    for groupid in range(numGroups):
+        depth = 0
+        while True:  # will halt before depth == 2*len(workers), given the way assignIndex works
+            worker = workers[assignIndex(offset, groupid, numGroups, len(workers), depth)]
+            if worker in survivors:
+                assignments[worker].append(groupid)
+                break
+            depth += 1
 
-def assignAsSlices(offset, numGroups, workers):
-    assignments = {}
-    for i, x in enumerate(workers):
-        assignments[x] = assign(offset, numGroups, i, len(workers))
+    # every group has to be assigned to somebody
+    assert set(sum(assignments.values(), [])) == set(range(numGroups))
+    # dead workers (non-survivors) must not be assigned any work
+    assert all(assignments[dead] == [] for dead in set(workers).difference(survivors))
+    # okay, good!
     return assignments
 
-def reassign(offset, numGroups, workers, survivors):
-    pass
+# def assignAsSlice(offset, numGroups, index, outof):
+#     fairShare = divceil(numGroups, outof)
+#     oindex = (index + offset) % outof
+#     return slice(oindex * fairShare, min((oindex+1) * fairShare, numGroups))
 
-
-
-
-
-
-
-
-
-
-# def assignExtra(offset, numGroups, unassigned, survivors):
+# def assignAsSlices(offset, numGroups, workers):
 #     assignments = {}
-
-#     j = offset
-#     for slce in unassigned:
-#         for group in range(numGroups)[slce]:
-#             j = j % len(survivors)
-#             minion = survivors[j]
-#             j += 1
-
-#             if minion not in assignments:
-#                 assignments[minion] = []
-#             assignments[minion].append(group)
-
+#     for i, x in enumerate(workers):
+#         assignments[x] = assignAsSlice(offset, numGroups, i, len(workers))
 #     return assignments
