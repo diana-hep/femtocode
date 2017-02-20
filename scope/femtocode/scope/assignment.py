@@ -14,13 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
-
-def divceil(numer, denom):
-    return int(math.ceil(float(numer) / float(denom)))
+from femtocode.scope.util import *
 
 def assignIndex(offset, groupid, numGroups, outof, depth):
-    fairShare = divceil(numGroups, outof)
+    fairShare = roundup(float(numGroups) / float(outof))
     if depth < outof:
         return (groupid * outof**depth // fairShare - offset) % outof
     else:
@@ -50,14 +47,3 @@ def assign(offset, numGroups, workers, survivors):
     assert all(assignments[dead] == [] for dead in set(workers).difference(survivors))
     # okay, good!
     return assignments
-
-# def assignAsSlice(offset, numGroups, index, outof):
-#     fairShare = divceil(numGroups, outof)
-#     oindex = (index + offset) % outof
-#     return slice(oindex * fairShare, min((oindex+1) * fairShare, numGroups))
-
-# def assignAsSlices(offset, numGroups, workers):
-#     assignments = {}
-#     for i, x in enumerate(workers):
-#         assignments[x] = assignAsSlice(offset, numGroups, i, len(workers))
-#     return assignments

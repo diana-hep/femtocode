@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+
 try:
     import Queue as queue
 except ImportError:
     import queue
+
+def roundup(x):
+    return int(math.ceil(x))
 
 def drainQueue(q):
     out = []

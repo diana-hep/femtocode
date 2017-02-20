@@ -42,10 +42,10 @@ class WorkItem(Message):
         self.groups = groups
 
 class Gabo(threading.Thread):
-    drumbeat = 1.0          # seconds
-    deadThreshold = 10      # beats of the drum
+    heartbeat = 0.010           # 10 ms      period of response to foreman
+    listenThreshold = 1.0       # 1000 ms    no response from anybody; reset zmq state
 
-    def __init__(self, foreman, newWork, firstQuery):
+    def __init__(self, foreman, foremanAddress, newWork, firstQuery):
         super(Gabo, self).__init__()
         self.foreman = foreman
         self.newWork = newWork
@@ -54,8 +54,8 @@ class Gabo(threading.Thread):
 
         # treat as thread-local
         self.gabo = context.socket(zmq.REQ)
-        self.gabo.connect("tcp://127.0.0.1:5556")
-        self.gabo.RCVTIMEO = int(self.drumbeat * self.deadThreshold * 1000)
+        self.gabo.connect(foremanAddress)
+        self.gabo.RCVTIMEO = roundup(self.listenThreshold * 1000)
         self.queries = {}
 
         self.daemon = True
@@ -69,7 +69,7 @@ class Gabo(threading.Thread):
 
             for queryid, groups in message.assignment.items():
                 assert queryid in self.queries
-                self.newWork.put(WorkItem(self.foreman, self.queries[queryid], groups))
+                self.newWork.put(WorkItem(self.foreman, self.queries[queryid], sorted(groups)))
 
         else:
             assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
@@ -93,7 +93,7 @@ class Gabo(threading.Thread):
                 # and soon this thread will be, too...
                 break
 
-            time.sleep(self.drumbeat)
+            time.sleep(self.heartbeat)
 
 class CacheMaster(threading.Thread):
     def __init__(self):
@@ -113,7 +113,7 @@ def respondToCall(query):
     if query.foreman in gabos and gabos[query.foreman].isAlive():
         gabos[query.foreman].newQueries.put(query)
     else:
-        gabos[query.foreman] = Gabo(query.foreman, cacheMaster.newWork, query)
+        gabos[query.foreman] = Gabo(query.foreman, "tcp://127.0.0.1:5556", cacheMaster.newWork, query)
         gabos[query.foreman].start()
 
 print("minion {} starting".format(minionName))

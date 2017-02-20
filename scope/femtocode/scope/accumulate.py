@@ -46,9 +46,9 @@ class MinionInfo(Message):
         self.queriesKnown = queriesKnown
 
 class Foreman(threading.Thread):
-    drumbeat = 1.0          # seconds
-    responseThreshold = 3   # beats of the drum
-    deadThreshold = 10      # beats of the drum
+    responseThreshold = 0.035   # 35 ms      at least 4 heartbeats: minimum latency for queries
+    listenThreshold = 1.0       # 1000 ms    no response from anybody; reset zmq state
+    deadThreshold = 2.5         # 2500 ms    previously active minions disappar
 
     def __init__(self, queryPort, gaboPort):
         super(Foreman, self).__init__()
@@ -57,7 +57,7 @@ class Foreman(threading.Thread):
         self.queryBroadcast = Broadcast(queryPort)
         self.gabos = context.socket(zmq.REP)
         self.gabos.bind("tcp://*:{0}".format(gaboPort))
-        self.gabos.RCVTIMEO = int(self.drumbeat * 1000)
+        self.gabos.RCVTIMEO = roundup(self.listenThreshold * 1000)
 
         self.todoQueries = queue.Queue()   # [CompiledQuery]
         self.doneQueries = queue.Queue()   # [CompiledQuery]
@@ -81,11 +81,9 @@ class Foreman(threading.Thread):
     def updateMinions(self):
         now = time.time()
         for minion, minionInfo in list(self.minionInfos.items()):
-            if now > minionInfo.lastMessage + (self.drumbeat * self.deadThreshold):
+            if now > minionInfo.lastMessage + self.deadThreshold:
                 # this minion is now dead
                 del self.minionInfos[minion]
-
-        print("minionInfos {}".format(self.minionInfos))
 
     def updateWork(self):
         # get rid of all references to queries that are done or canceled
@@ -124,8 +122,6 @@ class Foreman(threading.Thread):
 
                 self.assignments[queryid] = newAssignments
 
-        print("updateWork assignments {}".format(self.assignments))
-
     def callForWork(self):
         now = time.time()
 
@@ -139,11 +135,9 @@ class Foreman(threading.Thread):
             self.queryBroadcast.send(newQuery)
             self.unassigned[newQuery.queryid] = QueryInfo(now, newQuery)
 
-        print("unassigned {}".format(self.unassigned))
-
-        # queries that have been in self.unassigned for the requisite number of drumbeats
+        # queries that have been in self.unassigned for the requisite number of heartbeats
         for queryid, queryInfo in list(self.unassigned.items()):
-            if now > queryInfo.broadcastTime + (self.drumbeat * self.responseThreshold):
+            if now > queryInfo.broadcastTime + self.responseThreshold:
                 # which minions have responded to the broadcast for this particular query?
                 heardTheCall = [minion for minion, minionInfo in self.minionInfos.items() if queryid in minionInfo.queriesKnown]
 
@@ -161,8 +155,6 @@ class Foreman(threading.Thread):
 
                 self.assignments[queryid] = newAssignments
                 del self.unassigned[queryid]
-
-        print("callForWork assignments {}".format(self.assignments))
 
     def run(self):
         while True:
@@ -197,21 +189,21 @@ class Foreman(threading.Thread):
                 dropIfPresent(self.deltaAssignments, minion)
 
                 if len(assignment) > 0:
-                    print("sending work assignment {}".format(assignment))
-
                     self.gabos.send_pyobj(WorkAssignment(foremanName, assignment))
                 else:
                     self.gabos.send_pyobj(Heartbeat(foremanName))
 
-foreman = Foreman(5557, 5556)
+foreman = Foreman("5557", "5556")
 foreman.start()
 
 print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
+print("submit 1!")
 foreman.todoQueries.put(CompiledQuery(foremanName, 1, 100))
 
-# time.sleep(8)
-# foreman.todoQueries.put(CompiledQuery(foremanName, 2, 100))
+time.sleep(8)
+print("submit 2!")
+foreman.todoQueries.put(CompiledQuery(foremanName, 2, 100))
 
 time.sleep(100)
