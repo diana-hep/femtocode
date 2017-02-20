@@ -114,9 +114,13 @@ class Foreman(threading.Thread):
                         self.deltaAssignments[minion] = {}
                     self.deltaAssignments[minion][queryid] = self.deltaAssignments[minion].get(queryid, set()).union(delta)
 
-                    # don't bother minions if you're not actually going to give them work
+                    # don't include any empty sets in the deltaAssignments
                     if len(self.deltaAssignments[minion][queryid]) == 0:
                         del self.deltaAssignments[minion]
+
+                    # don't include any empty sets in the newAssignments
+                    if len(newAssignments[minion]) == 0:
+                        del newAssignments[minion]
 
                 self.assignments[queryid] = newAssignments
 
@@ -181,6 +185,7 @@ class Foreman(threading.Thread):
 
             if message is not None:
                 assignment = self.deltaAssignments.get(minion, {})
+
                 for queryid in assignment:
                     assert queryid in self.minionInfos.get(minion).queriesKnown
                 dropIfPresent(self.deltaAssignments, minion)
@@ -196,7 +201,11 @@ foreman.start()
 print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
-print("submit 1!")
+print("submit 0!")
 foreman.todoQueries.put(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], 100))
+
+time.sleep(10)
+print("submit 1!")
+foreman.todoQueries.put(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], 100))
 
 time.sleep(100)
