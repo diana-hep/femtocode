@@ -25,14 +25,11 @@ from femtocode.scope.messages import *
 from femtocode.scope.communication import *
 from femtocode.scope.util import *
 
-
-
-
-
+########################################### TODO: temporary!
 import sys
 import time
-
 minionName = sys.argv[1]
+###########################################
 
 class WorkItem(Message):
     __slots__ = ("query", "groups")
@@ -43,7 +40,7 @@ class WorkItem(Message):
 
 class Gabo(threading.Thread):
     heartbeat = 0.010           # 10 ms      period of response to foreman
-    listenThreshold = 1.0       # 1000 ms    no response from anybody; reset zmq state
+    listenThreshold = 1.0       # 1000 ms    no response from the foreman; reset Client send/recv state
 
     def __init__(self, foreman, foremanAddress, newWork, firstQuery):
         super(Gabo, self).__init__()
@@ -53,15 +50,16 @@ class Gabo(threading.Thread):
         self.newQueries.put(firstQuery)
 
         # treat as thread-local
-        self.gabo = context.socket(zmq.REQ)
-        self.gabo.connect(foremanAddress)
-        self.gabo.RCVTIMEO = roundup(self.listenThreshold * 1000)
+        self.gabo = Client(foremanAddress, self.listenThreshold)
         self.queries = {}
 
         self.daemon = True
 
     def handle(self, message):
-        if isinstance(message, Heartbeat):
+        if message is None:
+            raise StopIteration
+
+        elif isinstance(message, Heartbeat):
             assert message.identity == self.foreman
 
         elif isinstance(message, WorkAssignment):
@@ -75,25 +73,24 @@ class Gabo(threading.Thread):
             assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
 
     def run(self):
-        while True:
-            newQueries = drainQueue(self.newQueries)
+        try:
+            while True:
+                newQueries = drainQueue(self.newQueries)
 
-            try:
                 for query in newQueries:
                     self.queries[query.queryid] = query
-                    self.gabo.send_pyobj(ResponseToQuery(minionName, self.foreman, query.queryid))
-                    self.handle(self.gabo.recv_pyobj())
+                    self.gabo.send(ResponseToQuery(minionName, self.foreman, query.queryid))
+                    self.handle(self.gabo.recv())
 
                 if len(newQueries) == 0:
-                    self.gabo.send_pyobj(Heartbeat(minionName))
-                    self.handle(self.gabo.recv_pyobj())
-
-            except zmq.Again:
-                print("{} is dead".format(self.foreman))
-                # and soon this thread will be, too...
-                break
+                    self.gabo.send(Heartbeat(minionName))
+                    self.handle(self.gabo.recv())
 
             time.sleep(self.heartbeat)
+
+        except StopIteration:
+            print("{} is dead".format(self.foreman))
+            pass  # and so is this thread
 
 class CacheMaster(threading.Thread):
     def __init__(self):
@@ -119,4 +116,4 @@ def respondToCall(query):
 print("minion {} starting".format(minionName))
 listener = Listen("tcp://127.0.0.1:5557", respondToCall)
 
-loop()
+listenloop()

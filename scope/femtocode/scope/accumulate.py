@@ -26,12 +26,12 @@ from femtocode.scope.communication import *
 from femtocode.scope.util import *
 from femtocode.scope.assignment import *
 
-
-
+########################################### TODO: temporary!
 import sys
 import time
 foremanName = sys.argv[1]
 minionNames = sys.argv[2:]
+###########################################
 
 class QueryInfo(Message):
     __slots__ = ("broadcastTime", "query")
@@ -47,17 +47,15 @@ class MinionInfo(Message):
 
 class Foreman(threading.Thread):
     responseThreshold = 0.035   # 35 ms      at least 4 heartbeats: minimum latency for queries
-    listenThreshold = 1.0       # 1000 ms    no response from anybody; reset zmq state
+    listenThreshold = 1.0       # 1000 ms    no response from any minion; reset Server recv/send state
     deadThreshold = 2.5         # 2500 ms    previously active minions disappar
 
-    def __init__(self, queryPort, gaboPort):
+    def __init__(self, queryAddress, gaboAddress):
         super(Foreman, self).__init__()
 
         # treat as thread-local
-        self.queryBroadcast = Broadcast(queryPort)
-        self.gabos = context.socket(zmq.REP)
-        self.gabos.bind("tcp://*:{0}".format(gaboPort))
-        self.gabos.RCVTIMEO = roundup(self.listenThreshold * 1000)
+        self.queryBroadcast = Broadcast(queryAddress)
+        self.gabos = Server(gaboAddress, self.listenThreshold)
 
         self.todoQueries = queue.Queue()   # [CompiledQuery]
         self.doneQueries = queue.Queue()   # [CompiledQuery]
@@ -158,42 +156,41 @@ class Foreman(threading.Thread):
 
     def run(self):
         while True:
-            try:
-                message = self.gabos.recv_pyobj()
-            except zmq.Again:
-                self.updateMinions()
-                self.updateWork()
-                self.callForWork()
+            message = self.gabos.recv()
+
+            if message is None:
+                pass
+
+            elif isinstance(message, Heartbeat):
+                minion = message.identity
+                queryid = None
+
+            elif isinstance(message, ResponseToQuery):
+                minion = message.minion
+                queryid = message.queryid
+                assert message.foreman == foremanName
 
             else:
-                if isinstance(message, Heartbeat):
-                    minion = message.identity
-                    queryid = None
-
-                elif isinstance(message, ResponseToQuery):
-                    minion = message.minion
-                    queryid = message.queryid
-                    assert message.foreman == foremanName
-                    
-                else:
-                    assert False, "unrecognized message from minion on gabo channel {0}".format(message)
-
+                assert False, "unrecognized message from minion on gabo channel {0}".format(message)
+            
+            if message is not None:
                 self.ping(minion, queryid)
-                self.updateMinions()
-                self.updateWork()
-                self.callForWork()
+            self.updateMinions()
+            self.updateWork()
+            self.callForWork()
 
+            if message is not None:
                 assignment = self.deltaAssignments.get(minion, {})
                 for queryid in assignment:
                     assert queryid in self.minionInfos.get(minion).queriesKnown
                 dropIfPresent(self.deltaAssignments, minion)
 
                 if len(assignment) > 0:
-                    self.gabos.send_pyobj(WorkAssignment(foremanName, assignment))
+                    self.gabos.send(WorkAssignment(foremanName, assignment))
                 else:
-                    self.gabos.send_pyobj(Heartbeat(foremanName))
+                    self.gabos.send(Heartbeat(foremanName))
 
-foreman = Foreman("5557", "5556")
+foreman = Foreman("tcp://*:5557", "tcp://*:5556")
 foreman.start()
 
 print("foreman {} starting".format(foremanName))

@@ -23,43 +23,81 @@ import zmq
 import zmq.eventloop.zmqstream
 import zmq.eventloop.ioloop
 
+from femtocode.scope.util import *
+
 # global
 context = zmq.Context()
 
-class Broadcast(object):
-    @staticmethod
-    def serialize(message, protocol=pickle.HIGHEST_PROTOCOL):
-        return pickle.dumps(message, protocol)
+def serialize(message, protocol=pickle.HIGHEST_PROTOCOL):
+    return pickle.dumps(message, protocol)
 
-    def __init__(self, port, protocol=pickle.HIGHEST_PROTOCOL):
-        self.port = port
+def deserialize(message):
+    return pickle.loads(message)
+
+class Server(object):
+    def __init__(self, bindaddr, timeout, protocol=pickle.HIGHEST_PROTOCOL):
+        self.bindaddr = bindaddr
+        self.timeout = timeout     # in seconds
+        self.protocol = protocol
+
+        self.socket = context.socket(zmq.REP)
+        self.socket.bind(self.bindaddr)
+        self.socket.RCVTIMEO = roundup(self.timeout * 1000)
+
+    def send(self, message):
+        self.socket.send_pyobj(message)
+
+    def recv(self):
+        try:
+            return self.socket.recv_pyobj()
+        except zmq.Again:
+            return None
+
+class Client(object):
+    def __init__(self, connaddr, timeout, protocol=pickle.HIGHEST_PROTOCOL):
+        self.connaddr = connaddr
+        self.timeout = timeout
+        self.protocol = protocol
+
+        self.socket = context.socket(zmq.REQ)
+        self.socket.connect(self.connaddr)
+        self.socket.RCVTIMEO = roundup(self.timeout * 1000)
+
+    def send(self, message):
+        self.socket.send_pyobj(message)
+
+    def recv(self):
+        try:
+            return self.socket.recv_pyobj()
+        except zmq.Again:
+            return None
+
+class Broadcast(object):
+    def __init__(self, bindaddr, protocol=pickle.HIGHEST_PROTOCOL):
+        self.bindaddr = bindaddr
         self.protocol = protocol
 
         self.socket = context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:{0}".format(self.port))
+        self.socket.bind(self.bindaddr)
 
     def send(self, message):
-        self.socket.send(self.serialize(message, self.protocol))
+        self.socket.send(serialize(message, self.protocol))
 
 class Listen(object):
-    @staticmethod
-    def deserialize(message):
-        return pickle.loads(message)
-
-    def __init__(self, address, callback):
+    def __init__(self, connaddr, callback):
         self.callback = callback
-        self.address = address
+        self.connaddr = connaddr
 
         self.socket = context.socket(zmq.SUB)
-        self.socket.setsockopt(zmq.SUBSCRIBE, b"")
+        self.socket.setsockopt(zmq.SUBSCRIBE, b"")   # no topics, please
         self.stream = zmq.eventloop.zmqstream.ZMQStream(self.socket)
 
         def handle(messages):
             for message in messages:
-                callback(self.deserialize(message))
+                callback(deserialize(message))
 
         self.stream.on_recv(handle)
-        self.socket.connect(self.address)
+        self.socket.connect(self.connaddr)
 
-def loop():
+def listenloop():
     zmq.eventloop.ioloop.IOLoop.instance().start()
