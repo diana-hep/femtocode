@@ -27,3 +27,9 @@ def drainQueue(q):
         except queue.Empty:
             break
     return out
+
+def dropIfPresent(d, key):
+    try:
+        del d[key]
+    except KeyError:
+        pass

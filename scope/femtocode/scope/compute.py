@@ -25,56 +25,76 @@ from femtocode.scope.messages import *
 from femtocode.scope.communication import *
 from femtocode.scope.util import *
 
+
+
+
+
 import sys
 import time
 
-minion = sys.argv[1]
+minionName = sys.argv[1]
 
 class WorkItem(Message):
     __slots__ = ("query", "groups")
-    def __init__(self, tallyman, query, groups):
-        self.tallyman = tallyman
+    def __init__(self, foreman, query, groups):
+        self.foreman = foreman
         self.query = query
         self.groups = groups
 
 class Gabo(threading.Thread):
-    delay = 1.0
-    deadThreshold = 10
+    drumbeat = 1.0          # seconds
+    deadThreshold = 10      # beats of the drum
 
-    def __init__(self, tallyman, newWork, firstQuery):
+    def __init__(self, foreman, newWork, firstQuery):
         super(Gabo, self).__init__()
-        self.tallyman = tallyman
+        self.foreman = foreman
         self.newWork = newWork
         self.newQueries = queue.Queue()
         self.newQueries.put(firstQuery)
+
+        # treat as thread-local
+        self.gabo = context.socket(zmq.REQ)
+        self.gabo.connect("tcp://127.0.0.1:5556")
+        self.gabo.RCVTIMEO = int(self.drumbeat * self.deadThreshold * 1000)
+        self.queries = {}
+
         self.daemon = True
 
-    def run(self):
-        gabo = context.socket(zmq.REQ)
-        gabo.connect("tcp://127.0.0.1:5556")
-        gabo.RCVTIMEO = int(self.delay * self.deadThreshold * 1000)
+    def handle(self, message):
+        if isinstance(message, Heartbeat):
+            assert message.identity == self.foreman
 
+        elif isinstance(message, WorkAssignment):
+            assert message.foreman == self.foreman
+
+            for queryid, groups in message.assignment.items():
+                assert queryid in self.queries
+                self.newWork.put(WorkItem(self.foreman, self.queries[queryid], groups))
+                del self.queries[queryid]
+
+        else:
+            assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
+
+    def run(self):
         while True:
-            queries = drainQueue(self.newQueries)
+            newQueries = drainQueue(self.newQueries)
 
             try:
-                for query in queries:
-                    gabo.send_pyobj(GiveMeWork(minion, self.tallyman, query.queryid))
-                    heresSomeWork = gabo.recv_pyobj()
-                    assert heresSomeWork.tallyman == self.tallyman
-                    assert heresSomeWork.queryid == query.queryid
-                    self.newWork.put(WorkItem(self.tallyman, query, heresSomeWork.groups))
+                for query in newQueries:
+                    self.queries[query.queryid] = query
+                    gabo.send_pyobj(ResponseToQuery(minionName, self.foreman, query.queryid))
+                    self.handle(gabo.recv_pyobj())
 
-                if len(queries) == 0:
-                    gabo.send_pyobj(Heartbeat(minion))
-                    heartbeat = gabo.recv_pyobj()
-                    assert heartbeat.identity == self.tallyman
+                if len(newQueries) == 0:
+                    gabo.send_pyobj(Heartbeat(minionName))
+                    self.handle(gabo.recv_pyobj())
 
             except zmq.Again:
-                print("{} is dead".format(self.tallyman))
+                print("{} is dead".format(self.foreman))
+                # and soon this thread will be, too...
                 break
 
-            time.sleep(self.delay)
+            time.sleep(self.drumbeat)
 
 class CacheMaster(threading.Thread):
     def __init__(self):
@@ -84,20 +104,20 @@ class CacheMaster(threading.Thread):
 
     def run(self):
         while True:
-            print("{} has to do {}".format(minion, self.newWork.get()))
+            print("{} has to do {}".format(minionName, self.newWork.get()))
 
 cacheMaster = CacheMaster()
 cacheMaster.start()
 
 gabos = {}
-def respondToQuery(query):
-    if query.tallyman in gabos and gabos[query.tallyman].isAlive():
-        gabos[query.tallyman].newQueries.put(query)
+def respondToCall(query):
+    if query.foreman in gabos and gabos[query.foreman].isAlive():
+        gabos[query.foreman].newQueries.put(query)
     else:
-        gabos[query.tallyman] = Gabo(query.tallyman, cacheMaster.newWork, query)
-        gabos[query.tallyman].start()
+        gabos[query.foreman] = Gabo(query.foreman, cacheMaster.newWork, query)
+        gabos[query.foreman].start()
 
-print("minion {} starting".format(minion))
-listener = Listen("tcp://127.0.0.1:5557", respondToQuery)
+print("minionName {} starting".format(minionName))
+listener = Listen("tcp://127.0.0.1:5557", respondToCall)
 
 loop()

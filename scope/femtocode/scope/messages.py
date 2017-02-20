@@ -35,11 +35,10 @@ class Query(Message):
 #         # self.objectcode = objectcode
 #         # self.sequence = sequence
 #         self.assignments = assignments
-
 class CompiledQuery(Message):
-    __slots__ = ("tallyman", "queryid")
-    def __init__(self, tallyman, queryid, numGroups):
-        self.tallyman = tallyman
+    __slots__ = ("foreman", "queryid", "numGroups")
+    def __init__(self, foreman, queryid, numGroups):
+        self.foreman = foreman
         self.queryid = queryid
         self.numGroups = numGroups
 
@@ -48,16 +47,15 @@ class Heartbeat(Message):
     def __init__(self, identity):
         self.identity = identity
 
-class GiveMeWork(Message):
-    __slots__ = ("minion", "tallyman", "queryid")
-    def __init__(self, minion, tallyman, queryid):
+class ResponseToQuery(Message):
+    __slots__ = ("minion", "foreman", "queryid")     # foreman and queryid are always paired because
+    def __init__(self, minion, foreman, queryid):    # queryid is only unique for a given foreman
         self.minion = minion
-        self.tallyman = tallyman
+        self.foreman = foreman
         self.queryid = queryid
 
-class HeresSomeWork(Message):
-    __slots__ = ("tallyman", "queryid", "groups")
-    def __init__(self, tallyman, queryid, groups):
-        self.tallyman = tallyman
-        self.queryid = queryid
-        self.groups = groups
+class WorkAssignment(Message):
+    __slots__ = ("foreman", "assignment")
+    def __init__(self, foreman, assignment):
+        self.foreman = foreman
+        self.assignment = assignment                  # {queryid: [groupid]}
