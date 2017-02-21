@@ -21,10 +21,10 @@ try:
 except ImportError:
     import queue
 
-from femtocode.scope.messages import *
-from femtocode.scope.communication import *
-from femtocode.scope.util import *
 from femtocode.scope.assignment import *
+from femtocode.scope.communication import *
+from femtocode.scope.messages import *
+from femtocode.scope.util import *
 
 ########################################### TODO: temporary!
 import sys
@@ -33,17 +33,21 @@ foremanName = sys.argv[1]
 minionNames = sys.argv[2:]
 ###########################################
 
-class QueryInfo(Message):
-    __slots__ = ("broadcastTime", "query")
+class QueryInfo(object):
     def __init__(self, broadcastTime, query):
         self.broadcastTime = broadcastTime
         self.query = query
 
-class MinionInfo(Message):
-    __slots__ = ("lastMessage", "queriesKnown")
+    def __repr__(self):
+        return "QueryInfo({0}, {1})".format(self.broadcastTime, self.query)
+
+class MinionInfo(object):
     def __init__(self, lastMessage, queriesKnown):
         self.lastMessage = lastMessage
         self.queriesKnown = queriesKnown
+
+    def __repr__(self):
+        return "MinionInfo({0}, {1})".format(self.lastMessage, self.queriesKnown)
 
 class Foreman(threading.Thread):
     responseThreshold = 0.030   # 30 ms      collect responses to a call: minimum possible latency for queries

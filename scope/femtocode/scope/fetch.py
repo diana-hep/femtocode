@@ -19,12 +19,21 @@ import threading
 from femtocode.scope.messages import *
 from femtocode.scope.util import *
 
-class DataAddress(Message):
+class DataAddress(object):
     __slots__ = ("dataset", "column", "group")
     def __init__(self, dataset, column, group):
         self.dataset = dataset
         self.column = column
         self.group = group
+
+    def __repr__(self):
+        return "DataAddress({0}, {1}, {2})".format(dataset, column, group)
+
+    def __eq__(self, other):
+        return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
+
+    def __hash__(self):
+        return hash((DataAddress, self.dataset, self.column, self.group))
 
 class Fetcher(threading.Thread):
     def __init__(self, occupants, cancelQueue):

@@ -44,7 +44,6 @@ class CacheOccupant(object):
     def __repr__(self):
         return "<CacheOccupant for {0} at {1:012x}>".format(self.address, id(self))
 
-    @property
     def array(self):
         return self.rawarray.view(self.dtype)
 
@@ -121,16 +120,16 @@ class CacheOrder(object):
             self.order = self.order[numToEvict:]
 
 class NeedWantCache(object):
-    def __init__(self, limitBytes, fetcher):
+    def __init__(self, limitBytes, fetcherClass):
         self.limitBytes = limitBytes
-        self.fetcher = fetcher
+        self.fetcherClass = fetcherClass
 
         self.usedBytes = 0
         self.need = {}             # unordered: we need them all, cannot proceed without them
         self.want = CacheOrder()   # least recently used is most likely to be evicted
 
     def __repr__(self):
-        return "<NeedWantCache with {0} at {1:012x}>".format(self.fetcher, id(self))
+        return "<NeedWantCache with {0} at {1:012x}>".format(self.fetcherClass, id(self))
 
     def demoteNeedsToWants(self):
         # migrate occupants from 'need' to 'want' if the minion thread is done using it for calculations
@@ -194,7 +193,7 @@ class NeedWantCache(object):
             workItem.attachOccupant(self.need[address])
 
         if len(tofetch) > 0:
-            fetcher = self.fetcher(tofetch, cancelQueue)
+            fetcher = self.fetcherClass(tofetch, cancelQueue)
             fetcher.start()
 
     def maybeReserve(self, waitingRoom, metadata):
