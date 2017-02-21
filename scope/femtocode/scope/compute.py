@@ -39,7 +39,7 @@ class WorkItem(Message):
         self.groups = groups
 
 class Gabo(threading.Thread):
-    heartbeat = 0.100           # 100 ms     period of response to foreman
+    heartbeat = 0.030           # 30 ms      period of response to foreman; can be same as responseThreshold
     listenThreshold = 0.5       # 500 ms     no response from the foreman; reset Client send/recv state
 
     def __init__(self, foreman, foremanAddress, newWork, firstQuery):
