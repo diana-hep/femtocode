@@ -142,13 +142,13 @@ class NeedWantCache(object):
             del self.need[occupant.address]
             self.want.add(occupant)
             
-    def howManyToEvict(self, workItem, metadata):
+    def howManyToEvict(self, workItem):
         requires = workItem.requires()
 
         neededBytes = 0
         for address in requires:
             if address not in self.need and address not in self.want:
-                neededBytes += metadata.bytesForAddress(address)
+                neededBytes += workItem.columnBytes(address.column)
 
         numToEvict = 0
         reclaimableBytes = 0
@@ -164,7 +164,7 @@ class NeedWantCache(object):
         else:
             return None
 
-    def reserve(self, workItem, metadata, numToEvict):
+    def reserve(self, workItem, numToEvict):
         # clear some space
         self.want.evict(numToEvict)
 
@@ -183,8 +183,8 @@ class NeedWantCache(object):
                 if cancelQueue is None:
                     cancelQueue = queue.Queue()
                 occupant = CacheOccupant(address,
-                                         metadata.bytesForAddress(address),
-                                         metadata.dtypeForAddress(address),
+                                         workItem.columnBytes(address),
+                                         workItem.columnDtype(address),
                                          cancelQueue)
                 # (need starts at 1, don't have to incrementNeed)
                 self.need[address] = occupant
@@ -196,7 +196,7 @@ class NeedWantCache(object):
             fetcher = self.fetcherClass(tofetch, cancelQueue)
             fetcher.start()
 
-    def maybeReserve(self, waitingRoom, metadata):
+    def maybeReserve(self, waitingRoom):
         # make sure occupants no longer in use by Minion are in the "wants" list and can be evicted
         # (actually just a snapshot in time, so maybeReserve often!)
         self.demoteNeedsToWants()
@@ -204,7 +204,7 @@ class NeedWantCache(object):
         minToEvict = None
         bestIndex = None
         for index, workItem in enumerate(waitingRoom):
-            numToEvict = self.howManyToEvict(workItem, metadata)
+            numToEvict = self.howManyToEvict(workItem)
             if numToEvict == 0:
                 # work that doesn't require eviction is always best (starting with oldest assigned)
                 minToEvict = 0
@@ -223,7 +223,7 @@ class NeedWantCache(object):
             del waitingRoom[bestIndex]
 
             # reserve it
-            self.reserve(workItem, metadata, minToEvict)
+            self.reserve(workItem, minToEvict)
             return workItem
 
         else:

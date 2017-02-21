@@ -16,6 +16,8 @@
 
 import json
 
+import numpy
+
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import Segment
@@ -72,7 +74,7 @@ class ROOTGroup(Group):
     def fromJson(cls, group):
         return ROOTGroup(
             group["id"],
-            dict((k, ROOTSegment.fromJson(v)) for k, v in group["segments"].items()),
+            dict((ColumnName.parse(k), ROOTSegment.fromJson(v)) for k, v in group["segments"].items()),
             group["numEntries"],
             group["files"])
 
@@ -99,9 +101,9 @@ class ROOTColumn(Column):
     @classmethod
     def fromJson(cls, column):
         return ROOTColumn(
-            column["data"],
-            column["size"],
-            column["dataType"],
+            ColumnName.parse(column["data"]),
+            None if column["size"] is None else ColumnName.parse(column["size"]),
+            numpy.dtype(column["dataType"]),
             column["tree"],
             column["dataBranch"],
             column["sizeBranch"])
@@ -199,10 +201,10 @@ class ROOTDataset(Dataset):
                 elif numEntries != [x.numEntries for x in segments]:
                     raise DatasetDeclaration.Error(quantity.lc, "entries are partitioned differently in {0} and {1}:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), [x.numEntries for x in segments], numEntries))
 
-                if ColumnName.level(subname) not in levelToDataLength:
-                    levelToDataLength[ColumnName.level(subname)] = [x.dataLength for x in segments]
-                elif levelToDataLength[ColumnName.level(subname)] != [x.dataLength for x in segments]:
-                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(ColumnName.level(subname)), [x.dataLength for x in segments], levelToDataLength[ColumnName.level(subname)]))
+                if subname.arraylevel() not in levelToDataLength:
+                    levelToDataLength[subname.arraylevel()] = [x.dataLength for x in segments]
+                elif levelToDataLength[subname.arraylevel()] != [x.dataLength for x in segments]:
+                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(subname.arraylevel()), [x.dataLength for x in segments], levelToDataLength[subname.arraylevel()]))
                 
                 lastname = subname
 
@@ -346,7 +348,7 @@ class ROOTDataset(Dataset):
         return ROOTDataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
-            dict((k, ROOTColumn.fromJson(v)) for k, v in dataset["columns"].items()),
+            dict((ColumnName.parse(k), ROOTColumn.fromJson(v)) for k, v in dataset["columns"].items()),
             [ROOTGroup.fromJson(x) for x in dataset["groups"]],
             dataset["numEntries"])
 

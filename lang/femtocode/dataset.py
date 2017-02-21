@@ -17,6 +17,8 @@
 import json
 import re
 
+import numpy
+
 from femtocode.typesystem import Schema
 from femtocode.py23 import *
 
@@ -64,15 +66,6 @@ class ColumnName(object):
     _size = Size()
 
     @staticmethod
-    def level(name):
-        index = len(name.path)
-        while index >= 0:
-            index -= 1
-            if name.path[index] == ColumnName._array:
-                return ColumnName(*name.path[:index])
-        return None
-
-    @staticmethod
     def parse(string):
         path = []
         while len(string) > 0:
@@ -117,10 +110,16 @@ class ColumnName(object):
         return "".join(out)
 
     def __eq__(self, other):
-        return other.__class__ == ColumnName and self.path == other.path
+        if isinstance(other, string_types):
+            return str(self) == other
+        else:
+            return other.__class__ == ColumnName and self.path == other.path
+
+    def __req__(self, other):
+        return self.__eq__(other)
 
     def __hash__(self):
-        return hash((ColumnName, self.path))
+        return hash(str(self))
 
     def __lt__(self, other):
         if other.__class__ == ColumnName:
@@ -132,10 +131,21 @@ class ColumnName(object):
         return ColumnName(*(self.path + (field,)))
 
     def array(self):
-        return ColumnName(*(self.path + (ColumnName.Array(),)))
+        return ColumnName(*(self.path + (self._array,)))
 
     def size(self):
-        return ColumnName(*(self.path + (ColumnName.Size(),)))
+        return ColumnName(*(self.path + (self._size,)))
+
+    def arraylevel(self):
+        index = len(self.path)
+        while index >= 0:
+            index -= 1
+            if self.path[index] == ColumnName._array:
+                return ColumnName(*self.path[:index])
+        return None
+
+    def issize(self):
+        return self.path[-1] == self._size
 
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength):
@@ -195,14 +205,14 @@ class Column(Metadata):
         return "<{0} data={1} size={2} at 0x{3:012x}>".format(self.__class__.__name__, self.data, self.size, id(self))
 
     def toJson(self):
-        return {"data": str(self.data), "size": str(self.size), "dataType": str(self.dataType)}
+        return {"data": str(self.data), "size": None if self.size is None else str(self.size), "dataType": str(self.dataType)}
 
     @classmethod
     def fromJson(cls, column):
         return Column(
             ColumnName.parse(column["data"]),
-            ColumnName.parse(column["size"]),
-            column["dataType"])
+            None if column["size"] is None else ColumnName.parse(column["size"]),
+            numpy.dtype(column["dataType"]))
 
     def __eq__(self, other):
         return other.__class__ == Column and self.data == other.data and self.size == other.size and self.dataType == other.dataType

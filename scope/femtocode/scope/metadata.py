@@ -23,10 +23,7 @@ class Metadata(object):
     def __init__(self):
         raise NotImplementedError
 
-    def bytesForAddress(self, address):
-        raise NotImplementedError
-
-    def dtypeForAddress(self, address):
+    def dataset(self, name, groups=(), columns=(), schema=False):
         raise NotImplementedError
 
 class MetadataFromMongoDB(Metadata):
@@ -37,8 +34,8 @@ class MetadataFromMongoDB(Metadata):
         self.timeout = timeout
         self._cache = {}
 
-    def dataset(self, name, groups=(), columns=(), schema=False, files=False):
-        key = (name, tuple(groups) if isinstance(groups, list) else groups, tuple(columns) if isinstance(columns, list) else columns, schema, files)
+    def dataset(self, name, groups=(), columns=(), schema=False):
+        key = (name, tuple(groups) if isinstance(groups, list) else groups, tuple(columns) if isinstance(columns, list) else columns, schema)
         if key not in self._cache:
             project = {"name": True, "numEntries": True}
             if schema:
@@ -50,14 +47,12 @@ class MetadataFromMongoDB(Metadata):
                 select = {"$or": [{"name": name, "groups.id": {"$eq": i}} for i in groups]}
                 project["groups.id"] = True
                 project["groups.numEntries"] = True
-                if files:
-                    project["groups.files"] = True
+                project["groups.files"] = True
 
             for column in columns:
                 project["columns." + column] = True
                 project["groups.segments." + column] = True
-                if files:
-                    project["groups.segments." + column + ".files"] = True
+                project["groups.segments." + column + ".files"] = True
 
             results = list(self.collection.find(select, project, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)}))
 
@@ -88,4 +83,4 @@ class MetadataFromMongoDB(Metadata):
 
         return self._cache[key]
 
-db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
+# db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
