@@ -14,16 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Executor(object):
-    def __init__(self, query):
-        raise NotImplementedError
+from pymongo import MongoClient
 
-    def run(self, arrays):
-        raise NotImplementedError
+from femtocode.fromroot.dataset import ROOTDataset
 
-class DummyExecutor(Executor):
-    def __init__(self, query):
-        assert "muons[].pt" in query.inputs and "jets[].pt" in query.inputs
+def populateMongo(dataset, mongourl, database, collection):
+    client = MongoClient(mongourl)
+    client[database][collection].insert_one(dataset.toJson())
 
-    def run(self, arrays):
-        return (arrays["muons[].pt"] + arrays["jets[].pt"]).sum()
+########################################### TODO: temporary!
+metadataFileName = "../../tests/metadataFromRoot.yaml"
+populateMongo(ROOTDataset.fromYamlString(open(metadataFileName)), "mongodb://localhost:27017", "metadb", "datasets")
+###########################################

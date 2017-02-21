@@ -39,7 +39,7 @@ class CacheOccupant(object):
         self.rawarray = allocate(totalBytes)    # maybe use an alternative allocation method, maybe not
         self.needCount = 1
         self.lock = threading.Lock()            # CacheMaster and Minion both change needCount
-                                                # Fetcher sets filledBytes and Minion checks it
+                                                # Fetcher sets filledBytes and CacheMaster checks it
 
     def __repr__(self):
         return "<CacheOccupant for {0} at {1:012x}>".format(self.address, id(self))

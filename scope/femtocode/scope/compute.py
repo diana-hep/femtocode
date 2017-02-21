@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import threading
 import multiprocessing
+import threading
+import time
 try:
     import Queue as queue
 except ImportError:
@@ -31,7 +32,6 @@ from femtocode.scope.util import *
 
 ########################################### TODO: temporary!
 import sys
-import time
 minionName = sys.argv[1]
 ###########################################
 
@@ -75,6 +75,11 @@ class WorkItem(object):
         assert len(self.occupants) != 0
         return all(occupant.ready() for occupant in self.occupants)
 
+    def decrementNeed(self):
+        assert len(self.occupants) != 0
+        for occupant in self.occupants:
+            occupant.decrementNeed()
+
     def run(self):
         return Result(self.work.foreman,
                       self.work.query.queryid,
@@ -99,7 +104,10 @@ class Minion(threading.Thread):
 
     def run(self):
         while True:
-            self.outgoing.put(self.incoming.get().run())
+            workItem = self.incoming.get()
+            result = workItem.run()
+            workItem.decrementNeed()
+            self.outgoing.put(result)
 
 class CacheMaster(threading.Thread):
     loopdelay = 0.001           # 1 ms       pause time at the end of the loop
@@ -144,6 +152,7 @@ class CacheMaster(threading.Thread):
             while len(toremove) > 0:
                 del self.downloading[toremove.pop()]
 
+            # no busy wait
             time.sleep(self.loopdelay)
 
 class Gabo(threading.Thread):

@@ -17,7 +17,7 @@
 import json
 
 from femtocode.py23 import *
-from femtocode.dataset import level
+from femtocode.dataset import ColumnName
 from femtocode.dataset import Segment
 from femtocode.dataset import Group
 from femtocode.dataset import Column
@@ -167,9 +167,9 @@ class ROOTDataset(Dataset):
             nameToSegments = {}
             for k, v in quantity.fields.items():
                 if isinstance(quantity, DatasetDeclaration):
-                    subname = k
+                    subname = ColumnName(k)
                 else:
-                    subname = name + "." + k
+                    subname = name.rec(k)
 
                 columns, groups = ROOTDataset._makeGroups(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, subname)
 
@@ -199,10 +199,10 @@ class ROOTDataset(Dataset):
                 elif numEntries != [x.numEntries for x in segments]:
                     raise DatasetDeclaration.Error(quantity.lc, "entries are partitioned differently in {0} and {1}:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), [x.numEntries for x in segments], numEntries))
 
-                if level(subname) not in levelToDataLength:
-                    levelToDataLength[level(subname)] = [x.dataLength for x in segments]
-                elif levelToDataLength[level(subname)] != [x.dataLength for x in segments]:
-                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(level(subname)), [x.dataLength for x in segments], levelToDataLength[level(subname)]))
+                if ColumnName.level(subname) not in levelToDataLength:
+                    levelToDataLength[ColumnName.level(subname)] = [x.dataLength for x in segments]
+                elif levelToDataLength[ColumnName.level(subname)] != [x.dataLength for x in segments]:
+                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(ColumnName.level(subname)), [x.dataLength for x in segments], levelToDataLength[ColumnName.level(subname)]))
                 
                 lastname = subname
 
@@ -236,7 +236,7 @@ class ROOTDataset(Dataset):
             return newColumns, newGroups
 
         elif isinstance(quantity, DatasetDeclaration.Collection):
-            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name + "[]")
+            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name.array())
 
         elif isinstance(quantity, DatasetDeclaration.Primitive):
             sizeBranch = ()
@@ -250,7 +250,7 @@ class ROOTDataset(Dataset):
                             raise DatasetDeclaration.Error(quantity.frm.loc, "branch {0} has a counter branch in some files and not others".format(json.dumps(quantity.frm.branch)))
 
             column = ROOTColumn(name,
-                                name + "@size" if sizeBranch is not None else None,
+                                name.size() if sizeBranch is not None else None,
                                 quantity.frm.dtype,
                                 quantity.frm.tree,
                                 quantity.frm.branch,

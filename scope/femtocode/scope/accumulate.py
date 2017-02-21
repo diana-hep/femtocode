@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import threading
 import multiprocessing
+import threading
+import time
 try:
     import Queue as queue
 except ImportError:
@@ -28,7 +29,6 @@ from femtocode.scope.util import *
 
 ########################################### TODO: temporary!
 import sys
-import time
 foremanName = sys.argv[1]
 minionNames = sys.argv[2:]
 ###########################################

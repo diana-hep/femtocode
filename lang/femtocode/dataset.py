@@ -15,20 +15,128 @@
 # limitations under the License.
 
 import json
+import re
 
 from femtocode.typesystem import Schema
-
-def level(name):
-    try:
-        index = name.rindex("[")
-        return name[:index]
-    except ValueError:
-        return None
+from femtocode.py23 import *
 
 class Metadata(object):
     def toJsonString(self):
         return json.dumps(self.toJson())
-    
+
+class ColumnName(object):
+    recordsep = "-"
+    arraytag = "[]"
+    sizetag = "@size"
+
+    class Array(object):
+        def __repr__(self):
+            return "ColumnName.Array()"
+        def __eq__(self, other):
+            return other.__class__ == ColumnName.Array
+        def __hash__(self):
+            return hash((ColumnName.Array,))
+        def __lt__(self, other):
+            if isinstance(other, string_types):
+                return other
+            elif isinstance(other, ColumnName.Size):
+                return other
+            else:
+                return False
+
+    _array = Array()
+
+    class Size(object):
+        def __repr__(self):
+            return "ColumnName.Size()"
+        def __eq__(self, other):
+            return other.__class__ == ColumnName.Size
+        def __hash__(self):
+            return hash((ColumnName.Size,))
+        def __lt__(self, other):
+            if isinstance(other, string_types):
+                return other
+            elif isinstance(other, ColumnName.Array):
+                return self
+            else:
+                return False
+
+    _size = Size()
+
+    @staticmethod
+    def level(name):
+        index = len(name.path)
+        while index >= 0:
+            index -= 1
+            if name.path[index] == ColumnName._array:
+                return ColumnName(*name.path[:index])
+        return None
+
+    @staticmethod
+    def parse(string):
+        path = []
+        while len(string) > 0:
+            m = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)", string)
+            if m is not None:
+                path.append(m.group(1))
+                string = string[len(m.group(1)):]
+
+            elif string.startswith(ColumnName.arraytag):
+                path.append(ColumnName._array)
+                string = string[len(ColumnName.arraytag):]
+
+            elif string.startswith(ColumnName.sizetag):
+                path.append(ColumnName._size)
+                string = string[len(ColumnName.sizetag):]
+
+            else:
+                raise ValueError("could not parse {0} as a ColumnName".format(string))
+
+            if string.startswith(ColumnName.recordsep):
+                string = string[1:]
+
+        return ColumnName(*path)
+
+    def __init__(self, first, *rest):
+        self.path = (first,) + rest
+
+    def __repr__(self):
+        return "ColumnName({0})".format(", ".join(map(repr, self.path)))
+
+    def __str__(self):
+        out = [self.path[0]]
+        for x in self.path[1:]:
+            if isinstance(x, string_types):
+                out.append(self.recordsep + x)
+            elif x == self._array:
+                out.append(self.arraytag)
+            elif x == self._size:
+                out.append(self.sizetag)
+            else:
+                assert False, "unexpected path item in ColumnName: {0}".format(x)
+        return "".join(out)
+
+    def __eq__(self, other):
+        return other.__class__ == ColumnName and self.path == other.path
+
+    def __hash__(self):
+        return hash((ColumnName, self.path))
+
+    def __lt__(self, other):
+        if other.__class__ == ColumnName:
+            return self.path < other.path
+        else:
+            return self.__class__ < other.__class__
+
+    def rec(self, field):
+        return ColumnName(*(self.path + (field,)))
+
+    def array(self):
+        return ColumnName(*(self.path + (ColumnName.Array(),)))
+
+    def size(self):
+        return ColumnName(*(self.path + (ColumnName.Size(),)))
+
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength):
         self.numEntries = numEntries
@@ -62,13 +170,13 @@ class Group(Metadata):
         return "<{0} id={1} numEntries={2} at 0x{3:012x}>".format(self.__class__.__name__, self.id, self.numEntries, id(self))
 
     def toJson(self):
-        return {"id": self.id, "segments": dict((k, v.toJson()) for k, v in self.segments.items()), "numEntries": self.numEntries}
+        return {"id": self.id, "segments": dict((str(k), v.toJson()) for k, v in self.segments.items()), "numEntries": self.numEntries}
 
     @classmethod
     def fromJson(cls, group):
         return Group(
             group["id"],
-            dict((k, Segment.fromJson(v)) for k, v in group["segments"].items()),
+            dict((ColumnName.parse(k), Segment.fromJson(v)) for k, v in group["segments"].items()),
             group["numEntries"])
 
     def __eq__(self, other):
@@ -87,13 +195,13 @@ class Column(Metadata):
         return "<{0} data={1} size={2} at 0x{3:012x}>".format(self.__class__.__name__, self.data, self.size, id(self))
 
     def toJson(self):
-        return {"data": self.data, "size": self.size, "dataType": str(self.dataType)}
+        return {"data": str(self.data), "size": str(self.size), "dataType": str(self.dataType)}
 
     @classmethod
     def fromJson(cls, column):
         return Column(
-            column["data"],
-            column["size"],
+            ColumnName.parse(column["data"]),
+            ColumnName.parse(column["size"]),
             column["dataType"])
 
     def __eq__(self, other):
@@ -114,7 +222,7 @@ class Dataset(Metadata):
         return "<{0} name={1} len(groups)={2}, numEntries={3} at 0x{4:012x}>".format(self.__class__.__name__, self.name, len(self.groups), self.numEntries, id(self))
 
     def toJson(self):
-        return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((k, v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
+        return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
 
     @classmethod
     def fromJsonString(cls, dataset):
@@ -125,7 +233,7 @@ class Dataset(Metadata):
         return Dataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
-            dict((k, Column.fromJson(v)) for k, v in dataset["columns"].items()),
+            dict((ColumnName.parse(k), Column.fromJson(v)) for k, v in dataset["columns"].items()),
             [Group.fromJson(x) for x in dataset["groups"]],
             dataset["numEntries"])
 
