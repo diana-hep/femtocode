@@ -39,8 +39,8 @@ class WorkItem(Message):
         self.groups = groups
 
 class Gabo(threading.Thread):
-    heartbeat = 0.010           # 10 ms      period of response to foreman
-    listenThreshold = 1.0       # 1000 ms    no response from the foreman; reset Client send/recv state
+    heartbeat = 0.100           # 100 ms     period of response to foreman
+    listenThreshold = 0.5       # 500 ms     no response from the foreman; reset Client send/recv state
 
     def __init__(self, foreman, foremanAddress, newWork, firstQuery):
         super(Gabo, self).__init__()
@@ -86,7 +86,7 @@ class Gabo(threading.Thread):
                     self.gabo.send(Heartbeat(minionName))
                     self.handle(self.gabo.recv())
 
-            time.sleep(self.heartbeat)
+                time.sleep(self.heartbeat)
 
         except StopIteration:
             print("{} is dead".format(self.foreman))

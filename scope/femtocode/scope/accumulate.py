@@ -46,20 +46,24 @@ class MinionInfo(Message):
         self.queriesKnown = queriesKnown
 
 class Foreman(threading.Thread):
-    responseThreshold = 0.035   # 35 ms      at least 4 heartbeats: minimum latency for queries
+    responseThreshold = 0.030   # 30 ms      collect responses to a call: minimum possible latency for queries
+    deadThreshold = 0.5         # 500 ms     previously active minions disappar
     listenThreshold = 1.0       # 1000 ms    no response from any minion; reset Server recv/send state
-    deadThreshold = 2.5         # 2500 ms    previously active minions disappar
 
     def __init__(self, queryAddress, gaboAddress):
         super(Foreman, self).__init__()
 
-        # treat as thread-local
+        # accessed by external threads
         self.queryBroadcast = Broadcast(queryAddress)
-        self.gabos = Server(gaboAddress, self.listenThreshold)
+        # thread-safe
+        self.doneQueries = queue.Queue()
 
-        self.todoQueries = queue.Queue()   # [CompiledQuery]
-        self.doneQueries = queue.Queue()   # [CompiledQuery]
+        # shared: self.unassigned can be changed by external threads, so it must be locked
         self.unassigned = {}               # {queryid: QueryInfo}
+        self.lock = threading.Lock()
+
+        # treat as thread-local
+        self.gabos = Server(gaboAddress, self.listenThreshold)
         self.minionInfos = {}              # {minion: MinionInfo}
         self.assignments = {}              # {queryid: {minion: [groupid]}}
         self.deltaAssignments = {}         # {minion: {queryid: [groupid]}} (items that haven't yet been reported to the minion)
@@ -68,18 +72,16 @@ class Foreman(threading.Thread):
 
     def ping(self, minion, queryid):
         # when have we last heard from this minion and which queries has it responded to?
-        now = time.time()
         if minion not in self.minionInfos:
-            self.minionInfos[minion] = MinionInfo(now, set([queryid]) if queryid is not None else set())
+            self.minionInfos[minion] = MinionInfo(time.time(), set([queryid]) if queryid is not None else set())
         else:
-            self.minionInfos[minion].lastMessage = now
+            self.minionInfos[minion].lastMessage = time.time()
             if queryid is not None:
                 self.minionInfos[minion].queriesKnown.add(queryid)
 
     def updateMinions(self):
-        now = time.time()
         for minion, minionInfo in list(self.minionInfos.items()):
-            if now > minionInfo.lastMessage + self.deadThreshold:
+            if time.time() > minionInfo.lastMessage + self.deadThreshold:
                 # this minion is now dead
                 del self.minionInfos[minion]
 
@@ -95,7 +97,7 @@ class Foreman(threading.Thread):
         # if any minions have died, reassign their old work
         for queryid, oldAssignments in list(self.assignments.items()):
             # minions available to a queryid always decreases (to avoid back-and-forth assignment)
-            survivors = set(self.minionInfos).intersection(oldAssignments.keys())
+            survivors = set(self.minionInfos).intersection(n for n, a in oldAssignments.items() if len(a) > 0)
 
             # FIXME: if this happens, cancel the query and return it to the user
             assert len(survivors) > 0
@@ -124,65 +126,54 @@ class Foreman(threading.Thread):
 
                 self.assignments[queryid] = newAssignments
 
-    def callForWork(self):
-        now = time.time()
+    def newWork(self):
+        # need a lock to access self.unassigned, since this is touched by both threads
+        with self.lock:
+            # queries that have been in self.unassigned for the requisite number of heartbeats
+            for queryid, queryInfo in list(self.unassigned.items()):
+                if time.time() > queryInfo.broadcastTime + self.responseThreshold:
+                    # which minions have responded to the broadcast for this particular query?
+                    heardTheCall = [minion for minion, minionInfo in self.minionInfos.items() if queryid in minionInfo.queriesKnown]
 
-        # brand new queries get broadcast and temporarily held in self.unassigned
-        for newQuery in drainQueue(self.todoQueries):
-            # every queryid should be new (for a given foreman)
-            assert newQuery.queryid not in self.unassigned
-            assert newQuery.queryid not in self.assignments
+                    # only minions who have responded to the call for this particular query are assigned to it
+                    newAssignments = assign(queryid, queryInfo.query.numGroups, minionNames, heardTheCall)
 
-            # every new query is a new chance for a minion to start working
-            self.queryBroadcast.send(newQuery)
-            self.unassigned[newQuery.queryid] = QueryInfo(now, newQuery)
+                    # everything is new; just add them to self.deltaAssignments and self.assignments
+                    for minion in minionNames:
+                        if len(newAssignments[minion]) > 0:
+                            if minion not in self.deltaAssignments:
+                                self.deltaAssignments[minion] = {}
+                            self.deltaAssignments[minion][queryid] = set(newAssignments[minion])
+                        else:
+                            dropIfPresent(self.deltaAssignments, minion)
 
-        # queries that have been in self.unassigned for the requisite number of heartbeats
-        for queryid, queryInfo in list(self.unassigned.items()):
-            if now > queryInfo.broadcastTime + self.responseThreshold:
-                # which minions have responded to the broadcast for this particular query?
-                heardTheCall = [minion for minion, minionInfo in self.minionInfos.items() if queryid in minionInfo.queriesKnown]
-
-                # only minions who have responded to the call for this particular query are assigned to it
-                newAssignments = assign(queryid, queryInfo.query.numGroups, minionNames, heardTheCall)
-
-                # everything is new; just add them to self.deltaAssignments and self.assignments
-                for minion in minionNames:
-                    if len(newAssignments[minion]) > 0:
-                        if minion not in self.deltaAssignments:
-                            self.deltaAssignments[minion] = {}
-                        self.deltaAssignments[minion][queryid] = set(newAssignments[minion])
-                    else:
-                        dropIfPresent(self.deltaAssignments, minion)
-
-                self.assignments[queryid] = newAssignments
-                del self.unassigned[queryid]
+                    self.assignments[queryid] = newAssignments
+                    del self.unassigned[queryid]
 
     def run(self):
         while True:
+            # interaction is initiated by receiving a message from a minion
             message = self.gabos.recv()
 
             if message is None:
                 pass
-
             elif isinstance(message, Heartbeat):
                 minion = message.identity
                 queryid = None
-
             elif isinstance(message, ResponseToQuery):
                 minion = message.minion
                 queryid = message.queryid
                 assert message.foreman == foremanName
-
             else:
                 assert False, "unrecognized message from minion on gabo channel {0}".format(message)
             
+            # update state with the new information from minion
             if message is not None:
                 self.ping(minion, queryid)
             self.updateMinions()
             self.updateWork()
-            self.callForWork()
 
+            # respond to the minion, possibly giving it more work
             if message is not None:
                 assignment = self.deltaAssignments.get(minion, {})
 
@@ -195,6 +186,26 @@ class Foreman(threading.Thread):
                 else:
                     self.gabos.send(Heartbeat(foremanName))
 
+            # since the following locks, do it outside the server recv/send
+            # its new information wouldn't be useful to the minion until the responseThreshold pause, anyway
+            self.newWork()
+
+    # startQuery can be called by external threads
+    def startQuery(self, newQuery):
+        # need a lock to access self.unassigned, since this is touched by both threads
+        with self.lock:
+            # brand new queries get broadcast and temporarily held in self.unassigned
+            # every queryid should be new (for a given foreman)
+            assert newQuery.queryid not in self.unassigned
+
+            # every new query is a new chance for a minion to start working
+            self.unassigned[newQuery.queryid] = QueryInfo(time.time(), newQuery)
+            self.queryBroadcast.send(newQuery)
+
+    # endQuery can be called by external threads
+    def endQuery(self, queryid):
+        self.doneQueries.push(queryid)
+
 foreman = Foreman("tcp://*:5557", "tcp://*:5556")
 foreman.start()
 
@@ -202,10 +213,10 @@ print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
 print("submit 0!")
-foreman.todoQueries.put(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], 100))
+foreman.startQuery(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], 100))
 
 time.sleep(10)
 print("submit 1!")
-foreman.todoQueries.put(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], 100))
+foreman.startQuery(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], 100))
 
 time.sleep(100)
