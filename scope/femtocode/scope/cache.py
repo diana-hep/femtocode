@@ -193,7 +193,7 @@ class NeedWantCache(object):
             workItem.attachOccupant(self.need[address])
 
         if len(tofetch) > 0:
-            fetcher = self.fetcherClass(tofetch, cancelQueue)
+            fetcher = self.fetcherClass(tofetch, workItem, cancelQueue)
             fetcher.start()
 
     def maybeReserve(self, waitingRoom):

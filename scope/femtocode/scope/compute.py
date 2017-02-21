@@ -22,6 +22,7 @@ try:
 except ImportError:
     import queue
 
+from femtocode.lang.py23 import *
 from femtocode.lang.dataset import ColumnName
 from femtocode.lang.dataset import sizeType
 from femtocode.scope.cache import *
@@ -38,49 +39,53 @@ minionName = sys.argv[1]
 ###########################################
 
 class Work(object):
-    def __init__(self, foreman, query, groups, metadata, executorClass):
+    def __init__(self, foreman, query, groupids, metadata, executorClass):
         self.foreman = foreman
         self.query = query
-        self.groups = groups
-        self.dataset = metadata.dataset(self.query.dataset, self.groups, self.query.inputs)
+        self.groupids = groupids
+        self.dataset = metadata.dataset(self.query.dataset, self.groupids, self.query.inputs)
         self.executor = executorClass(self.query)
 
     def __repr__(self):
         return "<Work for {0} at {1:012x}>".format(self.query.queryid, id(self))
 
 class Result(object):
-    def __init__(self, foreman, queryid, group, data):
+    def __init__(self, foreman, queryid, groupid, data):
         self.foreman = foreman
         self.queryid = queryid
-        self.group = group
+        self.groupid = groupid
         self.data = data
 
     def __repr__(self):
-        return "<Result for {0}({1}) at {2:012x}>".format(self.queryid, self.group, id(self))
+        return "<Result for {0}({1}) at {2:012x}>".format(self.queryid, self.groupid, id(self))
 
 class WorkItem(object):
-    def __init__(self, work, group):
+    def __init__(self, work, groupid):
         self.work = work
-        self.group = group
+
+        self.group = None
+        for group in self.work.dataset.groups:
+            if group.id == groupid:
+                self.group = group
+                break
+        assert self.group is not None
 
         self.occupants = []
 
     def __repr__(self):
-        return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group, id(self))
+        return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
 
     def requires(self):
-        return [DataAddress(self.work.query.dataset, column, self.group) for column in self.work.query.inputs]
+        return [DataAddress(self.work.query.dataset, column, self.group.id) for column in self.work.query.inputs]
 
     def columnBytes(self, column):
-        for group in self.work.dataset.groups:
-            if group.id == self.group:
-                cn = ColumnName.parse(column)
-                if cn.issize():
-                    return group.numEvents * sizeType.itemsize
-                else:
-                    return group.segments[column].dataLength * self.columnDtype(column).itemsize
+        if isinstance(column, string_types):
+            column = ColumnName.parse(column)
 
-        assert False, "group {0} not found in dataset metadata".format(self.group)
+        if column.issize():
+            return self.group.numEvents * sizeType.itemsize
+        else:
+            return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
 
     def columnDtype(self, column):
         return self.work.dataset.columns[column].dataType
@@ -100,7 +105,7 @@ class WorkItem(object):
     def run(self):
         return Result(self.work.foreman,
                       self.work.query.queryid,
-                      self.group,
+                      self.group.id,
                       self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
 
     def decrementNeed(self):
@@ -203,11 +208,11 @@ class Gabo(threading.Thread):
         elif isinstance(message, WorkAssignment):
             assert message.foreman == self.foreman
 
-            for queryid, groups in message.assignment.items():
+            for queryid, groupids in message.assignment.items():
                 assert queryid in self.queries
-                work = Work(self.foreman, self.queries[queryid], sorted(groups), self.metadata, self.executorClass)
-                for group in work.groups:
-                    self.workToCacheMaster.put(WorkItem(work, group))
+                work = Work(self.foreman, self.queries[queryid], sorted(groupids), self.metadata, self.executorClass)
+                for groupid in work.groupids:
+                    self.workToCacheMaster.put(WorkItem(work, groupid))
 
         else:
             assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
