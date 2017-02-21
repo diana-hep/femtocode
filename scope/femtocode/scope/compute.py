@@ -22,6 +22,8 @@ try:
 except ImportError:
     import queue
 
+from femtocode.lang.dataset import ColumnName
+from femtocode.lang.dataset import sizeType
 from femtocode.scope.cache import *
 from femtocode.scope.communication import *
 from femtocode.scope.execution import *
@@ -72,7 +74,12 @@ class WorkItem(object):
     def columnBytes(self, column):
         for group in self.work.dataset.groups:
             if group.id == self.group:
-                return group.segments[column].dataLength * self.columnDtype(column).itemsize
+                cn = ColumnName.parse(column)
+                if cn.issize():
+                    return group.numEvents * sizeType.itemsize
+                else:
+                    return group.segments[column].dataLength * self.columnDtype(column).itemsize
+
         assert False, "group {0} not found in dataset metadata".format(self.group)
 
     def columnDtype(self, column):

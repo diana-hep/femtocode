@@ -26,6 +26,8 @@ class Metadata(object):
     def toJsonString(self):
         return json.dumps(self.toJson())
 
+sizeType = numpy.uint64
+
 class ColumnName(object):
     recordsep = "-"
     arraytag = "[]"
