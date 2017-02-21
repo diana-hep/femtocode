@@ -23,8 +23,10 @@ except ImportError:
 
 from femtocode.scope.cache import *
 from femtocode.scope.communication import *
+from femtocode.scope.execution import *
 from femtocode.scope.fetch import *
 from femtocode.scope.messages import *
+from femtocode.scope.metadata import *
 from femtocode.scope.util import *
 
 ########################################### TODO: temporary!
@@ -206,7 +208,12 @@ class Gabo(threading.Thread):
 
 executorClass = DummyExecutor
 
-cacheMaster = CacheMaster(NeedWantCache(1024**3, DummyFetcher), None, minion.incoming)  # FIXME: add metadata
+metadata = MetadataFromMongoDB()
+
+minion = Minion()
+minion.start()
+
+cacheMaster = CacheMaster(NeedWantCache(1024**3, DummyFetcher), metadata, minion.incoming)
 cacheMaster.start()
 
 gabos = {}
