@@ -17,6 +17,7 @@
 import threading
 
 from femtocode.scope.messages import *
+from femtocode.scope.util import *
 
 class DataAddress(Message):
     __slots__ = ("dataset", "column", "group")
@@ -25,16 +26,33 @@ class DataAddress(Message):
         self.column = column
         self.group = group
 
-class DummyFetch(threading.Thread):
-    def __init__(self, occupants):
-        super(DummyFetch, self).__init__()
+class Fetcher(threading.Thread):
+    def __init__(self, occupants, cancelQueue):
+        super(Fetcher, self).__init__()
         self.occupants = occupants
+        self.cancelQueue = cancelQueue
+
+    def updateCancels(self):
+        for address in drainQueue(self.cancelQueue):
+            i = 0
+            for occupant in self.occupants:
+                if occupant.address == address:
+                    break
+                i += 1
+            # it might already be done
+            if i < len(self.occupants):
+                del self.occupants[i]
+
+class DummyFetcher(Fetcher):
+    def __init__(self, occupants, cancelQueue):
+        super(DummyFetch, self).__init__(occupants, cancelQueue)
 
     def run(self):
         import time
         import random
-        for occupant in self.occupants:
+        self.updateCancels()
+        while len(self.occupants) > 0:
+            occupant = self.occupants.pop()
             time.sleep(random.expovariate(10.0))
             occupant.fill("." * occupant.totalBytes)
-            with occupant.lock:
-                occupant.filled = True
+            self.updateCancels()
