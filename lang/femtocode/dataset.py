@@ -149,6 +149,10 @@ class ColumnName(object):
     def issize(self):
         return self.path[-1] == self._size
 
+    def dropsize(self):
+        assert self.issize()
+        return ColumnName(*self.path[:-1])
+
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength):
         self.numEntries = numEntries

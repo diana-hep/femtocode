@@ -217,10 +217,10 @@ print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
 print("submit 0!")
-foreman.startQuery(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], 100))
+foreman.startQuery(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], {}, 100))
 
 time.sleep(10)
 print("submit 1!")
-foreman.startQuery(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], 100))
+foreman.startQuery(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], {}, 100))
 
 time.sleep(100)

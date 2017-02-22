@@ -29,11 +29,10 @@ class CacheOccupant(object):
     def allocate(numBytes):
         return numpy.empty(numBytes, dtype=CacheOccupant.untyped)
 
-    def __init__(self, address, totalBytes, dtype, cancelQueue, allocate=CacheOccupant.allocate):
+    def __init__(self, address, totalBytes, dtype, allocate=CacheOccupant.allocate):
         self.address = address
         self.totalBytes = totalBytes
         self.dtype = dtype
-        self.cancelQueue = cancelQueue
 
         self.filledBytes = 0
         self.rawarray = allocate(totalBytes)    # maybe use an alternative allocation method, maybe not
@@ -169,7 +168,6 @@ class NeedWantCache(object):
         self.want.evict(numToEvict)
 
         tofetch = []
-        cancelQueue = None
         for address in workItem.requires():
             if address in self.need:                        # case 1: "I need it, too!"
                 self.need[address].incrementNeed()
@@ -180,12 +178,9 @@ class NeedWantCache(object):
                 self.need[address] = occupant
 
             else:                                           # case 3: brand new, need to fetch it
-                if cancelQueue is None:
-                    cancelQueue = queue.Queue()
                 occupant = CacheOccupant(address,
                                          workItem.columnBytes(address),
-                                         workItem.columnDtype(address),
-                                         cancelQueue)
+                                         workItem.columnDtype(address))
                 # (need starts at 1, don't have to incrementNeed)
                 self.need[address] = occupant
                 tofetch.append(occupant)
@@ -193,7 +188,7 @@ class NeedWantCache(object):
             workItem.attachOccupant(self.need[address])
 
         if len(tofetch) > 0:
-            fetcher = self.fetcherClass(tofetch, workItem, cancelQueue)
+            fetcher = self.fetcherClass(tofetch, workItem)
             fetcher.start()
 
     def maybeReserve(self, waitingRoom):

@@ -39,26 +39,14 @@ class DataAddress(object):
         return hash((DataAddress, self.dataset, self.column, self.group))
 
 class Fetcher(threading.Thread):
-    def __init__(self, occupants, workItem, cancelQueue):
+    def __init__(self, occupants, workItem):
         super(Fetcher, self).__init__()
         self.occupants = occupants
         self.workItem = workItem
-        self.cancelQueue = cancelQueue
-
-    def updateCancels(self):
-        for address in drainQueue(self.cancelQueue):
-            i = 0
-            for occupant in self.occupants:
-                if occupant.address == address:
-                    break
-                i += 1
-            # it might already be done
-            if i < len(self.occupants):
-                del self.occupants[i]
 
 class ROOTFetcher(Fetcher):
-    def __init__(self, occupants, workItem, cancelQueue):
-        super(ROOTFetcher, self).__init__(occupants, workItem, cancelQueue)
+    def __init__(self, occupants, workItem):
+        super(ROOTFetcher, self).__init__(occupants, workItem)
 
     def files(self, column):
         if column.issize():
@@ -71,30 +59,32 @@ class ROOTFetcher(Fetcher):
         return out
 
     def run(self):
-        self.updateCancels()
-
+        columnNameToArray = {}
         filesetsToColumns = {}
+
         for occupant in self.occupants:
             column = ColumnName.parse(occupant.address.column)
-            fileset = tuple(self.files(column))
-            if fileset not in filesetsToColumns:
-                filesetsToColumns[fileset] = []
-            filesetsToColumns[fileset].append(column)
+            columnNameToArray[column] = occupant.rawarray
+
+            if not column.issize():
+                fileset = tuple(self.files(column))
+                if fileset not in filesetsToColumns:
+                    filesetsToColumns[fileset] = []
+                filesetsToColumns[fileset].append(column)
 
         for fileset, columns in filesetsToColumns.items():
             toget = []
             for column in columns:
                 if not column.issize():
-                    if column.size() in columns:
-                        toget.append((w, x, y, z))
+                    dataBranch = workItem.work.datset.columns[column].dataBranch
+                    sizeBranch = workItem.work.datset.columns[column].sizeBranch
+                    dataArray = columnNameToArray[column]
 
-# HERE!!!
-
-                    elif workItem.work.dataset.columns[column].size is not None:
-                        toget.append((w, x, y, z))
-
+                    if sizeBranch is None:
+                        toget.append((dataBranch, dataArray))
                     else:
-                        toget.append((x, y))
+                        sizeArray = columnNameToArray[workItem.work.query.sizeEquivalents[str(column.size())]]
+                        toget.append((dataBranch, sizeBranch, dataArray, sizeArray))
 
             for file in fileset:
                 fillarrays(file, tree, toget)

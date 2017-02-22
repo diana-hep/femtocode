@@ -42,12 +42,13 @@ class Query(Message):
 #         # self.sequence = sequence
 #         self.assignments = assignments
 class CompiledQuery(Message):
-    __slots__ = ("foreman", "queryid", "dataset", "inputs", "numGroups")
-    def __init__(self, foreman, queryid, dataset, inputs, numGroups):
+    __slots__ = ("foreman", "queryid", "dataset", "inputs", "sizeEquivalents", "numGroups")
+    def __init__(self, foreman, queryid, dataset, inputs, sizeEquivalents, numGroups):
         self.foreman = foreman
         self.queryid = queryid
         self.dataset = dataset
         self.inputs = inputs
+        self.sizeEquivalents = sizeEquivalents
         self.numGroups = numGroups
 
 class Heartbeat(Message):
