@@ -35,14 +35,15 @@ def deserialize(message):
     return pickle.loads(message)
 
 class Server(object):
-    def __init__(self, bindaddr, timeout, protocol=pickle.HIGHEST_PROTOCOL):
+    def __init__(self, bindaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):
         self.bindaddr = bindaddr
         self.timeout = timeout     # in seconds
         self.protocol = protocol
 
         self.socket = context.socket(zmq.REP)
         self.socket.bind(self.bindaddr)
-        self.socket.RCVTIMEO = roundup(self.timeout * 1000)
+        if self.timeout is not None:
+            self.socket.RCVTIMEO = roundup(self.timeout * 1000)
 
     def send(self, message):
         self.socket.send_pyobj(message)
@@ -54,14 +55,15 @@ class Server(object):
             return None
 
 class Client(object):
-    def __init__(self, connaddr, timeout, protocol=pickle.HIGHEST_PROTOCOL):
+    def __init__(self, connaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):
         self.connaddr = connaddr
         self.timeout = timeout
         self.protocol = protocol
 
         self.socket = context.socket(zmq.REQ)
         self.socket.connect(self.connaddr)
-        self.socket.RCVTIMEO = roundup(self.timeout * 1000)
+        if timeout is not None:
+            self.socket.RCVTIMEO = roundup(self.timeout * 1000)
 
     def send(self, message):
         self.socket.send_pyobj(message)

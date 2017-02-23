@@ -42,28 +42,34 @@ class Query(Message):
 #         # self.sequence = sequence
 #         self.assignments = assignments
 class CompiledQuery(Message):
-    __slots__ = ("foreman", "queryid", "dataset", "inputs", "numGroups")
-    def __init__(self, foreman, queryid, dataset, inputs, numGroups):
-        self.foreman = foreman
+    __slots__ = ("retaddr", "queryid", "dataset", "inputs", "groupids")
+    def __init__(self, retaddr, queryid, dataset, inputs, groupids):
+        self.retaddr = retaddr
         self.queryid = queryid
         self.dataset = dataset
         self.inputs = inputs
-        self.numGroups = numGroups
+        self.groupids = groupids
 
-class Heartbeat(Message):
-    __slots__ = ("identity",)
-    def __init__(self, identity):
-        self.identity = identity
+class Ack(Message):
+    __slots__ = ()
+    def __init__(self): pass
 
-class ResponseToQuery(Message):
-    __slots__ = ("minion", "foreman", "queryid")     # foreman and queryid are always paired because
-    def __init__(self, minion, foreman, queryid):    # queryid is only unique for a given foreman
-        self.minion = minion
-        self.foreman = foreman
-        self.queryid = queryid
 
-class WorkAssignment(Message):
-    __slots__ = ("foreman", "assignment")
-    def __init__(self, foreman, assignment):
-        self.foreman = foreman
-        self.assignment = assignment                  # {queryid: [groupid]}
+
+# class Heartbeat(Message):
+#     __slots__ = ("identity",)
+#     def __init__(self, identity):
+#         self.identity = identity
+
+# class ResponseToQuery(Message):
+#     __slots__ = ("minion", "foreman", "queryid")     # foreman and queryid are always paired because
+#     def __init__(self, minion, foreman, queryid):    # queryid is only unique for a given foreman
+#         self.minion = minion
+#         self.foreman = foreman
+#         self.queryid = queryid
+
+# class WorkAssignment(Message):
+#     __slots__ = ("foreman", "assignment")
+#     def __init__(self, foreman, assignment):
+#         self.foreman = foreman
+#         self.assignment = assignment                  # {queryid: [groupid]}
