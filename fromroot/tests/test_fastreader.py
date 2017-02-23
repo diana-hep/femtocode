@@ -54,6 +54,14 @@ class TestFastReader(unittest.TestCase):
         print("size ({} MB) {}".format(len(size) * 8.0 / 1024**2, size))
 
     def test_structured2(self):
+        data = numpy.zeros(self.numElectrons, dtype=numpy.float64)
+        size = numpy.zeros(self.numEvents, dtype=numpy.uint64)
+
+        fillarrays(self.fileName, self.treeName, [("patElectrons_slimmedElectrons__PAT.obj.m_state.p4Polar_.fCoordinates.fPt", "patElectrons_slimmedElectrons__PAT.obj", data, None)])
+
+        print("data ({} MB) {}".format(len(data) * 8.0 / 1024**2, data))
+
+    def test_structured3(self):
         data = numpy.zeros(self.numJets, dtype=numpy.float64)
         size = numpy.zeros(self.numEvents, dtype=numpy.uint64)
 

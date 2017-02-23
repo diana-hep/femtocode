@@ -23,7 +23,7 @@ class Executor(object):
 
 class DummyExecutor(Executor):
     def __init__(self, query):
-        assert "muons[].pt" in query.inputs and "jets[].pt" in query.inputs
+        assert "muons[]-pt" in query.inputs and "jets[]-pt" in query.inputs
 
     def run(self, arrays):
-        return (arrays["muons[].pt"] + arrays["jets[].pt"]).sum()
+        return arrays["muons[]-pt"].sum() + arrays["jets[]-pt"].sum()

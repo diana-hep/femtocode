@@ -22,9 +22,9 @@ try:
 except ImportError:
     import queue
 
-from femtocode.lang.py23 import *
-from femtocode.lang.dataset import ColumnName
-from femtocode.lang.dataset import sizeType
+from femtocode.py23 import *
+from femtocode.dataset import ColumnName
+from femtocode.dataset import sizeType
 from femtocode.scope.cache import *
 from femtocode.scope.communication import *
 from femtocode.scope.execution import *
@@ -72,6 +72,8 @@ class WorkItem(object):
 
         self.occupants = []
 
+        self.startTime = time.time()   # temporary
+
     def __repr__(self):
         return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
 
@@ -118,7 +120,6 @@ class Minion(threading.Thread):
         super(Minion, self).__init__()
         self.incoming = queue.Queue()
         self.outgoing = queue.Queue()
-
         self.daemon = True
 
     def __repr__(self):
@@ -129,7 +130,9 @@ class Minion(threading.Thread):
             workItem = self.incoming.get()
             result = workItem.run()
             workItem.decrementNeed()
-            self.outgoing.put(result)
+            # FIXME:
+            # self.outgoing.put(result)
+            print("result {} in {:.2f} ms".format(result.data, (time.time() - workItem.startTime)*1e3))
 
 class CacheMaster(threading.Thread):
     loopdelay = 0.001           # 1 ms       pause time at the end of the loop
@@ -152,7 +155,8 @@ class CacheMaster(threading.Thread):
     def run(self):
         while True:
             # put new work in the waitingRoom
-            self.waitingRoom.extend(drainQueue(self.incoming))
+            for workItem in drainQueue(self.incoming):
+                self.waitingRoom.append(workItem)
 
             # move work from waitingRoom to downloading or Minion
             while True:
@@ -180,12 +184,12 @@ class Gabo(threading.Thread):
     heartbeat = 0.030           # 30 ms      period of response to foreman; can be same as responseThreshold
     listenThreshold = 0.5       # 500 ms     no response from the foreman; reset Client send/recv state
 
-    def __init__(self, foreman, foremanAddress, workToCacheMaster, firstQuery, metadata, executorClass):
+    def __init__(self, foreman, foremanAddress, firstQuery, workToCacheMaster, metadata, executorClass):
         super(Gabo, self).__init__()
         self.foreman = foreman
-        self.workToCacheMaster = workToCacheMaster
-        self.newQueries = queue.Queue()
-        self.newQueries.put(firstQuery)
+        self.incoming = queue.Queue()
+        self.incoming.put(firstQuery)
+        self.outgoing = workToCacheMaster
         self.metadata = metadata
         self.executorClass = executorClass
 
@@ -212,7 +216,7 @@ class Gabo(threading.Thread):
                 assert queryid in self.queries
                 work = Work(self.foreman, self.queries[queryid], sorted(groupids), self.metadata, self.executorClass)
                 for groupid in work.groupids:
-                    self.workToCacheMaster.put(WorkItem(work, groupid))
+                    self.outgoing.put(WorkItem(work, groupid))
 
         else:
             assert False, "unrecognized message from foreman on gabo channel {0}".format(message)
@@ -220,14 +224,14 @@ class Gabo(threading.Thread):
     def run(self):
         try:
             while True:
-                newQueries = drainQueue(self.newQueries)
+                incoming = drainQueue(self.incoming)
 
-                for query in newQueries:
+                for query in incoming:
                     self.queries[query.queryid] = query
                     self.gabo.send(ResponseToQuery(minionName, self.foreman, query.queryid))
                     self.handle(self.gabo.recv())
 
-                if len(newQueries) == 0:
+                if len(incoming) == 0:
                     self.gabo.send(Heartbeat(minionName))
                     self.handle(self.gabo.recv())
 
@@ -244,15 +248,15 @@ metadata = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets"
 minion = Minion()
 minion.start()
 
-cacheMaster = CacheMaster(NeedWantCache(1024**3, DummyFetcher), minion.incoming)
+cacheMaster = CacheMaster(NeedWantCache(1024**3, ROOTFetcher), minion.incoming)
 cacheMaster.start()
 
 gabos = {}
 def respondToCall(query):
     if query.foreman in gabos and gabos[query.foreman].isAlive():
-        gabos[query.foreman].newQueries.put(query)
+        gabos[query.foreman].incoming.put(query)
     else:
-        gabos[query.foreman] = Gabo(query.foreman, "tcp://127.0.0.1:5556", cacheMaster.incoming, query, metadata, executorClass)
+        gabos[query.foreman] = Gabo(query.foreman, "tcp://127.0.0.1:5556", query, cacheMaster.incoming, metadata, executorClass)
         gabos[query.foreman].start()
 
 print("minion {} starting".format(minionName))

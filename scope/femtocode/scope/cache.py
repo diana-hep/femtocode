@@ -29,7 +29,7 @@ class CacheOccupant(object):
     def allocate(numBytes):
         return numpy.empty(numBytes, dtype=CacheOccupant.untyped)
 
-    def __init__(self, address, totalBytes, dtype, allocate=CacheOccupant.allocate):
+    def __init__(self, address, totalBytes, dtype, allocate):
         self.address = address
         self.totalBytes = totalBytes
         self.dtype = dtype
@@ -77,7 +77,7 @@ class CacheOrder(object):
         self.lookup = {}
 
     def __repr__(self):
-        return "<CacheOrder for {0} at {1:012x}>".format(self.address, id(self))
+        return "<CacheOrder len {0} at {1:012x}>".format(len(self.order), id(self))
 
     def __len__(self):
         assert len(self.order) == len(self.lookup)
@@ -137,7 +137,7 @@ class NeedWantCache(object):
             if not occupant.stillNeeded():
                 todemote.append(occupant)
 
-        for x in todemote:
+        for occupant in todemote:
             del self.need[occupant.address]
             self.want.add(occupant)
             
@@ -149,16 +149,19 @@ class NeedWantCache(object):
             if address not in self.need and address not in self.want:
                 neededBytes += workItem.columnBytes(address.column)
 
+        additionalBytesRequired = max(neededBytes - (self.limitBytes - self.usedBytes), 0)
+
         numToEvict = 0
         reclaimableBytes = 0
         for occupant in self.want:
             if occupant.address not in requires:
-                numToEvict += 1
-                reclaimableBytes += occupant.totalBytes
-                if reclaimableBytes >= neededBytes:
+                if reclaimableBytes >= additionalBytesRequired:
                     break
 
-        if reclaimableBytes >= neededBytes:
+                numToEvict += 1
+                reclaimableBytes += occupant.totalBytes
+
+        if reclaimableBytes >= additionalBytesRequired:
             return numToEvict
         else:
             return None
@@ -179,8 +182,9 @@ class NeedWantCache(object):
 
             else:                                           # case 3: brand new, need to fetch it
                 occupant = CacheOccupant(address,
-                                         workItem.columnBytes(address),
-                                         workItem.columnDtype(address))
+                                         workItem.columnBytes(address.column),
+                                         workItem.columnDtype(address.column),
+                                         CacheOccupant.allocate)
                 # (need starts at 1, don't have to incrementNeed)
                 self.need[address] = occupant
                 tofetch.append(occupant)
@@ -200,6 +204,7 @@ class NeedWantCache(object):
         bestIndex = None
         for index, workItem in enumerate(waitingRoom):
             numToEvict = self.howManyToEvict(workItem)
+
             if numToEvict == 0:
                 # work that doesn't require eviction is always best (starting with oldest assigned)
                 minToEvict = 0
@@ -208,7 +213,7 @@ class NeedWantCache(object):
 
             elif numToEvict is not None:
                 # second to that is work that requires minimal eviction
-                if minToEvict is None:
+                if minToEvict is None or numToEvict < minToEvict:   # strict < for FIRST of equal numToEvict
                     minToEvict = numToEvict
                     bestIndex = index
 

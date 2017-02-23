@@ -16,8 +16,9 @@
 
 import threading
 
-from femtocode.lang.py23 import *
-from femtocode.lang.dataset import ColumnName
+from femtocode.py23 import *
+from femtocode.dataset import ColumnName
+from femtocode.dataset import sizeType
 from femtocode.fromroot._fastreader import fillarrays
 from femtocode.scope.messages import *
 from femtocode.scope.util import *
@@ -30,7 +31,7 @@ class DataAddress(object):
         self.group = group
 
     def __repr__(self):
-        return "DataAddress({0}, {1}, {2})".format(dataset, column, group)
+        return "DataAddress({0}, {1}, {2})".format(repr(self.dataset), repr(self.column), repr(self.group))
 
     def __eq__(self, other):
         return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
@@ -43,6 +44,7 @@ class Fetcher(threading.Thread):
         super(Fetcher, self).__init__()
         self.occupants = occupants
         self.workItem = workItem
+        self.daemon = True
 
 class ROOTFetcher(Fetcher):
     def __init__(self, occupants, workItem):
@@ -61,30 +63,43 @@ class ROOTFetcher(Fetcher):
     def run(self):
         columnNameToArray = {}
         filesetsToColumns = {}
+        filesetsToOccupants = {}
 
         for occupant in self.occupants:
             column = ColumnName.parse(occupant.address.column)
             columnNameToArray[column] = occupant.rawarray
 
-            if not column.issize():
-                fileset = tuple(self.files(column))
-                if fileset not in filesetsToColumns:
-                    filesetsToColumns[fileset] = []
-                filesetsToColumns[fileset].append(column)
+            filesetTree = (tuple(sorted(self.files(column))),
+                       self.workItem.work.dataset.columns[column].tree)
 
-        for fileset, columns in filesetsToColumns.items():
+            if not column.issize():
+                if filesetTree not in filesetsToColumns:
+                    filesetsToColumns[filesetTree] = []
+                filesetsToColumns[filesetTree].append(column)
+
+            if filesetTree not in filesetsToOccupants:
+                filesetsToOccupants[filesetTree] = []
+            filesetsToOccupants[filesetTree].append(occupant)
+
+        for (fileset, tree), columns in filesetsToColumns.items():
             toget = []
             for column in columns:
                 if not column.issize():
-                    dataBranch = workItem.work.datset.columns[column].dataBranch
-                    sizeBranch = workItem.work.datset.columns[column].sizeBranch
-                    dataArray = columnNameToArray[column]
+                    dataBranch = self.workItem.work.dataset.columns[column].dataBranch
+                    sizeBranch = self.workItem.work.dataset.columns[column].sizeBranch
+                    dataArray = columnNameToArray[column].view(self.workItem.work.dataset.columns[column].dataType)
 
                     if sizeBranch is None:
                         toget.append((dataBranch, dataArray))
                     else:
-                        sizeArray = columnNameToArray[workItem.work.query.sizeEquivalents[str(column.size())]]
+                        sizeArray = columnNameToArray.get(str(column.size()))
+                        if sizeArray is not None:
+                            sizeArray = sizeArray.view(sizeType)
+
                         toget.append((dataBranch, sizeBranch, dataArray, sizeArray))
 
             for file in fileset:
                 fillarrays(file, tree, toget)
+
+            for occupant in filesetsToOccupants[(fileset, tree)]:
+                occupant.filledBytes = occupant.totalBytes

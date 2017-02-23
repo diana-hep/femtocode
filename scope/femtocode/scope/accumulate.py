@@ -170,7 +170,7 @@ class Foreman(threading.Thread):
                 assert message.foreman == foremanName
             else:
                 assert False, "unrecognized message from minion on gabo channel {0}".format(message)
-            
+
             # update state with the new information from minion
             if message is not None:
                 self.ping(minion, queryid)
@@ -217,10 +217,19 @@ print("foreman {} starting".format(foremanName))
 
 time.sleep(1)
 print("submit 0!")
-foreman.startQuery(CompiledQuery(foremanName, 0, "DummyData", ["dummy.input"], {}, 100))
+foreman.startQuery(CompiledQuery(foremanName, 0, "MuOnia", ["muons[]-pt", "jets[]-pt"], 1))
 
-time.sleep(10)
+time.sleep(5)
 print("submit 1!")
-foreman.startQuery(CompiledQuery(foremanName, 1, "DummyData", ["dummy.input"], {}, 100))
+foreman.startQuery(CompiledQuery(foremanName, 1, "MuOnia", ["muons[]-pt", "jets[]-pt"], 1))
 
-time.sleep(100)
+# time.sleep(1)
+# print("submit 1!")
+# foreman.startQuery(CompiledQuery(foremanName, 2, "MuOnia", ["muons[]-pt", "jets[]-pt"], 1))
+
+# time.sleep(1)
+# print("submit 1!")
+# foreman.startQuery(CompiledQuery(foremanName, 3, "MuOnia", ["muons[]-pt", "jets[]-pt"], 1))
+
+while True:
+    time.sleep(1)

@@ -223,7 +223,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       }
 
       for (int j = 0;  j < i;  j++)
-        if (sizePointer == branchArrayInfos[j].sizePointer) {
+        if (sizePointer != NULL  &&  sizePointer == branchArrayInfos[j].sizePointer) {
           whichSize = j;
           break;
         }
@@ -239,6 +239,9 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
     branchArrayInfos.push_back(BranchArrayInfo(dataPointer, sizePointer, dataName, sizeName, dataLength, sizeLength, dataType, flat, whichSize));
   }
 
+  PyThreadState *_save;
+  _save = PyEval_SaveThread();
+
   // FIXME: Are the ROOT references new? borrowed? stolen?
 
   Int_t oldLevel = gErrorIgnoreLevel;   // error message suppression is not thread safe
@@ -247,6 +250,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   gErrorIgnoreLevel = oldLevel;         // FIXME: turn off more selectively?
 
   if (tfile == NULL  ||  !tfile->IsOpen()) {
+    PyEval_RestoreThread(_save);
     PyErr_SetString(PyExc_IOError, "could not open file");
     return NULL;
   }
@@ -254,6 +258,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   TTree* ttree;
   tfile->GetObject(treeName, ttree);
   if (ttree == NULL) {
+    PyEval_RestoreThread(_save);
     PyErr_SetString(PyExc_IOError, "bad or missing TTree");
     return NULL;
   }
@@ -261,6 +266,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
   for (int i = 0;  i < numArrays;  i++) {
     TBranch* dataBranch = ttree->GetBranch(branchArrayInfos[i].dataName);
     if (dataBranch == NULL) {
+      PyEval_RestoreThread(_save);
       PyErr_SetString(PyExc_IOError, "bad or missing TBranch");
       return NULL;
     }
@@ -281,6 +287,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
 
     else {
       if (!branchArrayInfos[i].dataBranch->IsA()->InheritsFrom("TBranchElement")) {
+        PyEval_RestoreThread(_save);
         PyErr_SetString(PyExc_IOError, "non-flat data should be a TBranchElement");
         return NULL;
       }
@@ -337,6 +344,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
               }
             }
             else {
+              PyEval_RestoreThread(_save);
               PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
               return NULL;
             }
@@ -346,11 +354,14 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
             sizeForEntry = branchArrayInfos[branchArrayInfos[i].whichSize].sizeForEntry;
 
             if (branchArrayInfos[i].whichSize == i) {
-              if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
-                ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
-              else {
-                PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
-                return NULL;
+              if (branchArrayInfos[i].sizePointer != NULL) {
+                if (branchArrayInfos[i].sizeIndex < branchArrayInfos[i].sizeLength)
+                  ((uint64_t*)(branchArrayInfos[i].sizePointer))[branchArrayInfos[i].sizeIndex++] = sizeForEntry;
+                else {
+                  PyEval_RestoreThread(_save);
+                  PyErr_SetString(PyExc_IOError, "ROOT file size is bigger than size array");
+                  return NULL;
+                }
               }
             }
 
@@ -381,6 +392,7 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
                 }
               }
               else {
+                PyEval_RestoreThread(_save);
                 PyErr_SetString(PyExc_IOError, "ROOT file data is bigger than data array");
                 return NULL;
               }
@@ -390,6 +402,8 @@ static PyObject* fillarrays(PyObject* self, PyObject* args) {
       }
     }
   }
+
+  PyEval_RestoreThread(_save);
 
   PyObject* out = PyTuple_New(numArrays + 1);
   if (PyTuple_SetItem(out, 0, PyLong_FromLong(numEntries)) != 0) {
