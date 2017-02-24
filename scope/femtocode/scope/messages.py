@@ -56,23 +56,3 @@ class CompiledQuery(Message):
 class Ack(Message):
     __slots__ = ()
     def __init__(self): pass
-
-
-
-# class Heartbeat(Message):
-#     __slots__ = ("identity",)
-#     def __init__(self, identity):
-#         self.identity = identity
-
-# class ResponseToQuery(Message):
-#     __slots__ = ("minion", "foreman", "queryid")     # foreman and queryid are always paired because
-#     def __init__(self, minion, foreman, queryid):    # queryid is only unique for a given foreman
-#         self.minion = minion
-#         self.foreman = foreman
-#         self.queryid = queryid
-
-# class WorkAssignment(Message):
-#     __slots__ = ("foreman", "assignment")
-#     def __init__(self, foreman, assignment):
-#         self.foreman = foreman
-#         self.assignment = assignment                  # {queryid: [groupid]}
