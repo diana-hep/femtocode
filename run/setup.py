@@ -19,7 +19,7 @@ from setuptools import setup, find_packages
 
 import femtocode.version
 
-setup(name = "femtocode-llvm",
+setup(name = "femtocode-run",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
