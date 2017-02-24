@@ -18,6 +18,9 @@ class Message(object):
     def __repr__(self):
         return "{0}({1})".format(self.__class__.__name__, ", ".join(repr(getattr(self, n)) for n in self.__slots__))
                 
+    def copy(self):
+        return self.__class__(*[getattr(self, n) for n in self.__slots__])
+
     def __eq__(self, other):
         return self.__class__ == other.__class__ and all(getattr(self, n) == getattr(other, n) for n in self.__slots__)
 

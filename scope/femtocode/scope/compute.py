@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import multiprocessing
+import sys
 import threading
 import time
 try:
@@ -32,11 +32,6 @@ from femtocode.scope.fetch import *
 from femtocode.scope.messages import *
 from femtocode.scope.metadata import *
 from femtocode.scope.util import *
-
-########################################### TODO: temporary!
-import sys
-minionName = sys.argv[1]
-###########################################
 
 class Work(object):
     def __init__(self, query, metadata, executorClass):
@@ -103,7 +98,7 @@ class WorkItem(object):
             occupant.decrementNeed()
 
     def run(self):
-        return Result(self.work.foreman,
+        return Result(self.work.query.retaddr,
                       self.work.query.queryid,
                       self.group.id,
                       self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
@@ -198,6 +193,33 @@ class GaboServer(threading.Thread):
                 self.outgoing.put(message)
 
             self.server.send(Ack())
+
+
+########################################### TODO: temporary!
+
+fetcherClass = ROOTFetcher
+executorClass = DummyExecutor
+
+minion = Minion()
+metadata = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
+cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), minion, metadata, executorClass)
+gaboServer = GaboServer("tcp://*:5556", cacheMaster)
+
+minion.start()
+cacheMaster.start()
+gaboServer.start()
+
+while True:
+    if not minion.isAlive() or not cacheMaster.isAlive() or not gaboServer.isAlive():
+        sys.exit()
+    time.sleep(1)
+
+###########################################
+
+
+
+
+
 
 
 

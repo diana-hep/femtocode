@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import multiprocessing
 import threading
 import time
 try:
@@ -27,41 +26,93 @@ from femtocode.scope.communication import *
 from femtocode.scope.messages import *
 from femtocode.scope.util import *
 
-########################################### TODO: temporary!
-import sys
-foremanName = sys.argv[1]
-minionNames = sys.argv[2:]
-###########################################
-
 class GaboClient(threading.Thread):
-    listenThreshold = 1.0       # 1000 ms    no response from the minion; reset Client recv/send state
-
-    @staticmethod
-    def restart(old):
-        out = GaboClient(old.client.connaddr)
-        out.start()
-        return out
+    listenThreshold = 0.030     # 30 ms      no response from the minion; reset Client recv/send state
 
     def __init__(self, minionaddr):
         super(GaboClient, self).__init__()
-        self.client = Client(minionaddr, self.listenThreshold)
+        self.minionaddr = minionaddr
+        self.client = Client(self.minionaddr, self.listenThreshold)
         self.incoming = queue.Queue()
+        self.failures = queue.Queue()
         self.daemon = True
 
     def run(self):
         while True:
-            self.client.send(self.incoming.get())
-            response = self.client.recv()
-            if response is None:
-                break
+            query = self.incoming.get()
+            self.client.send(query)
+
+            if self.client.recv() is None:
+                self.client = Client(self.minionaddr, self.listenThreshold)
+                self.failures.put(query.groupids)
+            else:
+                self.failures.put([])
 
 class GaboClients(object):
     def __init__(self, minionaddrs):
-        self.clients = [GaboClient(minionaddr) for minionaddr in minionaddrs]
+        self.minionaddrs = minionaddrs
+        self.clients = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
+        for client in self.clients:
+            client.start()
+
+    def sendQuery(self, query):
+        for i, client in enumerate(self.clients):
+            if not client.isAlive():
+                self.clients[i] = GaboClient(client.minionaddr)
+                self.clients[i].start()
+
+        offset = query.queryid
+        groupids = query.groupids
+        numGroups = len(query.groupids)
+        workers = self.minionaddrs
+        survivors = set(self.minionaddrs)   # start each query optimistically
+
+        while len(groupids) > 0:
+            if len(survivors) == 0:
+                raise IOError("cannot send query; no surviving workers")
+
+            activeclients = []
+            for client in self.clients:
+                subquery = query.copy()
+                subquery.groupids = assign(offset, groupids, numGroups, client.minionaddr, workers, survivors)
+                if len(subquery.groupids) > 0:
+                    client.incoming.put(subquery)
+                    activeclients.append(client)
+
+            groupids = []
+            for client in activeclients:
+                failures = client.failures.get()
+                if len(failures) > 0:
+                    survivors.discard(client.minionaddr)
+                    groupids.extend(failures)
+
+########################################### TODO: temporary!
+
+import sys
+
+gaboClients = GaboClients(["tcp://localhost:5556"])
+
+for i in range(1000):
+    print("submit {}!".format(i))
+    try:
+        gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+    except IOError:
+        print("oops")
+
+time.sleep(5)
+
+for i in range(1000):
+    print("submit {}!".format(i))
+    try:
+        gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+    except IOError:
+        print("oops")
+
+###########################################
 
 
 
-
+            
 # class QueryInfo(object):
 #     def __init__(self, broadcastTime, query):
 #         self.broadcastTime = broadcastTime
