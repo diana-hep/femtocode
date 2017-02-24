@@ -22,91 +22,15 @@ try:
 except ImportError:
     import queue
 
-from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
-from femtocode.scope.cache import *
+from femtocode.run.cache import *
+from femtocode.run.execution import *
+from femtocode.run.messages import *
 from femtocode.scope.communication import *
-from femtocode.scope.execution import *
 from femtocode.scope.fetch import *
-from femtocode.scope.messages import *
 from femtocode.scope.metadata import *
-from femtocode.scope.util import *
-
-class Work(object):
-    def __init__(self, query, metadata, executorClass):
-        self.query = query
-        self.dataset = metadata.dataset(self.query.dataset, self.query.groupids, self.query.inputs)
-        self.executor = executorClass(self.query)
-
-    def __repr__(self):
-        return "<Work for {0} at {1:012x}>".format(self.query.queryid, id(self))
-
-class Result(object):
-    def __init__(self, retaddr, queryid, groupid, data):
-        self.retaddr = retaddr
-        self.queryid = queryid
-        self.groupid = groupid
-        self.data = data
-
-    def __repr__(self):
-        return "<Result for {0}({1}) at {2:012x}>".format(self.queryid, self.groupid, id(self))
-
-class WorkItem(object):
-    def __init__(self, work, groupid):
-        self.work = work
-
-        self.group = None
-        for group in self.work.dataset.groups:
-            if group.id == groupid:
-                self.group = group
-                break
-        assert self.group is not None
-
-        self.occupants = []
-
-        self.startTime = time.time()   # temporary
-
-    def __repr__(self):
-        return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
-
-    def requires(self):
-        return [DataAddress(self.work.query.dataset, column, self.group.id) for column in self.work.query.inputs]
-
-    def columnBytes(self, column):
-        if isinstance(column, string_types):
-            column = ColumnName.parse(column)
-
-        if column.issize():
-            return self.group.numEvents * sizeType.itemsize
-        else:
-            return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
-
-    def columnDtype(self, column):
-        return self.work.dataset.columns[column].dataType
-
-    def attachOccupant(self, occupant):
-        self.occupants.append(occupant)
-
-    def ready(self):
-        assert len(self.occupants) != 0
-        return all(occupant.ready() for occupant in self.occupants)
-
-    def decrementNeed(self):
-        assert len(self.occupants) != 0
-        for occupant in self.occupants:
-            occupant.decrementNeed()
-
-    def run(self):
-        return Result(self.work.query.retaddr,
-                      self.work.query.queryid,
-                      self.group.id,
-                      self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
-
-    def decrementNeed(self):
-        assert len(self.occupants) != 0
-        for occupant in self.occupants:
-            occupant.decrementNeed()
+from femtocode.util import *
 
 class Minion(threading.Thread):
     def __init__(self):
@@ -151,7 +75,7 @@ class CacheMaster(threading.Thread):
         while True:
             # put new work in the waitingRoom
             for query in drainQueue(self.incoming):
-                work = Work(query, self.metadata, self.executorClass)
+                work = Work(query, metadata.dataset(query.dataset, query.groupids, query.inputs), self.executorClass(query))
                 for groupid in query.groupids:
                     self.waitingRoom.append(WorkItem(work, groupid))
 

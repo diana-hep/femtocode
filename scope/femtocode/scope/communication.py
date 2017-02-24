@@ -23,7 +23,7 @@ import zmq
 import zmq.eventloop.zmqstream
 import zmq.eventloop.ioloop
 
-from femtocode.scope.util import *
+from femtocode.util import *
 
 # global
 context = zmq.Context()

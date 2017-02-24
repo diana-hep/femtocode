@@ -18,6 +18,101 @@ import threading
 
 import numpy
 
+from femtocode.py23 import *
+from femtocode.dataset import ColumnName
+
+class DataAddress(object):
+    __slots__ = ("dataset", "column", "group")
+    def __init__(self, dataset, column, group):
+        self.dataset = dataset
+        self.column = column
+        self.group = group
+
+    def __repr__(self):
+        return "DataAddress({0}, {1}, {2})".format(repr(self.dataset), repr(self.column), repr(self.group))
+
+    def __eq__(self, other):
+        return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
+
+    def __hash__(self):
+        return hash((DataAddress, self.dataset, self.column, self.group))
+
+class Work(object):
+    def __init__(self, query, dataset, executor):
+        self.query = query
+        self.dataset = dataset
+        self.executor = executor
+
+    def __repr__(self):
+        return "<Work for {0} at {1:012x}>".format(self.query.queryid, id(self))
+
+class Result(object):
+    def __init__(self, retaddr, queryid, groupid, data):
+        self.retaddr = retaddr
+        self.queryid = queryid
+        self.groupid = groupid
+        self.data = data
+
+    def __repr__(self):
+        return "<Result for {0}({1}) at {2:012x}>".format(self.queryid, self.groupid, id(self))
+
+class WorkItem(object):
+    def __init__(self, work, groupid):
+        self.work = work
+
+        self.group = None
+        for group in self.work.dataset.groups:
+            if group.id == groupid:
+                self.group = group
+                break
+        assert self.group is not None
+
+        self.occupants = []
+
+        import time
+        self.startTime = time.time()   # temporary
+
+    def __repr__(self):
+        return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
+
+    def requires(self):
+        return [DataAddress(self.work.query.dataset, column, self.group.id) for column in self.work.query.inputs]
+
+    def columnBytes(self, column):
+        if isinstance(column, string_types):
+            column = ColumnName.parse(column)
+
+        if column.issize():
+            return self.group.numEvents * sizeType.itemsize
+        else:
+            return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
+
+    def columnDtype(self, column):
+        return self.work.dataset.columns[column].dataType
+
+    def attachOccupant(self, occupant):
+        self.occupants.append(occupant)
+
+    def ready(self):
+        assert len(self.occupants) != 0
+        return all(occupant.ready() for occupant in self.occupants)
+
+    def decrementNeed(self):
+        assert len(self.occupants) != 0
+        for occupant in self.occupants:
+            occupant.decrementNeed()
+
+    def run(self):
+        return Result(self.work.query.retaddr,
+                      self.work.query.queryid,
+                      self.group.id,
+                      self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
+
+    def decrementNeed(self):
+        assert len(self.occupants) != 0
+        for occupant in self.occupants:
+            occupant.decrementNeed()
+
 class CacheOccupant(object):
     untyped = numpy.uint8
 

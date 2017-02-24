@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from femtocode.scope.util import *
+from femtocode.util import *
 
 def assignIndex(offset, groupid, numGroups, outof, depth):
     fairShare = roundup(float(numGroups) / float(outof))
@@ -38,28 +38,3 @@ def assign(offset, groupids, numGroups, thisworker, workers, survivors):
             out.append(groupid)
 
     return out
-
-# def assign(offset, numGroups, workers, survivors):
-#     # must have somebody to give work to
-#     assert len(survivors) > 0
-#     # survivors must be members of the set of workers
-#     assert set(survivors).difference(workers) == set()
-
-#     # assign with a deterministic algorithm that will always give the same work to survivors
-#     # and redistribute dead workers' work the same way to the survivors
-#     assignments = dict((worker, []) for worker in workers)
-#     for groupid in range(numGroups):
-#         depth = 0
-#         while True:  # will halt before depth == 2*len(workers), given the way assignIndex works
-#             worker = workers[assignIndex(offset, groupid, numGroups, len(workers), depth)]
-#             if worker in survivors:
-#                 assignments[worker].append(groupid)
-#                 break
-#             depth += 1
-
-#     # every group has to be assigned to somebody
-#     assert set(sum(assignments.values(), [])) == set(range(numGroups))
-#     # dead workers (non-survivors) must not be assigned any work
-#     assert all(assignments[dead] == [] for dead in set(workers).difference(survivors))
-#     # okay, good!
-#     return assignments

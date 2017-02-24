@@ -16,28 +16,10 @@
 
 import threading
 
-from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
+from femtocode.run.cache import DataAddress
 from femtocode.fromroot._fastreader import fillarrays
-from femtocode.scope.messages import *
-from femtocode.scope.util import *
-
-class DataAddress(object):
-    __slots__ = ("dataset", "column", "group")
-    def __init__(self, dataset, column, group):
-        self.dataset = dataset
-        self.column = column
-        self.group = group
-
-    def __repr__(self):
-        return "DataAddress({0}, {1}, {2})".format(repr(self.dataset), repr(self.column), repr(self.group))
-
-    def __eq__(self, other):
-        return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
-
-    def __hash__(self):
-        return hash((DataAddress, self.dataset, self.column, self.group))
 
 class Fetcher(threading.Thread):
     def __init__(self, occupants, workItem):

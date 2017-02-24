@@ -17,7 +17,7 @@
 from pymongo import MongoClient
 
 from femtocode.fromroot.dataset import ROOTDataset
-from femtocode.scope.util import *
+from femtocode.util import *
 
 class Metadata(object):
     def __init__(self):
