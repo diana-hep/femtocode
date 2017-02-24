@@ -15,10 +15,6 @@
 # limitations under the License.
 
 import threading
-try:
-    import Queue as queue
-except ImportError:
-    import queue
 
 import numpy
 
