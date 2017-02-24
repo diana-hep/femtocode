@@ -22,13 +22,12 @@ try:
 except ImportError:
     import queue
 
-from femtocode.dataset import ColumnName
-from femtocode.dataset import sizeType
+from femtocode.fromroot.dataset import ROOTDataset
+from femtocode.fromroot.fetch import ROOTFetcher
 from femtocode.run.cache import *
 from femtocode.run.execution import *
 from femtocode.run.messages import *
 from femtocode.scope.communication import *
-from femtocode.scope.fetch import *
 from femtocode.scope.metadata import *
 from femtocode.util import *
 
@@ -139,4 +138,3 @@ while True:
     time.sleep(1)
 
 ###########################################
-

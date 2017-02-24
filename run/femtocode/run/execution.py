@@ -14,14 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Executor(object):
-    def __init__(self, query):
-        raise NotImplementedError
-
-    def run(self, arrays):
-        raise NotImplementedError
-
-class DummyExecutor(Executor):
+class DummyExecutor(object):
     def __init__(self, query):
         assert "muons[]-pt" in query.inputs and "jets[]-pt" in query.inputs
 

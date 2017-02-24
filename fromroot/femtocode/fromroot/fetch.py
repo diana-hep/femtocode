@@ -21,16 +21,11 @@ from femtocode.dataset import sizeType
 from femtocode.run.cache import DataAddress
 from femtocode.fromroot._fastreader import fillarrays
 
-class Fetcher(threading.Thread):
+class ROOTFetcher(threading.Thread):
     def __init__(self, occupants, workItem):
-        super(Fetcher, self).__init__()
+        super(ROOTFetcher, self).__init__()
         self.occupants = occupants
         self.workItem = workItem
-        self.daemon = True
-
-class ROOTFetcher(Fetcher):
-    def __init__(self, occupants, workItem):
-        super(ROOTFetcher, self).__init__(occupants, workItem)
 
     def files(self, column):
         if column.issize():

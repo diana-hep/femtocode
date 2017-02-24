@@ -16,17 +16,9 @@
 
 from pymongo import MongoClient
 
-from femtocode.fromroot.dataset import ROOTDataset
 from femtocode.util import *
 
-class Metadata(object):
-    def __init__(self):
-        raise NotImplementedError
-
-    def dataset(self, name, groups=(), columns=(), schema=False):
-        raise NotImplementedError
-
-class MetadataFromMongoDB(Metadata):
+class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, datasetClass, timeout):
         self.client = MongoClient(mongourl)
         self.collection = self.client[database][collection]
@@ -83,4 +75,5 @@ class MetadataFromMongoDB(Metadata):
 
         return self._cache[key]
 
+# from femtocode.fromroot.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
