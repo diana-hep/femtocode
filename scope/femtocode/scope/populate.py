@@ -23,6 +23,6 @@ def populateMongo(dataset, mongourl, database, collection):
     client[database][collection].insert_one(dataset.toJson())
 
 ########################################### TODO: temporary!
-metadataFileName = "metadataFromRoot.yaml"
+metadataFileName = "tests/metadataFromRoot.yaml"
 populateMongo(ROOTDataset.fromYamlString(open(metadataFileName)), "mongodb://localhost:27017", "metadb", "datasets")
 ###########################################

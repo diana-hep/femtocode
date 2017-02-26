@@ -97,7 +97,7 @@ class Session(object):
 
 ########################################### TODO: temporary!
 
-session = Session(datasetDirectory="/home/pivarski/diana/femtocode")
+session = Session(datasetDirectory="/home/pivarski/diana/femtocode/tests")
 f = session.submit("whatever")
 
 ###########################################

@@ -61,7 +61,7 @@ executorClass = DummyExecutor
 
 minion = Minion(queue.Queue(), queue.Queue())
 # metadata = MetadataFromMongoDB(datasetClass, "mongodb://localhost:27017", "metadb", "datasets", 1.0)
-metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode")
+metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode/tests")
 
 cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), [minion])
 gaboServer = GaboServer("tcp://*:5556", metadata, cacheMaster, executorClass)
