@@ -19,10 +19,11 @@ from pymongo import MongoClient
 from femtocode.util import *
 
 class MetadataFromMongoDB(object):
-    def __init__(self, mongourl, database, collection, datasetClass, timeout):
-        self.client = MongoClient(mongourl)
-        self.collection = self.client[database][collection]
+    def __init__(self, datasetClass, mongourl, database, collection, timeout):
         self.datasetClass = datasetClass
+        self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
+        self.client.server_info()
+        self.collection = self.client[database][collection]
         self.timeout = timeout
         self._cache = {}
 

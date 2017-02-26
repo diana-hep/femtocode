@@ -26,85 +26,17 @@ from femtocode.fromroot.dataset import ROOTDataset
 from femtocode.fromroot.fetch import ROOTFetcher
 from femtocode.run.cache import *
 from femtocode.run.execution import *
-from femtocode.run.messages import *
 from femtocode.scope.communication import *
-from femtocode.scope.metadata import *
-from femtocode.util import *
-
-class Minion(threading.Thread):
-    def __init__(self):
-        super(Minion, self).__init__()
-        self.incoming = queue.Queue()
-        self.outgoing = queue.Queue()
-        self.daemon = True
-
-    def __repr__(self):
-        return "<Minion at {0:012x}>".format(id(self))
-
-    def run(self):
-        while True:
-            workItem = self.incoming.get()
-            result = workItem.run()
-            workItem.decrementNeed()
-            # FIXME:
-            # self.outgoing.put(result)
-            print("result {} in {:.2f} ms".format(result.data, (time.time() - workItem.startTime)*1e3))
-
-class CacheMaster(threading.Thread):
-    loopdelay = 0.001           # 1 ms       pause time at the end of the loop
-
-    def __init__(self, needWantCache, minion, metadata, executorClass):
-        super(CacheMaster, self).__init__()
-        self.needWantCache = needWantCache
-        self.minion = minion
-        self.metadata = metadata
-        self.executorClass = executorClass
-
-        self.incoming = queue.Queue()
-        self.outgoing = self.minion.incoming
-        self.waitingRoom = []
-        self.downloading = []
-
-        self.daemon = True
-
-    def __repr__(self):
-        return "<CacheMaster at {0:012x}>".format(id(self))
-
-    def run(self):
-        while True:
-            # put new work in the waitingRoom
-            for query in drainQueue(self.incoming):
-                work = Work(query, metadata.dataset(query.dataset, query.groupids, query.inputs), self.executorClass(query))
-                for groupid in query.groupids:
-                    self.waitingRoom.append(WorkItem(work, groupid))
-
-            # move work from waitingRoom to downloading or Minion
-            while True:
-                workItem = self.needWantCache.maybeReserve(self.waitingRoom)
-                if workItem is None:
-                    break
-                elif workItem.ready():
-                    self.outgoing.put(workItem)
-                else:
-                    self.downloading.append(workItem)
-
-            # move work from downloading to Minion
-            toremove = []
-            for index, workItem in enumerate(self.downloading):
-                if workItem.ready():
-                    toremove.append(index)
-                    self.outgoing.put(workItem)
-            while len(toremove) > 0:
-                del self.downloading[toremove.pop()]
-
-            # no busy wait
-            time.sleep(self.loopdelay)
+from femtocode.scope.metadata import MetadataFromMongoDB
+from femtocode.run.metadata import MetadataFromJson
 
 class GaboServer(threading.Thread):
-    def __init__(self, bindaddr, cacheMaster):
+    def __init__(self, bindaddr, metadata, cacheMaster, executorClass):
         super(GaboServer, self).__init__()
         self.server = Server(bindaddr, None)
+        self.metadata = metadata
         self.cacheMaster = cacheMaster
+        self.executorClass = executorClass
         self.outgoing = cacheMaster.incoming
         self.daemon = True
 
@@ -113,20 +45,26 @@ class GaboServer(threading.Thread):
             message = self.server.recv()
 
             if isinstance(message, CompiledQuery):
-                self.outgoing.put(message)
+                work = Work(message,
+                            self.metadata.dataset(message.dataset, message.groupids, message.inputs),
+                            self.executorClass(message),
+                            None)
+                self.outgoing.put(work)
 
             self.server.send(Ack())
 
-
 ########################################### TODO: temporary!
 
+datasetClass = ROOTDataset
 fetcherClass = ROOTFetcher
 executorClass = DummyExecutor
 
-minion = Minion()
-metadata = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
-cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), minion, metadata, executorClass)
-gaboServer = GaboServer("tcp://*:5556", cacheMaster)
+minion = Minion(queue.Queue(), queue.Queue())
+# metadata = MetadataFromMongoDB(datasetClass, "mongodb://localhost:27017", "metadb", "datasets", 1.0)
+metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode")
+
+cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), [minion])
+gaboServer = GaboServer("tcp://*:5556", metadata, cacheMaster, executorClass)
 
 minion.start()
 cacheMaster.start()

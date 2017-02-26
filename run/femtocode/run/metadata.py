@@ -14,15 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pymongo import MongoClient
+import os.path
 
-from femtocode.fromroot.dataset import ROOTDataset
+class MetadataFromJson(object):
+    def __init__(self, datasetClass, directory="."):
+        self.datasetClass = datasetClass
+        self.directory = directory
+        self._cache = {}
 
-def populateMongo(dataset, mongourl, database, collection):
-    client = MongoClient(mongourl)
-    client[database][collection].insert_one(dataset.toJson())
+    def dataset(self, name, groups=(), columns=(), schema=False):
+        if name not in self._cache:
+            fileName = os.path.join(self.directory, name) + ".json"
+            self._cache[name] = self.datasetClass.fromJsonString(open(fileName).read())
 
-########################################### TODO: temporary!
-metadataFileName = "metadataFromRoot.yaml"
-populateMongo(ROOTDataset.fromYamlString(open(metadataFileName)), "mongodb://localhost:27017", "metadb", "datasets")
-###########################################
+        return self._cache[name]

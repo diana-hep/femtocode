@@ -15,11 +15,18 @@
 # limitations under the License.
 
 import threading
+import time
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 
 import numpy
 
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
+from femtocode.run.messages import *
+from femtocode.util import *
 
 class DataAddress(object):
     __slots__ = ("dataset", "column", "group")
@@ -38,13 +45,43 @@ class DataAddress(object):
         return hash((DataAddress, self.dataset, self.column, self.group))
 
 class Work(object):
-    def __init__(self, query, dataset, executor):
+    def __init__(self, query, dataset, executor, future):
         self.query = query
         self.dataset = dataset
         self.executor = executor
+        self.future = future
+        if self.future is not None:
+            self.lock = threading.Lock()
+            self.loadsDone = dict((groupid, False) for groupid in query.groupids)
+            self.computesDone = dict((groupid, False) for groupid in query.groupids)
+            self.startTime = time.time()
+            self.computeTime = 0.0
+            self.data = None
 
     def __repr__(self):
         return "<Work for {0} at {1:012x}>".format(self.query.queryid, id(self))
+
+    def updateFuture(self):
+        self.future.update(
+            sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
+            sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
+            all(self.computesDone.values()),
+            time.time() - self.startTime,
+            self.computeTime,
+            self.data)
+
+    def oneLoadDone(self, groupid):
+        if self.future is not None:
+            self.loadsDone[groupid] = True
+            self.updateFuture()
+
+    def oneComputeDone(self, groupid, computeTime, data):
+        if self.future is not None:
+            self.computesDone[groupid] = True
+            with self.lock:
+                self.computeTime += computeTime
+                self.data = data   # FIXME
+            self.updateFuture()
 
 class Result(object):
     def __init__(self, retaddr, queryid, groupid, data):
@@ -68,9 +105,6 @@ class WorkItem(object):
         assert self.group is not None
 
         self.occupants = []
-
-        import time
-        self.startTime = time.time()   # temporary
 
     def __repr__(self):
         return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
@@ -286,14 +320,14 @@ class NeedWantCache(object):
             fetcher = self.fetcherClass(tofetch, workItem)
             fetcher.start()
 
-    def maybeReserve(self, waitingRoom):
+    def maybeReserve(self, waiting):
         # make sure occupants no longer in use by Minion are in the "wants" list and can be evicted
         # (actually just a snapshot in time, so maybeReserve often!)
         self.demoteNeedsToWants()
 
         minToEvict = None
         bestIndex = None
-        for index, workItem in enumerate(waitingRoom):
+        for index, workItem in enumerate(waiting):
             numToEvict = self.howManyToEvict(workItem)
 
             if numToEvict == 0:
@@ -309,9 +343,9 @@ class NeedWantCache(object):
                     bestIndex = index
 
         if bestIndex is not None:
-            # remove it from the waitingRoom
-            workItem = waitingRoom[bestIndex]
-            del waitingRoom[bestIndex]
+            # remove it from the waiting
+            workItem = waiting[bestIndex]
+            del waiting[bestIndex]
 
             # reserve it
             self.reserve(workItem, minToEvict)
@@ -319,3 +353,84 @@ class NeedWantCache(object):
 
         else:
             return None
+
+class Minion(threading.Thread):
+    def __init__(self, minionIncoming, minionOutgoing):
+        super(Minion, self).__init__()
+        self.incoming = minionIncoming
+        self.outgoing = minionOutgoing
+        self.daemon = True
+
+    def __repr__(self):
+        return "<Minion at {0:012x}>".format(id(self))
+
+    def run(self):
+        while True:
+            workItem = self.incoming.get()
+
+            # actually do the work; ideally 99.999% of the time spent in this whole project
+            # should be in that second line
+            startTime = time.time()
+            result = workItem.run()
+            endTime = time.time()
+
+            # for the cache
+            workItem.decrementNeed()
+
+            # for the output (Scope mode)
+            if self.outgoing is not None:
+                self.outgoing.put(result)
+
+            # for the FutureQueryResult (standalone mode)
+            workItem.work.oneComputeDone(workItem.group.id, endTime - startTime, result.data)
+
+class CacheMaster(threading.Thread):
+    loopdelay = 0.001           # 1 ms       pause time at the end of the loop
+
+    def __init__(self, needWantCache, minions):
+        super(CacheMaster, self).__init__()
+        self.needWantCache = needWantCache
+        self.minions = minions
+
+        assert len(self.minions) > 0
+
+        self.incoming = queue.Queue()
+        self.outgoing = minions[0].incoming
+        self.waiting = []
+        self.loading = []
+
+        self.daemon = True
+
+    def __repr__(self):
+        return "<CacheMaster at {0:012x}>".format(id(self))
+        
+    def run(self):
+        while True:
+            # put new work in the waiting
+            for work in drainQueue(self.incoming):
+                for groupid in work.query.groupids:
+                    self.waiting.append(WorkItem(work, groupid))
+                
+            # move work from waiting to loading or minions
+            while True:
+                workItem = self.needWantCache.maybeReserve(self.waiting)
+                if workItem is None:
+                    break
+                elif workItem.ready():
+                    self.outgoing.put(workItem)
+                    workItem.work.oneLoadDone(workItem.group.id)
+                else:
+                    self.loading.append(workItem)
+
+            # move work from loading to minions
+            toremove = []
+            for index, workItem in enumerate(self.loading):
+                if workItem.ready():
+                    toremove.append(index)
+                    self.outgoing.put(workItem)
+                    workItem.work.oneLoadDone(workItem.group.id)
+            while len(toremove) > 0:
+                del self.loading[toremove.pop()]
+
+            # no busy wait
+            time.sleep(self.loopdelay)
