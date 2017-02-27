@@ -114,7 +114,7 @@ class ColumnName(object):
             self.path = (first,) + rest
 
     def __repr__(self):
-        return "ColumnName({0})".format(", ".join(map(repr, self.path)))
+        return "ColumnName.parse({0})".format(json.dumps(str(self)))
 
     def __str__(self):
         out = [self.path[0]]
@@ -163,6 +163,9 @@ class ColumnName(object):
             if self.path[index] == ColumnName._array:
                 return ColumnName(*self.path[:index])
         return None
+
+    def samelevel(self, other):
+        return self.arraylevel() is not None and self.arraylevel() == other.arraylevel()
 
     def issize(self):
         return self.path[-1] == self._size
@@ -331,11 +334,6 @@ class Dataset(Metadata):
 
             else:
                 assert False, "unexpected item in ColumnName for data: {0}".format(item)
-
-        # if isinstance(schema, Record):
-        #     primitiveFields = [n for n, t in schema.fields.items() if isinstance(t, Primitive)]
-        #     if len(primitiveFields) > 0:
-        #         dataColumnPath.append(sorted(primitiveFields)[0])
 
         if ColumnName(*dataColumnPath) in self.columns:
             return self.columns[ColumnName(*dataColumnPath)].size

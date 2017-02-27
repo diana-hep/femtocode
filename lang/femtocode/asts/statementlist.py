@@ -332,7 +332,7 @@ class FlatFunction(object):
         for explosion in explosions:
             size = None
             for argref in argrefs:
-                if isinstance(explosion.schema, Record) and explosion.name.path == argref.data.path[:-1]:
+                if isinstance(explosion.schema, Record) and explosion.name.samelevel(argref.data):
                     size = dataset.sizeColumn(argref.data)
                     break
             if size is None:
