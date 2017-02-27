@@ -110,3 +110,23 @@ class TestStatementlist(unittest.TestCase):
             {"to": "#1", "fcn": "+", "args": ["xss[][]", "#0"]}
             ])
         self.assertEqual(result.toJson(), {"data": "#1", "size": "xss[][]@size", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}})
+
+    def test_mapmapadd2(self):
+        result, statements = self.compile("xss.map(xs => ys.map(y => xs.map(x => x + y)))", self.mockDataset(xss=collection(collection(real)), ys=collection(real)))
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0@size", "fcn": "$explodesize", "levels": ["ys[]@size", "xss[][]@size"]},
+            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "size": "xss[][]@size", "levels": ["ys[]@size", "xss[][]@size"]},
+            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "size": "ys[]@size", "levels": ["ys[]@size", "xss[][]@size"]},
+            {"to": "#2", "fcn": "+", "args": ["#0", "#1"]}
+            ])
+        self.assertEqual(result.toJson(), {"data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
+
+    def test_mapmapadd3(self):
+        result, statements = self.compile("xss.map(xs => xs.map(x => ys.map(y => x + y)))", self.mockDataset(xss=collection(collection(real)), ys=collection(real)))
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0@size", "fcn": "$explodesize", "levels": ["xss[][]@size", "ys[]@size"]},
+            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "size": "xss[][]@size", "levels": ["xss[][]@size", "ys[]@size"]},
+            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "size": "ys[]@size", "levels": ["xss[][]@size", "ys[]@size"]},
+            {"to": "#2", "fcn": "+", "args": ["#0", "#1"]}
+            ])
+        self.assertEqual(result.toJson(), {"data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})

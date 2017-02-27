@@ -231,7 +231,7 @@ class ExplodeSize(Call):
         return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.levels)))
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "levels": [x.toJson() for x in self.levels]}
+        return {"to": str(self.column), "fcn": self.fcnname, "levels": [str(x) for x in self.levels]}
 
 class ExplodeData(Call):
     def __init__(self, column, data, size, levels):
@@ -255,7 +255,7 @@ class ExplodeData(Call):
         return "{0} := {1}({2}, {3}, [{4}])".format(str(self.column), self.fcnname, str(self.data), str(self.size), ", ".join(map(str, self.levels)))
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [x.toJson() for x in self.levels]}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels]}
 
 def exploderef(ref, replacements, refnumber, explosions):
     if ref.size is None and len(set(explosions)) == 1:
