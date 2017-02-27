@@ -25,6 +25,94 @@ from femtocode.dataset import Column
 from femtocode.dataset import Dataset
 
 class NumpySegment(Segment):
-    pass
+    def __init__(self, numEntries, dataLength, files):
+        super(NumpySegment, self).__init__(numEntries, dataLength)
+        self.files = files
 
+    def toJson(self):
+        out = super(NumpySegment, self).toJson()
+        out["files"] = self.files
+        return out
 
+    @classmethod
+    def fromJson(cls, segment):
+        out = cls.__new__(cls)
+        out.numEntries = segment["numEntries"]
+        out.dataLength = segment["dataLength"]
+        return out
+
+    @classmethod
+    def fromJson(cls, segment):
+        return NumpySegment(
+            segment["numEntries"],
+            segment["dataLength"],
+            segment["files"])
+
+    def __eq__(self, other):
+        return other.__class__ == NumpySegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.files == other.files
+
+    def __hash__(self):
+        return hash((NumpySegment, self.numEntries, self.dataLength, None if self.files is None else tuple(self.files)))
+
+class NumpyGroup(Group):
+    def __init__(self, id, segments, numEntries, files):
+        super(NumpyGroup, self).__init__(id, segments, numEntries)
+        self.files = files
+
+    def toJson(self):
+        out = super(NumpyGroup, self).toJson()
+        out["files"] = self.files
+        return out
+
+    @classmethod
+    def fromJson(cls, group):
+        return NumpyGroup(
+            group["id"],
+            dict((ColumnName.parse(k), NumpySegment.fromJson(v)) for k, v in group["segments"].items()),
+            group["numEntries"],
+            group["files"])
+
+    def __eq__(self, other):
+        return other.__class__ == NumpyGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.files == other.files
+
+    def __hash__(self):
+        return hash((NumpyGroup, self.id, tuple(self.segments.items()), self.numEntries, None if self.files is None else tuple(self.files)))
+
+class NumpyColumn(Column):
+    def __init__(self, data, size, dataType):
+        super(NumpyColumn, self).__init__(data, size, dataType)
+
+    def toJson(self):
+        return super(NumpyColumn, self).toJson()
+
+    @classmethod
+    def fromJson(cls, column):
+        return NumpyColumn(
+            ColumnName.parse(column["data"]),
+            None if column["size"] is None else ColumnName.parse(column["size"]),
+            numpy.dtype(column["dataType"]))
+
+    def __eq__(self, other):
+        return other.__class__ == NumpyColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType
+
+    def __hash__(self):
+        return hash((NumpyColumn, self.data, self.size, self.dataType))
+
+class NumpyDataset(Dataset):
+    def __init__(self, name, schema, columns, groups, numEntries):
+        super(NumpyDataset, self).__init__(name, schema, columns, groups, numEntries)
+
+    @classmethod
+    def fromJson(cls, dataset):
+        return NumpyDataset(
+            dataset["name"],
+            dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
+            dict((ColumnName.parse(k), NumpyColumn.fromJson(v)) for k, v in dataset["columns"].items()),
+            [NumpyGroup.fromJson(x) for x in dataset["groups"]],
+            dataset["numEntries"])
+
+    def __eq__(self, other):
+        return other.__class__ == NumpyDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+
+    def __hash__(self):
+        return hash((NumpyDataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))

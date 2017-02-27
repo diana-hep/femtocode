@@ -26,6 +26,7 @@ class ROOTFetcher(threading.Thread):
         super(ROOTFetcher, self).__init__()
         self.occupants = occupants
         self.workItem = workItem
+        self.daemon = True
 
     def files(self, column):
         if column.issize():
