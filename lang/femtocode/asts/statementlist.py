@@ -188,7 +188,7 @@ class Call(Statement):
         return "{0} := {1}({2})".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)))
 
     def toJson(self):
-        return {"to": self.column.toJson(), "fcn": self.fcnname, "args": [x.toJson() for x in self.args]}
+        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args]}
 
     def __eq__(self, other):
         return isinstance(other, Call) and self.column == other.column and self.fcnname == other.fcnname and self.args == other.args

@@ -68,9 +68,24 @@ class Add(statementlist.FlatStatements, lispytree.BuiltinFunction):
         return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
     def generate(self, args):
-        return "({0} + {1})".format(args[0].generate(), args[1].generate())
+        return "({0})".format(" + ".join(arg.generate() for arg in args))
 
 table[Add.name] = Add()
+
+class Subtract(statementlist.FlatStatements, lispytree.BuiltinFunction):
+    name = "-"
+
+    def literaleval(self, args):
+        return args[0] - args[1]
+        
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
+
+    def generate(self, args):
+        return "({0} - {1})".format(args[0].generate(), args[1].generate())
+
+table[Subtract.name] = Subtract()
 
 class Divide(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "/"

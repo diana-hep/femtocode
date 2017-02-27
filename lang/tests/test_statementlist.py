@@ -73,8 +73,21 @@ class TestStatementlist(unittest.TestCase):
         return result, statements
 
     def test_add(self):
-        dataset = self.mockDataset(x=real, y=real)
+        result, statements = self.compile("x + y", self.mockDataset(x=real, y=real))
+        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "+", "args": ["x", "y"]}])
+        self.assertEqual(result.toJson(), {"schema": "real", "data": "#0", "size": None})
 
-        result, statements = self.compile("x + y", dataset)
-        print(result)
-        print(statements)
+    def test_add3(self):
+        result, statements = self.compile("x + y + z", self.mockDataset(x=real, y=real, z=real))
+        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "+", "args": ["x", "y", "z"]}])
+        self.assertEqual(result.toJson(), {"schema": "real", "data": "#0", "size": None})
+
+    def test_subtract(self):
+        result, statements = self.compile("x - y", self.mockDataset(x=real, y=real))
+        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "-", "args": ["x", "y"]}])
+        self.assertEqual(result.toJson(), {"schema": "real", "data": "#0", "size": None})
+
+    def test_addsub(self):
+        result, statements = self.compile("x + y - z", self.mockDataset(x=real, y=real, z=real))
+        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "+", "args": ["x", "y"]}, {"to": "#1", "fcn": "-", "args": ["#0", "z"]}])
+        self.assertEqual(result.toJson(), {"schema": "real", "data": "#1", "size": None})
