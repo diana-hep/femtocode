@@ -275,7 +275,7 @@ class Dataset(Metadata):
 
     def dataColumn(self, columnName):
         if isinstance(columnName, string_types):
-            columnName = ColumnName.parse(columnName)
+            columnName = ColumnName(columnName)
 
         schema = self.schema[columnName.path[0]]
         for i, item in enumerate(columnName.path[1:]):
@@ -294,17 +294,19 @@ class Dataset(Metadata):
 
     def sizeColumn(self, columnName):
         if isinstance(columnName, string_types):
-            columnName = ColumnName.parse(columnName)
-
-        assert isinstance(columnName.path[-1], ColumnName.Size), "unexpected last item in ColumnName for size: {0}".format(columnName.path[-1])
+            columnName = ColumnName(columnName)
 
         schema = self.schema[columnName.path[0]]
         dataColumnPath = [columnName.path[0]]
-        for i, item in enumerate(columnName.path[1:-1]):
+        for i, item in enumerate(columnName.path[1:]):
             if isinstance(item, string_types):
                 assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
-                if i + 3 == len(columnName.path):
-                    dataColumnPath.append(sorted(schema.fields.keys())[0])
+                if i + 2 == len(columnName.path):
+                    primitiveFields = [n for n, t in schema.fields.items() if isinstance(t, Primitive)]
+                    if len(primitiveFields) > 0:
+                        dataColumnPath.append(sorted(primitiveFields)[0])
+                    else:
+                        dataColumnPath.append(item)
                 else:
                     dataColumnPath.append(item)
                 schema = schema.fields[item]

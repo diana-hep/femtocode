@@ -502,7 +502,10 @@ class Impossible(Schema):   # results in a compilation error
         else:
             return "impossible"
 
-class Null(Schema):
+# Primitive types would have no size column if they're not in a collection
+class Primitive(Schema): pass
+
+class Null(Primitive):
     order = 1
 
     def __init__(self, alias=None):
@@ -531,7 +534,7 @@ class Null(Schema):
         else:
             return "null"
 
-class Boolean(Schema):
+class Boolean(Primitive):
     order = 2
 
     def __init__(self, alias=None):
@@ -560,7 +563,7 @@ class Boolean(Schema):
         else:
             return "boolean"
 
-class Number(Schema):
+class Number(Primitive):
     order = 3
 
     def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):

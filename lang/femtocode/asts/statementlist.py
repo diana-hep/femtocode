@@ -34,7 +34,7 @@ class Statements(Statement, list):
         self.stmts = list(stmts)
 
     def __repr__(self):
-        return "statementlist.Statements({0})".join(", ".join(self.stmts))
+        return "statementlist.Statements({0})".format(", ".join(map(repr, self.stmts)))
 
     def __str__(self):
         return "\n".join(str(x) for x in self.stmts)
@@ -331,7 +331,7 @@ class FlatStatements(object):
         statements = Statements()
         sizeColumn = None
         for i, arg in enumerate(call.args):
-            computed, ss, refnumber = build(arg, columns, replacements, refnumber, explosions)
+            computed, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
             statements.extend(ss)
 
             if len(explosions) > 0:
