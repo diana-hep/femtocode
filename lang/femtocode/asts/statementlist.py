@@ -266,110 +266,92 @@ class ExplodeData(Call):
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [x.toJson() for x in self.levels]}
 
-class BuildStatements(object): pass
+def exploderef(ref, replacements, refnumber, explosions):
+    if ref.size is None and len(set(explosions)) == 1:
+        statements = []
 
-# def exploderef(ref, replacements, refnumber, explosions):
-#     if ref.size is None and len(set(explosions)) == 1:
-#         statements = []
+        if (Explode, ref.name, explosions) in replacements:
+            explodedData = replacements[(Explode, ref.name, explosions)]
+        else:
+            explodedData = ColumnName("#" + repr(refnumber))
+            replacements[(Explode, ref.name, explosions)] = explodedData
+            statements.append(Explode(explodedData, ref.data, explosions[0], len(explosions)))
 
-#         if (Explode, ref.name, explosions) in replacements:
-#             explodedData = replacements[(Explode, ref.name, explosions)]
-#         else:
-#             columnName = ColumnName("#" + repr(refnumber))
-#             explodedData = DataColumn(columnName, ref.data.schema)
-#             replacements[(Explode, ref.name, explosions)] = explodedData
-#             statements.append(Explode(explodedData, ref.data, explosions[0], len(explosions)))
+        return Ref(refnumber, ref.data.schema, explodedData, explosions[0]), statements, refnumber + 1
 
-#         return Ref(refnumber, ref.data.schema, explodedData, explosions[0]), statements, refnumber + 1
+    elif set([ref.size]) == set(explosions):
+        return ref, [], refnumber
 
-#     elif set([ref.size]) == set(explosions):
-#         return ref, [], refnumber
+    else:
+        statements = []
 
-#     else:
-#         columnName = ColumnName("#" + repr(refnumber))
-#         statements = []
+        if (ExplodeSize, explosions) in replacements:
+            explodedSize = replacements[(ExplodeSize, explosions)]
+        else:
+            explodedSize = ColumnName("#" + repr(refnumber)).size()
+            replacements[(ExplodeSize, explosions)] = explodedSize
+            statements.append(ExplodeSize(explodedSize, explosions))
 
-#         if (ExplodeSize, explosions) in replacements:
-#             explodedSize = replacements[(ExplodeSize, explosions)]
-#         else:
-#             explodedSize = SizeColumn(columnName.size())
-#             replacements[(ExplodeSize, explosions)] = explodedSize
-#             statements.append(ExplodeSize(explodedSize, explosions))
+        if (ExplodeData, ref.name, explosions) in replacements:
+            explodedData = replacements[(ExplodedData, ref.name, explosions)]
+        else:
+            explodedData = ColumnName("#" + repr(refnumber))
+            replacements[(ExplodedData, ref.name, explosions)] = explodedData
+            statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
 
-#         if (ExplodeData, ref.name, explosions) in replacements:
-#             explodedData = replacements[(ExplodeData, ref.name, explosions)]
-#         else:
-#             explodedData = DataColumn(columnName, ref.data.schema)
-#             replacements[(ExplodeData, ref.name, explosions)] = explodedData
-#             statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
+        return Ref(refnumber, ref.data.schema, explodedData, explodedSize), statements, refnumber + 1
 
-#         return Ref(refnumber, ref.data.schema, explodedData, explodedSize), statements, refnumber + 1
+def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
+    if replacements is None:
+        replacements = {}
 
-# def build(tree, columns, replacements=None, refnumber=0, explosions=()):
-#     if replacements is None:
-#         replacements = {}
+    if (typedtree.TypedTree, tree) in replacements:
+        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
 
-#     if (typedtree.TypedTree, tree) in replacements:
-#         return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
+    elif isinstance(tree, typedtree.Ref):
+        assert tree.framenumber is None, "should not encounter any deep references here"
 
-#     elif isinstance(tree, typedtree.Ref):
-#         assert tree.framenumber is None, "should not encounter any deep references here"
+        ref = Ref(tree.name, tree.schema, dataset.dataColumn(tree.name), dataset.sizeColumn(tree.name))
+        replacements[(typedtree.TypedTree, tree)] = ref
+        return ref, Statements(), refnumber
 
-#         dataColumn = None
-#         sizeColumn = None
-#         for n, c in columns.items():
-#             if n.startswith(tree.name):
-#                 if isinstance(c, DataColumn):
-#                     dataColumn = c
-#                 elif isinstance(c, SizeColumn):
-#                     sizeColumn = c
-#         assert dataColumn is not None, "cannot find {0} dataColumn in columns: {1}".format(tree.name, columns.keys())
+    elif isinstance(tree, typedtree.Literal):
+        replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)
+        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
 
-#         ref = Ref(tree.name, tree.schema, dataColumn, sizeColumn)
-#         replacements[(typedtree.TypedTree, tree)] = ref
-#         return ref, Statements(), refnumber
+    elif isinstance(tree, typedtree.Call):
+        return tree.fcn.buildstatements(tree, dataset, replacements, refnumber, explosions)
 
-#     elif isinstance(tree, typedtree.Literal):
-#         replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)
-#         return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
+    else:
+        assert False, "unexpected type in typedtree: {0}".format(tree)
 
-#     elif isinstance(tree, typedtree.Call):
-#         return tree.fcn.buildstatements(tree, columns, replacements, refnumber, explosions)
+class FlatStatements(object):
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
+        args = []
+        statements = Statements()
+        sizeColumn = None
+        for i, arg in enumerate(call.args):
+            computed, ss, refnumber = build(arg, columns, replacements, refnumber, explosions)
+            statements.extend(ss)
 
-#     else:
-#         assert False, "unexpected in typedtree: {0}".format(tree)
+            if len(explosions) > 0:
+                final, ss, refnumber = exploderef(computed, replacements, refnumber, explosions)
+                statements.extend(ss)
+            else:
+                final = computed
 
-# # mix-in for most BuiltinFunctions
-# class BuildStatements(object):
-#     def buildstatements(self, call, columns, replacements, refnumber, explosions):
-#         args = []
-#         statements = Statements()
-#         sizeColumn = None
-#         for i, arg in enumerate(call.args):
-#             computed, ss, refnumber = build(arg, columns, replacements, refnumber, explosions)
-#             statements.extend(ss)
+            if i == 0:
+                sizeColumn = final.size
+            else:
+                assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
 
-#             if len(explosions) > 0:
-#                 final, ss, refnumber = exploderef(computed, replacements, refnumber, explosions)
-#                 statements.extend(ss)
-#             else:
-#                 final = computed
+            args.append(final.data)
 
-#             if i == 0:
-#                 sizeColumn = final.size
-#             elif sizeColumn != final.size:
-#                 raise ProgrammingError("all arguments in the default buildStatements must have identical size columns: {0} vs {1}".format(sizeColumn, final.size))
+        columnName = ColumnName("#" + repr(refnumber))
+        ref = Ref(refnumber, call.schema, columnName, sizeColumn)
 
-#             args.append(final.data)
+        refnumber += 1
+        replacements[(typedtree.TypedTree, call)] = ref
+        statements.append(Call(columnName, self.name, args))
 
-#         columnName = ColumnName("#" + repr(refnumber))
-#         dataColumn = DataColumn(columnName, call.schema)
-                
-#         ref = Ref(refnumber, call.schema, dataColumn, sizeColumn)
-
-#         refnumber += 1
-#         replacements[(typedtree.TypedTree, call)] = ref
-
-#         statements.append(Call(dataColumn, self.name, args))
-
-#         return ref, statements, refnumber
+        return ref, statements, refnumber

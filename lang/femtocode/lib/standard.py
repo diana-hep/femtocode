@@ -51,7 +51,7 @@ class Is(lispytree.BuiltinFunction):
 
 table[Is.name] = Is()
 
-class Add(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class Add(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -72,7 +72,7 @@ class Add(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Divide(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class Divide(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "/"
 
     def literaleval(self, args):
@@ -87,7 +87,7 @@ class Divide(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[Divide.name] = Divide()
 
-class Eq(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class Eq(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -109,7 +109,7 @@ class Eq(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class NotEq(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -146,7 +146,7 @@ class NotEq(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class And(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -204,7 +204,7 @@ class And(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class Or(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -248,7 +248,7 @@ class Or(statementlist.BuildStatements, lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(statementlist.BuildStatements, lispytree.BuiltinFunction):
+class Not(statementlist.FlatStatements, lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
@@ -350,14 +350,14 @@ class Map(lispytree.BuiltinFunction):
         c = typedarg0.schema
         return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
-    def buildstatements(self, call, columns, replacements, refnumber, explosions):
-        argref, statements, refnumber = statementlist.build(call.args[0], columns, replacements, refnumber, explosions)
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
+        argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = argref
         assert argref.size is not None, "first argument must be sized"
 
-        result, ss, refnumber = statementlist.build(call.args[1].body, columns, replacements, refnumber, explosions + (argref.size,))
+        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (argref.size,))
         statements.extend(ss)
 
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]

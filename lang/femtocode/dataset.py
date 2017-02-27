@@ -20,7 +20,7 @@ import re
 
 import numpy
 
-from femtocode.typesystem import Schema
+from femtocode.typesystem import *
 from femtocode.py23 import *
 
 class Metadata(object):
@@ -273,8 +273,52 @@ class Dataset(Metadata):
     def __hash__(self):
         return hash((Dataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
 
+    def dataColumn(self, columnName):
+        if isinstance(columnName, string_types):
+            columnName = ColumnName.parse(columnName)
 
-    
+        schema = self.schema[columnName.path[0]]
+        for i, item in enumerate(columnName.path[1:]):
+            if isinstance(item, string_types):
+                assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
+                schema = schema.fields[item]
+
+            elif isinstance(item, ColumnName.Array):
+                assert isinstance(schema, Collection), "column {0} not a Collection at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
+                schema = schema.items
+
+            else:
+                assert False, "unexpected item in ColumnName for data: {0}".format(item)
+
+        return self.columns[columnName].data
+
+    def sizeColumn(self, columnName):
+        if isinstance(columnName, string_types):
+            columnName = ColumnName.parse(columnName)
+
+        assert isinstance(columnName.path[-1], ColumnName.Size), "unexpected last item in ColumnName for size: {0}".format(columnName.path[-1])
+
+        schema = self.schema[columnName.path[0]]
+        dataColumnPath = [columnName.path[0]]
+        for i, item in enumerate(columnName.path[1:-1]):
+            if isinstance(item, string_types):
+                assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
+                if i + 3 == len(columnName.path):
+                    dataColumnPath.append(sorted(schema.fields.keys())[0])
+                else:
+                    dataColumnPath.append(item)
+                schema = schema.fields[item]
+
+            elif isinstance(item, ColumnName.Array):
+                assert isinstance(schema, Collection), "column {0} not a Collection at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
+                dataColumnPath.append(item)
+                schema = schema.items
+
+            else:
+                assert False, "unexpected item in ColumnName for data: {0}".format(item)
+
+        return self.columns[ColumnName(*dataColumnPath)].size
+
 
 
 
