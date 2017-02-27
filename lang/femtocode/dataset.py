@@ -326,6 +326,11 @@ class Dataset(Metadata):
             else:
                 assert False, "unexpected item in ColumnName for data: {0}".format(item)
 
+        if isinstance(schema, Record):
+            primitiveFields = [n for n, t in schema.fields.items() if isinstance(t, Primitive)]
+            if len(primitiveFields) > 0:
+                dataColumnPath.append(sorted(primitiveFields)[0])
+
         if ColumnName(*dataColumnPath) in self.columns:
             return self.columns[ColumnName(*dataColumnPath)].size
         else:

@@ -257,8 +257,8 @@ class ExplodeData(Call):
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels]}
 
-def exploderef(ref, replacements, refnumber, explosions):
-    sizes = tuple(x.size for x in explosions if x.size is not None)
+def exploderef(ref, replacements, refnumber, dataset, explosions):
+    sizes = tuple(filter(lambda x: x is not None, [dataset.sizeColumn(x.name) for x in explosions]))
 
     if len(sizes) == 0:
         return ref, Statements(), refnumber
@@ -329,7 +329,7 @@ class FlatFunction(object):
         for i, arg in enumerate(call.args):
             computed, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
             statements.extend(ss)
-            final, ss, refnumber = exploderef(computed, replacements, refnumber, explosions)
+            final, ss, refnumber = exploderef(computed, replacements, refnumber, dataset, explosions)
             statements.extend(ss)
 
             if i == 0:
