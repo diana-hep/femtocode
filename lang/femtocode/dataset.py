@@ -85,7 +85,7 @@ class ColumnName(object):
     def parse(string):
         path = []
         while len(string) > 0:
-            m = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)", string)
+            m = re.match(r"^([a-zA-Z_#][a-zA-Z0-9_]*)", string)
             if m is not None:
                 path.append(m.group(1))
                 string = string[len(m.group(1)):]
@@ -272,6 +272,12 @@ class Dataset(Metadata):
 
     def __hash__(self):
         return hash((Dataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
+
+
+    
+
+
+
 
 # FIXME: need a new schemaToDataset
 

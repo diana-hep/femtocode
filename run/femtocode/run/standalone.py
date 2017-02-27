@@ -28,7 +28,7 @@ from femtocode.rootio.fetch import ROOTFetcher
 
 from femtocode.run.cache import *
 from femtocode.run.execution import *
-from femtocode.run.metadata import MetadataFromJson
+from femtocode.dataset import MetadataFromJson
 from femtocode.util import *
 
 class FutureQueryResult(object):
