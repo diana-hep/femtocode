@@ -107,7 +107,11 @@ class ColumnName(object):
         return ColumnName(*path)
 
     def __init__(self, first, *rest):
-        self.path = (first,) + rest
+        if isinstance(first, int):
+            assert len(rest) == 0, "temporary column arrays have no substructure"
+            self.path = ("#" + repr(first),)
+        else:
+            self.path = (first,) + rest
 
     def __repr__(self):
         return "ColumnName({0})".format(", ".join(map(repr, self.path)))
@@ -290,7 +294,10 @@ class Dataset(Metadata):
             else:
                 assert False, "unexpected item in ColumnName for data: {0}".format(item)
 
-        return self.columns[columnName].data
+        if columnName in self.columns:
+            return self.columns[columnName].data
+        else:
+            return None
 
     def sizeColumn(self, columnName):
         if isinstance(columnName, string_types):
@@ -319,8 +326,10 @@ class Dataset(Metadata):
             else:
                 assert False, "unexpected item in ColumnName for data: {0}".format(item)
 
-        return self.columns[ColumnName(*dataColumnPath)].size
-
+        if ColumnName(*dataColumnPath) in self.columns:
+            return self.columns[ColumnName(*dataColumnPath)].size
+        else:
+            return None
 
 
 

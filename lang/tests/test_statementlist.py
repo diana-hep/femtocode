@@ -89,5 +89,16 @@ class TestStatementlist(unittest.TestCase):
 
     def test_addsub(self):
         result, statements = self.compile("x + y - z", self.mockDataset(x=real, y=real, z=real))
-        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "+", "args": ["x", "y"]}, {"to": "#1", "fcn": "-", "args": ["#0", "z"]}])
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0", "fcn": "+", "args": ["x", "y"]},
+            {"to": "#1", "fcn": "-", "args": ["#0", "z"]}
+            ])
         self.assertEqual(result.toJson(), {"schema": "real", "data": "#1", "size": None})
+
+    def test_mapadd(self):
+        result, statements = self.compile("xs.map($1 + y)", self.mockDataset(xs=collection(real), y=real))
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0", "fcn": "$explode", "data": "y", "size": "xs[]@size", "numLevels": 1},
+            {"to": "#1", "fcn": "+", "args": ["xs[]", "#0"]}
+            ])
+        self.assertEqual(result.toJson(), {"data": "#1", "size": "xs[]@size", "schema": {"type": "collection", "items": "real"}})

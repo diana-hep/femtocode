@@ -125,24 +125,16 @@ class Statements(Statement, list):
 
 class Ref(Statement):
     def __init__(self, name, schema, data, size):
-        self.name = name
+        if isinstance(name, ColumnName):
+            self.name = name
+        else:
+            self.name = ColumnName(name)
         self.schema = schema
         self.data = data
         self.size = size
 
     def __repr__(self):
         return "statementlist.Ref({0}, {1}, {2}, {3})".format(self.name, self.schema, self.data, self.size)
-
-    def __str__(self):
-        if isinstance(self.name, int):
-            name = "#" + repr(self.name)
-        else:
-            name = self.name
-        if self.size is None:
-            sized = ""
-        else:
-            sized = ", {0}".format(self.size.name)
-        return "Ref({0}{1})".format(name, sized)
 
     def toJson(self):
         return {"schema": self.schema.toJson(),
@@ -273,11 +265,11 @@ def exploderef(ref, replacements, refnumber, explosions):
         if (Explode, ref.name, explosions) in replacements:
             explodedData = replacements[(Explode, ref.name, explosions)]
         else:
-            explodedData = ColumnName("#" + repr(refnumber))
+            explodedData = ColumnName(refnumber)
             replacements[(Explode, ref.name, explosions)] = explodedData
             statements.append(Explode(explodedData, ref.data, explosions[0], len(explosions)))
 
-        return Ref(refnumber, ref.data.schema, explodedData, explosions[0]), statements, refnumber + 1
+        return Ref(refnumber, ref.schema, explodedData, explosions[0]), statements, refnumber + 1
 
     elif set([ref.size]) == set(explosions):
         return ref, [], refnumber
@@ -288,18 +280,18 @@ def exploderef(ref, replacements, refnumber, explosions):
         if (ExplodeSize, explosions) in replacements:
             explodedSize = replacements[(ExplodeSize, explosions)]
         else:
-            explodedSize = ColumnName("#" + repr(refnumber)).size()
+            explodedSize = ColumnName(refnumber).size()
             replacements[(ExplodeSize, explosions)] = explodedSize
             statements.append(ExplodeSize(explodedSize, explosions))
 
         if (ExplodeData, ref.name, explosions) in replacements:
-            explodedData = replacements[(ExplodedData, ref.name, explosions)]
+            explodedData = replacements[(ExplodeData, ref.name, explosions)]
         else:
-            explodedData = ColumnName("#" + repr(refnumber))
-            replacements[(ExplodedData, ref.name, explosions)] = explodedData
+            explodedData = ColumnName(refnumber)
+            replacements[(ExplodeData, ref.name, explosions)] = explodedData
             statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
 
-        return Ref(refnumber, ref.data.schema, explodedData, explodedSize), statements, refnumber + 1
+        return Ref(refnumber, ref.schema, explodedData, explodedSize), statements, refnumber + 1
 
 def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
     if replacements is None:
@@ -347,7 +339,7 @@ class FlatStatements(object):
 
             args.append(final.data)
 
-        columnName = ColumnName("#" + repr(refnumber))
+        columnName = ColumnName(refnumber)
         ref = Ref(refnumber, call.schema, columnName, sizeColumn)
 
         refnumber += 1

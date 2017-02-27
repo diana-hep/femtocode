@@ -369,10 +369,10 @@ class Map(lispytree.BuiltinFunction):
         argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
-        replacements[(typedtree.TypedTree, call.args[1].refs[0])] = argref
-        assert argref.size is not None, "first argument must be sized"
-
-        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (argref.size,))
+        reref = statementlist.Ref(argref.name, argref.schema, dataset.dataColumn(argref.name.array()), dataset.sizeColumn(argref.name.array()))
+        replacements[(typedtree.TypedTree, call.args[1].refs[0])] = reref
+            
+        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (reref.size,))
         statements.extend(ss)
 
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]
