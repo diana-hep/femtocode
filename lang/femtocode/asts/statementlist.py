@@ -257,9 +257,7 @@ class ExplodeData(Call):
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels]}
 
-def exploderef(ref, replacements, refnumber, dataset, explosions):
-    sizes = tuple(filter(lambda x: x is not None, [dataset.sizeColumn(x.name) for x in explosions]))
-
+def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
         return ref, Statements(), refnumber
 
@@ -323,13 +321,30 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
 
 class FlatFunction(object):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
-        args = []
         statements = Statements()
-        sizeColumn = None
-        for i, arg in enumerate(call.args):
-            computed, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
+        argrefs = []
+        for arg in call.args:
+            argref, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
             statements.extend(ss)
-            final, ss, refnumber = exploderef(computed, replacements, refnumber, dataset, explosions)
+            argrefs.append(argref)
+
+        sizes = []
+        for explosion in explosions:
+            size = None
+            for argref in argrefs:
+                if isinstance(explosion.schema, Record) and explosion.name.path == argref.data.path[:-1]:
+                    size = dataset.sizeColumn(argref.data)
+                    break
+            if size is None:
+                size = dataset.sizeColumn(explosion.name)
+            if size is not None:
+                sizes.append(size)
+        sizes = tuple(sizes)
+
+        args = []
+        sizeColumn = None
+        for i, argref in enumerate(argrefs):
+            final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
             statements.extend(ss)
 
             if i == 0:
