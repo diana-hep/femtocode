@@ -57,12 +57,15 @@ class Add(statementlist.BuildStatements, lispytree.BuiltinFunction):
     def commutative(self):
         return True
 
+    def associative(self):
+        return True
+
     def literaleval(self, args):
         return sum(args)
         
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
-        return inference.add(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+        return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
     def generate(self, args):
         return "({0} + {1})".format(args[0].generate(), args[1].generate())
@@ -149,6 +152,9 @@ class And(statementlist.BuildStatements, lispytree.BuiltinFunction):
     def commutative(self):
         return True
 
+    def associative(self):
+        return True
+
     def literaleval(self, args):
         return all(args)
         
@@ -202,6 +208,9 @@ class Or(statementlist.BuildStatements, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
+        return True
+
+    def associative(self):
         return True
 
     def literaleval(self, args):

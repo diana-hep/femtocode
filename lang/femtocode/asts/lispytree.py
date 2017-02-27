@@ -201,8 +201,19 @@ class Call(LispyTree):
                 complain("Function \"{0}\" does not accept arguments with the given literal types:\n\n    {0}({1}){2}".format(fcn.name, ",\n    {0} ".format(" " * len(fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(fcn.name)).lstrip() for x in typedargs), reason), original)
             else:
                 return Literal(fcn.literaleval([x.value for x in args]), original)
+
         else:
-            return Call(fcn, args, original)
+            if fcn.associative():
+                newargs = []
+                for arg in args:
+                    if isinstance(arg, Call) and arg.fcn == fcn:
+                        newargs.extend(arg.args)
+                    else:
+                        newargs.append(arg)
+            else:
+                newargs = args
+
+            return Call(fcn, newargs, original)
 
     def __init__(self, fcn, args, original=None):
         self.fcn = fcn

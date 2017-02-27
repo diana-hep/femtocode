@@ -53,6 +53,9 @@ class Function(object):
     def commutative(self):
         return False
 
+    def associative(self):
+        return False
+
     def arity(self, index):
         return None
 
