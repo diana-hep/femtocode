@@ -24,6 +24,7 @@ from femtocode.dataset import Group
 from femtocode.dataset import Column
 from femtocode.dataset import Dataset
 
-class NPZSegment(Segment)
+class NumpySegment(Segment):
+    pass
 
 

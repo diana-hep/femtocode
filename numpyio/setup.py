@@ -14,21 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import subprocess
-
-from setuptools import setup, find_packages, Extension
-import numpy.distutils.misc_util
+import sys
+from setuptools import setup, find_packages
 
 import femtocode.version
 
-def rootconfig(arg, filter, drop):
-    rootconfig = subprocess.Popen(["root-config", arg], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if rootconfig.wait() != 0:
-        raise IOError(rootconfig.stderr.read())
-    return [x.strip()[drop:] for x in rootconfig.stdout.read().decode().split(" ") if filter(x)]
-
-setup(name = "femtocode-fromroot",
+setup(name = "femtocode-numpyio",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
@@ -53,12 +44,5 @@ setup(name = "femtocode-fromroot",
                      "Topic :: Scientific/Engineering :: Mathematics",
                      "Topic :: Scientific/Engineering :: Physics",
                      ],
-      platforms = "Any",
-      ext_modules = [Extension("femtocode.fromroot._fastreader",
-                               [os.path.join("femtocode", "fromroot", "_fastreader.cpp")],
-                               include_dirs = rootconfig("--cflags", lambda x: x.startswith("-I"), 2) + numpy.distutils.misc_util.get_numpy_include_dirs(),
-                               library_dirs = rootconfig("--libdir", lambda x: True, 0),
-                               libraries = rootconfig("--libs", lambda x: x.startswith("-l"), 2),
-                               extra_compile_args = rootconfig("--cflags", lambda x: not x.startswith("-I"), 0),
-                               )],
+      platforms = "Any"
       )

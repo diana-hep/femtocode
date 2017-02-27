@@ -22,8 +22,8 @@ try:
 except ImportError:
     import queue
 
-from femtocode.fromroot.dataset import ROOTDataset
-from femtocode.fromroot.fetch import ROOTFetcher
+from femtocode.rootio.dataset import ROOTDataset
+from femtocode.rootio.fetch import ROOTFetcher
 from femtocode.run.cache import *
 from femtocode.run.execution import *
 from femtocode.scope.communication import *

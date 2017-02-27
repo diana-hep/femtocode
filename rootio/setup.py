@@ -14,12 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-from setuptools import setup, find_packages
+import os
+import subprocess
+
+from setuptools import setup, find_packages, Extension
+import numpy.distutils.misc_util
 
 import femtocode.version
 
-setup(name = "femtocode-fromnpz",
+def rootconfig(arg, filter, drop):
+    rootconfig = subprocess.Popen(["root-config", arg], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if rootconfig.wait() != 0:
+        raise IOError(rootconfig.stderr.read())
+    return [x.strip()[drop:] for x in rootconfig.stdout.read().decode().split(" ") if filter(x)]
+
+setup(name = "femtocode-rootio",
       version = femtocode.version.__version__,
       packages = find_packages(),
       scripts = [],
@@ -33,7 +42,7 @@ setup(name = "femtocode-fromnpz",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = ["femtocode", "femtocode-run", "ruamel.yaml", "numpy"],
+      install_requires = ["femtocode", "ruamel.yaml", "numpy"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!
@@ -44,5 +53,12 @@ setup(name = "femtocode-fromnpz",
                      "Topic :: Scientific/Engineering :: Mathematics",
                      "Topic :: Scientific/Engineering :: Physics",
                      ],
-      platforms = "Any"
+      platforms = "Any",
+      ext_modules = [Extension("femtocode.rootio._fastreader",
+                               [os.path.join("femtocode", "rootio", "_fastreader.cpp")],
+                               include_dirs = rootconfig("--cflags", lambda x: x.startswith("-I"), 2) + numpy.distutils.misc_util.get_numpy_include_dirs(),
+                               library_dirs = rootconfig("--libdir", lambda x: True, 0),
+                               libraries = rootconfig("--libs", lambda x: x.startswith("-l"), 2),
+                               extra_compile_args = rootconfig("--cflags", lambda x: not x.startswith("-I"), 0),
+                               )],
       )

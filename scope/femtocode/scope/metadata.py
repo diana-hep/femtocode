@@ -76,5 +76,5 @@ class MetadataFromMongoDB(object):
 
         return self._cache[key]
 
-# from femtocode.fromroot.dataset import ROOTDataset
+# from femtocode.rootio.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)

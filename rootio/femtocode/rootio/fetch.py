@@ -19,7 +19,7 @@ import threading
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.run.cache import DataAddress
-from femtocode.fromroot._fastreader import fillarrays
+from femtocode.rootio._fastreader import fillarrays
 
 class ROOTFetcher(threading.Thread):
     def __init__(self, occupants, workItem):

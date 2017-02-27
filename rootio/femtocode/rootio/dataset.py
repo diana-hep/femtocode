@@ -24,10 +24,10 @@ from femtocode.dataset import Segment
 from femtocode.dataset import Group
 from femtocode.dataset import Column
 from femtocode.dataset import Dataset
-from femtocode.fromroot.declare import DatasetDeclaration
-from femtocode.fromroot._fastreader import fillarrays
-from femtocode.fromroot._fastreader import getsize
-from femtocode.fromroot.xrootd import filesFromPath
+from femtocode.rootio.declare import DatasetDeclaration
+from femtocode.rootio._fastreader import fillarrays
+from femtocode.rootio._fastreader import getsize
+from femtocode.rootio.xrootd import filesFromPath
 from femtocode.typesystem import Schema
 
 class ROOTSegment(Segment):

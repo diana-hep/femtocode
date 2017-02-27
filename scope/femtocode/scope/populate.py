@@ -16,7 +16,7 @@
 
 from pymongo import MongoClient
 
-from femtocode.fromroot.dataset import ROOTDataset
+from femtocode.rootio.dataset import ROOTDataset
 
 def populateMongo(dataset, mongourl, database, collection):
     client = MongoClient(mongourl)
