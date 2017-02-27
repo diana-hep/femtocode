@@ -130,3 +130,23 @@ class TestStatementlist(unittest.TestCase):
             {"to": "#2", "fcn": "+", "args": ["#0", "#1"]}
             ])
         self.assertEqual(result.toJson(), {"data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
+
+    def test_record(self):
+        result, statements = self.compile("x.a + y", self.mockDataset(x=record(a=real), y=real))
+        self.assertEqual(statements.toJson(), [{"to": "#0", "fcn": "+", "args": ["x-a", "y"]}])
+        self.assertEqual(result.toJson(), {"schema": "real", "data": "#0", "size": None})
+
+    def test_recordarray(self):
+        result, statements = self.compile("x.a.map($1 + y)", self.mockDataset(x=record(a=collection(real)), y=real))
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0", "fcn": "$explode", "data": "y", "size": "x-a[]@size"},
+            {"to": "#1", "fcn": "+", "args": ["x-a[]", "#0"]}
+            ])
+        self.assertEqual(result.toJson(), {"schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "x-a[]@size"})
+
+    # def test_arrayrecord(self):
+    #     result, statements = self.compile("xs.map($1.a + y)", self.mockDataset(xs=collection(record(a=real)), y=real))
+
+    #     print
+    #     print statements
+    #     print result

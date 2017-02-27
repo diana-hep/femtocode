@@ -258,37 +258,42 @@ class ExplodeData(Call):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels]}
 
 def exploderef(ref, replacements, refnumber, explosions):
-    if ref.size is None and len(set(explosions)) == 1:
+    sizes = tuple(x.size for x in explosions if x.size is not None)
+
+    if len(sizes) == 0:
+        return ref, Statements(), refnumber
+
+    elif ref.size is None and len(sizes) == 1:
         statements = []
 
-        if (Explode, ref.name, explosions) in replacements:
-            explodedData = replacements[(Explode, ref.name, explosions)]
+        if (Explode, ref.name, sizes) in replacements:
+            explodedData = replacements[(Explode, ref.name, sizes)]
         else:
             explodedData = ColumnName(refnumber)
-            replacements[(Explode, ref.name, explosions)] = explodedData
-            statements.append(Explode(explodedData, ref.data, explosions[0]))
+            replacements[(Explode, ref.name, sizes)] = explodedData
+            statements.append(Explode(explodedData, ref.data, sizes[0]))
 
-        return Ref(refnumber, ref.schema, explodedData, explosions[0]), statements, refnumber + 1
+        return Ref(refnumber, ref.schema, explodedData, sizes[0]), statements, refnumber + 1
 
-    elif set([ref.size]) == set(explosions):
+    elif set([ref.size]) == set(sizes):
         return ref, [], refnumber
 
     else:
         statements = []
 
-        if (ExplodeSize, explosions) in replacements:
-            explodedSize = replacements[(ExplodeSize, explosions)]
+        if (ExplodeSize, sizes) in replacements:
+            explodedSize = replacements[(ExplodeSize, sizes)]
         else:
             explodedSize = ColumnName(refnumber).size()
-            replacements[(ExplodeSize, explosions)] = explodedSize
-            statements.append(ExplodeSize(explodedSize, explosions))
+            replacements[(ExplodeSize, sizes)] = explodedSize
+            statements.append(ExplodeSize(explodedSize, sizes))
 
-        if (ExplodeData, ref.name, explosions) in replacements:
-            explodedData = replacements[(ExplodeData, ref.name, explosions)]
+        if (ExplodeData, ref.name, sizes) in replacements:
+            explodedData = replacements[(ExplodeData, ref.name, sizes)]
         else:
             explodedData = ColumnName(refnumber)
-            replacements[(ExplodeData, ref.name, explosions)] = explodedData
-            statements.append(ExplodeData(explodedData, ref.data, ref.size, explosions))
+            replacements[(ExplodeData, ref.name, sizes)] = explodedData
+            statements.append(ExplodeData(explodedData, ref.data, ref.size, sizes))
 
         return Ref(refnumber, ref.schema, explodedData, explodedSize), statements, refnumber + 1
 
@@ -316,7 +321,7 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
     else:
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
-class FlatStatements(object):
+class FlatFunction(object):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         args = []
         statements = Statements()
@@ -324,12 +329,8 @@ class FlatStatements(object):
         for i, arg in enumerate(call.args):
             computed, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
             statements.extend(ss)
-
-            if len(explosions) > 0:
-                final, ss, refnumber = exploderef(computed, replacements, refnumber, explosions)
-                statements.extend(ss)
-            else:
-                final = computed
+            final, ss, refnumber = exploderef(computed, replacements, refnumber, explosions)
+            statements.extend(ss)
 
             if i == 0:
                 sizeColumn = final.size

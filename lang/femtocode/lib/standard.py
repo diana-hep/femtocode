@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from femtocode import inference
 from femtocode.asts import lispytree
 from femtocode.asts import typedtree
@@ -51,7 +53,7 @@ class Is(lispytree.BuiltinFunction):
 
 table[Is.name] = Is()
 
-class Add(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "+"
 
     def commutative(self):
@@ -72,7 +74,7 @@ class Add(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Subtract(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
 
     def literaleval(self, args):
@@ -87,7 +89,7 @@ class Subtract(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[Subtract.name] = Subtract()
 
-class Divide(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Divide(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
 
     def literaleval(self, args):
@@ -102,7 +104,7 @@ class Divide(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[Divide.name] = Divide()
 
-class Eq(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
 
     def commutative(self):
@@ -124,7 +126,7 @@ class Eq(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[Eq.name] = Eq()
 
-class NotEq(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "!="
 
     def commutative(self):
@@ -161,7 +163,7 @@ class NotEq(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-class And(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
 
     def commutative(self):
@@ -219,7 +221,7 @@ class And(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[And.name] = And()
 
-class Or(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "or"
 
     def commutative(self):
@@ -263,7 +265,7 @@ class Or(statementlist.FlatStatements, lispytree.BuiltinFunction):
 
 table[Or.name] = Or()
 
-class Not(statementlist.FlatStatements, lispytree.BuiltinFunction):
+class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "not"
 
     def literaleval(self, args):
@@ -333,6 +335,42 @@ class If(lispytree.BuiltinFunction):
             
 table[If.name] = If()
 
+class Dot(lispytree.BuiltinFunction):
+    name = "."
+
+    def literaleval(self, args):
+        return getattr(args[0].value, args[1].value)
+
+    def buildtyped(self, args, frame):
+        assert len(args) == 2 and isinstance(args[1].value, string_types), "dot (.) dereference operator got the wrong kinds of objects: {0}".format(", ".join(repr, args[0]))
+
+        typedarg = typedtree.build(args[0], frame)[0]
+        if isinstance(typedarg.schema, Record):
+            if args[1].value in typedarg.schema.fields:
+                schema = typedarg.schema.fields[args[1].value]
+            else:
+                schema = impossible("Record has no field named {0}.".format(json.dumps(args[1].value)))
+        else:
+            schema = impossible("Dot (.) used on a non-record type (first argument).")
+
+        return schema, [typedarg, args[1]], frame
+
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
+        argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
+        field = call.args[1].value
+
+        rename = argref.name.rec(field)
+        reref = statementlist.Ref(rename, argref.schema.fields[field], dataset.dataColumn(rename), dataset.sizeColumn(rename))
+
+        replacements[(typedtree.TypedTree, call)] = reref
+
+        return reref, statements, refnumber
+        
+    def generate(self, args):
+        return args[0].generate() + "." + args[1].value
+
+table[Dot.name] = Dot()
+
 class Map(lispytree.BuiltinFunction):
     name = ".map"
             
@@ -350,7 +388,7 @@ class Map(lispytree.BuiltinFunction):
         if not isinstance(typedarg0.schema, Collection):
             return impossible("First argument must be a collection."), [], frame
 
-        # FIXME: generalize this out (knowing the number of arguments, [1])
+        # FIXME: many other functions will need this; put it somewhere upstream (hint: use the number of arguments, [1])
         if isinstance(args[1], lispytree.BuiltinFunction):
             subframe = frame.fork()
             framenumber = subframe.framenumber()
@@ -369,19 +407,18 @@ class Map(lispytree.BuiltinFunction):
         argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
-        reref = statementlist.Ref(argref.name.array(), argref.schema, dataset.dataColumn(argref.name.array()), dataset.sizeColumn(argref.name.array()))
+        rename = argref.name.array()
+        reref = statementlist.Ref(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename))
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = reref
-            
-        if reref.size is not None:
-            explosions = explosions + (reref.size,)
-        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions)
+
+        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (reref,))
         statements.extend(ss)
 
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]
         return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, refnumber
 
     def generate(self, args):
-        return args[0].generate() + "(" + args[1].generate() + ")"
+        return args[0].generate() + ".map(" + args[1].generate() + ")"
 
     def sortargs(self, positional, named, original):
         return Function.sortargsWithNames(positional, named, ["fcn"], [None], original)
