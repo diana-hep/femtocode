@@ -189,11 +189,10 @@ class Call(Statement):
         return hash((Call, self.column, self.fcnname, self.args))
 
 class Explode(Call):
-    def __init__(self, column, data, size, numLevels):
+    def __init__(self, column, data, size):
         self.column = column
         self.data = data
         self.size = size
-        self.numLevels = numLevels
 
     @property
     def fcnname(self):
@@ -201,16 +200,16 @@ class Explode(Call):
 
     @property
     def args(self):
-        return (self.data, self.size, self.numLevels)
+        return (self.data, self.size)
 
     def __repr__(self):
-        return "statementlist.Explode({0}, {1}, {2}, {3})".format(self.column, self.data, self.size, self.numLevels)
+        return "statementlist.Explode({0}, {1}, {2})".format(self.column, self.data, self.size)
 
     def __str__(self):
-        return "{0} := {1}({2}, {3}, {4})".format(str(self.column), self.fcnname, str(self.data), str(self.size), self.numLevels)
+        return "{0} := {1}({2}, {3})".format(str(self.column), self.fcnname, str(self.data), str(self.size))
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "numLevels": self.numLevels}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size)}
 
 class ExplodeSize(Call):
     def __init__(self, column, levels):
@@ -267,7 +266,7 @@ def exploderef(ref, replacements, refnumber, explosions):
         else:
             explodedData = ColumnName(refnumber)
             replacements[(Explode, ref.name, explosions)] = explodedData
-            statements.append(Explode(explodedData, ref.data, explosions[0], len(explosions)))
+            statements.append(Explode(explodedData, ref.data, explosions[0]))
 
         return Ref(refnumber, ref.schema, explodedData, explosions[0]), statements, refnumber + 1
 

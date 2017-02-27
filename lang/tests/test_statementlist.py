@@ -98,7 +98,15 @@ class TestStatementlist(unittest.TestCase):
     def test_mapadd(self):
         result, statements = self.compile("xs.map($1 + y)", self.mockDataset(xs=collection(real), y=real))
         self.assertEqual(statements.toJson(), [
-            {"to": "#0", "fcn": "$explode", "data": "y", "size": "xs[]@size", "numLevels": 1},
+            {"to": "#0", "fcn": "$explode", "data": "y", "size": "xs[]@size"},
             {"to": "#1", "fcn": "+", "args": ["xs[]", "#0"]}
             ])
         self.assertEqual(result.toJson(), {"data": "#1", "size": "xs[]@size", "schema": {"type": "collection", "items": "real"}})
+
+    def test_mapmapadd(self):
+        result, statements = self.compile("xss.map($1.map($1 + y))", self.mockDataset(xss=collection(collection(real)), y=real))
+        self.assertEqual(statements.toJson(), [
+            {"to": "#0", "fcn": "$explode", "data": "y", "size": "xss[][]@size"},
+            {"to": "#1", "fcn": "+", "args": ["xss[][]", "#0"]}
+            ])
+        self.assertEqual(result.toJson(), {"data": "#1", "size": "xss[][]@size", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}})
