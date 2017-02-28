@@ -191,8 +191,8 @@ class Segment(Metadata):
     def toJson(self):
         return {"numEntries": self.numEntries, "dataLength": self.dataLength}
 
-    @classmethod
-    def fromJson(cls, segment):
+    @staticmethod
+    def fromJson(segment):
         return Segment(
             segment["numEntries"],
             segment["dataLength"])
@@ -215,8 +215,8 @@ class Group(Metadata):
     def toJson(self):
         return {"id": self.id, "segments": dict((str(k), v.toJson()) for k, v in self.segments.items()), "numEntries": self.numEntries}
 
-    @classmethod
-    def fromJson(cls, group):
+    @staticmethod
+    def fromJson(group):
         return Group(
             group["id"],
             dict((ColumnName.parse(k), Segment.fromJson(v)) for k, v in group["segments"].items()),
@@ -240,8 +240,8 @@ class Column(Metadata):
     def toJson(self):
         return {"data": str(self.data), "size": None if self.size is None else str(self.size), "dataType": str(self.dataType)}
 
-    @classmethod
-    def fromJson(cls, column):
+    @staticmethod
+    def fromJson(column):
         return Column(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
@@ -267,12 +267,12 @@ class Dataset(Metadata):
     def toJson(self):
         return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
 
-    @classmethod
-    def fromJsonString(cls, dataset):
-        return cls.fromJson(json.loads(dataset))
+    @staticmethod
+    def fromJsonString(dataset):
+        return Dataset.fromJson(json.loads(dataset))
 
-    @classmethod
-    def fromJson(cls, dataset):
+    @staticmethod
+    def fromJson(dataset):
         return Dataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),

@@ -40,15 +40,8 @@ class ROOTSegment(Segment):
         out["files"] = self.files
         return out
 
-    @classmethod
-    def fromJson(cls, segment):
-        out = cls.__new__(cls)
-        out.numEntries = segment["numEntries"]
-        out.dataLength = segment["dataLength"]
-        return out
-
-    @classmethod
-    def fromJson(cls, segment):
+    @staticmethod
+    def fromJson(segment):
         return ROOTSegment(
             segment["numEntries"],
             segment["dataLength"],
@@ -70,8 +63,8 @@ class ROOTGroup(Group):
         out["files"] = self.files
         return out
 
-    @classmethod
-    def fromJson(cls, group):
+    @staticmethod
+    def fromJson(group):
         return ROOTGroup(
             group["id"],
             dict((ColumnName.parse(k), ROOTSegment.fromJson(v)) for k, v in group["segments"].items()),
@@ -98,8 +91,8 @@ class ROOTColumn(Column):
         out["sizeBranch"] = self.sizeBranch
         return out
 
-    @classmethod
-    def fromJson(cls, column):
+    @staticmethod
+    def fromJson(column):
         return ROOTColumn(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
@@ -343,8 +336,8 @@ class ROOTDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries):
         super(ROOTDataset, self).__init__(name, schema, columns, groups, numEntries)
 
-    @classmethod
-    def fromJson(cls, dataset):
+    @staticmethod
+    def fromJson(dataset):
         return ROOTDataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
