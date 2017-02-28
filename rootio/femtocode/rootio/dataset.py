@@ -16,8 +16,6 @@
 
 import json
 
-import numpy
-
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import Segment
@@ -96,7 +94,7 @@ class ROOTColumn(Column):
         return ROOTColumn(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
-            numpy.dtype(column["dataType"]),
+            column["dataType"],
             column["tree"],
             column["dataBranch"],
             column["sizeBranch"])
@@ -336,8 +334,8 @@ class ROOTDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries):
         super(ROOTDataset, self).__init__(name, schema, columns, groups, numEntries)
 
-    @staticmethod
-    def fromJson(dataset):
+    @classmethod
+    def fromJson(cls, dataset):
         return ROOTDataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),

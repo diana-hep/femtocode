@@ -34,15 +34,8 @@ class NumpySegment(Segment):
         out["files"] = self.files
         return out
 
-    @classmethod
-    def fromJson(cls, segment):
-        out = cls.__new__(cls)
-        out.numEntries = segment["numEntries"]
-        out.dataLength = segment["dataLength"]
-        return out
-
-    @classmethod
-    def fromJson(cls, segment):
+    @staticmethod
+    def fromJson(segment):
         return NumpySegment(
             segment["numEntries"],
             segment["dataLength"],
@@ -64,8 +57,8 @@ class NumpyGroup(Group):
         out["files"] = self.files
         return out
 
-    @classmethod
-    def fromJson(cls, group):
+    @staticmethod
+    def fromJson(group):
         return NumpyGroup(
             group["id"],
             dict((ColumnName.parse(k), NumpySegment.fromJson(v)) for k, v in group["segments"].items()),
@@ -85,8 +78,8 @@ class NumpyColumn(Column):
     def toJson(self):
         return super(NumpyColumn, self).toJson()
 
-    @classmethod
-    def fromJson(cls, column):
+    @staticmethod
+    def fromJson(column):
         return NumpyColumn(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
@@ -102,8 +95,8 @@ class NumpyDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries):
         super(NumpyDataset, self).__init__(name, schema, columns, groups, numEntries)
 
-    @classmethod
-    def fromJson(cls, dataset):
+    @staticmethod
+    def fromJson(dataset):
         return NumpyDataset(
             dataset["name"],
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),

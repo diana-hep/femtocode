@@ -122,7 +122,7 @@ class WorkItem(object):
             return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
 
     def columnDtype(self, column):
-        return self.work.dataset.columns[column].dataType
+        return numpy.dtype(self.work.dataset.columns[column].dataType)
 
     def attachOccupant(self, occupant):
         self.occupants.append(occupant)

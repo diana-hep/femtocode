@@ -18,8 +18,6 @@ import json
 import os
 import re
 
-import numpy
-
 from femtocode.typesystem import *
 from femtocode.py23 import *
 
@@ -40,7 +38,7 @@ class MetadataFromJson(object):
 
         return self._cache[name]
 
-sizeType = numpy.uint64
+sizeType = "uint64"
 
 class ColumnName(object):
     recordsep = "-"
@@ -245,7 +243,7 @@ class Column(Metadata):
         return Column(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
-            numpy.dtype(column["dataType"]))
+            column["dataType"])
 
     def __eq__(self, other):
         return other.__class__ == Column and self.data == other.data and self.size == other.size and self.dataType == other.dataType
@@ -267,9 +265,9 @@ class Dataset(Metadata):
     def toJson(self):
         return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
 
-    @staticmethod
-    def fromJsonString(dataset):
-        return Dataset.fromJson(json.loads(dataset))
+    @classmethod
+    def fromJsonString(cls, dataset):
+        return cls.fromJson(json.loads(dataset))
 
     @staticmethod
     def fromJson(dataset):
