@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import json
 
 from femtocode import inference
@@ -69,6 +70,9 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
+    def buildexec(self, args):
+        return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
+
     def generate(self, args):
         return "({0})".format(" + ".join(arg.generate() for arg in args))
 
@@ -83,6 +87,9 @@ class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
+
+    def buildexec(self, args):
+        return reduce(lambda x, y: ast.BinOp(x, ast.Sub(), y), args)
 
     def generate(self, args):
         return "({0} - {1})".format(args[0].generate(), args[1].generate())
