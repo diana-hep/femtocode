@@ -28,22 +28,22 @@ from femtocode.typesystem import *
 import numba
 
 statements = statementlist.Statement.fromJson([
-    {"to": "#0", "fcn": "+", "args": ["x", "y"]},
-    {"to": "#1", "fcn": "-", "args": ["#0", "z"]}
+    {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real"},
+    {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real"}
     ])
 result = statementlist.Statement.fromJson({"name": "#1", "schema": "real", "data": "#1", "size": None})
 
 statements = statementlist.Statement.fromJson([
-    {"to": "#0", "fcn": "+", "args": ["a", "b"]},
-    {"to": "#1", "fcn": "+", "args": ["c", "d"]},
-    {"to": "#2", "fcn": "+", "args": ["e", "f"]},
-    {"to": "#3", "fcn": "-", "args": ["#0", "#1"]},
-    {"to": "#4", "fcn": "+", "args": ["#1", "#2"]},
-    {"to": "#5", "fcn": "+", "args": ["#3", "#2"]},
-    {"to": "#6", "fcn": "-", "args": ["#1", "#3"]},
-    {"to": "#7", "fcn": "-", "args": ["#5", "#6"]},
-    {"to": "#8", "fcn": "+", "args": ["#7", "#5"]},
-    {"to": "#9", "fcn": "+", "args": ["#8", "#4"]},
+    {"to": "#0", "fcn": "+", "args": ["a", "b"], "schema": "real"},
+    {"to": "#1", "fcn": "+", "args": ["c", "d"], "schema": "real"},
+    {"to": "#2", "fcn": "+", "args": ["e", "f"], "schema": "real"},
+    {"to": "#3", "fcn": "-", "args": ["#0", "#1"], "schema": "real"},
+    {"to": "#4", "fcn": "+", "args": ["#1", "#2"], "schema": "real"},
+    {"to": "#5", "fcn": "+", "args": ["#3", "#2"], "schema": "real"},
+    {"to": "#6", "fcn": "-", "args": ["#1", "#3"], "schema": "real"},
+    {"to": "#7", "fcn": "-", "args": ["#5", "#6"], "schema": "real"},
+    {"to": "#8", "fcn": "+", "args": ["#7", "#5"], "schema": "real"},
+    {"to": "#9", "fcn": "+", "args": ["#8", "#4"], "schema": "real"},
     ])
 
 class Kernel(object):
@@ -114,17 +114,15 @@ class DependencyGraph(object):
 d = DependencyGraph("#9", statements, ["a", "b", "c", "d", "e", "f"])
 print d.pretty()
 
-print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-", ))
+print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-"))
 
-print "\n".join(map(str, d.kernels(lambda start, end: False, )))
+print "\n".join(map(str, d.kernels(lambda start, end: False)))
 
-print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-", )))
+print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-")))
 
-print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-", )))
+print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-")))
 
-print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-", )))
-
-ks = d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-", )
+print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-")))
 
 def fakeLineNumbers(node):
     if isinstance(node, ast.AST):
@@ -152,7 +150,32 @@ def makeFunction(name, statements, params):
     out = {}
     exec(modulecomp, out)
     return out[name]
-
-def kernelToFunction(kernel):
     
+def kernelToFunction(kernel):
+    validNames = {}
+    def valid(n):
+        if n not in validNames:
+            validNames[n] = "v" + repr(len(validNames))
+        return validNames[n]
 
+    init = ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))
+
+    loop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("imax", ast.Load())]), [], [])
+
+    for statement in kernel.statements:
+        if statement.__class__ == statementlist.Call:
+            args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
+            expr = table[statement.fcnname].buildexec(args)
+
+        else:
+            expr = statement.buildexec(statement.args)
+
+        loop.body.append(ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr))
+
+    loop.body.append(ast.Assign([ast.Subscript(ast.Name("out", ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], ast.Name(valid(kernel.name), ast.Load())))
+
+    loop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
+
+    out = makeFunction(str(kernel.name), [init, loop], [valid(x) for x in kernel.inputs] + ["out", "i0max"])
+    out.kernel = kernel
+    return out

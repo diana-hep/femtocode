@@ -315,7 +315,7 @@ class ExplodeData(Call):
 
     @property
     def args(self):
-        return (self.data, self.size, self.levels)
+        return (self.data, self.size) + self.levels
 
     def __repr__(self):
         return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.size, self.levels)
