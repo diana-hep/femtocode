@@ -241,9 +241,9 @@ class DatasetDeclaration(object):
             if dtype is None:
                 raise DatasetDeclaration.Error((frm.lc.line, frm.lc.col), "column-from needs a dtype field")
             try:
-                dtype = numpy.dtype(dtype)
+                dtype = str(numpy.dtype(dtype))
             except TypeError:
-                raise DatasetDeclaration.Error(frm.lc.key("dtype"), "column-from dtype field must be a Numpy dtype")
+                raise DatasetDeclaration.Error(frm.lc.key("dtype"), "column-from dtype field must define a Numpy dtype")
 
             src = frm.get("sources")
             if src is None:
