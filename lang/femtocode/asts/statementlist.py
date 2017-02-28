@@ -23,11 +23,70 @@ from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.dataset import *
 
-class Serializable(object):
+class Statement(object):
     def toJsonString(self):
         return json.dumps(self.toJson())
 
-class Statement(Serializable): pass
+    @staticmethod
+    def fromJsonString(string):
+        return Statement.fromJson(json.loads(string))
+
+    @staticmethod
+    def fromJson(obj):
+        def build(obj, path):
+            if isinstance(obj, list):
+                return Statements(*[build(x, path + "[{0}]".format(i)) for i, x in enumerate(obj)])
+
+            elif isinstance(obj, dict):
+                keys = set(obj.keys())   # possibly .difference(["_id"])
+
+                if keys == set(["name", "schema", "data", "size"]):
+                    return Ref(ColumnName.parse(obj["name"]),
+                               Schema.fromJson(obj["schema"]),
+                               ColumnName.parse(obj["data"]),
+                               None if obj["size"] is None else ColumnName.parse(obj["size"]))
+
+                elif keys == set(["value", "schema"]):
+                    return Literal(obj["value"],
+                                   Schema.fromJson(obj["schema"]))
+
+                elif "fcn" in keys:
+                    if obj["fcn"] == "$explode":
+                        if keys == set(["to", "fcn", "data", "size"]):
+                            return Explode(ColumnName.parse(obj["to"]),
+                                           ColumnName.parse(obj["data"]),
+                                           ColumnName.parse(obj["size"]))   # not nullable
+                        else:
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"size\" for function $explode at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+
+                    elif obj["fcn"] == "$explodesize":
+                        if keys == set(["to", "fcn", "levels"]) and isinstance(obj["levels"], list):
+                            return ExplodeSize(ColumnName.parse(obj["to"]),
+                                               [ColumnName.parse(x) for x in obj["levels"]])
+                        else:
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"levels\" with \"levels\" being a list for function $explodesize at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+
+                    elif obj["fcn"] == "$explodedata":
+                        if keys == set(["to", "fcn", "data", "size", "levels"]) and isinstance(obj["levels"], list):
+                            return ExplodeData(ColumnName.parse(obj["to"]),
+                                               ColumnName.parse(obj["data"]),
+                                               ColumnName.parse(obj["size"]),
+                                               [ColumnName.parse(x) for x in obj["levels"]])
+                        else:
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"size\", \"levels\" with \"levels\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(keys)))
+
+                    elif keys == set(["to", "fcn", "args"]) and isinstance(obj["args"], list):
+                        return Call(ColumnName.parse(obj["to"]),
+                                    obj["fcn"],
+                                    [ColumnName.parse(x) for x in obj["args"]])
+                        
+                    else:
+                        raise FemtocodeError("Expected keys \"to\", \"fcn\", \"args\" with \"args\" being a list for function {0} at JSON{1}\n\n    found {2}".format(obj["fcn"], path, json.dumps(keys)))
+
+            else:
+                raise FemtocodeError("Expected list or object at JSON{0}\n\n    found {1}".format(path, json.dumps(obj)))
+
+        return build(obj, "")
 
 class Statements(Statement, list):
     def __init__(self, *stmts):
@@ -41,6 +100,9 @@ class Statements(Statement, list):
 
     def toJson(self):
         return [x.toJson() for x in self.stmts]
+
+    def __eq__(self, other):
+        return other.__class__ == Statements and self.stmts == other.stmts
 
     def __len__(self):
         return len(self.stmts)
@@ -137,7 +199,8 @@ class Ref(Statement):
         return "statementlist.Ref({0}, {1}, {2}, {3})".format(self.name, self.schema, self.data, self.size)
 
     def toJson(self):
-        return {"schema": self.schema.toJson(),
+        return {"name": str(self.name),
+                "schema": self.schema.toJson(),
                 "data": str(self.data),
                 "size": None if self.size is None else str(self.size)}
 
