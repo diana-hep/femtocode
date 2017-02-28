@@ -23,28 +23,24 @@ from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-#### temporarily load numba for testing
+# statements = statementlist.Statement.fromJson([
+#     {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real"},
+#     {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real"}
+#     ])
+# result = statementlist.Statement.fromJson({"name": "#1", "schema": "real", "data": "#1", "size": None})
 
-import numba
-
-statements = statementlist.Statement.fromJson([
-    {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real"},
-    {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real"}
-    ])
-result = statementlist.Statement.fromJson({"name": "#1", "schema": "real", "data": "#1", "size": None})
-
-statements = statementlist.Statement.fromJson([
-    {"to": "#0", "fcn": "+", "args": ["a", "b"], "schema": "real"},
-    {"to": "#1", "fcn": "+", "args": ["c", "d"], "schema": "real"},
-    {"to": "#2", "fcn": "+", "args": ["e", "f"], "schema": "real"},
-    {"to": "#3", "fcn": "-", "args": ["#0", "#1"], "schema": "real"},
-    {"to": "#4", "fcn": "+", "args": ["#1", "#2"], "schema": "real"},
-    {"to": "#5", "fcn": "+", "args": ["#3", "#2"], "schema": "real"},
-    {"to": "#6", "fcn": "-", "args": ["#1", "#3"], "schema": "real"},
-    {"to": "#7", "fcn": "-", "args": ["#5", "#6"], "schema": "real"},
-    {"to": "#8", "fcn": "+", "args": ["#7", "#5"], "schema": "real"},
-    {"to": "#9", "fcn": "+", "args": ["#8", "#4"], "schema": "real"},
-    ])
+# statements = statementlist.Statement.fromJson([
+#     {"to": "#0", "fcn": "+", "args": ["a", "b"], "schema": "real"},
+#     {"to": "#1", "fcn": "+", "args": ["c", "d"], "schema": "real"},
+#     {"to": "#2", "fcn": "+", "args": ["e", "f"], "schema": "real"},
+#     {"to": "#3", "fcn": "-", "args": ["#0", "#1"], "schema": "real"},
+#     {"to": "#4", "fcn": "+", "args": ["#1", "#2"], "schema": "real"},
+#     {"to": "#5", "fcn": "+", "args": ["#3", "#2"], "schema": "real"},
+#     {"to": "#6", "fcn": "-", "args": ["#1", "#3"], "schema": "real"},
+#     {"to": "#7", "fcn": "-", "args": ["#5", "#6"], "schema": "real"},
+#     {"to": "#8", "fcn": "+", "args": ["#7", "#5"], "schema": "real"},
+#     {"to": "#9", "fcn": "+", "args": ["#8", "#4"], "schema": "real"},
+#     ])
 
 class Kernel(object):
     def __init__(self, statements):
@@ -59,20 +55,20 @@ class Kernel(object):
         return "\n".join(["Kernel {0}({1})".format(self.name, ", ".join(map(str, self.inputs)))] + ["    " + str(x) for x in self.statements])
 
 class DependencyGraph(object):
-    def __init__(self, column, statements, inputs, lookup=None):
-        if not isinstance(column, ColumnName):
-            column = ColumnName.parse(column)
-        self.column = column
+    def __init__(self, goal, statements, inputs, lookup=None):
+        if not isinstance(goal, ColumnName):
+            goal = ColumnName.parse(goal)
+        self.goal = goal
         self.inputs = [x if isinstance(x, ColumnName) else ColumnName.parse(x) for x in inputs]
         if lookup is None:
             lookup = {}
         self.lookup = lookup
 
-        m = filter(lambda x: x.column == column, statements)
+        m = filter(lambda x: x.column == goal, statements)
         assert len(m) == 1, "each new column must be defined exactly once"
 
         self.statement = m[0]
-        self.lookup[self.column] = self
+        self.lookup[self.goal] = self
 
         self.dependencies = []
         for c in self.statement.args:
@@ -82,7 +78,7 @@ class DependencyGraph(object):
                 self.dependencies.append(DependencyGraph(c, statements, inputs, self.lookup))
 
     def __repr__(self):
-        return "<DependencyGraph {0} at {1:012x}>".format(self.column, id(self))
+        return "<DependencyGraph {0} at {1:012x}>".format(self.goal, id(self))
 
     def pretty(self, indent=""):
         return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
@@ -92,9 +88,9 @@ class DependencyGraph(object):
             memo = set()
 
         out = []
-        memo.add(self.column)
+        memo.add(self.goal)
         for node in self.dependencies:
-            if node.column not in memo and not divider(self, node):
+            if node.goal not in memo and not divider(self, node):
                 out.extend(node.linearize(divider, memo))
 
         out.append(self.statement)
@@ -111,18 +107,18 @@ class DependencyGraph(object):
                 out.extend(self.lookup[column].kernels(divider, memo))
         return out
 
-d = DependencyGraph("#9", statements, ["a", "b", "c", "d", "e", "f"])
-print d.pretty()
+# d = 
+# print d.pretty()
 
-print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-"))
+# print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-"))
 
-print "\n".join(map(str, d.kernels(lambda start, end: False)))
+# print "\n".join(map(str, d.kernels(lambda start, end: False)))
 
-print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-")))
+# print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-")))
 
-print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-")))
+# print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-")))
 
-print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-")))
+# print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-")))
 
 def fakeLineNumbers(node):
     if isinstance(node, ast.AST):
@@ -179,3 +175,25 @@ def kernelToFunction(kernel):
     out = makeFunction(str(kernel.name), [init, loop], [valid(x) for x in kernel.inputs] + ["out", "i0max"])
     out.kernel = kernel
     return out
+
+class ExecutionPlan(object):
+    def __init__(self, dataset, dependencyGraph, divider):
+        self.dataset = dataset
+        self.dependencyGraph = dependencyGraph
+
+        self.kernels = dependencyGraph.kernels(divider)
+        self.functions = map(kernelToFunction, self.kernels)
+        self.functionLookup = dict((x.kernel.name, x) for x in self.functions)
+
+        self.tmp = []
+        self.order = []
+        done = set()
+        def fill(function):
+            for param in function.kernel.inputs:
+                if param not in self.dependencyGraph.inputs and param not in done:
+                    fill(self.functionLookup[param])
+            self.order.append(function)
+            self.tmp.append(function.kernel.name)
+            done.add(function.kernel.name)
+
+        fill(self.functionLookup[self.dependencyGraph.goal])
