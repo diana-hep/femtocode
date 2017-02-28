@@ -277,7 +277,7 @@ class Explode(Call):
 class ExplodeSize(Call):
     def __init__(self, column, levels):
         self.column = column
-        self.levels = levels
+        self.levels = tuple(levels)
 
     @property
     def fcnname(self):
@@ -301,7 +301,7 @@ class ExplodeData(Call):
         self.column = column
         self.data = data
         self.size = size
-        self.levels = levels
+        self.levels = tuple(levels)
 
     @property
     def fcnname(self):
