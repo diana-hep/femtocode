@@ -27,39 +27,11 @@ from femtocode.typesystem import *
 
 import numba
 
-def fakeLineNumbers(node):
-    if isinstance(node, ast.AST):
-        node.lineno = 1
-        node.col_offset = 0
-        for field in node._fields:
-            fakeLineNumbers(getattr(node, field))
-
-    elif isinstance(node, (list, tuple)):
-        for x in node:
-            fakeLineNumbers(x)
-
-def makeFunction(name, statements, params):
-    if sys.version_info[0] <= 2:
-        args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
-        fcn = ast.FunctionDef(name, args, statements, [])
-    else:
-        args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
-        fcn = ast.FunctionDef(name, args, statements, [], None)
-
-    moduleast = ast.Module([fcn])
-    fakeLineNumbers(moduleast)
-
-    modulecomp = compile(moduleast, "Femtocode", "exec")
-    out = {}
-    exec(modulecomp, out)
-    return out[name]
-
 statements = statementlist.Statement.fromJson([
     {"to": "#0", "fcn": "+", "args": ["x", "y"]},
     {"to": "#1", "fcn": "-", "args": ["#0", "z"]}
     ])
 result = statementlist.Statement.fromJson({"name": "#1", "schema": "real", "data": "#1", "size": None})
-
 
 statements = statementlist.Statement.fromJson([
     {"to": "#0", "fcn": "+", "args": ["a", "b"]},
@@ -115,27 +87,72 @@ class DependencyGraph(object):
     def pretty(self, indent=""):
         return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
 
-    def linearize(self, stopat, memo):
+    def linearize(self, divider, memo=None):
+        if memo is None:
+            memo = set()
+
         out = []
         memo.add(self.column)
         for node in self.dependencies:
-            if node.column not in memo and not stopat(node):
-                out.extend(node.linearize(stopat, memo))
+            if node.column not in memo and not divider(self, node):
+                out.extend(node.linearize(divider, memo))
 
         out.append(self.statement)
         return out
 
-    def kernels(self, stopat, memo):
-        out = [Kernel(self.linearize(stopat, set()))]
+    def kernels(self, divider, memo=None):
+        if memo is None:
+            memo = set()
+
+        out = [Kernel(self.linearize(divider, set()))]
         memo.add(out[0].name)
         for column in out[0].inputs:
             if column not in self.inputs and column not in memo:
-                out.extend(self.lookup[column].kernels(stopat, memo))
+                out.extend(self.lookup[column].kernels(divider, memo))
         return out
 
 d = DependencyGraph("#9", statements, ["a", "b", "c", "d", "e", "f"])
 print d.pretty()
 
-print Kernel(d.linearize(lambda node: node.statement.fcnname == "-", set()))
+print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-", ))
 
-print "\n".join(map(str, d.kernels(lambda node: node.statement.fcnname == "-", set())))
+print "\n".join(map(str, d.kernels(lambda start, end: False, )))
+
+print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-", )))
+
+print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-", )))
+
+print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-", )))
+
+ks = d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-", )
+
+def fakeLineNumbers(node):
+    if isinstance(node, ast.AST):
+        node.lineno = 1
+        node.col_offset = 0
+        for field in node._fields:
+            fakeLineNumbers(getattr(node, field))
+
+    elif isinstance(node, (list, tuple)):
+        for x in node:
+            fakeLineNumbers(x)
+
+def makeFunction(name, statements, params):
+    if sys.version_info[0] <= 2:
+        args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
+        fcn = ast.FunctionDef(name, args, statements, [])
+    else:
+        args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
+        fcn = ast.FunctionDef(name, args, statements, [], None)
+
+    moduleast = ast.Module([fcn])
+    fakeLineNumbers(moduleast)
+
+    modulecomp = compile(moduleast, "Femtocode", "exec")
+    out = {}
+    exec(modulecomp, out)
+    return out[name]
+
+def kernelToFunction(kernel):
+    
+
