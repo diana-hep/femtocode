@@ -52,30 +52,30 @@ class Statement(object):
 
                 elif "fcn" in keys:
                     if obj["fcn"] == "$explode":
-                        if keys == set(["to", "fcn", "data", "size", "schema"]):
+                        if keys == set(["to", "fcn", "data", "tosize", "schema"]):
                             return Explode(ColumnName.parse(obj["to"]),
                                            Schema.fromJson(obj["schema"]),
                                            ColumnName.parse(obj["data"]),
-                                           ColumnName.parse(obj["size"]))   # not nullable
+                                           ColumnName.parse(obj["tosize"]))   # not nullable
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"size\", \"schema\" for function $explode at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"tosize\", \"schema\" for function $explode at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif obj["fcn"] == "$explodesize":
-                        if keys == set(["to", "fcn", "levels"]) and isinstance(obj["levels"], list):
+                        if keys == set(["to", "fcn", "tosize"]) and isinstance(obj["tosize"], list):
                             return ExplodeSize(ColumnName.parse(obj["to"]),
-                                               [ColumnName.parse(x) for x in obj["levels"]])
+                                               [ColumnName.parse(x) for x in obj["tosize"]])
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"levels\" with \"levels\" being a list for function $explodesize at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"tosize\" with \"tosize\" being a list for function $explodesize at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif obj["fcn"] == "$explodedata":
-                        if keys == set(["to", "fcn", "data", "size", "levels", "schema"]) and isinstance(obj["levels"], list):
+                        if keys == set(["to", "fcn", "data", "fromsize", "tosize", "schema"]) and isinstance(obj["tosize"], list):
                             return ExplodeData(ColumnName.parse(obj["to"]),
                                                Schema.fromJson(obj["schema"]),
                                                ColumnName.parse(obj["data"]),
-                                               ColumnName.parse(obj["size"]),
-                                               [ColumnName.parse(x) for x in obj["levels"]])
+                                               ColumnName.parse(obj["fromsize"]),
+                                               [ColumnName.parse(x) for x in obj["tosize"]])
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"size\", \"levels\", \"schema\" with \"levels\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(keys)))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(keys)))
 
                     elif keys == set(["to", "fcn", "args", "schema", "size"]) and isinstance(obj["args"], list):
                         return Call(ColumnName.parse(obj["to"]),
@@ -258,11 +258,11 @@ class Call(Statement):
         return hash((Call, self.column, self.schema, self.size, self.fcnname, self.args))
 
 class Explode(Call):
-    def __init__(self, column, schema, data, size):
+    def __init__(self, column, schema, data, tosize):
         self.column = column
         self.schema = schema
         self.data = data
-        self.size = size
+        self.tosize = tosize
 
     @property
     def fcnname(self):
@@ -270,27 +270,27 @@ class Explode(Call):
 
     @property
     def args(self):
-        return (self.data, self.size)
+        return (self.data, self.tosize)
 
     def __repr__(self):
-        return "statementlist.Explode({0}, {1}, {2}, {3})".format(self.column, self.schema, self.data, self.size)
+        return "statementlist.Explode({0}, {1}, {2}, {3})".format(self.column, self.schema, self.data, self.tosize)
 
     def __str__(self):
-        return "{0} := {1}({2}, {3}) as {4}".format(str(self.column), self.fcnname, str(self.data), str(self.size), self.schema)
+        return "{0} := {1}({2}, {3}) as {4}".format(str(self.column), self.fcnname, str(self.data), str(self.tosize), self.schema)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "schema": self.schema.toJson()}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "tosize": str(self.tosize), "schema": self.schema.toJson()}
 
     def __eq__(self, other):
-        return other.__class__ == Explode and self.column == other.column and self.schema == other.schema and self.data == other.data and self.size == other.size
+        return other.__class__ == Explode and self.column == other.column and self.schema == other.schema and self.data == other.data and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((Explode, self.column, self.schema, self.data, self.size))
+        return hash((Explode, self.column, self.schema, self.data, self.tosize))
 
 class ExplodeSize(Call):
-    def __init__(self, column, levels):
+    def __init__(self, column, tosize):
         self.column = column
-        self.levels = tuple(levels)
+        self.tosize = tuple(tosize)
 
     @property
     def fcnname(self):
@@ -298,30 +298,30 @@ class ExplodeSize(Call):
 
     @property
     def args(self):
-        return (self.levels,)
+        return (self.tosize,)
 
     def __repr__(self):
-        return "statementlist.ExplodeSize({0}, {1})".format(self.column, self.levels)
+        return "statementlist.ExplodeSize({0}, {1})".format(self.column, self.tosize)
 
     def __str__(self):
-        return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.levels)))
+        return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.tosize)))
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "levels": [str(x) for x in self.levels]}
+        return {"to": str(self.column), "fcn": self.fcnname, "tosize": [str(x) for x in self.tosize]}
 
     def __eq__(self, other):
-        return other.__class__ == ExplodeSize and self.column == other.column and self.levels == other.levels
+        return other.__class__ == ExplodeSize and self.column == other.column and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((ExplodeSize, self.column, self.levels))
+        return hash((ExplodeSize, self.column, self.tosize))
 
 class ExplodeData(Call):
-    def __init__(self, column, schema, data, size, levels):
+    def __init__(self, column, schema, data, fromsize, tosize):
         self.column = column
         self.schema = schema
         self.data = data
-        self.size = size
-        self.levels = tuple(levels)
+        self.fromsize = fromsize
+        self.tosize = tuple(tosize)
 
     @property
     def fcnname(self):
@@ -329,22 +329,22 @@ class ExplodeData(Call):
 
     @property
     def args(self):
-        return (self.data, self.size) + self.levels
+        return (self.data, self.fromsize) + self.tosize
 
     def __repr__(self):
-        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.size, self.levels)
+        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.fromsize, self.tosize)
 
     def __str__(self):
-        return "{0} := {1}({2}, {3}, [{4}]) as {5}".format(str(self.column), self.fcnname, str(self.data), str(self.size), ", ".join(map(str, self.levels)), self.schema)
+        return "{0} := {1}({2}, {3}, [{4}]) as {5}".format(str(self.column), self.fcnname, str(self.data), str(self.fromsize), ", ".join(map(str, self.tosize)), self.schema)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels], "schema": self.schema.toJson()}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "fromsize": str(self.fromsize), "tosize": [str(x) for x in self.tosize], "schema": self.schema.toJson()}
 
     def __eq__(self, other):
-        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.size == other.size and self.levels == other.levels
+        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((ExplodeData, self.column, self.schema, self.data, self.size, self.levels))
+        return hash((ExplodeData, self.column, self.schema, self.data, self.fromsize, self.tosize))
 
 def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
