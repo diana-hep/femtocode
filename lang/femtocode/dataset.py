@@ -177,27 +177,29 @@ class ColumnName(object):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 
 class Segment(Metadata):
-    def __init__(self, numEntries, dataLength):
+    def __init__(self, numEntries, dataLength, sizeLength):
         self.numEntries = numEntries
         self.dataLength = dataLength
+        self.sizeLength = sizeLength
 
     def __repr__(self):
-        return "<{0} numEntries={1} dataLength={2} at 0x{3:012x}>".format(self.__class__.__name__, self.numEntries, self.dataLength, id(self))
+        return "<{0} numEntries={1} dataLength={2} sizeLength={3} at 0x{4:012x}>".format(self.__class__.__name__, self.numEntries, self.dataLength, self.sizeLength, id(self))
 
     def toJson(self):
-        return {"numEntries": self.numEntries, "dataLength": self.dataLength}
+        return {"numEntries": self.numEntries, "dataLength": self.dataLength, "sizeLength": self.sizeLength}
 
     @staticmethod
     def fromJson(segment):
         return Segment(
             segment["numEntries"],
-            segment["dataLength"])
+            segment["dataLength"],
+            segment["sizeLength"])
 
     def __eq__(self, other):
-        return other.__class__ == Segment and self.numEntries == other.numEntries and self.dataLength == other.dataLength
+        return other.__class__ == Segment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength
 
     def __hash__(self):
-        return hash((Segment, self.numEntries, self.dataLength))
+        return hash((Segment, self.numEntries, self.dataLength, self.sizeLength))
 
 class Group(Metadata):
     def __init__(self, id, segments, numEntries):

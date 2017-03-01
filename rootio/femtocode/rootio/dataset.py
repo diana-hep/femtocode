@@ -29,8 +29,8 @@ from femtocode.rootio.xrootd import filesFromPath
 from femtocode.typesystem import Schema
 
 class ROOTSegment(Segment):
-    def __init__(self, numEntries, dataLength, files):
-        super(ROOTSegment, self).__init__(numEntries, dataLength)
+    def __init__(self, numEntries, dataLength, sizeLength, files):
+        super(ROOTSegment, self).__init__(numEntries, dataLength, sizeLength)
         self.files = files
 
     def toJson(self):
@@ -43,13 +43,14 @@ class ROOTSegment(Segment):
         return ROOTSegment(
             segment["numEntries"],
             segment["dataLength"],
+            segment["sizeLength"],
             segment["files"])
 
     def __eq__(self, other):
-        return other.__class__ == ROOTSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.files == other.files
+        return other.__class__ == ROOTSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.files == other.files
 
     def __hash__(self):
-        return hash((ROOTSegment, self.numEntries, self.dataLength, None if self.files is None else tuple(self.files)))
+        return hash((ROOTSegment, self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
 
 class ROOTGroup(Group):
     def __init__(self, id, segments, numEntries, files):
@@ -263,6 +264,7 @@ class ROOTDataset(Dataset):
                             segments.append(ROOTSegment(
                                 numEntries,
                                 dataLength,
+                                numEntries,    # sizeLength is always numEntries from a ROOT file
                                 [file]))
                         else:
                             segments[-1].numEntries += numEntries

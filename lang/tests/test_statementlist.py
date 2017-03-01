@@ -19,24 +19,16 @@ import re
 import sys
 import unittest
 
-import femtocode.asts.lispytree as lispytree
-import femtocode.asts.typedtree as typedtree
-import femtocode.asts.statementlist as statementlist
+from femtocode.dataset import *
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
-from femtocode.dataset import *
 from femtocode.typesystem import *
-
-import numpy
-
-import sys
+import femtocode.asts.lispytree as lispytree
+import femtocode.asts.statementlist as statementlist
+import femtocode.asts.typedtree as typedtree
 
 # dataset = MetadataFromJson(Dataset, "/home/pivarski/diana/femtocode/tests").dataset("MuOnia")
-
-if sys.version_info.major >= 3:
-    long = int
-    basestring = str
 
 class TestStatementlist(unittest.TestCase):
     def runTest(self):
@@ -49,7 +41,7 @@ class TestStatementlist(unittest.TestCase):
                 columns[columnName] = Column(
                     columnName,
                     columnName.size() if hasSize else None,
-                    numpy.dtype(numpy.int64) if x.whole else numpy.dtype(numpy.float64))
+                    "int64" if x.whole else "float64")
 
             elif isinstance(x, Collection):
                 build(x.items, columnName.array(), True)
@@ -195,3 +187,6 @@ class TestStatementlist(unittest.TestCase):
             {"to": "#1", "fcn": "+", "args": ["xs[]-b-c[]", "#0"], "schema": "real", "size": "xs[]-b-c[]@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}, "data": "#1", "size": "xs[]-b-c[]@size"})
+
+    def test_execute(self):
+        

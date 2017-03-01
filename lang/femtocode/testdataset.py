@@ -23,8 +23,8 @@ from femtocode.typesystem import *
 from femtocode.dataset import *
 
 class TestSegment(Segment):
-    def __init__(self, numEntries, dataLength, data, size):
-        super(TestSegment, self).__init__(numEntries, dataLength)
+    def __init__(self, numEntries, dataLength, sizeLength, data, size):
+        super(TestSegment, self).__init__(numEntries, dataLength, sizeLength)
         self.data = data
         self.size = size
 
@@ -39,14 +39,15 @@ class TestSegment(Segment):
         return TestSegment(
             segment["numEntries"],
             segment["dataLength"],
+            segment["sizeLength"],
             segment["data"],
             segment["size"])
 
     def __eq__(self, other):
-        return other.__class__ == TestSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.data == other.data
+        return other.__class__ == TestSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.data == other.data
 
     def __hash__(self):
-        return hash((TestSegment, self.numEntries, self.dataLength, tuple(self.data)))
+        return hash((TestSegment, self.numEntries, self.dataLength, self.sizeLength, tuple(self.data)))
 
 class TestGroup(Group):
     def __init__(self, id, segments, numEntries):
@@ -171,8 +172,12 @@ class TestDataset(Dataset):
             c.size = out.sizeColumn(n)    # point all equivalent size columns to the first, alphabetically
         return out
 
+    def clear(self):
+        self.groups = []
+        self.numEntries = 0
+
     def newGroup(self):
-        self.groups.append(TestGroup(len(self.groups), dict((n, TestSegment(0, 0, [], [] if c.size == n.size() else None)) for n, c in self.columns.items()), 0))
+        self.groups.append(TestGroup(len(self.groups), dict((n, TestSegment(0, 0, 0, [], [] if c.size == n.size() else None)) for n, c in self.columns.items()), 0))
 
     def _fill(self, group, datum, name, schema):
         if datum not in schema:
@@ -183,7 +188,15 @@ class TestDataset(Dataset):
 
         elif isinstance(schema, (Boolean, Number)):
             segment = group.segments[name]
-            segment.data.append(datum)
+
+            if isinstance(schema, Boolean):
+                d = True if datum else False
+            elif schema.whole:
+                d = int(datum)
+            else:
+                d = float(datum)
+
+            segment.data.append(d)
             segment.dataLength += 1
 
         elif isinstance(schema, String):

@@ -23,30 +23,18 @@ from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-# statements = statementlist.Statement.fromJson([
-#     {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real"},
-#     {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real"}
-#     ])
-# result = statementlist.Statement.fromJson({"name": "#1", "schema": "real", "data": "#1", "size": None})
-
-# statements = statementlist.Statement.fromJson([
-#     {"to": "#0", "fcn": "+", "args": ["a", "b"], "schema": "real"},
-#     {"to": "#1", "fcn": "+", "args": ["c", "d"], "schema": "real"},
-#     {"to": "#2", "fcn": "+", "args": ["e", "f"], "schema": "real"},
-#     {"to": "#3", "fcn": "-", "args": ["#0", "#1"], "schema": "real"},
-#     {"to": "#4", "fcn": "+", "args": ["#1", "#2"], "schema": "real"},
-#     {"to": "#5", "fcn": "+", "args": ["#3", "#2"], "schema": "real"},
-#     {"to": "#6", "fcn": "-", "args": ["#1", "#3"], "schema": "real"},
-#     {"to": "#7", "fcn": "-", "args": ["#5", "#6"], "schema": "real"},
-#     {"to": "#8", "fcn": "+", "args": ["#7", "#5"], "schema": "real"},
-#     {"to": "#9", "fcn": "+", "args": ["#8", "#4"], "schema": "real"},
-#     ])
-
 class Kernel(object):
     def __init__(self, statements):
         self.name = statements[-1].column
         self.statements = statements
         self.inputs = sorted(set(sum([statement.args for statement in self.statements], ())).difference([statement.column for statement in self.statements]))
+
+        goalStatement = filter(lambda x: x.column == self.name, self.statements)[0]
+        if isinstance(goalStatement, Call):
+            self.sizeColumn = goalStatement.size
+            self.schema = goalStatement.schema
+        else:
+            raise NotImplementedError
 
     def __repr__(self):
         return "<Kernel {0}({1}) at {2:012x}>".format(self.name, ", ".join(map(str, self.inputs)), id(self))
@@ -107,19 +95,6 @@ class DependencyGraph(object):
                 out.extend(self.lookup[column].kernels(divider, memo))
         return out
 
-# d = 
-# print d.pretty()
-
-# print Kernel(d.linearize(lambda a, b: b.statement.fcnname == "-"))
-
-# print "\n".join(map(str, d.kernels(lambda start, end: False)))
-
-# print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-")))
-
-# print "\n".join(map(str, d.kernels(lambda start, end: end.statement.fcnname == "-")))
-
-# print "\n".join(map(str, d.kernels(lambda start, end: start.statement.fcnname == "-" or end.statement.fcnname == "-")))
-
 def fakeLineNumbers(node):
     if isinstance(node, ast.AST):
         node.lineno = 1
@@ -177,15 +152,15 @@ def kernelToFunction(kernel):
     return out
 
 class ExecutionPlan(object):
-    def __init__(self, dataset, dependencyGraph, divider):
-        self.dataset = dataset
+    def __init__(self, dependencyGraph, divider):
         self.dependencyGraph = dependencyGraph
 
         self.kernels = dependencyGraph.kernels(divider)
         self.functions = map(kernelToFunction, self.kernels)
         self.functionLookup = dict((x.kernel.name, x) for x in self.functions)
 
-        self.tmp = []
+        self.tmps = []
+        self.sizes = []
         self.order = []
         done = set()
         def fill(function):
@@ -193,7 +168,20 @@ class ExecutionPlan(object):
                 if param not in self.dependencyGraph.inputs and param not in done:
                     fill(self.functionLookup[param])
             self.order.append(function)
-            self.tmp.append(function.kernel.name)
+            self.tmps.append(function.kernel.name)
+            self.sizes.append(function.kernel.sizeColumn)
             done.add(function.kernel.name)
 
         fill(self.functionLookup[self.dependencyGraph.goal])
+
+    # def run(self, arrays, dataset):
+    #     tmparrays = {}
+    #     for tmp in self.tmps:
+    #         if tmp.issize():
+    #             tmparrays[tmp] = [None] * numEntries
+    #         else:
+    #             dataset.sizeColumn()
+
+
+    #             # tmparrays[tmp] = [None] * dataLengths[tmp]
+                

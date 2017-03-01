@@ -25,8 +25,8 @@ from femtocode.dataset import Column
 from femtocode.dataset import Dataset
 
 class NumpySegment(Segment):
-    def __init__(self, numEntries, dataLength, files):
-        super(NumpySegment, self).__init__(numEntries, dataLength)
+    def __init__(self, numEntries, dataLength, sizeLength, files):
+        super(NumpySegment, self).__init__(numEntries, dataLength, sizeLength)
         self.files = files
 
     def toJson(self):
@@ -39,13 +39,14 @@ class NumpySegment(Segment):
         return NumpySegment(
             segment["numEntries"],
             segment["dataLength"],
+            segment["sizeLength"],
             segment["files"])
 
     def __eq__(self, other):
-        return other.__class__ == NumpySegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.files == other.files
+        return other.__class__ == NumpySegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.files == other.files
 
     def __hash__(self):
-        return hash((NumpySegment, self.numEntries, self.dataLength, None if self.files is None else tuple(self.files)))
+        return hash((NumpySegment, self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
 
 class NumpyGroup(Group):
     def __init__(self, id, segments, numEntries, files):
