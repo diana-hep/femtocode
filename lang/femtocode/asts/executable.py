@@ -42,6 +42,8 @@ class Kernel(object):
     def __str__(self):
         return "\n".join(["Kernel {0}({1})".format(self.name, ", ".join(map(str, self.inputs)))] + ["    " + str(x) for x in self.statements])
 
+# FIXME: temporary size arrays have to be calculated outside of DependencyGraph, before all other arrays
+
 class DependencyGraph(object):
     def __init__(self, goal, statements, inputs, lookup=None):
         if not isinstance(goal, ColumnName):
@@ -174,14 +176,12 @@ class ExecutionPlan(object):
 
         fill(self.functionLookup[self.dependencyGraph.goal])
 
-    # def run(self, arrays, dataset):
-    #     tmparrays = {}
-    #     for tmp in self.tmps:
-    #         if tmp.issize():
-    #             tmparrays[tmp] = [None] * numEntries
-    #         else:
-    #             dataset.sizeColumn()
+    def run(self, arrays, group):   # input arrays includes temporary size arrays
+        tmparrays = {}
+        for tmp, size in zip(self.tmps, self.sizes):
+            assert not tmp.issize()   # REMEMBER!
+            tmparrays[tmp] = [None] * group.segments[tmp].dataLength
 
-
-    #             # tmparrays[tmp] = [None] * dataLengths[tmp]
-                
+        
+        
+        # HERE
