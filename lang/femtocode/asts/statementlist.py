@@ -77,9 +77,10 @@ class Statement(object):
                         else:
                             raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"size\", \"levels\", \"schema\" with \"levels\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(keys)))
 
-                    elif keys == set(["to", "fcn", "args", "schema"]) and isinstance(obj["args"], list):
+                    elif keys == set(["to", "fcn", "args", "schema", "size"]) and isinstance(obj["args"], list):
                         return Call(ColumnName.parse(obj["to"]),
                                     Schema.fromJson(obj["schema"]),
+                                    None if obj["size"] is None else ColumnName.parse(obj["size"]),
                                     obj["fcn"],
                                     [ColumnName.parse(x) for x in obj["args"]])
                         
@@ -208,7 +209,7 @@ class Ref(Statement):
                 "size": None if self.size is None else str(self.size)}
 
     def __eq__(self, other):
-        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
+        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
 
     def __hash__(self):
         return hash((Ref, self.name, self.schema, self.data, self.size))
@@ -228,32 +229,33 @@ class Literal(Statement):
         return {"value": self.value, "schema": self.schema.toJson()}
 
     def __eq__(self, other):
-        return isinstance(other, Literal) and self.value == other.value and self.schema == other.schema
+        return other.__class__ == Literal and self.value == other.value and self.schema == other.schema
 
     def __hash__(self):
         return hash((Literal, self.value, self.schema))
 
 class Call(Statement):
-    def __init__(self, column, schema, fcnname, args):
+    def __init__(self, column, schema, size, fcnname, args):
         self.column = column
         self.schema = schema
+        self.size = size
         self.fcnname = fcnname
         self.args = tuple(args)
 
     def __repr__(self):
-        return "statementlist.Call({0}, {1}, {2}, {3})".format(self.column, self.schema, self.fcnname, self.args)
+        return "statementlist.Call({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.size, self.fcnname, self.args)
 
     def __str__(self):
-        return "{0} := {1}({2}) as {3}".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)), self.schema)
+        return "{0} := {1}({2}) as {3} sized by {4}".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)), self.schema, self.size)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args], "schema": self.schema.toJson()}
+        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args], "schema": self.schema.toJson(), "size": None if self.size is None else str(self.size)}
 
     def __eq__(self, other):
-        return isinstance(other, Call) and self.column == other.column and self.fcnname == other.fcnname and self.args == other.args
+        return other.__class__ == Call and self.column == other.column and self.schema == other.schema and self.size == other.size and self.fcnname == other.fcnname and self.args == other.args
 
     def __hash__(self):
-        return hash((Call, self.column, self.fcnname, self.args))
+        return hash((Call, self.column, self.schema, self.size, self.fcnname, self.args))
 
 class Explode(Call):
     def __init__(self, column, schema, data, size):
@@ -279,6 +281,12 @@ class Explode(Call):
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "schema": self.schema.toJson()}
 
+    def __eq__(self, other):
+        return other.__class__ == Explode and self.column == other.column and self.schema == other.schema and self.data == other.data and self.size == other.size
+
+    def __hash__(self):
+        return hash((Explode, self.column, self.schema, self.data, self.size))
+
 class ExplodeSize(Call):
     def __init__(self, column, levels):
         self.column = column
@@ -300,6 +308,12 @@ class ExplodeSize(Call):
 
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "levels": [str(x) for x in self.levels]}
+
+    def __eq__(self, other):
+        return other.__class__ == ExplodeSize and self.column == other.column and self.levels == other.levels
+
+    def __hash__(self):
+        return hash((ExplodeSize, self.column, self.levels))
 
 class ExplodeData(Call):
     def __init__(self, column, schema, data, size, levels):
@@ -325,6 +339,12 @@ class ExplodeData(Call):
 
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "size": str(self.size), "levels": [str(x) for x in self.levels], "schema": self.schema.toJson()}
+
+    def __eq__(self, other):
+        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.size == other.size and self.levels == other.levels
+
+    def __hash__(self):
+        return hash((ExplodeData, self.column, self.schema, self.data, self.size, self.levels))
 
 def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
@@ -428,6 +448,6 @@ class FlatFunction(object):
 
         refnumber += 1
         replacements[(typedtree.TypedTree, call)] = ref
-        statements.append(Call(columnName, ref.schema, self.name, args))
+        statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
 
         return ref, statements, refnumber
