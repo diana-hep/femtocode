@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
 from collections import namedtuple
 
 from femtocode.defs import *
@@ -312,6 +313,27 @@ class TestDataset(Dataset):
 
     def __iter__(self):
         return TestDataset.TestDatasetIterator(self)
+
+class TestFetcher(object):
+    def __init__(self, occupants, workItem):
+        self.occupants = occupants
+        self.workItem = workItem
+
+    def start(self):   # the other Fetchers are asynchronous threading.Threads; this one isn't
+        dataset = self.workitem.work.dataset
+        segments = self.workItem.group.segments
+
+        for occupant in self.occupants:
+            name = occupant.address.column
+            if name.issize():
+                array = segment[dataset.sizeColumn(name.dropsize()).dropsize()].size
+            else:
+                array = segment[name].data
+
+            occupant.rawarray[:] = array   # Fetchers have to force their data into preallocated Numpy arrays (it's a femtocode-run thing)
+
+
+
 
 # import random
 # import math
