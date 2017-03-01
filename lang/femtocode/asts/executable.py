@@ -30,7 +30,7 @@ class Kernel(object):
         self.inputs = sorted(set(sum([statement.args for statement in self.statements], ())).difference([statement.column for statement in self.statements]))
 
         goalStatement = filter(lambda x: x.column == self.name, self.statements)[0]
-        if isinstance(goalStatement, Call):
+        if isinstance(goalStatement, statementlist.Call):
             self.sizeColumn = goalStatement.size
             self.schema = goalStatement.schema
         else:

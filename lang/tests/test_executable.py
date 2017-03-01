@@ -49,5 +49,5 @@ class TestExecutable(unittest.TestCase):
 
         print
         print plan.order
-        print plan.tmp
+        print plan.tmps
         print dataset.groups[0]
