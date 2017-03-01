@@ -18,8 +18,9 @@ import json
 import os
 import re
 
-from femtocode.typesystem import *
+from femtocode.defs import *
 from femtocode.py23 import *
+from femtocode.typesystem import *
 
 class Metadata(object):
     def toJsonString(self):
@@ -42,16 +43,16 @@ sizeType = "uint64"
 
 class ColumnName(object):
     recordsep = "-"
-    arraytag = "[]"
+    colltag = "[]"
     sizetag = "@size"
 
-    class Array(object):
+    class Coll(object):
         def __repr__(self):
-            return "ColumnName.Array()"
+            return "ColumnName.Coll()"
         def __eq__(self, other):
-            return other.__class__ == ColumnName.Array
+            return other.__class__ == ColumnName.Coll
         def __hash__(self):
-            return hash((ColumnName.Array,))
+            return hash((ColumnName.Coll,))
         def __lt__(self, other):
             if isinstance(other, string_types):
                 return other
@@ -60,7 +61,7 @@ class ColumnName(object):
             else:
                 return False
 
-    _array = Array()
+    _coll = Coll()
 
     class Size(object):
         def __repr__(self):
@@ -72,7 +73,7 @@ class ColumnName(object):
         def __lt__(self, other):
             if isinstance(other, string_types):
                 return other
-            elif isinstance(other, ColumnName.Array):
+            elif isinstance(other, ColumnName.Coll):
                 return self
             else:
                 return False
@@ -88,9 +89,9 @@ class ColumnName(object):
                 path.append(m.group(1))
                 string = string[len(m.group(1)):]
 
-            elif string.startswith(ColumnName.arraytag):
-                path.append(ColumnName._array)
-                string = string[len(ColumnName.arraytag):]
+            elif string.startswith(ColumnName.colltag):
+                path.append(ColumnName._coll)
+                string = string[len(ColumnName.colltag):]
 
             elif string.startswith(ColumnName.sizetag):
                 path.append(ColumnName._size)
@@ -119,8 +120,8 @@ class ColumnName(object):
         for x in self.path[1:]:
             if isinstance(x, string_types):
                 out.append(self.recordsep + x)
-            elif x == self._array:
-                out.append(self.arraytag)
+            elif x == self._coll:
+                out.append(self.colltag)
             elif x == self._size:
                 out.append(self.sizetag)
             else:
@@ -148,22 +149,22 @@ class ColumnName(object):
     def rec(self, field):
         return ColumnName(*(self.path + (field,)))
 
-    def array(self):
-        return ColumnName(*(self.path + (self._array,)))
+    def coll(self):
+        return ColumnName(*(self.path + (self._coll,)))
 
     def size(self):
         return ColumnName(*(self.path + (self._size,)))
 
-    def arraylevel(self):
+    def level(self):
         index = len(self.path)
         while index >= 0:
             index -= 1
-            if self.path[index] == ColumnName._array:
+            if self.path[index] == ColumnName._coll:
                 return ColumnName(*self.path[:index])
         return None
 
     def samelevel(self, other):
-        return self.arraylevel() is not None and self.arraylevel() == other.arraylevel()
+        return self.level() is not None and self.level() == other.level()
 
     def issize(self):
         return self.path[-1] == self._size
@@ -172,11 +173,8 @@ class ColumnName(object):
         assert self.issize()
         return ColumnName(*self.path[:-1])
 
-    def strictlyContains(self, other):
-        return len(other.path) != len(self.path) and self.contains(other)
-
-    def contains(self, other):
-        return len(other.path) <= len(self.path) and self.path[:len(other.path)] == other.path
+    def startswith(self, prefix):
+        return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength):
@@ -294,7 +292,7 @@ class Dataset(Metadata):
                 assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
                 schema = schema.fields[item]
 
-            elif isinstance(item, ColumnName.Array):
+            elif isinstance(item, ColumnName.Coll):
                 assert isinstance(schema, Collection), "column {0} not a Collection at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
                 schema = schema.items
 
@@ -325,7 +323,7 @@ class Dataset(Metadata):
                     dataColumnPath.append(item)
                 schema = schema.fields[item]
 
-            elif isinstance(item, ColumnName.Array):
+            elif isinstance(item, ColumnName.Coll):
                 assert isinstance(schema, Collection), "column {0} not a Collection at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
                 dataColumnPath.append(item)
                 schema = schema.items
@@ -337,132 +335,3 @@ class Dataset(Metadata):
             return self.columns[ColumnName(*dataColumnPath)].size
         else:
             return None
-
-
-
-
-# FIXME: need a new schemaToDataset
-
-# def schemaToColumns(name, schema, hasSize=False):
-#     if isinstance(name, string_types):
-#         name = ColumnName(name)
-
-#     if isinstance(schema, Null):
-#         if hasSize:
-#             sizeName = name.size()
-#             return {sizeName: SizeColumn(sizeName)}
-#         else:
-#             return {}
-
-#     elif isinstance(schema, (Boolean, Number)):
-#         if hasSize:
-#             sizeName = name.size()
-#             return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
-#         else:
-#             return {name: DataColumn(name, schema)}
-
-#     elif isinstance(schema, String):
-#         if not hasSize and schema.charset == "bytes" and schema.fewest == schema.most:
-#             return {name: DataColumn(name, schema)}
-#         else:
-#             sizeName = name.size()
-#             return {name: DataColumn(name, schema), sizeName: SizeColumn(sizeName)}
-
-#     elif isinstance(schema, Collection):
-#         if schema.fewest != schema.most:
-#             hasSize = True
-#         return schemaToColumns(name, schema.items, hasSize)
-
-#     elif isinstance(schema, Record):
-#         out = {}
-#         for n, t in schema.fields.items():
-#             out.update(schemaToColumns(name.rec(n), t, hasSize))
-
-#         collectiveSize = SizeColumn(name.size())
-
-#         def thislevel(name, schema):
-#             for n, t in schema.fields.items():
-#                 if (isinstance(t, (Null, Boolean, Number)) or (isinstance(t, Union) and all(isinstance(p, Number) for p in t.possibilities))) and \
-#                        name.rec(n).size() in out:
-#                     out[name.rec(n).size()] = collectiveSize
-
-#                 elif isinstance(t, Record):
-#                     thislevel(name.rec(n), t)
-
-#         thislevel(name, schema)
-
-#         return out
-
-#     elif isinstance(schema, Union):
-#         def compatible(x, y):
-#             if isinstance(x, Null) and isinstance(y, Null):
-#                 return True
-#             elif isinstance(x, Boolean) and isinstance(y, Boolean):
-#                 return True
-#             elif isinstance(x, Number) and isinstance(y, Number):
-#                 return True
-#             elif isinstance(x, String) and x.charset == "bytes" and isinstance(y, String) and y.charset == "bytes":
-#                 return True
-#             elif isinstance(x, String) and x.charset == "unicode" and isinstance(y, String) and y.charset == "unicode":
-#                 return True
-#             elif isinstance(x, String) and isinstance(y, String):
-#                 return False   # bytes and unicode or unicode and bytes
-#             elif isinstance(x, Collection) and isinstance(y, Collection):
-#                 return compatible(x.items, y.items)
-#             elif isinstance(x, Record) and isinstance(y, Record):
-#                 return set(x.fields.keys()) == set(y.fields.keys()) and \
-#                        all(compatible(x.fields[n], y.fields[n]) for n in x.fields)
-#             elif x.__class__ == y.__class__:
-#                 assert False, "missing case: {0} {1} {2}".format(type(x), x, y)
-#             else:
-#                 return False
-
-#         classes = []
-#         for p1 in schema.possibilities:
-#             found = False
-#             for c in classes:
-#                 for p2 in c:
-#                     if not found and compatible(p1, p2):
-#                         c.append(p1)
-#                         found = True
-#             if not found:
-#                 classes.append([p1])
-        
-#         flattened = []
-#         for c in classes:
-#             if isinstance(c[0], Null):
-#                 flattened.append(null)
-#             elif isinstance(c[0], Boolean):
-#                 flattened.append(boolean)
-#             elif isinstance(c[0], Number):
-#                 flattened.append(Number(almost.min(*[p.min for p in c]), almost.max(*[p.max for p in c]), all(p.whole for p in c)))
-#             elif isinstance(c[0], String) and c[0].charset == "bytes":
-#                 flattened.append(String("bytes", almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c])))
-#             elif isinstance(c[0], String) and c[0].charset == "unicode":
-#                 flattened.append(String("unicode", almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c])))
-#             elif isinstance(c[0], Collection):
-#                 flattened.append(Collection(union(*[p.items for p in c]), almost.min(*[p.fewest for p in c]), almost.max(*[p.most for p in c]), all(p.ordered for p in c)))
-#             elif isinstance(c[0], Record):
-#                 flattened.append(Record(dict((n, union(*[p.fields[n] for p in c])) for n in c[0].fields)))
-#             else:
-#                 assert False, "missing case: {0} {1}".format(type(c[0]), c)
-
-#         if len(flattened) == 1:
-#             return schemaToColumns(name, flattened[0], hasSize)
-
-#         else:
-#             if hasSize:
-#                 sizeName = name.size()
-#                 out = {sizeName: SizeColumn(sizeName)}
-#             else:
-#                 out = {}
-
-#             tagName = name.tag()
-#             out[tagName] = TagColumn(tagName, flattened)
-
-#             for i, p in enumerate(flattened):
-#                 out.update(schemaToColumns(name.pos(i), p, hasSize))
-#             return out
-
-#     else:
-#         assert False, "unexpected type: {0} {1}".format(type(schema), schema)

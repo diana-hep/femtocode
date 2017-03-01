@@ -414,7 +414,7 @@ class Map(lispytree.BuiltinFunction):
         argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
-        rename = argref.name.array()
+        rename = argref.name.coll()
         reref = statementlist.Ref(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename))
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = reref
 

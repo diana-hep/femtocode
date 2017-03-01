@@ -192,10 +192,10 @@ class ROOTDataset(Dataset):
                 elif numEntries != [x.numEntries for x in segments]:
                     raise DatasetDeclaration.Error(quantity.lc, "entries are partitioned differently in {0} and {1}:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), [x.numEntries for x in segments], numEntries))
 
-                if subname.arraylevel() not in levelToDataLength:
-                    levelToDataLength[subname.arraylevel()] = [x.dataLength for x in segments]
-                elif levelToDataLength[subname.arraylevel()] != [x.dataLength for x in segments]:
-                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(subname.arraylevel()), [x.dataLength for x in segments], levelToDataLength[subname.arraylevel()]))
+                if subname.level() not in levelToDataLength:
+                    levelToDataLength[subname.level()] = [x.dataLength for x in segments]
+                elif levelToDataLength[subname.level()] != [x.dataLength for x in segments]:
+                    raise DatasetDeclaration.Error(quantity.lc, "data lengths of {0} and {1} in the {2} collection are partitioned differently:\n\n    {2}\n\n    {3}".format(json.dumps(subname), json.dumps(lastname), json.dumps(subname.level()), [x.dataLength for x in segments], levelToDataLength[subname.level()]))
                 
                 lastname = subname
 
@@ -229,7 +229,7 @@ class ROOTDataset(Dataset):
             return newColumns, newGroups
 
         elif isinstance(quantity, DatasetDeclaration.Collection):
-            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name.array())
+            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name.coll())
 
         elif isinstance(quantity, DatasetDeclaration.Primitive):
             sizeBranch = ()
