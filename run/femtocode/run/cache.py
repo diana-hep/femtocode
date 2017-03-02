@@ -59,7 +59,7 @@ class Work(object):
             self.data = None
 
     def __repr__(self):
-        return "<Work for {0} at {1:012x}>".format(self.query.queryid, id(self))
+        return "<Work for {0} at 0x{1:012x}>".format(self.query.queryid, id(self))
 
     def updateFuture(self):
         self.future.update(
@@ -91,7 +91,7 @@ class Result(object):
         self.data = data
 
     def __repr__(self):
-        return "<Result for {0}({1}) at {2:012x}>".format(self.queryid, self.groupid, id(self))
+        return "<Result for {0}({1}) at 0x{2:012x}>".format(self.queryid, self.groupid, id(self))
 
 class WorkItem(object):
     def __init__(self, work, groupid):
@@ -107,7 +107,7 @@ class WorkItem(object):
         self.occupants = []
 
     def __repr__(self):
-        return "<WorkItem for {0}({1}) at {2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
+        return "<WorkItem for {0}({1}) at 0x{2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
 
     def requires(self):
         return [DataAddress(self.work.query.dataset, column, self.group.id) for column in self.work.query.inputs]
@@ -166,7 +166,7 @@ class CacheOccupant(object):
                                                 # Fetcher sets filledBytes and CacheMaster checks it
 
     def __repr__(self):
-        return "<CacheOccupant for {0} at {1:012x}>".format(self.address, id(self))
+        return "<CacheOccupant for {0} at 0x{1:012x}>".format(self.address, id(self))
 
     def array(self):
         return self.rawarray.view(self.dtype)
@@ -202,7 +202,7 @@ class CacheOrder(object):
         self.lookup = {}
 
     def __repr__(self):
-        return "<CacheOrder len {0} at {1:012x}>".format(len(self.order), id(self))
+        return "<CacheOrder len {0} at 0x{1:012x}>".format(len(self.order), id(self))
 
     def __len__(self):
         assert len(self.order) == len(self.lookup)
@@ -253,7 +253,7 @@ class NeedWantCache(object):
         self.want = CacheOrder()   # least recently used is most likely to be evicted
 
     def __repr__(self):
-        return "<NeedWantCache with {0} at {1:012x}>".format(self.fetcherClass, id(self))
+        return "<NeedWantCache with {0} at 0x{1:012x}>".format(self.fetcherClass, id(self))
 
     def demoteNeedsToWants(self):
         # migrate occupants from 'need' to 'want' if the minion thread is done using it for calculations
@@ -362,7 +362,7 @@ class Minion(threading.Thread):
         self.daemon = True
 
     def __repr__(self):
-        return "<Minion at {0:012x}>".format(id(self))
+        return "<Minion at 0x{0:012x}>".format(id(self))
 
     def run(self):
         while True:
@@ -402,7 +402,7 @@ class CacheMaster(threading.Thread):
         self.daemon = True
 
     def __repr__(self):
-        return "<CacheMaster at {0:012x}>".format(id(self))
+        return "<CacheMaster at 0x{0:012x}>".format(id(self))
         
     def run(self):
         while True:
