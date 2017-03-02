@@ -38,16 +38,27 @@ class TestExecutable(unittest.TestCase):
         schema = {"x": real, "y": real}
         dataset = TestDataset.fromSchema("Test", schema)
         for i in xrange(100):
-            dataset.fill({"x": i + 0.1, "y": i + 1.1})
+            dataset.fill({"x": i, "y": 0.2})
+
+        group = dataset.groups[0]
 
         lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in dataset.schema)))
         tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in dataset.schema.items())))
-        res, ss, _ = statementlist.build(tt, dataset)
+        goal, ss, _ = statementlist.build(tt, dataset)
 
-        deps = executable.DependencyGraph(res.data, ss, list(schema))
-        plan = executable.ExecutionPlan(deps, lambda start, end: False)
+        executor = executable.Executor(goal, list(schema), ss, lambda start, end: False)
+        executor.compilePython()
+
+        # do sizes first, which provide input to dataLengths
+        dataLengths = executor.dataLengths(dataset, group)
+
+        arrays = {}
+        for name in executor.inputs:    # make sure there are no size columns in this loop!
+            assert not name.issize()
+            arrays[name] = group.segments[name].data
+
+        data, size = executor.run(arrays, dataLengths)
 
         print
-        print plan.order
-        print plan.tmps
-        print dataset.groups[0]
+        print data
+        print size

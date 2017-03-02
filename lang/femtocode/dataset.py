@@ -173,6 +173,9 @@ class ColumnName(object):
         assert self.issize()
         return ColumnName(*self.path[:-1])
 
+    def istmp(self):
+        return self.path[0].startswith("#")
+
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 

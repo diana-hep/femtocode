@@ -23,7 +23,7 @@ from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class Kernel(object):
+class Loop(object):
     def __init__(self, statements):
         self.name = statements[-1].column
         self.statements = statements
@@ -37,19 +37,17 @@ class Kernel(object):
             raise NotImplementedError
 
     def __repr__(self):
-        return "<Kernel {0}({1}) at {2:012x}>".format(self.name, ", ".join(map(str, self.inputs)), id(self))
+        return "<Loop {0}({1}) at {2:012x}>".format(self.name, ", ".join(map(str, self.inputs)), id(self))
 
     def __str__(self):
-        return "\n".join(["Kernel {0}({1})".format(self.name, ", ".join(map(str, self.inputs)))] + ["    " + str(x) for x in self.statements])
+        return "\n".join(["Loop {0}({1})".format(self.name, ", ".join(map(str, self.inputs)))] + ["    " + str(x) for x in self.statements])
 
 # FIXME: temporary size arrays have to be calculated outside of DependencyGraph, before all other arrays
 
 class DependencyGraph(object):
     def __init__(self, goal, statements, inputs, lookup=None):
-        if not isinstance(goal, ColumnName):
-            goal = ColumnName.parse(goal)
         self.goal = goal
-        self.inputs = [x if isinstance(x, ColumnName) else ColumnName.parse(x) for x in inputs]
+        self.inputs = inputs
         if lookup is None:
             lookup = {}
         self.lookup = lookup
@@ -86,102 +84,127 @@ class DependencyGraph(object):
         out.append(self.statement)
         return out
 
-    def kernels(self, divider, memo=None):
+    def loops(self, divider, memo=None):
         if memo is None:
             memo = set()
 
-        out = [Kernel(self.linearize(divider, set()))]
+        out = [Loop(self.linearize(divider, set()))]
         memo.add(out[0].name)
         for column in out[0].inputs:
             if column not in self.inputs and column not in memo:
-                out.extend(self.lookup[column].kernels(divider, memo))
+                out.extend(self.lookup[column].loops(divider, memo))
         return out
 
-def fakeLineNumbers(node):
-    if isinstance(node, ast.AST):
-        node.lineno = 1
-        node.col_offset = 0
-        for field in node._fields:
-            fakeLineNumbers(getattr(node, field))
+class Executor(object):
+    def __init__(self, goal, inputs, statements, divider):
+        self.goal = goal
+        self.inputs = [x if isinstance(x, ColumnName) else ColumnName.parse(x) for x in inputs]
 
-    elif isinstance(node, (list, tuple)):
-        for x in node:
-            fakeLineNumbers(x)
+        self.dataDependencies = DependencyGraph(self.goal.data, statements, self.inputs)
 
-def makeFunction(name, statements, params):
-    if sys.version_info[0] <= 2:
-        args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
-        fcn = ast.FunctionDef(name, args, statements, [])
-    else:
-        args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
-        fcn = ast.FunctionDef(name, args, statements, [], None)
+        self.loops = self.dataDependencies.loops(divider)
+        self.lookup = dict((x.name, x) for x in self.loops)
 
-    moduleast = ast.Module([fcn])
-    fakeLineNumbers(moduleast)
-
-    modulecomp = compile(moduleast, "Femtocode", "exec")
-    out = {}
-    exec(modulecomp, out)
-    return out[name]
-    
-def kernelToFunction(kernel):
-    validNames = {}
-    def valid(n):
-        if n not in validNames:
-            validNames[n] = "v" + repr(len(validNames))
-        return validNames[n]
-
-    init = ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))
-
-    loop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("imax", ast.Load())]), [], [])
-
-    for statement in kernel.statements:
-        if statement.__class__ == statementlist.Call:
-            args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
-            expr = table[statement.fcnname].buildexec(args)
-
-        else:
-            expr = statement.buildexec(statement.args)
-
-        loop.body.append(ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr))
-
-    loop.body.append(ast.Assign([ast.Subscript(ast.Name("out", ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], ast.Name(valid(kernel.name), ast.Load())))
-
-    loop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
-
-    out = makeFunction(str(kernel.name), [init, loop], [valid(x) for x in kernel.inputs] + ["out", "i0max"])
-    out.kernel = kernel
-    return out
-
-class ExecutionPlan(object):
-    def __init__(self, dependencyGraph, divider):
-        self.dependencyGraph = dependencyGraph
-
-        self.kernels = dependencyGraph.kernels(divider)
-        self.functions = map(kernelToFunction, self.kernels)
-        self.functionLookup = dict((x.kernel.name, x) for x in self.functions)
-
-        self.tmps = []
-        self.sizes = []
         self.order = []
         done = set()
-        def fill(function):
-            for param in function.kernel.inputs:
-                if param not in self.dependencyGraph.inputs and param not in done:
-                    fill(self.functionLookup[param])
-            self.order.append(function)
-            self.tmps.append(function.kernel.name)
-            self.sizes.append(function.kernel.sizeColumn)
-            done.add(function.kernel.name)
+        def fill(loop):
+            for param in loop.inputs:
+                if param not in self.dataDependencies.inputs and param not in done:
+                    fill(self.lookup[param])
+            self.order.append(loop)
+            done.add(loop.name)
 
-        fill(self.functionLookup[self.dependencyGraph.goal])
+        fill(self.lookup[self.dataDependencies.goal])
 
-    def run(self, arrays, group):   # input arrays includes temporary size arrays
-        tmparrays = {}
-        for tmp, size in zip(self.tmps, self.sizes):
+    @staticmethod
+    def _fakeLineNumbers(node):
+        if isinstance(node, ast.AST):
+            node.lineno = 1
+            node.col_offset = 0
+            for field in node._fields:
+                Executor._fakeLineNumbers(getattr(node, field))
+
+        elif isinstance(node, (list, tuple)):
+            for x in node:
+                Executor._fakeLineNumbers(x)
+
+    @staticmethod
+    def _makeFunction(name, statements, params):
+        if sys.version_info[0] <= 2:
+            args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
+            fcn = ast.FunctionDef(name, args, statements, [])
+        else:
+            args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
+            fcn = ast.FunctionDef(name, args, statements, [], None)
+
+        moduleast = ast.Module([fcn])
+        Executor._fakeLineNumbers(moduleast)
+
+        modulecomp = compile(moduleast, "Femtocode", "exec")
+        out = {}
+        exec(modulecomp, out)
+        return out[name]
+
+    def compilePython(self):
+        for loop in self.order:
+            validNames = {}
+            def valid(n):
+                if n not in validNames:
+                    validNames[n] = "v" + repr(len(validNames))
+                return validNames[n]
+
+            init = ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))
+
+            whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
+
+            for statement in loop.statements:
+                if statement.__class__ == statementlist.Call:
+                    args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
+                    expr = table[statement.fcnname].buildexec(args)
+
+                else:
+                    expr = statement.buildexec(statement.args)
+
+                whileloop.body.append(ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr))
+
+            whileloop.body.append(ast.Assign([ast.Subscript(ast.Name("out", ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], ast.Name(valid(loop.name), ast.Load())))
+
+            whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
+
+            loop.pyfcn = Executor._makeFunction(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
+
+    def dataLengths(self, dataset, group):
+        out = {}
+        for loop in self.order:
+            tmp = loop.name
+            size = loop.sizeColumn
             assert not tmp.issize()   # REMEMBER!
-            tmparrays[tmp] = [None] * group.segments[tmp].dataLength
+            assert size is None or size.issize()
 
-        
-        
-        # HERE
+            if size is None:
+                dataLength = group.numEntries
+            elif not size.istmp():
+                dataLength = group.segments[size.dropsize()].dataLength
+            else:
+                raise NotImplementedError   # FIXME; you'll run a counter over it, knowing its depth
+
+            out[tmp] = dataLength
+
+        return out
+
+    def _runloop(self, loop, args):
+        loop.pyfcn(*args)
+
+    def run(self, arrays, dataLengths):   # input arrays includes temporary size arrays
+        arrays.update(dict((loop.name, [None] * dataLengths[loop.name]) for loop in self.order))
+        for loop in self.order:
+            inargs = [arrays[name] for name in loop.inputs]
+            outarg = arrays[loop.name]
+            i0max = dataLengths[loop.name]    # FIXME: wrong! for functions that end in a reduce
+            self._runloop(loop, (inargs + [outarg, i0max]))
+
+        lastsize = self.order[-1].sizeColumn
+        if lastsize is not None:
+            lastsize = arrays[lastsizename]
+
+        return outarg, lastsize
