@@ -20,16 +20,16 @@ import sys
 import unittest
 
 from femtocode.defs import SymbolTable
+from femtocode.execution import PythonExecutor
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.testdataset import TestDataset
 from femtocode.typesystem import *
-import femtocode.asts.executable as executable
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
 import femtocode.asts.typedtree as typedtree
 
-class TestExecutable(unittest.TestCase):
+class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
 
@@ -46,8 +46,7 @@ class TestExecutable(unittest.TestCase):
         tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in dataset.schema.items())))
         goal, ss, _ = statementlist.build(tt, dataset)
 
-        executor = executable.Executor(goal, list(schema), ss, lambda start, end: False)
-        executor.compilePython()
+        executor = PythonExecutor(goal, list(schema), ss, lambda start, end: False)
 
         # do sizes first, which provide input to dataLengths
         dataLengths = executor.dataLengths(dataset, group)

@@ -95,7 +95,65 @@ class DependencyGraph(object):
                 out.extend(self.lookup[column].loops(divider, memo))
         return out
 
-class Executor(object):
+class PythonCompiler(object):
+    @staticmethod
+    def _fakeLineNumbers(node):
+        if isinstance(node, ast.AST):
+            node.lineno = 1
+            node.col_offset = 0
+            for field in node._fields:
+                PythonCompiler._fakeLineNumbers(getattr(node, field))
+
+        elif isinstance(node, (list, tuple)):
+            for x in node:
+                PythonCompiler._fakeLineNumbers(x)
+
+    @staticmethod
+    def _compilePython(name, statements, params):
+        if sys.version_info[0] <= 2:
+            args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
+            fcn = ast.FunctionDef(name, args, statements, [])
+        else:
+            args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
+            fcn = ast.FunctionDef(name, args, statements, [], None)
+
+        moduleast = ast.Module([fcn])
+        PythonCompiler._fakeLineNumbers(moduleast)
+
+        modulecomp = compile(moduleast, "Femtocode", "exec")
+        out = {}
+        exec(modulecomp, out)
+        return out[name]
+
+    @staticmethod
+    def compilePython(loop):
+        validNames = {}
+        def valid(n):
+            if n not in validNames:
+                validNames[n] = "v" + repr(len(validNames))
+            return validNames[n]
+
+        init = ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))
+
+        whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
+
+        for statement in loop.statements:
+            if statement.__class__ == statementlist.Call:
+                args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
+                expr = table[statement.fcnname].buildexec(args)
+
+            else:
+                expr = statement.buildexec(statement.args)
+
+            whileloop.body.append(ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr))
+
+        whileloop.body.append(ast.Assign([ast.Subscript(ast.Name("out", ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], ast.Name(valid(loop.name), ast.Load())))
+
+        whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
+
+        return PythonCompiler._compilePython(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
+
+class PythonExecutor(object):
     def __init__(self, goal, inputs, statements, divider):
         self.goal = goal
         self.inputs = [x if isinstance(x, ColumnName) else ColumnName.parse(x) for x in inputs]
@@ -116,62 +174,14 @@ class Executor(object):
 
         fill(self.lookup[self.dataDependencies.goal])
 
-    @staticmethod
-    def _fakeLineNumbers(node):
-        if isinstance(node, ast.AST):
-            node.lineno = 1
-            node.col_offset = 0
-            for field in node._fields:
-                Executor._fakeLineNumbers(getattr(node, field))
+        self._compileLoops()
 
-        elif isinstance(node, (list, tuple)):
-            for x in node:
-                Executor._fakeLineNumbers(x)
-
-    @staticmethod
-    def _makeFunction(name, statements, params):
-        if sys.version_info[0] <= 2:
-            args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
-            fcn = ast.FunctionDef(name, args, statements, [])
-        else:
-            args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
-            fcn = ast.FunctionDef(name, args, statements, [], None)
-
-        moduleast = ast.Module([fcn])
-        Executor._fakeLineNumbers(moduleast)
-
-        modulecomp = compile(moduleast, "Femtocode", "exec")
-        out = {}
-        exec(modulecomp, out)
-        return out[name]
-
-    def compilePython(self):
+    def _compileLoops(self):
         for loop in self.order:
-            validNames = {}
-            def valid(n):
-                if n not in validNames:
-                    validNames[n] = "v" + repr(len(validNames))
-                return validNames[n]
+            loop.pyfcn = PythonCompiler.compilePython(loop)
 
-            init = ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))
-
-            whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
-
-            for statement in loop.statements:
-                if statement.__class__ == statementlist.Call:
-                    args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
-                    expr = table[statement.fcnname].buildexec(args)
-
-                else:
-                    expr = statement.buildexec(statement.args)
-
-                whileloop.body.append(ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr))
-
-            whileloop.body.append(ast.Assign([ast.Subscript(ast.Name("out", ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], ast.Name(valid(loop.name), ast.Load())))
-
-            whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
-
-            loop.pyfcn = Executor._makeFunction(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
+    def _runloop(self, loop, args):
+        loop.pyfcn(*args)
 
     def dataLengths(self, dataset, group):
         out = {}
@@ -191,9 +201,6 @@ class Executor(object):
             out[tmp] = dataLength
 
         return out
-
-    def _runloop(self, loop, args):
-        loop.pyfcn(*args)
 
     def run(self, arrays, dataLengths):   # input arrays includes temporary size arrays
         arrays.update(dict((loop.name, [None] * dataLengths[loop.name]) for loop in self.order))
