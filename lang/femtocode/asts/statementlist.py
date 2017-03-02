@@ -75,7 +75,7 @@ class Statement(object):
                                                ColumnName.parse(obj["fromsize"]),
                                                [ColumnName.parse(x) for x in obj["tosize"]])
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(keys)))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif keys == set(["to", "fcn", "args", "schema", "size"]) and isinstance(obj["args"], list):
                         return Call(ColumnName.parse(obj["to"]),
@@ -85,7 +85,7 @@ class Statement(object):
                                     [ColumnName.parse(x) for x in obj["args"]])
                         
                     else:
-                        raise FemtocodeError("Expected keys \"to\", \"fcn\", \"args\", \"schema\" with \"args\" being a list for function {0} at JSON{1}\n\n    found {2}".format(obj["fcn"], path, json.dumps(keys)))
+                        raise FemtocodeError("Expected keys \"to\", \"fcn\", \"args\", \"schema\" with \"args\" being a list for function {0} at JSON{1}\n\n    found {2}".format(obj["fcn"], path, json.dumps(sorted(keys))))
 
             else:
                 raise FemtocodeError("Expected list or object at JSON{0}\n\n    found {1}".format(path, json.dumps(obj)))

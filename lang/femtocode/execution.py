@@ -95,21 +95,21 @@ class DependencyGraph(object):
                 out.extend(self.lookup[column].loops(divider, memo))
         return out
 
-class PythonCompiler(object):
+class Compiler(object):
     @staticmethod
     def _fakeLineNumbers(node):
         if isinstance(node, ast.AST):
             node.lineno = 1
             node.col_offset = 0
             for field in node._fields:
-                PythonCompiler._fakeLineNumbers(getattr(node, field))
+                Compiler._fakeLineNumbers(getattr(node, field))
 
         elif isinstance(node, (list, tuple)):
             for x in node:
-                PythonCompiler._fakeLineNumbers(x)
+                Compiler._fakeLineNumbers(x)
 
     @staticmethod
-    def _compilePython(name, statements, params):
+    def _compileToPython(name, statements, params):
         if sys.version_info[0] <= 2:
             args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
             fcn = ast.FunctionDef(name, args, statements, [])
@@ -118,7 +118,7 @@ class PythonCompiler(object):
             fcn = ast.FunctionDef(name, args, statements, [], None)
 
         moduleast = ast.Module([fcn])
-        PythonCompiler._fakeLineNumbers(moduleast)
+        Compiler._fakeLineNumbers(moduleast)
 
         modulecomp = compile(moduleast, "Femtocode", "exec")
         out = {}
@@ -126,7 +126,7 @@ class PythonCompiler(object):
         return out[name]
 
     @staticmethod
-    def compilePython(loop):
+    def compileToPython(loop):
         validNames = {}
         def valid(n):
             if n not in validNames:
@@ -151,7 +151,7 @@ class PythonCompiler(object):
 
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
-        return PythonCompiler._compilePython(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
+        return Compiler._compileToPython(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
 
 class PythonExecutor(object):
     def __init__(self, goal, inputs, statements, divider):
@@ -178,7 +178,7 @@ class PythonExecutor(object):
 
     def _compileLoops(self):
         for loop in self.order:
-            loop.pyfcn = PythonCompiler.compilePython(loop)
+            loop.pyfcn = Compiler.compileToPython(loop)
 
     def _runloop(self, loop, args):
         loop.pyfcn(*args)
