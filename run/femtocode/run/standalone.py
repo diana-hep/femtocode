@@ -29,6 +29,7 @@ from femtocode.rootio.fetch import ROOTFetcher
 from femtocode.run.cache import *
 from femtocode.run.execution import *
 from femtocode.dataset import MetadataFromJson
+from femtocode.workflow import Source
 from femtocode.util import *
 
 class FutureQueryResult(object):
@@ -67,7 +68,7 @@ class FutureQueryResult(object):
             print("FIXME {0}".format(self))
             self._keepPythonAlive.done.set()
 
-class Session(object):
+class StandaloneSession(object):
     def __init__(self,
                  numMinions=multiprocessing.cpu_count(),
                  cacheLimitBytes=1024**3,
@@ -86,6 +87,9 @@ class Session(object):
             minion.start()
         self.cacheMaster.start()
 
+    def source(self, name):
+        return Source(self, self.metadata.dataset(name))
+
     def submit(self, query):
         # TODO: compile queries
         compiledQuery = CompiledQuery("retaddr", 0, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0])
@@ -100,7 +104,7 @@ class Session(object):
 
 ########################################### TODO: temporary!
 
-session = Session(datasetDirectory="/home/pivarski/diana/femtocode/tests")
+session = StandaloneSession(datasetDirectory="/home/pivarski/diana/femtocode/tests")
 f = session.submit("whatever")
 
 ###########################################

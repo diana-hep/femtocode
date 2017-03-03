@@ -127,7 +127,8 @@ class NotLast(object):
 ############### Source, Intermediate, and Goal are the three types of Workflow transformation
 
 class Source(NotLast, Workflow):
-    def __init__(self, dataset):
+    def __init__(self, session, dataset):
+        self.session = session
         self.dataset = dataset
 
     def source(self):
@@ -159,6 +160,9 @@ class Goal(NotFirst, Workflow):
             statements.extend(ss)
 
         return Query(source.dataset, targets, statements, list(actions))
+
+    def submit(self, libs=()):
+        self.source().session.submit(self.compile(libs))
 
 ############### Intermediates
 
@@ -194,24 +198,25 @@ class TestGoal(Goal):   # temporary
 
 ###################################
 
-from femtocode.testdataset import TestDataset
+from femtocode.testdataset import TestSession
 
-schema = {"x": integer, "y": real}
-dataset = TestDataset.fromSchema("Test", schema)
+session = TestSession()
+
+source = session.source("Test", x=integer, y=real)
 for i in xrange(100):
-    dataset.fill({"x": i, "y": 0.2})
+    source.dataset.fill({"x": i, "y": 0.2})
 
-source = Source(dataset)
+# print source.type("x + 2")
+# print source.define(z = "x + y").type("z + 1")
 
-# print source.typeString("x + 2")
-# print source.typeString("z")
+# intermediate = source.define(z = "x + y")
+# print intermediate.type("z + 2")
 
-intermediate = source.define(z = "x + y")
+# goal = source.define(z = "x + y").testGoal("z")
+# print goal.compile().statements
 
-# print intermediate.typeString("z + 2")
+goal = source.testGoal("x + y")
+# print goal.compile().statements
 
-goal = source.define(z = "x + y").testGoal("z")
-print goal.compile().statements
+goal.submit()
 
-goal = source.testGoal("x + y + y - x")
-print goal.compile().statements
