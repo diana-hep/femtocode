@@ -34,7 +34,19 @@ class Statement(object):
     @staticmethod
     def fromJson(obj):
         def build(obj, path):
-            if isinstance(obj, list):
+            if obj is None:
+                return Literal(None, Null)
+
+            elif isinstance(obj, bool):
+                return Literal(obj, Boolean)
+
+            elif isinstance(obj, int):
+                return Literal(obj, integer(min=obj, max=obj))
+
+            elif isinstance(obj, float):
+                return Literal(obj, real(min=obj, max=obj))
+
+            elif isinstance(obj, list):
                 return Statements(*[build(x, path + "[{0}]".format(i)) for i, x in enumerate(obj)])
 
             elif isinstance(obj, dict):
@@ -90,11 +102,23 @@ class Statement(object):
                             raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif keys == set(["to", "fcn", "args", "schema", "tosize"]) and isinstance(obj["args"], list):
+                        args = []
+                        for i, arg in enumerate(obj["args"]):
+                            if isinstance(arg, string_types):
+                                args.append(ColumnName.parse(arg))
+                            else:
+                                path = path + "[{0}]".format(i)
+                                arg = build(arg, path)
+                                if isinstance(arg, Literal):
+                                    args.append(arg)
+                                else:
+                                    raise FemtocodeError("Expected column name or literal at JSON{0}\n\n    found {1}".format(path, arg))
+
                         return Call(ColumnName.parse(obj["to"]),
                                     Schema.fromJson(obj["schema"]),
                                     None if obj["tosize"] is None else ColumnName.parse(obj["tosize"]),
                                     obj["fcn"],
-                                    [ColumnName.parse(x) for x in obj["args"]])
+                                    args)
                         
                     else:
                         raise FemtocodeError("Expected keys \"to\", \"fcn\", \"args\", \"schema\" with \"args\" being a list for function {0} at JSON{1}\n\n    found {2}".format(obj["fcn"], path, json.dumps(sorted(keys))))
@@ -238,7 +262,20 @@ class Literal(Statement):
         return repr(self.value)
 
     def toJson(self):
-        return {"value": self.value, "schema": self.schema.toJson()}
+        if isinstance(self.schema, Null):
+            return None
+
+        elif isinstance(self.schema, Boolean):
+            return True if self.value else False
+
+        elif isinstance(self.schema, Number) and self.schema.whole:
+            return int(self.value)
+
+        elif isinstance(self.schema, Number):
+            return float(self.value)
+
+        else:
+            return {"value": self.value, "schema": self.schema.toJson()}
 
     def __eq__(self, other):
         return other.__class__ == Literal and self.value == other.value and self.schema == other.schema
@@ -261,7 +298,7 @@ class Call(Statement):
         return "{0} := {1}({2}) as {3} sized by {4}".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)), self.schema, self.tosize)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args], "schema": self.schema.toJson(), "tosize": None if self.tosize is None else str(self.tosize)}
+        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) if isinstance(x, ColumnName) else x.toJson() for x in self.args], "schema": self.schema.toJson(), "tosize": None if self.tosize is None else str(self.tosize)}
 
     def __eq__(self, other):
         return other.__class__ == Call and self.column == other.column and self.schema == other.schema and self.tosize == other.tosize and self.fcnname == other.fcnname and self.args == other.args
