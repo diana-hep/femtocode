@@ -117,7 +117,8 @@ class NotFirst(object):
         return symbolTable, typeTable, actions
 
 class NotLast(object):
-    # and a lot more transformation methods
+    # methods for creating all the intermediates and goals
+
     def define(self, **namesToCode):
         return Define(self, **namesToCode)
 

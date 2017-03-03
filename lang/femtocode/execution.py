@@ -29,10 +29,10 @@ class Loop(object):
         self.statements = statements
         self.inputs = sorted(set(sum([statement.args for statement in self.statements], ())).difference([statement.column for statement in self.statements]))
 
-        goalStatement = filter(lambda x: x.column == self.name, self.statements)[0]
-        if isinstance(goalStatement, statementlist.Call):
-            self.sizeColumn = goalStatement.size
-            self.schema = goalStatement.schema
+        targetStatement = filter(lambda x: x.column == self.name, self.statements)[0]
+        if isinstance(targetStatement, statementlist.Call):
+            self.sizeColumn = targetStatement.size
+            self.schema = targetStatement.schema
         else:
             raise NotImplementedError
 
@@ -45,18 +45,18 @@ class Loop(object):
 # FIXME: temporary size arrays have to be calculated outside of DependencyGraph, before all other arrays
 
 class DependencyGraph(object):
-    def __init__(self, goal, statements, inputs, lookup=None):
-        self.goal = goal
+    def __init__(self, target, statements, inputs, lookup=None):
+        self.target = target
         self.inputs = inputs
         if lookup is None:
             lookup = {}
         self.lookup = lookup
 
-        m = filter(lambda x: x.column == goal, statements)
+        m = filter(lambda x: x.column == target, statements)
         assert len(m) == 1, "each new column must be defined exactly once"
 
         self.statement = m[0]
-        self.lookup[self.goal] = self
+        self.lookup[self.target] = self
 
         self.dependencies = []
         for c in self.statement.args:
@@ -66,7 +66,7 @@ class DependencyGraph(object):
                 self.dependencies.append(DependencyGraph(c, statements, inputs, self.lookup))
 
     def __repr__(self):
-        return "<DependencyGraph {0} at {1:012x}>".format(self.goal, id(self))
+        return "<DependencyGraph {0} at {1:012x}>".format(self.target, id(self))
 
     def pretty(self, indent=""):
         return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
@@ -76,9 +76,9 @@ class DependencyGraph(object):
             memo = set()
 
         out = []
-        memo.add(self.goal)
+        memo.add(self.target)
         for node in self.dependencies:
-            if node.goal not in memo and not divider(self, node):
+            if node.target not in memo and not divider(self, node):
                 out.extend(node.linearize(divider, memo))
 
         out.append(self.statement)
@@ -154,11 +154,13 @@ class Compiler(object):
         return Compiler._compileToPython(str(loop.name), [init, whileloop], [valid(x) for x in loop.inputs] + ["out", "i0max"])
 
 class PythonExecutor(object):
-    def __init__(self, goal, inputs, statements, divider):
-        self.goal = goal
+    def __init__(self, target, inputs, statements, divider):
+        self.target = target
         self.inputs = [x if isinstance(x, ColumnName) else ColumnName.parse(x) for x in inputs]
 
-        self.dataDependencies = DependencyGraph(self.goal.data, statements, self.inputs)
+        print self.inputs
+
+        self.dataDependencies = DependencyGraph(self.target.data, statements, self.inputs)
 
         self.loops = self.dataDependencies.loops(divider)
         self.lookup = dict((x.name, x) for x in self.loops)
@@ -172,7 +174,7 @@ class PythonExecutor(object):
             self.order.append(loop)
             done.add(loop.name)
 
-        fill(self.lookup[self.dataDependencies.goal])
+        fill(self.lookup[self.dataDependencies.target])
 
         self._compileLoops()
 

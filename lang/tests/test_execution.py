@@ -79,7 +79,7 @@ class TestExecution(unittest.TestCase):
         # goal = source.define(z = "x + y").testGoal("z")
         # print goal.compile().statements
 
-        goal = source.testGoal("x + y")
+        goal = source.testGoal("x + x")
         # print goal.compile().statements
 
         goal.submit()
