@@ -79,8 +79,7 @@ class Workflow(object):
 
         actions = ()
         for step in self.steps():
-            print symbolTable
-            symbolTable, actions = step.propagate(symbolTable, actions)
+            symbolTable, typeTable, actions = step.propagate(symbolTable, typeTable, actions)
 
         return symbolTable, typeTable, actions
 
@@ -114,8 +113,8 @@ class NotFirst(object):
     def steps(self):
         return self._source.steps() + [self]
 
-    def propagate(self, symbolTable, actions):
-        return symbolTable, actions
+    def propagate(self, symbolTable, typeTable, actions):
+        return symbolTable, typeTable, actions
 
 class NotLast(object):
     # and a lot more transformation methods
@@ -143,10 +142,11 @@ class Goal(NotFirst, Workflow):
     def compile(self, libs=()):
         source = self.source()
         symbolTable, typeTable, actions = self.propagated(libs)
-        
+
         typedtrees = []
         for target in self.targets():
-            tt, typeTable = typedtree.build(target, typeTable)
+            lt, _ = lispytree.build(parser.parse(target), symbolTable.fork())
+            tt, typeTable = typedtree.build(lt, typeTable)
             typedtrees.append(tt)
 
         replacements = {}
@@ -167,13 +167,16 @@ class Define(Intermediate):
         super(Define, self).__init__(source)
         self.namesToExprs = namesToExprs
 
-    def propagate(self, symbolTable, actions):
+    def propagate(self, symbolTable, typeTable, actions):
         newSymbols = {}
+        newTypes = {}
         for name, expr in self.namesToExprs.items():
             lt, _ = lispytree.build(parser.parse(expr), symbolTable.fork())
             newSymbols[name] = lt
+            tt, typeTable = typedtree.build(lt, typeTable)
+            newTypes[lt] = tt.schema
 
-        return symbolTable.fork(newSymbols), actions
+        return symbolTable.fork(newSymbols), typeTable.fork(newTypes), actions
 
 ############### Goals
 
@@ -182,12 +185,8 @@ class TestGoal(Goal):   # temporary
         super(TestGoal, self).__init__(source)
         self.expression = expression
 
-    def propagate(self, symbolTable, actions):
-        lt, _ = lispytree.build(parser.parse(self.expression), symbolTable.fork())
-        return symbolTable.fork({"@target": lt})
-
     def targets(self):
-        return [lispytree.Ref("@target")]
+        return [self.expression]
 
 
 
@@ -204,12 +203,15 @@ for i in xrange(100):
 
 source = Source(dataset)
 
-print source.typeString("x + 2")
+# print source.typeString("x + 2")
 # print source.typeString("z")
 
 intermediate = source.define(z = "x + y")
 
-print intermediate.typeString("z + 2")
+# print intermediate.typeString("z + 2")
 
 goal = source.define(z = "x + y").testGoal("z")
-query = goal.compile()
+print goal.compile().statements
+
+goal = source.testGoal("x + y + y - x")
+print goal.compile().statements
