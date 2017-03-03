@@ -445,15 +445,22 @@ class FlatFunction(object):
         args = []
         sizeColumn = None
         for i, argref in enumerate(argrefs):
-            final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
-            statements.extend(ss)
+            if isinstance(argref, Ref):
+                final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
+                statements.extend(ss)
 
-            if i == 0:
-                sizeColumn = final.size
+                if i == 0:
+                    sizeColumn = final.size
+                else:
+                    assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
+
+                args.append(final.data)
+
+            elif isinstance(argref, Literal):
+                args.append(argref)
+
             else:
-                assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
-
-            args.append(final.data)
+                assert False, "unexpected in argrefs: {0}".format(argref)
 
         columnName = ColumnName(refnumber)
         ref = Ref(refnumber, call.schema, columnName, sizeColumn)
