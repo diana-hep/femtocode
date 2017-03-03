@@ -40,6 +40,9 @@ class Loop(object):
         self.params = sorted(params)
         self.tosize = self.statements[-1].tosize
 
+    def __repr__(self):
+        return "<Loop of [{0}] at 0x{1:012x}>".format(", ".join([str(x.column) for x in self.statements]), id(self))
+
     def __str__(self):
         return "\n".join(["Loop {0}({1})".format(self.name, ", ".join(map(str, self.params)))] + ["    " + str(x) for x in self.statements])
 
@@ -75,8 +78,65 @@ class DependencyGraph(object):
             else:
                 assert False, "expected only Literals and ColumnNames in args, found {0}".format(c)
 
+    def __repr__(self):
+        return "<DependencyGraph of [{0}] at 0x{1:012x}>".format(", ".join(map(str, sorted(self.flattened()))), id(self))
+
     def pretty(self, indent=""):
         return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
+
+    def flattened(self):
+        out = set([self.target])
+        for x in self.dependencies:
+            out.update(x.flattened())
+        return out
+
+    def overlap(self, other):
+        return len(self.flattened().intersection(other.flattened())) > 0
+
+    @staticmethod
+    def cohorts(graphs):
+        out = []
+        for graph in graphs:
+            found = False
+            for previous in out:
+                if any(graph.overlap(g) for g in previous):
+                    previous.append(graph)
+                    found = True
+                    break
+            if not found:
+                out.append([graph])
+        return out
+
+
+
+
+
+    # def _samesize(self, size, memo):
+    #     if self.target in memo:
+
+    #     if self.size == size:
+    #         segment = []
+    #         endpoints = []
+    #         for x in self.dependencies:
+    #             seg, ends = x._samesize(size, memo)
+    #             segment.extend(seg)
+    #             endpoints.extend(ends)
+    #         segment.append(self.statement)
+    #         return segment, endpoints
+    #     else:
+    #         return [], [self]
+
+    # @staticmethod
+    # def segments(graphs):
+    #     segments = []
+    #     for graph in graphs:
+    #         for previous in segments:
+                
+
+
+
+
+
 
 
 
@@ -88,7 +148,7 @@ class DependencyGraph(object):
 ############################
 
 from femtocode.workflow import Query
-query = Query.fromJson({'statements': [{'to': '#0', 'args': ['x', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'}, {'to': '#1', 'args': ['#0', 3], 'tosize': None, 'fcn': '-', 'schema': 'real'}, {'to': '#2', 'args': ['#0', 0.5], 'tosize': None, 'fcn': '-', 'schema': 'real'}], 'actions': [{'type': 'ReturnPythonDataset', 'targets': [{'size': None, 'data': '#1', 'name': '#1', 'schema': 'real'}, {'size': None, 'data': '#2', 'name': '#2', 'schema': 'real'}], 'structure': {'#2': 'b', '#1': 'a'}}], 'dataset': {'groups': [{'segments': {'y': {'sizeLength': 0, 'numEntries': 100, 'data': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], 'dataLength': 100, 'size': None}, 'x': {'sizeLength': 0, 'numEntries': 100, 'data': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99], 'dataLength': 100, 'size': None}}, 'numEntries': 100, 'id': 0}], 'numEntries': 0, 'name': 'Test', 'columns': {'y': {'dataType': 'float', 'data': 'y', 'size': None}, 'x': {'dataType': 'int', 'data': 'x', 'size': None}}, 'schema': {'y': 'real', 'x': 'integer'}}})
+query = Query.fromJson({'statements': [{'to': '#0', 'args': ['x', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'}, {'to': '#1', 'args': ['#0', 999], 'tosize': None, 'fcn': '-', 'schema': 'real'}, {'to': '#2', 'args': ['#0', 0.5], 'tosize': None, 'fcn': '-', 'schema': 'real'}], 'actions': [{'type': 'ReturnPythonDataset', 'targets': [{'size': None, 'data': '#1', 'name': '#1', 'schema': 'real'}, {'size': None, 'data': '#2', 'name': '#2', 'schema': 'real'}], 'structure': {'#2': 'b', '#1': 'a'}}], 'dataset': {'groups': [{'segments': {'y': {'sizeLength': 0, 'numEntries': 100, 'data': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], 'dataLength': 100, 'size': None}, 'x': {'sizeLength': 0, 'numEntries': 100, 'data': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99], 'dataLength': 100, 'size': None}}, 'numEntries': 100, 'id': 0}], 'numEntries': 0, 'name': 'Test', 'columns': {'y': {'dataType': 'float', 'data': 'y', 'size': None}, 'x': {'dataType': 'int', 'data': 'x', 'size': None}}, 'schema': {'y': 'real', 'x': 'integer'}}})
 
 lookup = {}
 required = set()
@@ -98,11 +158,8 @@ for action in query.actions:
         graphTargets[target.data] = DependencyGraph(target.data, query, lookup, required)
 
 for target, graph in graphTargets.items():
-    print target
+    print graph
     print graph.pretty()
-
-
-
 
 
 
