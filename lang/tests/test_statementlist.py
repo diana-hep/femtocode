@@ -44,7 +44,7 @@ class TestStatementlist(unittest.TestCase):
                     "int64" if x.whole else "float64")
 
             elif isinstance(x, Collection):
-                build(x.items, columnName.array(), True)
+                build(x.items, columnName.coll(), True)
 
             elif isinstance(x, Record):
                 for fn, ft in x.fields.items():
@@ -70,24 +70,24 @@ class TestStatementlist(unittest.TestCase):
         
     def test_add(self):
         result, statements = self.compile("x + y", self.mockDataset(x=real, y=real))
-        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real", "size": None}])
+        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real", "tosize": None}])
         self.check(result, {"name": "#0", "schema": "real", "data": "#0", "size": None})
 
     def test_add3(self):
         result, statements = self.compile("x + y + z", self.mockDataset(x=real, y=real, z=real))
-        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x", "y", "z"], "schema": "real", "size": None}])
+        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x", "y", "z"], "schema": "real", "tosize": None}])
         self.check(result, {"name": "#0", "schema": "real", "data": "#0", "size": None})
 
     def test_subtract(self):
         result, statements = self.compile("x - y", self.mockDataset(x=real, y=real))
-        self.check(statements, [{"to": "#0", "fcn": "-", "args": ["x", "y"], "schema": "real", "size": None}])
+        self.check(statements, [{"to": "#0", "fcn": "-", "args": ["x", "y"], "schema": "real", "tosize": None}])
         self.check(result, {"name": "#0", "schema": "real", "data": "#0", "size": None})
 
     def test_addsub(self):
         result, statements = self.compile("x + y - z", self.mockDataset(x=real, y=real, z=real))
         self.check(statements, [
-            {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real", "size": None},
-            {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real", "size": None}
+            {"to": "#0", "fcn": "+", "args": ["x", "y"], "schema": "real", "tosize": None},
+            {"to": "#1", "fcn": "-", "args": ["#0", "z"], "schema": "real", "tosize": None}
             ])
         self.check(result, {"name": "#1", "schema": "real", "data": "#1", "size": None})
 
@@ -95,7 +95,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1 + y)", self.mockDataset(xs=collection(real), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]", "#0"], "schema": "real", "size": "xs[]@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]", "#0"], "schema": "real", "tosize": "xs[]@size"}
             ])
         self.check(result, {"name": "#1", "data": "#1", "size": "xs[]@size", "schema": {"type": "collection", "items": "real"}})
 
@@ -103,7 +103,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xss.map($1.map($1 + y))", self.mockDataset(xss=collection(collection(real)), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xss[][]@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xss[][]", "#0"], "schema": "real", "size": "xss[][]@size"}
+            {"to": "#1", "fcn": "+", "args": ["xss[][]", "#0"], "schema": "real", "tosize": "xss[][]@size"}
             ])
         self.check(result, {"name": "#1", "data": "#1", "size": "xss[][]@size", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}})
 
@@ -113,7 +113,7 @@ class TestStatementlist(unittest.TestCase):
             {"to": "#0@size", "fcn": "$explodesize", "tosize": ["ys[]@size", "xss[][]@size"]},
             {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "tosize": ["ys[]@size", "xss[][]@size"], "schema": "real"},
             {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "tosize": ["ys[]@size", "xss[][]@size"], "schema": "real"},
-            {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "size": "#0@size"}
+            {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "tosize": "#0@size"}
             ])
         self.check(result, {"name": "#2", "data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
 
@@ -123,20 +123,20 @@ class TestStatementlist(unittest.TestCase):
             {"to": "#0@size", "fcn": "$explodesize", "tosize": ["xss[][]@size", "ys[]@size"]},
             {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "tosize": ["xss[][]@size", "ys[]@size"], "schema": "real"},
             {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "tosize": ["xss[][]@size", "ys[]@size"], "schema": "real"},
-            {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "size": "#0@size"}
+            {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "tosize": "#0@size"}
             ])
         self.check(result, {"name": "#2", "data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
 
     def test_record(self):
         result, statements = self.compile("x.a + y", self.mockDataset(x=record(a=real), y=real))
-        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x-a", "y"], "schema": "real", "size": None}])
+        self.check(statements, [{"to": "#0", "fcn": "+", "args": ["x-a", "y"], "schema": "real", "tosize": None}])
         self.check(result, {"name": "#0", "schema": "real", "data": "#0", "size": None})
 
     def test_recordarray(self):
         result, statements = self.compile("x.a.map($1 + y)", self.mockDataset(x=record(a=collection(real)), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "x-a[]@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["x-a[]", "#0"], "schema": "real", "size": "x-a[]@size"}
+            {"to": "#1", "fcn": "+", "args": ["x-a[]", "#0"], "schema": "real", "tosize": "x-a[]@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "x-a[]@size"})
 
@@ -144,7 +144,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.b + y)", self.mockDataset(xs=collection(record(a=real, b=real)), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-a@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "size": "xs[]-a@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "tosize": "xs[]-a@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "xs[]-a@size"})
 
@@ -152,7 +152,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.b + y)", self.mockDataset(xs=collection(record(a=collection(real), b=real)), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-b@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "size": "xs[]-b@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "tosize": "xs[]-b@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "xs[]-b@size"})
 
@@ -160,7 +160,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.a.map($1 + y))", self.mockDataset(xs=collection(record(a=collection(real), b=real)), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-a[]@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-a[]", "#0"], "schema": "real", "size": "xs[]-a[]@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-a[]", "#0"], "schema": "real", "tosize": "xs[]-a[]@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}, "data": "#1", "size": "xs[]-a[]@size"})
 
@@ -168,7 +168,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.b.c + y)", self.mockDataset(xs=collection(record(a=collection(real), b=record(c=real))), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-b-c@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b-c", "#0"], "schema": "real", "size": "xs[]-b-c@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b-c", "#0"], "schema": "real", "tosize": "xs[]-b-c@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "xs[]-b-c@size"})
 
@@ -176,7 +176,7 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.b.map($1.c + y))", self.mockDataset(xs=collection(record(a=collection(real), b=collection(record(c=real)))), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-b[]-c@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b[]-c", "#0"], "schema": "real", "size": "xs[]-b[]-c@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b[]-c", "#0"], "schema": "real", "tosize": "xs[]-b[]-c@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}, "data": "#1", "size": "xs[]-b[]-c@size"})
 
@@ -184,9 +184,6 @@ class TestStatementlist(unittest.TestCase):
         result, statements = self.compile("xs.map($1.b.c.map($1 + y))", self.mockDataset(xs=collection(record(a=collection(real), b=record(c=collection(real)))), y=real))
         self.check(statements, [
             {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-b-c[]@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b-c[]", "#0"], "schema": "real", "size": "xs[]-b-c[]@size"}
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b-c[]", "#0"], "schema": "real", "tosize": "xs[]-b-c[]@size"}
             ])
         self.check(result, {"name": "#1", "schema": {"type": "collection", "items": {"type": "collection", "items": "real"}}, "data": "#1", "size": "xs[]-b-c[]@size"})
-
-    def test_execute(self):
-        

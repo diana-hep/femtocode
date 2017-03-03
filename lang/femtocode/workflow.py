@@ -34,7 +34,7 @@ class Query(object):
         self.actions = actions
 
     def __repr__(self):
-        return "Query.fromJson({0})".format(self.toJsonString())
+        return "Query.fromJson({0})".format(self.toJson())
 
     def toJsonString(self):
         return json.dumps(self.toJson())
@@ -54,9 +54,11 @@ class Query(object):
         assert set(obj.keys()) == set(["dataset", "statements", "actions"])
 
         dataset = Dataset.fromJson(obj["dataset"])
+
         statements = statementlist.Statement.fromJson(obj["statements"])
-        actions = [statementlist.Statement.fromJson(action) for action in obj["actions"]]
         assert isinstance(statements, statementlist.Statements)
+
+        actions = [statementlist.Statement.fromJson(action) for action in obj["actions"]]
         for action in actions:
             assert isinstance(action, statementlist.Action)
 

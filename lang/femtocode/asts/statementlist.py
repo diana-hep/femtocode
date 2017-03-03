@@ -89,10 +89,10 @@ class Statement(object):
                         else:
                             raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
-                    elif keys == set(["to", "fcn", "args", "schema", "size"]) and isinstance(obj["args"], list):
+                    elif keys == set(["to", "fcn", "args", "schema", "tosize"]) and isinstance(obj["args"], list):
                         return Call(ColumnName.parse(obj["to"]),
                                     Schema.fromJson(obj["schema"]),
-                                    None if obj["size"] is None else ColumnName.parse(obj["size"]),
+                                    None if obj["tosize"] is None else ColumnName.parse(obj["tosize"]),
                                     obj["fcn"],
                                     [ColumnName.parse(x) for x in obj["args"]])
                         
@@ -247,27 +247,27 @@ class Literal(Statement):
         return hash((Literal, self.value, self.schema))
 
 class Call(Statement):
-    def __init__(self, column, schema, size, fcnname, args):
+    def __init__(self, column, schema, tosize, fcnname, args):
         self.column = column
         self.schema = schema
-        self.size = size
+        self.tosize = tosize
         self.fcnname = fcnname
         self.args = tuple(args)
 
     def __repr__(self):
-        return "statementlist.Call({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.size, self.fcnname, self.args)
+        return "statementlist.Call({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.tosize, self.fcnname, self.args)
 
     def __str__(self):
-        return "{0} := {1}({2}) as {3} sized by {4}".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)), self.schema, self.size)
+        return "{0} := {1}({2}) as {3} sized by {4}".format(str(self.column), self.fcnname, ", ".join(map(str, self.args)), self.schema, self.tosize)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args], "schema": self.schema.toJson(), "size": None if self.size is None else str(self.size)}
+        return {"to": str(self.column), "fcn": self.fcnname, "args": [str(x) for x in self.args], "schema": self.schema.toJson(), "tosize": None if self.tosize is None else str(self.tosize)}
 
     def __eq__(self, other):
-        return other.__class__ == Call and self.column == other.column and self.schema == other.schema and self.size == other.size and self.fcnname == other.fcnname and self.args == other.args
+        return other.__class__ == Call and self.column == other.column and self.schema == other.schema and self.tosize == other.tosize and self.fcnname == other.fcnname and self.args == other.args
 
     def __hash__(self):
-        return hash((Call, self.column, self.schema, self.size, self.fcnname, self.args))
+        return hash((Call, self.column, self.schema, self.tosize, self.fcnname, self.args))
 
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
