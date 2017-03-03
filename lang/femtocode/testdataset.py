@@ -352,19 +352,29 @@ class TestSession(object):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
     def submit(self, query):
-        executor = PythonExecutor(query.actions[0].targets[0], list(query.dataset.schema), query.statements, lambda start, end: False)
+        executor = PythonExecutor(query)
+        return executor.run(executor.arrays())
 
-        for group in query.dataset.groups:
-            dataLengths = executor.dataLengths(query.dataset, group)
 
-            arrays = {}
-            for name in executor.inputs:
-                assert not name.issize()
-                arrays[name] = group.segments[name].data
 
-            data, size = executor.run(arrays, dataLengths)
-            print("data: {} size: {}".format(data, size))
 
+
+######################################
+
+# executor = PythonExecutor(query.actions[0].targets[0], list(query.dataset.schema), query.statements, lambda start, end: False)
+
+# for group in query.dataset.groups:
+#     dataLengths = executor.dataLengths(query.dataset, group)
+
+#     arrays = {}
+#     for name in executor.inputs:
+#         assert not name.issize()
+#         arrays[name] = group.segments[name].data
+
+#     data, size = executor.run(arrays, dataLengths)
+#     print("data: {} size: {}".format(data, size))
+
+######################################
 
 # import random
 # import math

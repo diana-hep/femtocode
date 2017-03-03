@@ -34,7 +34,7 @@ class Query(object):
         self.actions = actions
 
     def __repr__(self):
-        return "<Query on {0} at 0x{1:012x}>".format(self.dataset.name, id(self))
+        return "Query.fromJson({0})".format(self.toJsonString())
 
     def toJsonString(self):
         return json.dumps(self.toJson())
@@ -190,15 +190,10 @@ class ToPython(Goal):
         self.namesToExprs = namesToExprs
 
     def propagate(self, symbolTable, typeTable, preactions):
-        newSymbols = {}
-        newTypes = {}
         namesToTypedTrees = []
         for name in sorted(self.namesToExprs):
             lt, tt = self._compileInScope(self.namesToExprs[name], symbolTable, typeTable)
-            newSymbols[name] = lt
-            newTypes[lt] = tt.schema
             namesToTypedTrees.append((name, tt))
 
         preactions = preactions + (statementlist.ReturnPythonDataset.Pre(namesToTypedTrees),)
-
-        return symbolTable.fork(newSymbols), typeTable.fork(newTypes), preactions
+        return symbolTable, typeTable, preactions
