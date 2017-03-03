@@ -70,16 +70,16 @@ class TestExecution(unittest.TestCase):
         for i in xrange(100):
             source.dataset.fill({"x": i, "y": 0.2})
 
-        # print source.type("x + 2")
-        # print source.define(z = "x + y").type("z + 1")
+        print source.type("x + 2")
+        print source.define(z = "x + y").type("z + 1")
 
-        # intermediate = source.define(z = "x + y")
-        # print intermediate.type("z + 2")
+        intermediate = source.define(z = "x + y")
+        print intermediate.type("z + 2")
 
         # goal = source.define(z = "x + y").testGoal("z")
         # print goal.compile().statements
 
-        goal = source.testGoal("x + x")
+        goal = source.toPython(z = "x + y")
         # print goal.compile().statements
 
         goal.submit()

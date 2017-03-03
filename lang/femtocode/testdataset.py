@@ -352,7 +352,7 @@ class TestSession(object):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
     def submit(self, query):
-        executor = PythonExecutor(query.targets[0], list(query.dataset.schema), query.statements, lambda start, end: False)
+        executor = PythonExecutor(query.actions[0].targets[0], list(query.dataset.schema), query.statements, lambda start, end: False)
 
         for group in query.dataset.groups:
             dataLengths = executor.dataLengths(query.dataset, group)

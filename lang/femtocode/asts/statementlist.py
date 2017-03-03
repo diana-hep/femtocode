@@ -40,15 +40,27 @@ class Statement(object):
             elif isinstance(obj, dict):
                 keys = set(obj.keys())   # possibly .difference(["_id"])
 
-                if keys == set(["name", "schema", "data", "size"]):
-                    return Ref(ColumnName.parse(obj["name"]),
-                               Schema.fromJson(obj["schema"]),
-                               ColumnName.parse(obj["data"]),
-                               None if obj["size"] is None else ColumnName.parse(obj["size"]))
+                if keys == set(["type", "targets", "structure"]):
+                    if not isinstance(obj["type"], string_types):
+                        raise FemtocodeError("Expected \"type\" of an action to be a string at JSON{0}\n\n    found {1}".format(path, json.dumps(obj["type"])))
+
+                    if not isinstance(obj["targets"], list):
+                        raise FemtocodeError("Expected \"targets\" of an action to be an array at JSON{0}\n\n    found {1}".format(path, json.dumps(obj["targets"])))
+
+                    targets = []
+                    for i, target in enumerate(obj["targets"]):
+                        target = Statement.fromJson(target)
+                        if not isinstance(target, Ref):
+                            raise FemtocodeError("Expected all \"targets\" to be Refs at JSON{0}\n\n    found {1}".format(path + "[{0}]".format(i), json.dumps(target)))
+                        targets.append(target)
+
+                    return Action.fromJson(obj["type"], targets, obj["structure"], path)
+
+                elif keys == set(["name", "schema", "data", "size"]):
+                    return Ref(ColumnName.parse(obj["name"]), Schema.fromJson(obj["schema"]), ColumnName.parse(obj["data"]), None if obj["size"] is None else ColumnName.parse(obj["size"]))
 
                 elif keys == set(["value", "schema"]):
-                    return Literal(obj["value"],
-                                   Schema.fromJson(obj["schema"]))
+                    return Literal(obj["value"], Schema.fromJson(obj["schema"]))
 
                 elif "fcn" in keys:
                     if obj["fcn"] == "$explode":
@@ -451,3 +463,55 @@ class FlatFunction(object):
         statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
 
         return ref, statements, refnumber
+
+class Action(Statement):
+    @property
+    def type(self):
+        return self.__class__.__name__
+
+    def __repr__(self):
+        return "statementlist.Action.fromJson({0})".format(json.dumps(self.toJson()))
+
+    def toJson(self):
+        return {"type": self.type,
+                "targets": [target.toJson() for target in self.targets],
+                "structure": self.structure}
+
+    def __eq__(self, other):
+        return isinstance(other, Action) and self.type == other.type and self.targets == other.targets and self.structure == other.structure
+
+    def __hash__(self):
+        return hash((Action, self.type, self.targets, self.structure))
+
+    @staticmethod
+    def fromJson(tpe, targets, structure, path):
+        if tpe == "ReturnPythonDataset":
+            return ReturnPythonDataset.fromJson(targets, structure)
+        else:
+            raise FemtocodeError("Unrecognized action \"{0}\" at JSON{1}".format(tpe, path))
+
+class ReturnPythonDataset(Action):
+    class Pre(object):
+        def __init__(self, namesToTypedTrees):
+            self.namesToTypedTrees = namesToTypedTrees
+
+        def typedTrees(self):
+            return [tt for n, tt in self.namesToTypedTrees]
+
+        def finalize(self, refs):
+            return ReturnPythonDataset([(n, ref) for ref, (n, tt) in zip(refs, self.namesToTypedTrees)])
+
+    @staticmethod
+    def fromJson(targets, structure):
+        return ReturnPythonDataset([(structure[ref.name], ref) for ref in targets])
+
+    def __init__(self, namesToRefs):
+        self.namesToRefs = namesToRefs
+
+    @property
+    def targets(self):
+        return [r for n, r in self.namesToRefs]
+
+    @property
+    def structure(self):
+        return dict((str(r.name), n) for n, r in self.namesToRefs)

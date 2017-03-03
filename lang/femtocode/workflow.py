@@ -28,9 +28,8 @@ import femtocode.lib.standard as standard
 import femtocode.parser as parser
 
 class Query(object):
-    def __init__(self, dataset, targets, statements, actions):
+    def __init__(self, dataset, statements, actions):
         self.dataset = dataset
-        self.targets = targets
         self.statements = statements
         self.actions = actions
 
@@ -42,7 +41,6 @@ class Query(object):
 
     def toJson(self):
         return {"dataset": self.dataset.toJson(),
-                "targets": [target.toJson() for target in self.targets],
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions]}
 
@@ -53,20 +51,24 @@ class Query(object):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["dataset", "targets", "statements", "actions"])
+        assert set(obj.keys()) == set(["dataset", "statements", "actions"])
 
         dataset = Dataset.fromJson(obj["dataset"])
-        targets = [statementlist.Statement.fromJson(target) for target in obj["targets"]]
         statements = statementlist.Statement.fromJson(obj["statements"])
-        actions = [Action.fromJson(action) for action in obj["actions"]]
-        for target in targets:
-            assert isinstance(target, statementlist.Ref)
+        actions = [statementlist.Statement.fromJson(action) for action in obj["actions"]]
         assert isinstance(statements, statementlist.Statements)
+        for action in actions:
+            assert isinstance(action, statementlist.Action)
 
-        return Query(dataset, targets, statements, actions)
+        return Query(dataset, statements, actions)
 
 class Workflow(object):
-    def propagated(self, libs=()):
+    def _compileInScope(self, code, symbolTable, typeTable):
+        lt, _ = lispytree.build(parser.parse(code), symbolTable.fork())
+        tt, _ = typedtree.build(lt, typeTable.fork())
+        return lt, tt
+
+    def _propagated(self, libs=()):
         symbolTable = SymbolTable(standard.table.asdict())
         for lib in libs:
             symbolTable = symbolTable.fork(lib.asdict())
@@ -77,14 +79,14 @@ class Workflow(object):
             symbolTable[n] = lispytree.Ref(n)
             typeTable[lispytree.Ref(n)] = t
 
-        actions = ()
+        preactions = ()
         for step in self.steps():
-            symbolTable, typeTable, actions = step.propagate(symbolTable, typeTable, actions)
+            symbolTable, typeTable, preactions = step.propagate(symbolTable, typeTable, preactions)
 
-        return symbolTable, typeTable, actions
+        return symbolTable, typeTable, preactions
 
     def type(self, expression, libs=()):
-        symbolTable, typeTable, actions = self.propagated(libs)
+        symbolTable, typeTable, preactions = self._propagated(libs)
 
         expr = parser.parse(expression)
 
@@ -113,8 +115,8 @@ class NotFirst(object):
     def steps(self):
         return self._source.steps() + [self]
 
-    def propagate(self, symbolTable, typeTable, actions):
-        return symbolTable, typeTable, actions
+    def propagate(self, symbolTable, typeTable, preactions):
+        return symbolTable, typeTable, preactions
 
 class NotLast(object):
     # methods for creating all the intermediates and goals
@@ -122,8 +124,8 @@ class NotLast(object):
     def define(self, **namesToCode):
         return Define(self, **namesToCode)
 
-    def testGoal(self, expression):
-        return TestGoal(self, expression)
+    def toPython(self, **namesToCode):
+        return ToPython(self, **namesToCode)
 
 ############### Source, Intermediate, and Goal are the three types of Workflow transformation
 
@@ -143,24 +145,22 @@ class Intermediate(NotFirst, NotLast, Workflow): pass
 class Goal(NotFirst, Workflow):
     def compile(self, libs=()):
         source = self.source()
-        symbolTable, typeTable, actions = self.propagated(libs)
-
-        typedtrees = []
-        for target in self.targets():
-            lt, _ = lispytree.build(parser.parse(target), symbolTable.fork())
-            tt, typeTable = typedtree.build(lt, typeTable)
-            typedtrees.append(tt)
+        symbolTable, typeTable, preactions = self._propagated(libs)
 
         replacements = {}
         refnumber = 0
-        targets = []
         statements = statementlist.Statements()
-        for tt in typedtrees:
-            ref, ss, refnumber = statementlist.build(tt, source.dataset, replacements, refnumber)
-            targets.append(ref)
-            statements.extend(ss)
+        actions = []
+        for preaction in preactions:
+            refs = []
+            for tt in preaction.typedTrees():
+                ref, ss, refnumber = statementlist.build(tt, source.dataset, replacements, refnumber)
+                statements.extend(ss)
+                refs.append(ref)
 
-        return Query(source.dataset, targets, statements, list(actions))
+            actions.append(preaction.finalize(refs))
+
+        return Query(source.dataset, statements, actions)
 
     def submit(self, libs=()):
         self.source().session.submit(self.compile(libs))
@@ -172,23 +172,33 @@ class Define(Intermediate):
         super(Define, self).__init__(source)
         self.namesToExprs = namesToExprs
 
-    def propagate(self, symbolTable, typeTable, actions):
+    def propagate(self, symbolTable, typeTable, preactions):
         newSymbols = {}
         newTypes = {}
         for name, expr in self.namesToExprs.items():
-            lt, _ = lispytree.build(parser.parse(expr), symbolTable.fork())
+            lt, tt = self._compileInScope(expr, symbolTable, typeTable)
             newSymbols[name] = lt
-            tt, typeTable = typedtree.build(lt, typeTable)
             newTypes[lt] = tt.schema
 
-        return symbolTable.fork(newSymbols), typeTable.fork(newTypes), actions
+        return symbolTable.fork(newSymbols), typeTable.fork(newTypes), preactions
 
 ############### Goals
 
-class TestGoal(Goal):   # temporary
-    def __init__(self, source, expression):
-        super(TestGoal, self).__init__(source)
-        self.expression = expression
+class ToPython(Goal):
+    def __init__(self, source, **namesToExprs):
+        super(ToPython, self).__init__(source)
+        self.namesToExprs = namesToExprs
 
-    def targets(self):
-        return [self.expression]
+    def propagate(self, symbolTable, typeTable, preactions):
+        newSymbols = {}
+        newTypes = {}
+        namesToTypedTrees = []
+        for name in sorted(self.namesToExprs):
+            lt, tt = self._compileInScope(self.namesToExprs[name], symbolTable, typeTable)
+            newSymbols[name] = lt
+            newTypes[lt] = tt.schema
+            namesToTypedTrees.append((name, tt))
+
+        preactions = preactions + (statementlist.ReturnPythonDataset.Pre(namesToTypedTrees),)
+
+        return symbolTable.fork(newSymbols), typeTable.fork(newTypes), preactions
