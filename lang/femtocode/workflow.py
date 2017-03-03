@@ -191,32 +191,3 @@ class TestGoal(Goal):   # temporary
 
     def targets(self):
         return [self.expression]
-
-
-
-
-
-###################################
-
-from femtocode.testdataset import TestSession
-
-session = TestSession()
-
-source = session.source("Test", x=integer, y=real)
-for i in xrange(100):
-    source.dataset.fill({"x": i, "y": 0.2})
-
-# print source.type("x + 2")
-# print source.define(z = "x + y").type("z + 1")
-
-# intermediate = source.define(z = "x + y")
-# print intermediate.type("z + 2")
-
-# goal = source.define(z = "x + y").testGoal("z")
-# print goal.compile().statements
-
-goal = source.testGoal("x + y")
-# print goal.compile().statements
-
-goal.submit()
-

@@ -24,6 +24,7 @@ from femtocode.execution import PythonExecutor
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.testdataset import TestDataset
+from femtocode.testdataset import TestSession
 from femtocode.typesystem import *
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
@@ -61,3 +62,24 @@ class TestExecution(unittest.TestCase):
         print
         print data
         print size
+
+    def test_submit(self):
+        session = TestSession()
+
+        source = session.source("Test", x=integer, y=real)
+        for i in xrange(100):
+            source.dataset.fill({"x": i, "y": 0.2})
+
+        # print source.type("x + 2")
+        # print source.define(z = "x + y").type("z + 1")
+
+        # intermediate = source.define(z = "x + y")
+        # print intermediate.type("z + 2")
+
+        # goal = source.define(z = "x + y").testGoal("z")
+        # print goal.compile().statements
+
+        goal = source.testGoal("x + y")
+        # print goal.compile().statements
+
+        goal.submit()
