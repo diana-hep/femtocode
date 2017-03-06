@@ -559,3 +559,6 @@ class ReturnPythonDataset(Action):
     @property
     def structure(self):
         return dict((str(r.name), n) for n, r in self.namesToRefs)
+
+    def columns(self):
+        return [r.size for n, r in self.namesToRefs if r.size is not None] + [r.data for n, r in self.namesToRefs]

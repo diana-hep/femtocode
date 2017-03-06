@@ -103,18 +103,28 @@ class DependencyGraph(object):
         return len(self.flattened().intersection(other.flattened())) > 0
 
     @staticmethod
+    def wholedag(query):
+        lookup = {}
+        required = set()
+        targetsToEndpoints = {}
+        for action in query.actions:
+            for target in action.columns():
+                targetsToEndpoints[target] = DependencyGraph(target, query, lookup, required)
+        return targetsToEndpoints, lookup, required
+
+    @staticmethod
     def cohorts(graphs):
-        out = []
+        cohorts = []
         for graph in graphs:
             found = False
-            for previous in out:
+            for previous in cohorts:
                 if any(graph.overlap(g) for g in previous):
                     previous.append(graph)
                     found = True
                     break
             if not found:
-                out.append([graph])
-        return out
+                cohorts.append([graph])
+        return cohorts
 
     def _bucketfill(self, loop, endpoints, size):
         for dependency in self.dependencies:
@@ -151,6 +161,28 @@ class DependencyGraph(object):
 
         return loops
 
+    @staticmethod
+    def order(loops, actions, required):
+        order = []
+        targets = set(sum([x.columns() for x in actions], []))
+        while len(targets) > 0:
+            for size in loops:
+                for loop in loops[size]:
+                    if loop not in order:
+                        for target in loop.targets:
+                            if target in targets:
+                                order.insert(0, loop)
+                                break
+
+            targets = set(sum([loop.params() for loop in order], []))
+            for loop in order:
+                for target in loop.targets:
+                    targets.discard(target)
+            for column in required:
+                targets.discard(column)
+
+        return order
+
 from femtocode.workflow import Query
 query = Query.fromJson({'statements': [
     {'to': '#0', 'args': ['x', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
@@ -165,37 +197,20 @@ query = Query.fromJson({'statements': [
     {'to': '#9', 'args': ['#8', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'}
     ], 'actions': [{'type': 'ReturnPythonDataset', 'targets': [{'size': None, 'data': '#7', 'name': '#7', 'schema': 'real'}, {'size': None, 'data': '#9', 'name': '#9', 'schema': 'real'}], 'structure': {'#9': 'b', '#7': 'a'}}], 'dataset': {'groups': [{'segments': {'y': {'sizeLength': 0, 'numEntries': 100, 'data': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], 'dataLength': 100, 'size': None}, 'x': {'sizeLength': 0, 'numEntries': 100, 'data': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99], 'dataLength': 100, 'size': None}}, 'numEntries': 100, 'id': 0}], 'numEntries': 0, 'name': 'Test', 'columns': {'y': {'dataType': 'float', 'data': 'y', 'size': None}, 'x': {'dataType': 'int', 'data': 'x', 'size': None}}, 'schema': {'y': 'real', 'x': 'integer'}}})
 
-lookup = {}
-required = set()
-graphTargets = {}
-for action in query.actions:
-    for target in action.targets:
-        graphTargets[target.data] = DependencyGraph(target.data, query, lookup, required)
+targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
 
-print graphTargets["#7"].pretty()
-print graphTargets["#9"].pretty()
+print targetsToEndpoints["#7"].pretty()
+print targetsToEndpoints["#9"].pretty()
 
-loops = DependencyGraph.loops(graphTargets.values())
+loops = DependencyGraph.loops(targetsToEndpoints.values())
 
-print loops["#5@size"][1]
+for loop in DependencyGraph.order(loops, query.actions, required):
+    print loop
 
 
 
 
                 
-
-
-
-
-
-
-
-
-
-
-
-
-
 ############################
 
 from femtocode.workflow import Query
