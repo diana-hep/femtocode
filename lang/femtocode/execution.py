@@ -24,27 +24,36 @@ from femtocode.py23 import *
 from femtocode.typesystem import *
 
 class Loop(object):
-    def __init__(self, statements):
-        self.name = statements[-1].column
-        self.statements = statements
-
-        params = set()
-        for statement in self.statements:
-            for arg in statement.args:
-                if isinstance(arg, ColumnName):
-                    params.add(arg)
-
-        for statement in self.statements:
-            params.discard(statement.column)
-
-        self.params = sorted(params)
-        self.tosize = self.statements[-1].tosize
+    def __init__(self, size):
+        self.size = size
+        self.targets = []
+        self.statements = []
 
     def __repr__(self):
-        return "<Loop of [{0}] at 0x{1:012x}>".format(", ".join([str(x.column) for x in self.statements]), id(self))
+        return "<Loop over {0} at 0x{1:012x}>".format(str(self.size), id(self))
 
     def __str__(self):
-        return "\n".join(["Loop {0}({1})".format(self.name, ", ".join(map(str, self.params)))] + ["    " + str(x) for x in self.statements])
+        return "\n".join(["Loop over {0} params {1}".format(self.size, ", ".join(map(str, self.params())))] + ["    " + str(x) for x in self.statements])
+
+    def newTarget(self, column):
+        if column not in self.targets:
+            self.targets.append(column)
+
+    def newStatement(self, statement):
+        if statement not in self.statements:
+            self.statements.append(statement)
+
+    def params(self):
+        defines = set(x.column for x in self.statements)
+        out = []
+        for statement in self.statements:
+            for arg in statement.args:
+                if isinstance(arg, ColumnName) and arg not in defines and arg not in out:
+                    out.append(arg)
+        return out
+
+    def __contains__(self, column):
+        return any(x.column == column for x in self.statements)
 
 class DependencyGraph(object):
     def __init__(self, target, query, lookup, required):
@@ -107,35 +116,50 @@ class DependencyGraph(object):
                 out.append([graph])
         return out
 
-    def _linearize(self, size, exclude, allow):
-        segment = []
-        endpoints = []
+    def _bucketfill(self, loop, endpoints, size):
         for dependency in self.dependencies:
-            if dependency.size == size and \
-               dependency.target not in exclude and \
-               dependency.target not in segment and \
-               allow([dependency.target] + segment):
-                seg, ends = dependency._linearize(size, exclude, allow)
-                segment.extend(seg)
-                endpoints.extend(ends)
+            if dependency.size == size:
+                if dependency.target not in loop:
+                    dependency._bucketfill(loop, endpoints, size)
             else:
-                segment.append(dependency.target)
                 endpoints.append(dependency)
 
-        segment.append(self.target)
-        return segment, endpoints
+        loop.newStatement(self.statement)
 
-    # @staticmethod
-    # def segments(cohort):
-        
+    @staticmethod
+    def loops(graphs):
+        loops = {}
+        for cohort in DependencyGraph.cohorts(graphs):
+            while len(cohort) > 0:
+                newloops = {}
+                endpoints = []
+                for graph in cohort:
+                    loop = newloops.get(graph.size, Loop(graph.size))
+                    loop.newTarget(graph.target)
+                    graph._bucketfill(loop, endpoints, graph.size)
+                    newloops[graph.size] = loop
+
+                for size, loop in newloops.items():
+                    if size not in loops:
+                        loops[size] = []
+                    loops[size].append(loop)
+
+                cohort = []
+                for x in endpoints:
+                    if x not in cohort:
+                        cohort.append(x)
+
+        return loops
+
+from femtocode.workflow import Query
 query = Query.fromJson({'statements': [
     {'to': '#0', 'args': ['x', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
     {'to': '#1', 'args': ['#0', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
-    {'to': '#2', 'args': ['#1', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
-    {'to': '#3', 'args': ['#0', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
-    {'to': '#4', 'args': ['#3', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
-    {'to': '#5', 'args': ['#1', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
-    {'to': '#6', 'args': ['x', '#5'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#2', 'args': ['#1', 3.14], 'tosize': '#2@size', 'fcn': '+', 'schema': 'real'},
+    {'to': '#3', 'args': ['#0', 3.14], 'tosize': '#3@size', 'fcn': '+', 'schema': 'real'},
+    {'to': '#4', 'args': ['#3', 3.14], 'tosize': '#3@size', 'fcn': '+', 'schema': 'real'},
+    {'to': '#5', 'args': ['#1', 'y'], 'tosize': '#5@size', 'fcn': '+', 'schema': 'real'},
+    {'to': '#6', 'args': ['x', '#5'], 'tosize': '#5@size', 'fcn': '+', 'schema': 'real'},
     {'to': '#7', 'args': ['#6', '#2'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
     {'to': '#8', 'args': ['#6', '#4'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
     {'to': '#9', 'args': ['#8', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'}
@@ -143,58 +167,21 @@ query = Query.fromJson({'statements': [
 
 lookup = {}
 required = set()
-g7 = DependencyGraph(ColumnName("#7"), query, lookup, required)
-g9 = DependencyGraph(ColumnName("#9"), query, lookup, required)
+graphTargets = {}
+for action in query.actions:
+    for target in action.targets:
+        graphTargets[target.data] = DependencyGraph(target.data, query, lookup, required)
 
-print g7.pretty()
-print g9.pretty()
+print graphTargets["#7"].pretty()
+print graphTargets["#9"].pretty()
 
-cohort = [g7, g9]
-size = None
-allow=lambda segment: True
+loops = DependencyGraph.loops(graphTargets.values())
 
-segments = []
-while len(cohort) > 0:
-    nextCohort = []
-
-    for graph in cohort:
-        exclude = set()
-        for x in cohort:
-            if x != graph:
-                exclude.update(x.flattened())
-
-        segment, endpoints = graph._linearize(size, exclude, allow)
-        if segment not in segments:
-            segments.append(segment)
-        for x in endpoints:
-            if x not in nextCohort:
-                nextCohort.append(x)
-
-        cohort = nextCohort
+print loops["#5@size"][1]
 
 
 
-        
-    # def _samesize(self, size, memo):
-    #     if self.target in memo:
 
-    #     if self.size == size:
-    #         segment = []
-    #         endpoints = []
-    #         for x in self.dependencies:
-    #             seg, ends = x._samesize(size, memo)
-    #             segment.extend(seg)
-    #             endpoints.extend(ends)
-    #         segment.append(self.statement)
-    #         return segment, endpoints
-    #     else:
-    #         return [], [self]
-
-    # @staticmethod
-    # def segments(graphs):
-    #     segments = []
-    #     for graph in graphs:
-    #         for previous in segments:
                 
 
 
