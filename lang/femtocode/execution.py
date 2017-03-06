@@ -19,8 +19,6 @@ import sys
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
-from femtocode.testdataset import TestDataset
-from femtocode.testdataset import TestGroup
 from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
@@ -165,18 +163,21 @@ class DependencyGraph(object):
 
     @staticmethod
     def order(loops, actions, required):
-        order = []
+        order = [x for x in actions if isinstance(x, statementlist.Aggregation)]
         targets = set(sum([x.columns() for x in actions], []))
+
+        # FIXME: "Filter" type Actions should appear as far upstream in the order as possible
+
         while len(targets) > 0:
             for size in loops:
                 for loop in loops[size]:
                     if loop not in order:
                         for target in loop.targets:
                             if target in targets:
-                                order.insert(0, loop)
+                                order.insert(0, loop)  # put at beginning (working backward)
                                 break
 
-            targets = set(sum([loop.params() for loop in order], []))
+            targets = set(sum([loop.params() for loop in order if isinstance(loop, Loop)], []))
             for loop in order:
                 for target in loop.targets:
                     targets.discard(target)
@@ -230,19 +231,27 @@ class Compiler(object):
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
 
         for statement in loop.statements:
-            if isinstance(statement, Explode):
+            if isinstance(statement, statementlist.Explode):
                 raise NotImplementedError
 
-            elif isinstance(statement, ExplodeSize):
+            elif isinstance(statement, statementlist.ExplodeSize):
                 raise NotImplementedError
 
-            elif isinstance(statement, ExplodeData):
+            elif isinstance(statement, statementlist.ExplodeData):
                 raise NotImplementedError
 
-            elif isinstance(statement, Call):
-                # f(x[i0], y[i0], z[i0])
-                args = [ast.Subscript(ast.Name(valid(x), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()) for x in statement.args]
-                expr = table[statement.fcnname].buildexec(args)
+            elif isinstance(statement, statementlist.Call):
+                # f(x[i0], y[i0], 3.14, ...)
+                astargs = []
+                for arg in statement.args:
+                    if isinstance(arg, ColumnName) and (arg in loop.targets or arg in loop.params()):
+                        astargs.append(ast.Subscript(ast.Name(valid(arg), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()))
+                    elif isinstance(arg, ColumnName):
+                        astargs.append(ast.Name(valid(arg), ast.Load()))
+                    else:
+                        astargs.append(arg.buildexec())
+
+                expr = table[statement.fcnname].buildexec(astargs)
 
             else:
                 assert False, "unrecognized statement: {0}".format(statement)
@@ -260,53 +269,106 @@ class Compiler(object):
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
         counters = ["i0max"]
-        fcn = Compiler._compileToPython(str(loop.name), init + [whileloop], counters + [valid(x) for x in loop.params() + loop.targets])
+        fcn = Compiler._compileToPython(valid(None), init + [whileloop], counters + [valid(x) for x in loop.params() + loop.targets])
         return fcn, counters
     
-class PythonExecutor(object):
+class Executor(object):
     def __init__(self, query):
         self.query = query
-        assert isinstance(self.query.dataset, TestDataset), "PythonExecutor can only be used with TestDatasets"
-
         self.targetsToEndpoints, self.lookup, self.required = DependencyGraph.wholedag(self.query)
 
-        loops = DependencyGraph.loops(self.targetsToEndpoints.values())
-        self.order = DependencyGraph.order(loops, self.query.actions, self.required)
+        self.loops = DependencyGraph.loops(self.targetsToEndpoints.values())
+        self.order = DependencyGraph.order(self.loops, self.query.actions, self.required)
         self.compileLoops()
 
-    def inarrays(self, group):
-        assert isinstance(group, TestGroup), "PythonExecutor can only be used with TestDatasets"
-        return dict((x, group.segments[x]) for x in self.required)
-
-    def workarrays(self, group):
-        out = []
-        for column, graph in self.lookup.items():
-            if column.issize():
-                raise NotImplementedError
-
-            else:
-                if graph.size is None:
-                    length = group.numEntries
-
-                elif not graph.size.istmp():
-                    length = group.segments[size.dropsize()].dataLength
-
-                else:
-                    raise NotImplementedError
-
-            out[column] = [None] * length
-
-        return out
-
     def compileLoops(self):
-        for loop in self.order:
-            loop.pyfcn, loop.counters = Compiler.compileToPython(loop)
+        for loops in self.loops.values():
+            for loop in loops:
+                loop.pyfcn, loop.counters = Compiler.compileToPython(loop)
 
     def runloop(self, loop, args):
         loop.pyfcn(*args)
 
-    def run(self, inarrays, workarrays):
-        for loop in self.order:
-            counters = [len(inarrays.get(loop.size, workarrays[loop.size]))]
-            args = [inarrays.get(x, workarrays[x]) for x in loop.params() + loop.targets]
-            self.runloop(loop, counters + args)
+    def initialize(self):
+        action = self.query.actions[-1]   # the tally is only affected by the last action
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+        return action.initialize()
+
+    def finalize(self, tally):
+        action = self.query.actions[-1]   # the tally is only affected by the last action
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+        return action.finalize(tally)
+
+    def update(self, tally, subtally):
+        action = self.query.actions[-1]   # the tally is only affected by the last action
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+        return action.update(tally, subtally)
+        
+    def inarrays(self, group):
+        out = {}
+        for column in self.required:
+            if column.issize():
+                out[column] = group.segments[column.dropsize()].size
+            else:
+                out[column] = group.segments[column].data
+        return out
+
+    def temporaries(self):
+        return [(target, graph.size) for target, graph in self.targetsToEndpoints.items() if not target.issize()]
+
+    def sizearrays(self, group, inarrays):
+        return {}   # FIXME
+
+    def length(self, column, size, group, sizearrays):
+        if column.issize():
+            raise NotImplementedError   # whatever its implementation, it can't use sizearrays
+
+        elif size is None:
+            return group.numEntries
+
+        elif not size.istmp():
+            return group.segments[size.dropsize()].dataLength
+
+        else:
+            raise NotImplementedError
+
+    def workarrays(self, group, lengths):
+        return dict((data, [None] * lengths[data]) for data, size in self.temporaries())
+
+    def runloops(self, group, lengths, arrays):
+        out = None
+        for loopOrAction in self.order:
+            if isinstance(loopOrAction, Loop):
+                loop = loopOrAction
+                counters = [group.numEntries if loop.size is None else lengths[loop.size]]
+                args = [arrays[x] for x in loop.params() + loop.targets]
+                self.runloop(loop, counters + args)
+
+            else:
+                action = loopOrAction
+                out = action.act(group, lengths, arrays)
+
+        return out
+
+    def run(self, group, tally):
+        inarrays = self.inarrays(group)
+
+        lengths = {}
+        for data, size in self.temporaries():
+            if size is not None:
+                lengths[size] = self.length(size, None, group, None)
+
+        sizearrays = self.sizearrays(group, inarrays)
+
+        for data, size in self.temporaries():
+            lengths[data] = self.length(data, size, group, sizearrays)
+
+        workarrays = self.workarrays(group, lengths)
+
+        arrays = {}
+        arrays.update(inarrays)
+        arrays.update(sizearrays)
+        arrays.update(workarrays)
+
+        subtally = self.runloops(group, lengths, arrays)
+        return self.update(tally, subtally)

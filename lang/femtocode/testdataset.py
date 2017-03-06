@@ -22,7 +22,7 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.workflow import Source
-from femtocode.execution import PythonExecutor
+from femtocode.execution import Executor
 
 class TestSegment(Segment):
     def __init__(self, numEntries, dataLength, sizeLength, data, size):
@@ -352,10 +352,14 @@ class TestSession(object):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
     def submit(self, query):
-        executor = PythonExecutor(query)
-        return executor.run(executor.arrays())
+        executor = Executor(query)
 
+        tally = executor.initialize()
 
+        for group in query.dataset.groups:
+            tally = executor.run(group, tally)
+
+        return executor.finalize(tally)
 
 
 

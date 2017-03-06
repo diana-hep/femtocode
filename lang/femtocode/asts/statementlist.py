@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import re
 import json
+import sys
 
 import femtocode.asts.typedtree as typedtree
 from femtocode.defs import *
@@ -283,6 +285,22 @@ class Literal(Statement):
     def __hash__(self):
         return hash((Literal, self.value, self.schema))
 
+    def buildexec(self):
+        if isinstance(self.schema, Null):
+            raise NotImplementedError   # have to think about this when the case comes up
+
+        elif isinstance(self.schema, Boolean):
+            if sys.version_info[0] <= 2:
+                return ast.Name("True", ast.Load())
+            else:
+                return ast.NameConstant(True)
+
+        elif isinstance(self.schema, Number):
+            return ast.Num(self.value)
+
+        else:
+            raise NotImplementedError   # have to think about this when the case comes up
+
 class Call(Statement):
     def __init__(self, column, schema, tosize, fcnname, args):
         self.column = column
@@ -534,22 +552,39 @@ class Action(Statement):
         else:
             raise FemtocodeError("Unrecognized action \"{0}\" at JSON{1}".format(tpe, path))
 
-class ReturnPythonDataset(Action):
+    def act(self, inarrays, workarrays):
+        raise NotImplementedError
+
+class Aggregation(Action):
+    def initialize(self):
+        raise NotImplementedError
+
+    def update(self, tally, subtally):
+        raise NotImplementedError
+
+    def finalize(self, tally):
+        return tally
+
+class ReturnPythonDataset(Aggregation):
     class Pre(object):
-        def __init__(self, namesToTypedTrees):
+        def __init__(self, datasetName, namesToTypedTrees):
+            self.datasetName = datasetName
             self.namesToTypedTrees = namesToTypedTrees
 
         def typedTrees(self):
             return [tt for n, tt in self.namesToTypedTrees]
 
         def finalize(self, refs):
-            return ReturnPythonDataset([(n, ref) for ref, (n, tt) in zip(refs, self.namesToTypedTrees)])
+            return ReturnPythonDataset(self.datasetName, [(n, ref) for ref, (n, tt) in zip(refs, self.namesToTypedTrees)])
 
     @staticmethod
     def fromJson(targets, structure):
-        return ReturnPythonDataset([(structure[ref.name], ref) for ref in targets])
+        return ReturnPythonDataset(
+            structure["datasetName"],
+            [(structure["refsToNames"][ref.name], ref) for ref in targets])
 
-    def __init__(self, namesToRefs):
+    def __init__(self, datasetName, namesToRefs):
+        self.datasetName = datasetName
         self.namesToRefs = namesToRefs
 
     @property
@@ -558,7 +593,39 @@ class ReturnPythonDataset(Action):
 
     @property
     def structure(self):
-        return dict((str(r.name), n) for n, r in self.namesToRefs)
+        return {"datasetName": self.datasetName,
+                "refsToNames": dict((str(r.name), n) for n, r in self.namesToRefs)}
 
     def columns(self):
         return [r.size for n, r in self.namesToRefs if r.size is not None] + [r.data for n, r in self.namesToRefs]
+
+    def initialize(self):
+        from femtocode.testdataset import TestDataset
+        schema = dict((n, r.schema) for n, r in self.namesToRefs)
+        return TestDataset.fromSchema(self.datasetName, **schema)
+
+    def update(self, tally, subtally):
+        numEntries = None
+        for segment in subtally.values():
+            if numEntries is None:
+                numEntries = segment.numEntries
+            else:
+                assert numEntries == segment.numEntries
+        assert numEntries is not None
+
+        tally.newGroup()
+        tally.groups[-1].segments = subtally
+        tally.groups[-1].numEntries = numEntries
+        return tally
+
+    def act(self, group, lengths, arrays):
+        from femtocode.testdataset import TestSegment
+        segments = {}
+        for n, ref in self.namesToRefs:
+            numEntries = group.numEntries
+            dataLength = lengths[ref.data]
+            sizeLength = None if ref.size is None else lengths[ref.size]
+            data = arrays[ref.data]
+            size = None if ref.size is None else arrays[ref.size]
+            segments[n] = TestSegment(numEntries, dataLength, sizeLength, data, size)
+        return segments
