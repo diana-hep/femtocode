@@ -372,3 +372,23 @@ class Executor(object):
 
         subtally = self.runloops(group, lengths, arrays)
         return self.update(tally, subtally)
+
+
+
+
+
+#####################################################################
+## Test them here (to avoid stale bytecode during development)
+
+class NativeCompiler(Compiler):
+    pass
+
+class NativeExecutor(Executor):
+    def __init__(self, query):
+        super(NativeExecutor, self).__init__(query)
+
+    def compileLoops(self):
+        raise Exception
+
+    def runloop(self, loop, args):
+        loop.nativefcn(*args)
