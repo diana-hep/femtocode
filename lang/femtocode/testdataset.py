@@ -251,6 +251,7 @@ class TestDataset(Dataset):
         for segment in group.segments.values():
             segment.numEntries += 1
         group.numEntries += 1
+        self.numEntries += 1
 
     def fillall(self, data, groupLimit=None):
         for datum in data:

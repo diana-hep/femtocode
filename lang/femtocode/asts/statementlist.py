@@ -618,6 +618,10 @@ class ReturnPythonDataset(Aggregation):
         tally.groups[-1].numEntries = numEntries
         return tally
 
+    def finalize(self, tally):
+        tally.numEntries = sum(group.numEntries for group in tally.groups)
+        return tally
+
     def act(self, group, lengths, arrays):
         from femtocode.testdataset import TestSegment
         segments = {}

@@ -41,11 +41,10 @@ class TestExecution(unittest.TestCase):
         for i in xrange(100):
             source.dataset.fill({"x": i, "y": 0.2})
 
-        goal = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5")
+        sink = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
 
-        newdata = goal.submit()
+        self.assertEqual(source.dataset.numEntries, sink.numEntries)
 
-        print newdata.groups[0]
-
-        for entry in newdata:
-            print entry
+        for old, new in zip(source.dataset, sink):
+            self.assertAlmostEqual(old.x + old.y - 3, new.a)
+            self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
