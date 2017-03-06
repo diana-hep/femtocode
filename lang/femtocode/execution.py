@@ -284,10 +284,10 @@ class Executor(object):
     def compileLoops(self):
         for loops in self.loops.values():
             for loop in loops:
-                loop.pyfcn, loop.counters = Compiler.compileToPython(loop)
+                loop.pythonfcn, loop.counters = Compiler.compileToPython(loop)
 
     def runloop(self, loop, args):
-        loop.pyfcn(*args)
+        loop.pythonfcn(*args)
 
     def initialize(self):
         action = self.query.actions[-1]   # the tally is only affected by the last action

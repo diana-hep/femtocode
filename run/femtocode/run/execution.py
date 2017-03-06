@@ -14,9 +14,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class DummyExecutor(object):
-    def __init__(self, query):
-        assert "muons[]-pt" in query.inputs and "jets[]-pt" in query.inputs
+import ast
 
-    def run(self, arrays):
-        return arrays["muons[]-pt"].sum() + arrays["jets[]-pt"].sum()
+from femtocode.asts import statementlist
+from femtocode.dataset import ColumnName
+from femtocode.execution import Loop
+from femtocode.execution import DependencyGraph
+from femtocode.execution import Compiler
+from femtocode.execution import Executor
+
+class NativeCompiler(Compiler):
+    pass
+
+class NativeExecutor(Executor):
+    def __init__(self, query):
+        super(NativeExecutor, self).__init__(query)
+
+    def compileLoops(self):
+        raise Exception
+
+    def runloop(self, loop, args):
+        loop.nativefcn(*args)
+    
+class AsynchronousNativeExecutor(NativeExecutor):
+    def inarrays(self, group):
+        raise Exception
+
+    def sizearrays(self, group, inarrays):
+        raise Exception
+
+    def workarrays(self, group, lengths):
+        raise Exception
+
+    def compiledQuery(self):
+        raise Exception
+
+    @staticmethod
+    def fromCompiledQuery(compiledQuery):
+        raise Exception

@@ -74,14 +74,12 @@ class StandaloneSession(object):
                  cacheLimitBytes=1024**3,
                  datasetDirectory=".",
                  datasetClass=ROOTDataset,
-                 fetcherClass=ROOTFetcher,
-                 executorClass=DummyExecutor):
+                 fetcherClass=ROOTFetcher):
 
         minionsIncoming = queue.Queue()
         self.minions = [Minion(minionsIncoming, None) for i in range(numMinions)]
         self.metadata = MetadataFromJson(datasetClass, datasetDirectory)
         self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes, fetcherClass), self.minions)
-        self.executorClass = executorClass
 
         for minion in self.minions:
             minion.start()
@@ -91,12 +89,11 @@ class StandaloneSession(object):
         return Source(self, self.metadata.dataset(name))
 
     def submit(self, query):
-        # TODO: compile queries
-        compiledQuery = CompiledQuery("retaddr", 0, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0])
-
-        work = Work(compiledQuery,
-                    self.metadata.dataset(compiledQuery.dataset, compiledQuery.groupids, compiledQuery.inputs),
-                    self.executorClass(compiledQuery),
+        executor = AsynchronousNativeExecutor(query)
+        
+        work = Work(executor.compiledQuery(),
+                    self.metadata.dataset(query.dataset, query.groupids, executor.requires),
+                    executor,
                     FutureQueryResult(query))
 
         self.cacheMaster.incoming.put(work)
