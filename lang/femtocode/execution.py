@@ -107,10 +107,74 @@ class DependencyGraph(object):
                 out.append([graph])
         return out
 
+    def _linearize(self, size, exclude, allow):
+        segment = []
+        endpoints = []
+        for dependency in self.dependencies:
+            if dependency.size == size and \
+               dependency.target not in exclude and \
+               dependency.target not in segment and \
+               allow([dependency.target] + segment):
+                seg, ends = dependency._linearize(size, exclude, allow)
+                segment.extend(seg)
+                endpoints.extend(ends)
+            else:
+                segment.append(dependency.target)
+                endpoints.append(dependency)
+
+        segment.append(self.target)
+        return segment, endpoints
+
+    # @staticmethod
+    # def segments(cohort):
+        
+query = Query.fromJson({'statements': [
+    {'to': '#0', 'args': ['x', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#1', 'args': ['#0', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#2', 'args': ['#1', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#3', 'args': ['#0', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#4', 'args': ['#3', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#5', 'args': ['#1', 'y'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#6', 'args': ['x', '#5'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#7', 'args': ['#6', '#2'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#8', 'args': ['#6', '#4'], 'tosize': None, 'fcn': '+', 'schema': 'real'},
+    {'to': '#9', 'args': ['#8', 3.14], 'tosize': None, 'fcn': '+', 'schema': 'real'}
+    ], 'actions': [{'type': 'ReturnPythonDataset', 'targets': [{'size': None, 'data': '#7', 'name': '#7', 'schema': 'real'}, {'size': None, 'data': '#9', 'name': '#9', 'schema': 'real'}], 'structure': {'#9': 'b', '#7': 'a'}}], 'dataset': {'groups': [{'segments': {'y': {'sizeLength': 0, 'numEntries': 100, 'data': [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], 'dataLength': 100, 'size': None}, 'x': {'sizeLength': 0, 'numEntries': 100, 'data': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99], 'dataLength': 100, 'size': None}}, 'numEntries': 100, 'id': 0}], 'numEntries': 0, 'name': 'Test', 'columns': {'y': {'dataType': 'float', 'data': 'y', 'size': None}, 'x': {'dataType': 'int', 'data': 'x', 'size': None}}, 'schema': {'y': 'real', 'x': 'integer'}}})
+
+lookup = {}
+required = set()
+g7 = DependencyGraph(ColumnName("#7"), query, lookup, required)
+g9 = DependencyGraph(ColumnName("#9"), query, lookup, required)
+
+print g7.pretty()
+print g9.pretty()
+
+cohort = [g7, g9]
+size = None
+allow=lambda segment: True
+
+segments = []
+while len(cohort) > 0:
+    nextCohort = []
+
+    for graph in cohort:
+        exclude = set()
+        for x in cohort:
+            if x != graph:
+                exclude.update(x.flattened())
+
+        segment, endpoints = graph._linearize(size, exclude, allow)
+        if segment not in segments:
+            segments.append(segment)
+        for x in endpoints:
+            if x not in nextCohort:
+                nextCohort.append(x)
+
+        cohort = nextCohort
 
 
 
-
+        
     # def _samesize(self, size, memo):
     #     if self.target in memo:
 
