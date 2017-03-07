@@ -381,6 +381,9 @@ class Executor(object):
 #####################################################################
 ## Test them here (to avoid stale bytecode during development)
 
+import ctypes
+
+import llvmlite.binding
 import numba
 import numpy
 
@@ -418,6 +421,44 @@ class NativeCompiler(Compiler):
 
         return numba.jit([sig], nopython=True)(pythonfcn), counters, tmptypes
 
+    @staticmethod
+    def serialize(nativefcn):
+        assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
+        cres = nativefcn.overloads.values()[0]
+        fnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("<dynamic>")]   # "cpython."  ?
+        assert len(fnames) == 1, "expected only one function from dynamically generated Python"
+
+        # print cres.library.get_llvm_str()
+
+        return (fnames[0], cres.library._compiled_object)
+
+    llvmlite.binding.initialize()
+    llvmlite.binding.initialize_native_target()
+    llvmlite.binding.initialize_native_asmprinter()
+
+    @staticmethod
+    def deserialize(fname, compiledobj):
+        # 2 ms
+        target = llvmlite.binding.Target.from_default_triple()
+        target_machine = target.create_target_machine()
+        backing_mod = llvmlite.binding.parse_assembly("")
+        engine = llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
+
+        # insignificant compared with 2 ms
+        def object_compiled_hook(ll_module, buf):
+            pass
+        def object_getbuffer_hook(ll_module):
+            return compiledobj
+        engine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
+
+        # actually loads compiled code
+        engine.finalize_object()
+
+        # find the function within the compiled code
+        fcnptr = engine.get_function_address(fname)
+
+        return ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_int64, ctypes.POINTER(None), ctypes.POINTER(None), ctypes.POINTER(None), ctypes.POINTER(None))(fcnptr)
+
 class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
@@ -428,6 +469,22 @@ class NativeExecutor(Executor):
             for loop in loops:
                 loop.nativefcn, loop.counters, tmptypes = NativeCompiler.compileToNative(loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
+
+                fname, compiledobj = NativeCompiler.serialize(loop.nativefcn)
+
+                f2 = NativeCompiler.deserialize(fname, compiledobj)
+
+                x = numpy.array([1, 2, 3, 4, 5], dtype=numpy.int64).ctypes.data_as(ctypes.POINTER(None))
+                y = numpy.array([0.2, 0.2, 0.2, 0.2, 0.2], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
+                a = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
+                b = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
+                print "f2", f2
+                print "BEFORE", x, y, a, b
+                f2(ctypes.c_int64(5), x, y, a, b)
+                print "AFTER"
+                print a
+                print b
+
 
     def runloop(self, loop, args):
         loop.nativefcn(*args)
@@ -440,25 +497,3 @@ class NativeExecutor(Executor):
 
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
-
-
-
-
-
-# import numpy
-
-# x = numpy.ones(1000, dtype=numpy.double) * 1.1
-# y = numpy.ones(1000, dtype=numpy.int64) * 3
-# out = numpy.empty(1000, dtype=numpy.double)
-
-# stmts = ast.parse("""
-# i = 0
-# while i < imax:
-#     z = x[i] + y[i]
-#     out[i] = z**2
-#     i += 1
-# """).body
-
-# f = Compiler._compileToPython("f", stmts, ["imax", "x", "y", "out"])
-
-# f2 = numba.jit([(numba.int64, numba.float64[:], numba.int64[:], numba.float64[:])], nopython=True)(f)
