@@ -30,11 +30,15 @@ import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
 import femtocode.asts.typedtree as typedtree
 
+from femtocode.execution import NativeExecutor
+
 class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
 
     def test_submit(self):
+        TestSession.executorClass = NativeExecutor
+
         session = TestSession()
 
         source = session.source("Test", x=integer, y=real)

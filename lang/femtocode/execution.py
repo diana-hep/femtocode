@@ -382,63 +382,83 @@ class Executor(object):
 ## Test them here (to avoid stale bytecode during development)
 
 import numba
+import numpy
 
 class NativeCompiler(Compiler):
     @staticmethod
     def compileToNative(loop, columns):
         pythonfcn, counters = NativeCompiler.compileToPython(loop)
 
-        sztpe = numba.from_dtype(numpy.dtype(sizeType))
-        sig = (sztpe,) * len(counters)
+        sig = (numba.int64,) * len(counters)
 
         for column in loop.params():
             if column.issize():
-                sig = sig + (sztpe[:],)
+                sig = sig + (numba.from_dtype(numpy.dtype(sizeType))[:],)
             else:
-                sig = sig + (numba.from_dtype(columns[column].dataType),)
+                sig = sig + (numba.from_dtype(numpy.dtype(columns[column].dataType))[:],)
 
+        tmptypes = {}
         for column in loop.targets:
             if column.issize():
-                sig = sig + (sztpe[:],)
+                sig = sig + (numba.from_dtype(numpy.dtype(sizeType))[:],)
+                tmptypes[column] = numpy.dtype(sizeType)
+
             else:
                 statement = filter(lambda x: isinstance(x, statementlist.Call) and x.column == column, loop.statements)[0]
                 if isinstance(statement.schema, Number) and statement.schema.whole:
                     sig = sig + (numba.int64[:],)
+                    tmptypes[column] = numpy.int64
+
                 elif isinstance(statement.schema, Number):
-                    tpe = numba.float64[:]
+                    sig = sig + (numba.float64[:],)
+                    tmptypes[column] = numpy.float64
+
                 else:
                     raise NotImplementedError
 
-
-
+        return numba.jit([sig], nopython=True)(pythonfcn), counters, tmptypes
 
 class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
 
     def compileLoops(self):
-        raise Exception
+        self.tmptypes = {}
+        for loops in self.loops.values():
+            for loop in loops:
+                loop.nativefcn, loop.counters, tmptypes = NativeCompiler.compileToNative(loop, self.query.dataset.columns)
+                self.tmptypes.update(tmptypes)
 
     def runloop(self, loop, args):
         loop.nativefcn(*args)
 
-import numpy
+    def inarrays(self, group):
+        return dict((n, numpy.array(a)) for n, a in super(NativeExecutor, self).inarrays(group).items())
 
-x = numpy.ones(1000, dtype=numpy.double) * 1.1
-y = numpy.ones(1000, dtype=numpy.int64) * 3
-out = numpy.empty(1000, dtype=numpy.double)
+    def sizearrays(self, group, inarrays):
+        return dict((n, numpy.array(a)) for n, a in super(NativeExecutor, self).sizearrays(group, inarrays).items())
 
-stmts = ast.parse("""
-i = 0
-while i < imax:
-    z = x[i] + y[i]
-    out[i] = z**2
-    i += 1
-""").body
-
-f = Compiler._compileToPython("f", stmts, ["imax", "x", "y", "out"])
-
-f2 = numba.jit([(numba.int64, numba.float64[:], numba.int64[:], numba.float64[:])], nopython=True)(f)
+    def workarrays(self, group, lengths):
+        return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
 
 
 
+
+
+# import numpy
+
+# x = numpy.ones(1000, dtype=numpy.double) * 1.1
+# y = numpy.ones(1000, dtype=numpy.int64) * 3
+# out = numpy.empty(1000, dtype=numpy.double)
+
+# stmts = ast.parse("""
+# i = 0
+# while i < imax:
+#     z = x[i] + y[i]
+#     out[i] = z**2
+#     i += 1
+# """).body
+
+# f = Compiler._compileToPython("f", stmts, ["imax", "x", "y", "out"])
+
+# f2 = numba.jit([(numba.int64, numba.float64[:], numba.int64[:], numba.float64[:])], nopython=True)(f)

@@ -351,11 +351,13 @@ class TestDataset(Dataset):
 #             occupant.rawarray[:] = array   # Fetchers have to force their data into preallocated Numpy arrays (it's a femtocode-run thing)
 
 class TestSession(object):
+    executorClass = Executor
+
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
     def submit(self, query):
-        executor = Executor(query)
+        executor = self.executorClass(query)
 
         tally = executor.initialize()
 
