@@ -19,6 +19,7 @@ import sys
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
+from femtocode.dataset import sizeType
 from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
@@ -380,8 +381,36 @@ class Executor(object):
 #####################################################################
 ## Test them here (to avoid stale bytecode during development)
 
+import numba
+
 class NativeCompiler(Compiler):
-    pass
+    @staticmethod
+    def compileToNative(loop, columns):
+        pythonfcn, counters = NativeCompiler.compileToPython(loop)
+
+        sztpe = numba.from_dtype(numpy.dtype(sizeType))
+        sig = (sztpe,) * len(counters)
+
+        for column in loop.params():
+            if column.issize():
+                sig = sig + (sztpe[:],)
+            else:
+                sig = sig + (numba.from_dtype(columns[column].dataType),)
+
+        for column in loop.targets:
+            if column.issize():
+                sig = sig + (sztpe[:],)
+            else:
+                statement = filter(lambda x: isinstance(x, statementlist.Call) and x.column == column, loop.statements)[0]
+                if isinstance(statement.schema, Number) and statement.schema.whole:
+                    sig = sig + (numba.int64[:],)
+                elif isinstance(statement.schema, Number):
+                    tpe = numba.float64[:]
+                else:
+                    raise NotImplementedError
+
+
+
 
 class NativeExecutor(Executor):
     def __init__(self, query):
@@ -392,3 +421,24 @@ class NativeExecutor(Executor):
 
     def runloop(self, loop, args):
         loop.nativefcn(*args)
+
+import numpy
+
+x = numpy.ones(1000, dtype=numpy.double) * 1.1
+y = numpy.ones(1000, dtype=numpy.int64) * 3
+out = numpy.empty(1000, dtype=numpy.double)
+
+stmts = ast.parse("""
+i = 0
+while i < imax:
+    z = x[i] + y[i]
+    out[i] = z**2
+    i += 1
+""").body
+
+f = Compiler._compileToPython("f", stmts, ["imax", "x", "y", "out"])
+
+f2 = numba.jit([(numba.int64, numba.float64[:], numba.int64[:], numba.float64[:])], nopython=True)(f)
+
+
+
