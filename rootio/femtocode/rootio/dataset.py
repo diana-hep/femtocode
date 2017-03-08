@@ -50,7 +50,7 @@ class ROOTSegment(Segment):
         return other.__class__ == ROOTSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.files == other.files
 
     def __hash__(self):
-        return hash((ROOTSegment, self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
+        return hash(("ROOTSegment", self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
 
 class ROOTGroup(Group):
     def __init__(self, id, segments, numEntries, files):
@@ -74,7 +74,7 @@ class ROOTGroup(Group):
         return other.__class__ == ROOTGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.files == other.files
 
     def __hash__(self):
-        return hash((ROOTGroup, self.id, tuple(self.segments.items()), self.numEntries, None if self.files is None else tuple(self.files)))
+        return hash(("ROOTGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries, None if self.files is None else tuple(self.files)))
 
 class ROOTColumn(Column):
     def __init__(self, data, size, dataType, tree, dataBranch, sizeBranch):
@@ -104,7 +104,7 @@ class ROOTColumn(Column):
         return other.__class__ == ROOTColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType and self.tree == other.tree and self.dataBranch == other.dataBranch and self.sizeBranch == other.sizeBranch
 
     def __hash__(self):
-        return hash((ROOTColumn, self.data, self.size, self.dataType, self.tree, self.dataBranch, self.sizeBranch))
+        return hash(("ROOTColumn", self.data, self.size, self.dataType, self.tree, self.dataBranch, self.sizeBranch))
 
 class ROOTDataset(Dataset):
     @staticmethod
@@ -349,4 +349,4 @@ class ROOTDataset(Dataset):
         return other.__class__ == ROOTDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((ROOTDataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
+        return hash(("ROOTDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))

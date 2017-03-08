@@ -218,7 +218,7 @@ class Compiler(object):
         return out[name]
 
     @staticmethod
-    def compileToPython(loop):
+    def compileToPython(fcnname, loop):
         validNames = {}
         def valid(n):
             if n not in validNames:
@@ -271,7 +271,7 @@ class Compiler(object):
         # i0 += 1
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
-        fcn = Compiler._compileToPython(valid(None), init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
+        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
         return fcn, imax
     
 class Executor(object):
@@ -284,9 +284,10 @@ class Executor(object):
         self.compileLoops()
 
     def compileLoops(self):
-        for loops in self.loops.values():
-            for loop in loops:
-                loop.pythonfcn, loop.imax = Compiler.compileToPython(loop)
+        for i, loops in enumerate(self.loops.values()):
+            for j, loop in enumerate(loops):
+                fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
+                loop.pythonfcn, loop.imax = Compiler.compileToPython(fcnname, loop)
 
     def runloop(self, loop, args):
         loop.pythonfcn(*args)
@@ -402,8 +403,8 @@ llvmlite.binding.initialize_native_asmprinter()
 
 class NativeCompiler(Compiler):
     @staticmethod
-    def compileToNative(loop, columns):
-        pythonfcn, imax = NativeCompiler.compileToPython(loop)
+    def compileToNative(fcnname, loop, columns):
+        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop)
 
         sig = (numba.int64[:],)
 
@@ -438,39 +439,45 @@ class NativeCompiler(Compiler):
     def serialize(nativefcn):
         assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
         cres = nativefcn.overloads.values()[0]
-        fnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
-        assert len(fnames) == 1, "expected only one function from dynamically generated Python"
-        return (fnames[0], cres.library._compiled_object)
-
-    # 2 ms
-    target = llvmlite.binding.Target.from_default_triple()
-    target_machine = target.create_target_machine()
-    backing_mod = llvmlite.binding.parse_assembly("")
-    engine = llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
+        llvmnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
+        assert len(llvmnames) == 1, "expected only one function from dynamically generated Python"
+        return (llvmnames[0], cres.library._compiled_object)
 
     @staticmethod
-    def deserialize(fname, compiledobj):
+    def deserialize(llvmname, compiledobj):
         # insignificant compared with 2 ms
         def object_compiled_hook(ll_module, buf):
             pass
         def object_getbuffer_hook(ll_module):
             return compiledobj
-        NativeCompiler.engine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
+        NativeCompiler.llvmengine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
 
         # actually loads compiled code
-        NativeCompiler.engine.finalize_object()
+        NativeCompiler.llvmengine.finalize_object()
 
         # find the function within the compiled code
-        fcnptr = NativeCompiler.engine.get_function_address(fname)
+        fcnptr = NativeCompiler.llvmengine.get_function_address(llvmname)
 
         # interpret it as a Python function
         cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
 
+        # the cpython.* function takes Python pointers to closure, args, kwds and unpacks them
         def wrapped(*args, **kwds):
             closure = ()
             return cpythonfcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
 
         return wrapped
+
+    @staticmethod
+    def newengine():
+        # 2 ms, which is dominant, but more importantly it needs to persist
+        target = llvmlite.binding.Target.from_default_triple()
+        target_machine = target.create_target_machine()
+        backing_mod = llvmlite.binding.parse_assembly("")
+        return llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
+
+# you should *probably* make sure that access to this is from a single thread...
+NativeCompiler.llvmengine = NativeCompiler.newengine()
 
 class NativeExecutor(Executor):
     def __init__(self, query):
@@ -478,13 +485,14 @@ class NativeExecutor(Executor):
 
     def compileLoops(self):
         self.tmptypes = {}
-        for loops in self.loops.values():
-            for loop in loops:
-                loop.nativefcn, loop.imax, tmptypes = NativeCompiler.compileToNative(loop, self.query.dataset.columns)
+        for i, loops in enumerate(self.loops.values()):
+            for j, loop in enumerate(loops):
+                fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
+                loop.nativefcn, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
 
-                fname, compiledobj = NativeCompiler.serialize(loop.nativefcn)
-                loop.nativefcn = NativeCompiler.deserialize(fname, compiledobj)
+                llvmname, compiledobj = NativeCompiler.serialize(loop.nativefcn)
+                loop.nativefcn = NativeCompiler.deserialize(llvmname, compiledobj)
 
     def runloop(self, loop, args):
         imax = numpy.array(args[0], dtype=numpy.int64)

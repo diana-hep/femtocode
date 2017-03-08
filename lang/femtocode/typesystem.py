@@ -89,7 +89,7 @@ class almost(float):
         else:
             return True
     def __hash__(self):
-        return hash((almost, self.real))
+        return hash((None, self.real))
 
     def __repr__(self):
         return "almost(" + repr(self.real) + ")"

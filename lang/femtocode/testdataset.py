@@ -49,7 +49,7 @@ class TestSegment(Segment):
         return other.__class__ == TestSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.data == other.data
 
     def __hash__(self):
-        return hash((TestSegment, self.numEntries, self.dataLength, self.sizeLength, tuple(self.data)))
+        return hash(("TestSegment", self.numEntries, self.dataLength, self.sizeLength, tuple(self.data)))
 
 class TestGroup(Group):
     def __init__(self, id, segments, numEntries):
@@ -70,7 +70,7 @@ class TestGroup(Group):
         return other.__class__ == TestGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((TestGroup, self.id, tuple(self.segments.items()), self.numEntries))
+        return hash(("TestGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries))
 
 class TestColumn(Column):
     def __init__(self, data, size, dataType):
@@ -90,7 +90,7 @@ class TestColumn(Column):
         return other.__class__ == TestColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType
 
     def __hash__(self):
-        return hash((TestColumn, self.data, self.size, self.dataType))
+        return hash(("TestColumn", self.data, self.size, self.dataType))
 
 class TestDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries):
@@ -125,7 +125,7 @@ class TestDataset(Dataset):
         return other.__class__ == TestDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((TestDataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
+        return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
 
     @staticmethod
     def fromSchema(name, asdict=None, **askwds):

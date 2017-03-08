@@ -52,7 +52,7 @@ class ColumnName(object):
         def __eq__(self, other):
             return other.__class__ == ColumnName.Coll
         def __hash__(self):
-            return hash((ColumnName.Coll,))
+            return hash(("ColumnName.Coll",))
         def __lt__(self, other):
             if isinstance(other, string_types):
                 return other
@@ -69,7 +69,7 @@ class ColumnName(object):
         def __eq__(self, other):
             return other.__class__ == ColumnName.Size
         def __hash__(self):
-            return hash((ColumnName.Size,))
+            return hash(("ColumnName.Size",))
         def __lt__(self, other):
             if isinstance(other, string_types):
                 return other
@@ -202,7 +202,7 @@ class Segment(Metadata):
         return other.__class__ == Segment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength
 
     def __hash__(self):
-        return hash((Segment, self.numEntries, self.dataLength, self.sizeLength))
+        return hash(("Segment", self.numEntries, self.dataLength, self.sizeLength))
 
 class Group(Metadata):
     def __init__(self, id, segments, numEntries):
@@ -227,7 +227,7 @@ class Group(Metadata):
         return other.__class__ == Group and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((Group, self.id, tuple(self.segments.items()), self.numEntries))
+        return hash(("Group", self.id, tuple(sorted(self.segments.items())), self.numEntries))
 
 class Column(Metadata):
     def __init__(self, data, size, dataType):
@@ -252,7 +252,7 @@ class Column(Metadata):
         return other.__class__ == Column and self.data == other.data and self.size == other.size and self.dataType == other.dataType
 
     def __hash__(self):
-        return hash((Column, self.data, self.size, self.dataType))
+        return hash(("Column", self.data, self.size, self.dataType))
 
 class Dataset(Metadata):
     def __init__(self, name, schema, columns, groups, numEntries):
@@ -285,7 +285,7 @@ class Dataset(Metadata):
         return other.__class__ == Dataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((Dataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
+        return hash(("Dataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
 
     def dataColumn(self, columnName):
         if isinstance(columnName, string_types):

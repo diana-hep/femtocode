@@ -36,6 +36,13 @@ class Query(object):
     def __repr__(self):
         return "Query.fromJson({0})".format(self.toJson())
 
+    @property
+    def id(self):
+        return abs(hash(self))
+
+    def __hash__(self):
+        return hash(("Query", self.dataset, self.statements, tuple(self.actions)))
+
     def toJsonString(self):
         return json.dumps(self.toJson())
 

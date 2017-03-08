@@ -46,7 +46,7 @@ class NumpySegment(Segment):
         return other.__class__ == NumpySegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.files == other.files
 
     def __hash__(self):
-        return hash((NumpySegment, self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
+        return hash(("NumpySegment", self.numEntries, self.dataLength, self.sizeLength, None if self.files is None else tuple(self.files)))
 
 class NumpyGroup(Group):
     def __init__(self, id, segments, numEntries, files):
@@ -70,7 +70,7 @@ class NumpyGroup(Group):
         return other.__class__ == NumpyGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.files == other.files
 
     def __hash__(self):
-        return hash((NumpyGroup, self.id, tuple(self.segments.items()), self.numEntries, None if self.files is None else tuple(self.files)))
+        return hash(("NumpyGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries, None if self.files is None else tuple(self.files)))
 
 class NumpyColumn(Column):
     def __init__(self, data, size, dataType):
@@ -90,7 +90,7 @@ class NumpyColumn(Column):
         return other.__class__ == NumpyColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType
 
     def __hash__(self):
-        return hash((NumpyColumn, self.data, self.size, self.dataType))
+        return hash(("NumpyColumn", self.data, self.size, self.dataType))
 
 class NumpyDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries):
@@ -109,4 +109,4 @@ class NumpyDataset(Dataset):
         return other.__class__ == NumpyDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash((NumpyDataset, self.name, self.schema, tuple(self.columns.items()), tuple(self.groups), self.numEntries))
+        return hash(("NumpyDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))

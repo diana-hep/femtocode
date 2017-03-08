@@ -57,7 +57,7 @@ class Ref(lispytree.Ref):
         return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Ref, self.name, self.framenumber, self.schema))
+        return hash(("typedtree.Ref", self.name, self.framenumber, self.schema))
 
 class Literal(lispytree.Literal):
     order = 1
@@ -86,7 +86,7 @@ class Literal(lispytree.Literal):
         return other.__class__ == Literal and self.value == other.value and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Literal, self.value, self.schema))
+        return hash(("typedtree.Literal", self.value, self.schema))
     
 class Call(lispytree.Call):
     order = 2
@@ -125,7 +125,7 @@ class Call(lispytree.Call):
         return other.__class__ == Call and self.fcn == other.fcn and self.commuteargs() == other.commuteargs() and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Call, self.fcn, self.commuteargs(), self.schema))
+        return hash(("typedtree.Call", self.fcn, self.commuteargs(), self.schema))
 
 class UserFunction(lispytree.UserFunction):
     order = 3
@@ -162,7 +162,7 @@ class UserFunction(lispytree.UserFunction):
         return other.__class__ == UserFunction and self.refs == other.refs and self.framenumber == other.framenumber and self.body == other.body and self.schema == other.schema
 
     def __hash__(self):
-        return hash((UserFunction, self.refs, self.framenumber, self.body, self.schema))
+        return hash(("typedtree.UserFunction", self.refs, self.framenumber, self.body, self.schema))
 
 def buildUserFunction(fcn, schemas, frame):
     assert len(fcn.names) == len(schemas), "UserFunction takes a different number of parameters ({0}) than the arguments passed ({1})".format(len(fcn.names), len(schemas))

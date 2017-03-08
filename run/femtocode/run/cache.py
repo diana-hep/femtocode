@@ -42,7 +42,7 @@ class DataAddress(object):
         return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
 
     def __hash__(self):
-        return hash((DataAddress, self.dataset, self.column, self.group))
+        return hash(("DataAddress", self.dataset, self.column, self.group))
 
 class Work(object):
     def __init__(self, query, dataset, executor, future):

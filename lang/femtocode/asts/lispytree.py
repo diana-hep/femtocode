@@ -43,7 +43,7 @@ class BuiltinFunction(Function):
         return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash((self.__class__,))
+        return hash(("lispytree." + self.__class__.__name__,))
 
     def buildtyped(self, args, typeframe):
         assert False, "missing implementation: {0}".format(self)
@@ -89,7 +89,7 @@ class UserFunction(Function):
         return other.__class__ == UserFunction and self.names == other.names and self.framenumber == other.framenumber and self.defaults == other.defaults and self.body == other.body
 
     def __hash__(self):
-        return hash((UserFunction, self.names, self.framenumber, self.defaults, self.body))
+        return hash(("lispytree.UserFunction", self.names, self.framenumber, self.defaults, self.body))
 
     def sortargs(self, positional, named, original):
         return Function.sortargsWithNames(positional, named, self.names, self.defaults, original)
@@ -132,7 +132,7 @@ class Ref(LispyTree):
         return other.__class__ == Ref and self.name == other.name and self.framenumber == other.framenumber
 
     def __hash__(self):
-        return hash((Ref, self.name, self.framenumber))
+        return hash(("lispytree.Ref", self.name, self.framenumber))
 
     def generate(self):
         if isinstance(self.name, int):
@@ -180,7 +180,7 @@ class Literal(LispyTree):
         return other.__class__ == Literal and self.value == other.value
 
     def __hash__(self):
-        return hash((Literal, self.value))
+        return hash(("lispytree.Literal", self.value))
 
     def generate(self):
         return repr(self.value)
@@ -245,7 +245,7 @@ class Call(LispyTree):
         return other.__class__ == Call and self.fcn == other.fcn and self.commuteargs() == other.commuteargs()
 
     def __hash__(self):
-        return hash((Call, self.fcn, self.commuteargs()))
+        return hash(("lispytree.Call", self.fcn, self.commuteargs()))
 
     def generate(self):
         if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):

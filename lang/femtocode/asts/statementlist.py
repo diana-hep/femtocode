@@ -146,6 +146,9 @@ class Statements(Statement, list):
     def __eq__(self, other):
         return other.__class__ == Statements and self.stmts == other.stmts
 
+    def __hash__(self):
+        return hash(("statementlist.Statements", tuple(self.stmts)))
+
     def __len__(self):
         return len(self.stmts)
 
@@ -250,7 +253,7 @@ class Ref(Statement):
         return other.__class__ == Ref and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
 
     def __hash__(self):
-        return hash((Ref, self.name, self.schema, self.data, self.size))
+        return hash(("statementlist.Ref", self.name, self.schema, self.data, self.size))
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -283,7 +286,7 @@ class Literal(Statement):
         return other.__class__ == Literal and self.value == other.value and self.schema == other.schema
 
     def __hash__(self):
-        return hash((Literal, self.value, self.schema))
+        return hash(("statementlist.Literal", self.value, self.schema))
 
     def buildexec(self):
         if isinstance(self.schema, Null):
@@ -322,7 +325,7 @@ class Call(Statement):
         return other.__class__ == Call and self.column == other.column and self.schema == other.schema and self.tosize == other.tosize and self.fcnname == other.fcnname and self.args == other.args
 
     def __hash__(self):
-        return hash((Call, self.column, self.schema, self.tosize, self.fcnname, self.args))
+        return hash(("statementlist.Call", self.column, self.schema, self.tosize, self.fcnname, self.args))
 
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
@@ -352,7 +355,7 @@ class Explode(Call):
         return other.__class__ == Explode and self.column == other.column and self.schema == other.schema and self.data == other.data and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((Explode, self.column, self.schema, self.data, self.tosize))
+        return hash(("statementlist.Explode", self.column, self.schema, self.data, self.tosize))
 
 class ExplodeSize(Call):
     def __init__(self, column, tosize):
@@ -380,7 +383,7 @@ class ExplodeSize(Call):
         return other.__class__ == ExplodeSize and self.column == other.column and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((ExplodeSize, self.column, self.tosize))
+        return hash(("statementlist.ExplodeSize", self.column, self.tosize))
 
 class ExplodeData(Call):
     def __init__(self, column, schema, data, fromsize, tosize):
@@ -411,7 +414,7 @@ class ExplodeData(Call):
         return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.tosize == other.tosize
 
     def __hash__(self):
-        return hash((ExplodeData, self.column, self.schema, self.data, self.fromsize, self.tosize))
+        return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.tosize))
 
 def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
@@ -543,7 +546,15 @@ class Action(Statement):
         return isinstance(other, Action) and self.type == other.type and self.targets == other.targets and self.structure == other.structure
 
     def __hash__(self):
-        return hash((Action, self.type, self.targets, self.structure))
+        def hashready(x):
+            if isinstance(x, dict):
+                return tuple(sorted((hashready(k), hashready(v)) for k, v in x.items()))
+            elif isinstance(x, list):
+                return tuple(hashready(y) for y in x)
+            else:
+                return x
+
+        return hash(("statementlist.Action", self.type, tuple(self.targets), hashready(self.structure)))
 
     @staticmethod
     def fromJson(tpe, targets, structure, path):
@@ -551,7 +562,7 @@ class Action(Statement):
             return ReturnPythonDataset.fromJson(targets, structure)
         else:
             raise FemtocodeError("Unrecognized action \"{0}\" at JSON{1}".format(tpe, path))
-
+    
     def act(self, inarrays, workarrays):
         raise NotImplementedError
 

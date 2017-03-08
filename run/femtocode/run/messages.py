@@ -25,7 +25,7 @@ class Message(object):
         return self.__class__ == other.__class__ and all(getattr(self, n) == getattr(other, n) for n in self.__slots__)
 
     def __hash__(self):
-        return hash((self.__class__,) + tuple(getattr(self, n) for n in self.__slots__))
+        return hash((self.__class__.__name__,) + tuple(getattr(self, n) for n in self.__slots__))
 
 class Query(Message):
     __slots__ = ("dataset", "workflow")
