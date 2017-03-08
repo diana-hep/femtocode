@@ -225,8 +225,10 @@ class Compiler(object):
                 validNames[n] = "v" + repr(len(validNames))
             return validNames[n]
 
-        # i0 = 0
-        init = [ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0))]
+        # i0 = 0; i0max = imax[0]
+        imax = [loop.size]
+        init = [ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0)),
+                ast.Assign([ast.Name("i0max", ast.Store())], ast.Subscript(ast.Name("imax", ast.Load()), ast.Index(ast.Num(0)), ast.Load()))]
 
         # while i0 < imax:
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
@@ -269,9 +271,8 @@ class Compiler(object):
         # i0 += 1
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
-        counters = ["i0max"]
-        fcn = Compiler._compileToPython(valid(None), init + [whileloop], counters + [valid(x) for x in loop.params() + loop.targets])
-        return fcn, counters
+        fcn = Compiler._compileToPython(valid(None), init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
+        return fcn, imax
     
 class Executor(object):
     def __init__(self, query):
@@ -285,7 +286,7 @@ class Executor(object):
     def compileLoops(self):
         for loops in self.loops.values():
             for loop in loops:
-                loop.pythonfcn, loop.counters = Compiler.compileToPython(loop)
+                loop.pythonfcn, loop.imax = Compiler.compileToPython(loop)
 
     def runloop(self, loop, args):
         loop.pythonfcn(*args)
@@ -341,9 +342,9 @@ class Executor(object):
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
-                counters = [group.numEntries if loop.size is None else lengths[loop.size]]
+                imax = [group.numEntries if loop.size is None else lengths[loop.size]]
                 args = [arrays[x] for x in loop.params() + loop.targets]
-                self.runloop(loop, counters + args)
+                self.runloop(loop, [imax] + args)
 
             else:
                 action = loopOrAction
@@ -387,12 +388,24 @@ import llvmlite.binding
 import numba
 import numpy
 
+class PyTypeObject(ctypes.Structure):
+    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
+
+class PyObject(ctypes.Structure):
+    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.POINTER(PyTypeObject))
+
+PyObjectPtr = ctypes.POINTER(PyObject)
+
+llvmlite.binding.initialize()
+llvmlite.binding.initialize_native_target()
+llvmlite.binding.initialize_native_asmprinter()
+
 class NativeCompiler(Compiler):
     @staticmethod
     def compileToNative(loop, columns):
-        pythonfcn, counters = NativeCompiler.compileToPython(loop)
+        pythonfcn, imax = NativeCompiler.compileToPython(loop)
 
-        sig = (numba.int64,) * len(counters)
+        sig = (numba.int64[:],)
 
         for column in loop.params():
             if column.issize():
@@ -419,45 +432,79 @@ class NativeCompiler(Compiler):
                 else:
                     raise NotImplementedError
 
-        return numba.jit([sig], nopython=True)(pythonfcn), counters, tmptypes
+        return numba.jit([sig], nopython=True)(pythonfcn), imax, tmptypes
+
+    # @staticmethod
+    # def shortcut(nativefcn):
+    #     cres = nativefcn.overloads.values()[0]
+    #     names = [x.name for x in cres.library._final_module.functions]
+
+    #     print "\n".join(names)
+
+    #     # print cres.library.get_function(filter(lambda x: x.startswith("cpython."), names)[0])
+
+    #     fcnptr = cres.library._codegen._engine.get_function_address(filter(lambda x: x.startswith("cpython."), names)[0])
+    #     cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
+
+    #     maxes = numpy.array([5], dtype=numpy.int64)
+    #     x = numpy.array([1, 2, 3, 4, 5], dtype=numpy.int64)
+    #     y = numpy.array([0.2, 0.2, 0.2, 0.2, 0.2], dtype=numpy.float64)
+    #     a = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64)
+    #     b = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64)
+
+    #     closure = ()
+    #     args = (maxes, x, y, a, b)
+    #     kwds = {}
+
+    #     print "BEFORE", x, y, a, b
+
+    #     cpythonfcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
+
+    #     print "AFTER", x, y, a, b
+
+    #     def wrapped(*args, **kwds):
+    #         closure = ()
+    #         return cpythonfcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
+
+    #     return wrapped
 
     @staticmethod
     def serialize(nativefcn):
         assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
         cres = nativefcn.overloads.values()[0]
-        fnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("<dynamic>")]   # "cpython."  ?
+        fnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
         assert len(fnames) == 1, "expected only one function from dynamically generated Python"
-
-        # print cres.library.get_llvm_str()
-
         return (fnames[0], cres.library._compiled_object)
 
-    llvmlite.binding.initialize()
-    llvmlite.binding.initialize_native_target()
-    llvmlite.binding.initialize_native_asmprinter()
+    # 2 ms
+    target = llvmlite.binding.Target.from_default_triple()
+    target_machine = target.create_target_machine()
+    backing_mod = llvmlite.binding.parse_assembly("")
+    engine = llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
 
     @staticmethod
     def deserialize(fname, compiledobj):
-        # 2 ms
-        target = llvmlite.binding.Target.from_default_triple()
-        target_machine = target.create_target_machine()
-        backing_mod = llvmlite.binding.parse_assembly("")
-        engine = llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
-
         # insignificant compared with 2 ms
         def object_compiled_hook(ll_module, buf):
             pass
         def object_getbuffer_hook(ll_module):
             return compiledobj
-        engine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
+        NativeCompiler.engine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
 
         # actually loads compiled code
-        engine.finalize_object()
+        NativeCompiler.engine.finalize_object()
 
         # find the function within the compiled code
-        fcnptr = engine.get_function_address(fname)
+        fcnptr = NativeCompiler.engine.get_function_address(fname)
 
-        return ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_int64, ctypes.POINTER(None), ctypes.POINTER(None), ctypes.POINTER(None), ctypes.POINTER(None))(fcnptr)
+        # interpret it as a Python function
+        cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
+
+        def wrapped(*args, **kwds):
+            closure = ()
+            return cpythonfcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
+
+        return wrapped
 
 class NativeExecutor(Executor):
     def __init__(self, query):
@@ -467,27 +514,15 @@ class NativeExecutor(Executor):
         self.tmptypes = {}
         for loops in self.loops.values():
             for loop in loops:
-                loop.nativefcn, loop.counters, tmptypes = NativeCompiler.compileToNative(loop, self.query.dataset.columns)
+                loop.nativefcn, loop.imax, tmptypes = NativeCompiler.compileToNative(loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
 
                 fname, compiledobj = NativeCompiler.serialize(loop.nativefcn)
-
-                f2 = NativeCompiler.deserialize(fname, compiledobj)
-
-                x = numpy.array([1, 2, 3, 4, 5], dtype=numpy.int64).ctypes.data_as(ctypes.POINTER(None))
-                y = numpy.array([0.2, 0.2, 0.2, 0.2, 0.2], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
-                a = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
-                b = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=numpy.float64).ctypes.data_as(ctypes.POINTER(None))
-                print "f2", f2
-                print "BEFORE", x, y, a, b
-                f2(ctypes.c_int64(5), x, y, a, b)
-                print "AFTER"
-                print a
-                print b
-
+                loop.nativefcn = NativeCompiler.deserialize(fname, compiledobj)
 
     def runloop(self, loop, args):
-        loop.nativefcn(*args)
+        imax = numpy.array(args[0], dtype=numpy.int64)
+        loop.nativefcn(*([imax] + args[1:]))
 
     def inarrays(self, group):
         return dict((n, numpy.array(a)) for n, a in super(NativeExecutor, self).inarrays(group).items())
@@ -499,75 +534,75 @@ class NativeExecutor(Executor):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
 
 
-##############################
+# ##############################
 
-import numba
-import numpy
-import ctypes
+# import numba
+# import numpy
+# import ctypes
 
-innie = numpy.array([1.1, 2.2, 3.3, 4.4, 5.5])
-outie = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0])
+# innie = numpy.array([1.1, 2.2, 3.3, 4.4, 5.5])
+# outie = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
-def f(innie, outie):
-    i = 0
-    while i < 1000:
-        outie[i] = innie[i]
-        i += 1
+# def f(innie, outie):
+#     i = 0
+#     while i < 1000:
+#         outie[i] = innie[i]
+#         i += 1
 
-f2 = numba.jit([(numba.float64[:], numba.float64[:])], nopython=True)(f)
-cres = f2.overloads.values()[0]
+# f2 = numba.jit([(numba.float64[:], numba.float64[:])], nopython=True)(f)
+# cres = f2.overloads.values()[0]
 
-names = [x.name for x in cres.library._final_module.functions]
+# names = [x.name for x in cres.library._final_module.functions]
 
-print cres.fndesc.mangled_name
+# print cres.fndesc.mangled_name
 
-print cres.library.get_function(cres.fndesc.mangled_name)._ptr
+# print cres.library.get_function(cres.fndesc.mangled_name)._ptr
 
-print cres.library.get_function(cres.fndesc.mangled_name)
+# print cres.library.get_function(cres.fndesc.mangled_name)
 
-print cres.library._codegen._engine.get_function_address(cres.fndesc.mangled_name)
+# print cres.library._codegen._engine.get_function_address(cres.fndesc.mangled_name)
 
-print cres.library.get_function(cres.fndesc.mangled_name)
+# print cres.library.get_function(cres.fndesc.mangled_name)
 
-# (i8** noalias nocapture %retptr,
-#  { i8*, i32 }** noalias nocapture readnone %excinfo,
-#  i8* noalias nocapture readnone %env,
-#  i8* %arg.innie.0,
-#  i8* nocapture readnone %arg.innie.1,
-#  i64 %arg.innie.2,
-#  i64 %arg.innie.3,
-#  double* %arg.innie.4,
-#  i64 %arg.innie.5.0,
-#  i64 %arg.innie.6.0,
-#  i8* %arg.outie.0,
-#  i8* nocapture readnone %arg.outie.1,
-#  i64 %arg.outie.2,
-#  i64 %arg.outie.3,
-#  double* %arg.outie.4,
-#  i64 %arg.outie.5.0,
-#  i64 %arg.outie.6.0)
+# # (i8** noalias nocapture %retptr,
+# #  { i8*, i32 }** noalias nocapture readnone %excinfo,
+# #  i8* noalias nocapture readnone %env,
+# #  i8* %arg.innie.0,
+# #  i8* nocapture readnone %arg.innie.1,
+# #  i64 %arg.innie.2,
+# #  i64 %arg.innie.3,
+# #  double* %arg.innie.4,
+# #  i64 %arg.innie.5.0,
+# #  i64 %arg.innie.6.0,
+# #  i8* %arg.outie.0,
+# #  i8* nocapture readnone %arg.outie.1,
+# #  i64 %arg.outie.2,
+# #  i64 %arg.outie.3,
+# #  double* %arg.outie.4,
+# #  i64 %arg.outie.5.0,
+# #  i64 %arg.outie.6.0)
 
-print cres.library.get_function(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
+# print cres.library.get_function(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
 
-# i8*
-# (i8* %py_closure,
-#  i8* %py_args,
-#  i8* nocapture readnone %py_kws)
+# # i8*
+# # (i8* %py_closure,
+# #  i8* %py_args,
+# #  i8* nocapture readnone %py_kws)
 
-class PyTypeObject(ctypes.Structure):
-    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
+# class PyTypeObject(ctypes.Structure):
+#     _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
  
-class PyObject(ctypes.Structure):
-    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.POINTER(PyTypeObject))
+# class PyObject(ctypes.Structure):
+#     _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.POINTER(PyTypeObject))
  
-PyObjectPtr = ctypes.POINTER(PyObject)
+# PyObjectPtr = ctypes.POINTER(PyObject)
 
-ptr = cres.library._codegen._engine.get_function_address(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
-fcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(ptr)
+# ptr = cres.library._codegen._engine.get_function_address(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
+# fcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(ptr)
 
-py_closure = ()
-py_args = (innie, outie)
-py_kwds = {}
+# py_closure = ()
+# py_args = (innie, outie)
+# py_kwds = {}
 
-fcn(ctypes.cast(id(py_closure), PyObjectPtr), ctypes.cast(id(py_args), PyObjectPtr), ctypes.cast(id(py_kwds), PyObjectPtr))
+# fcn(ctypes.cast(id(py_closure), PyObjectPtr), ctypes.cast(id(py_args), PyObjectPtr), ctypes.cast(id(py_kwds), PyObjectPtr))
 
