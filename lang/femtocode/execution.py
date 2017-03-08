@@ -497,3 +497,77 @@ class NativeExecutor(Executor):
 
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
+
+
+##############################
+
+import numba
+import numpy
+import ctypes
+
+innie = numpy.array([1.1, 2.2, 3.3, 4.4, 5.5])
+outie = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0])
+
+def f(innie, outie):
+    i = 0
+    while i < 1000:
+        outie[i] = innie[i]
+        i += 1
+
+f2 = numba.jit([(numba.float64[:], numba.float64[:])], nopython=True)(f)
+cres = f2.overloads.values()[0]
+
+names = [x.name for x in cres.library._final_module.functions]
+
+print cres.fndesc.mangled_name
+
+print cres.library.get_function(cres.fndesc.mangled_name)._ptr
+
+print cres.library.get_function(cres.fndesc.mangled_name)
+
+print cres.library._codegen._engine.get_function_address(cres.fndesc.mangled_name)
+
+print cres.library.get_function(cres.fndesc.mangled_name)
+
+# (i8** noalias nocapture %retptr,
+#  { i8*, i32 }** noalias nocapture readnone %excinfo,
+#  i8* noalias nocapture readnone %env,
+#  i8* %arg.innie.0,
+#  i8* nocapture readnone %arg.innie.1,
+#  i64 %arg.innie.2,
+#  i64 %arg.innie.3,
+#  double* %arg.innie.4,
+#  i64 %arg.innie.5.0,
+#  i64 %arg.innie.6.0,
+#  i8* %arg.outie.0,
+#  i8* nocapture readnone %arg.outie.1,
+#  i64 %arg.outie.2,
+#  i64 %arg.outie.3,
+#  double* %arg.outie.4,
+#  i64 %arg.outie.5.0,
+#  i64 %arg.outie.6.0)
+
+print cres.library.get_function(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
+
+# i8*
+# (i8* %py_closure,
+#  i8* %py_args,
+#  i8* nocapture readnone %py_kws)
+
+class PyTypeObject(ctypes.Structure):
+    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
+ 
+class PyObject(ctypes.Structure):
+    _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.POINTER(PyTypeObject))
+ 
+PyObjectPtr = ctypes.POINTER(PyObject)
+
+ptr = cres.library._codegen._engine.get_function_address(filter(lambda x: x.startswith("cpython.__main__"), names)[0])
+fcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(ptr)
+
+py_closure = ()
+py_args = (innie, outie)
+py_kwds = {}
+
+fcn(ctypes.cast(id(py_closure), PyObjectPtr), ctypes.cast(id(py_args), PyObjectPtr), ctypes.cast(id(py_kwds), PyObjectPtr))
+
