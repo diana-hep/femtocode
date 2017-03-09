@@ -44,49 +44,6 @@ class DataAddress(object):
     def __hash__(self):
         return hash(("DataAddress", self.dataset, self.column, self.group))
 
-# class Work(object):
-#     def __init__(self, query, dataset, executor, future):
-#         self.query = query
-#         self.dataset = dataset
-#         self.executor = executor
-#         self.future = future
-#         if self.future is not None:
-#             self.lock = threading.Lock()
-#             self.loadsDone = dict((groupid, False) for groupid in query.groupids)
-#             self.computesDone = dict((groupid, False) for groupid in query.groupids)
-#             self.startTime = time.time()
-#             self.computeTime = 0.0
-#             self.data = None
-#     def __repr__(self):
-#         return "<Work for {0} at 0x{1:012x}>".format(self.query.queryid, id(self))
-#     def updateFuture(self):
-#         self.future.update(
-#             sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
-#             sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
-#             all(self.computesDone.values()),
-#             time.time() - self.startTime,
-#             self.computeTime,
-#             self.data)
-#     def oneLoadDone(self, groupid):
-#         if self.future is not None:
-#             self.loadsDone[groupid] = True
-#             self.updateFuture()
-#     def oneComputeDone(self, groupid, computeTime, data):
-#         if self.future is not None:
-#             self.computesDone[groupid] = True
-#             with self.lock:
-#                 self.computeTime += computeTime
-#                 self.data = data   # FIXME
-#             self.updateFuture()
-# class Result(object):
-#     def __init__(self, retaddr, queryid, groupid, data):
-#         self.retaddr = retaddr
-#         self.queryid = queryid
-#         self.groupid = groupid
-#         self.data = data
-#     def __repr__(self):
-#         return "<Result for {0}({1}) at 0x{2:012x}>".format(self.queryid, self.groupid, id(self))
-
 class WorkItem(object):
     def __init__(self, executor, group):
         self.executor = executor
@@ -130,7 +87,6 @@ class WorkItem(object):
         tally = self.executor.run(inarrays, self.group)
 
         print "TALLY", tally["a"].data
-
 
         # return Result(self.work.query.retaddr,
         #               self.work.query.queryid,
