@@ -27,6 +27,7 @@ from femtocode.dataset import sizeType
 from femtocode.lib.standard import table
 from femtocode.py23 import *
 from femtocode.typesystem import *
+from femtocode.workflow import Query
 
 class Loop(object):
     def __init__(self, size):
@@ -40,6 +41,28 @@ class Loop(object):
 
     def __str__(self):
         return "\n".join(["Loop over {0} params {1}".format(self.size, ", ".join(map(str, self.params())))] + ["    " + str(x) for x in self.statements])
+
+    def toJson(self):
+        return {"size": None if self.size is None else str(self.size),
+                "targets": [str(x) for x in self.targets],
+                "statements": [x.toJson() for x in self.statements],
+                "run": None if self.run is None else self.run.toJson()}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()) == set(["size", "targets", "statements", "run"])
+        assert obj["size"] is None or isinstance(obj["size"], string_types)
+        assert isinstance(obj["targets"], list)
+        assert all(isinstance(x, string_types) for x in obj["targets"])
+        assert isinstance(obj["statements"], list)
+
+        out = Loop(None if obj["size"] is None else ColumnName.parse(obj["size"]))
+        out.targets = [ColumnName.parse(x) for x in obj["targets"]]
+        out.statements = [statementlist.Statement.fromJson(x) for x in obj["statements"]]
+        assert all(isinstance(x, statementlist.Call) for x in out.statements)
+        out.run = None if obj["run"] is None else LoopFunction.fromJson(obj["run"])
+        return out
 
     def newTarget(self, column):
         if column not in self.targets:
@@ -309,16 +332,41 @@ class LoopFunction(object):
 class Executor(object):
     def __init__(self, query):
         self.query = query
-        self.targetsToEndpoints, self.lookup, self.required = DependencyGraph.wholedag(self.query)
+        targetsToEndpoints, lookup, self.required = DependencyGraph.wholedag(self.query)
+        self.temporaries = sorted((target, graph.size) for target, graph in targetsToEndpoints.items() if not target.issize())
 
-        self.loops = DependencyGraph.loops(self.targetsToEndpoints.values())
-        self.order = DependencyGraph.order(self.loops, self.query.actions, self.required)
+        loops = DependencyGraph.loops(targetsToEndpoints.values())
+        self.order = DependencyGraph.order(loops, self.query.actions, self.required)
         self.compileLoops()
 
+    def toJson(self):
+        return {"query": self.query.toJson(),
+                "required": [str(x) for x in self.required],
+                "temporaries": [(str(data), None if size is None else str(size)) for data, size in self.temporaries],
+                "order": [{"loop": x.toJson()} if isinstance(x, Loop) else {"action": x.toJson()} for x in self.order]}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(["query", "required", "temporaries", "order"]).difference(set(obj.keys())) == set()
+        assert isinstance(obj["required"], list)
+        assert all(isinstance(x, string_types) for x in obj["required"])
+        assert isinstance(obj["temporaries"], list)
+        assert all(isinstance(k, string_types) and (v is None or isinstance(v, string_types)) for k, v in obj["temporaries"])
+        assert isinstance(obj["order"], list)
+        assert all(isinstance(x, dict) and len(x) == 1 and isinstance(x.keys()[0], string_types) for x in obj["order"])
+
+        out = Executor.__new__(Executor)
+        out.query = Query.fromJson(obj["query"])
+        out.required = [ColumnName.parse(x) for x in obj["required"]]
+        out.temporaries = [(ColumnName.parse(k), None if v is None else ColumnName.parse(v)) for k, v in obj["temporaries"]]
+        out.order = [Loop.fromJson(x.values()[0]) if x.keys()[0] == "loop" else statementlist.Statement.fromJson(x.values()[0]) for x in obj["order"]]
+        return out
+
     def compileLoops(self):
-        for i, loops in enumerate(sorted(self.loops.values(), key=lambda x: x[0].targets)):
-            for j, loop in enumerate(loops):
-                fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
+        for i, loop in enumerate(self.order):
+            if isinstance(loop, Loop):
+                fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.run, loop.imax = Compiler.compileToPython(fcnname, loop)
 
     def initialize(self):
@@ -345,9 +393,6 @@ class Executor(object):
                 out[column] = group.segments[column].data
         return out
 
-    def temporaries(self):
-        return [(target, graph.size) for target, graph in self.targetsToEndpoints.items() if not target.issize()]
-
     def sizearrays(self, group, inarrays):
         return {}   # FIXME
 
@@ -365,7 +410,7 @@ class Executor(object):
             raise NotImplementedError
 
     def workarrays(self, group, lengths):
-        return dict((data, [None] * lengths[data]) for data, size in self.temporaries())
+        return dict((data, [None] * lengths[data]) for data, size in self.temporaries)
 
     def imax(self, imax):
         return imax
@@ -389,13 +434,13 @@ class Executor(object):
         inarrays = self.inarrays(group)
 
         lengths = {}
-        for data, size in self.temporaries():
+        for data, size in self.temporaries:
             if size is not None:
                 lengths[size] = self.length(size, None, group, None)
 
         sizearrays = self.sizearrays(group, inarrays)
 
-        for data, size in self.temporaries():
+        for data, size in self.temporaries:
             lengths[data] = self.length(data, size, group, sizearrays)
 
         workarrays = self.workarrays(group, lengths)
@@ -463,11 +508,11 @@ class NativeCompiler(Compiler):
                 statement = filter(lambda x: isinstance(x, statementlist.Call) and x.column == column, loop.statements)[0]
                 if isinstance(statement.schema, Number) and statement.schema.whole:
                     sig = sig + (numba.int64[:],)
-                    tmptypes[column] = numpy.int64
+                    tmptypes[column] = numpy.dtype(numpy.int64)
 
                 elif isinstance(statement.schema, Number):
                     sig = sig + (numba.float64[:],)
-                    tmptypes[column] = numpy.float64
+                    tmptypes[column] = numpy.dtype(numpy.float64)
 
                 else:
                     raise NotImplementedError
@@ -556,11 +601,27 @@ class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
 
+    def toJson(self):
+        out = super(NativeExecutor, self).toJson()
+        out["tmptypes"] = dict((str(k), str(v)) for k, v in self.tmptypes.items())
+        return out
+
+    @staticmethod
+    def fromJson(obj):
+        assert "tmptypes" in obj
+        assert isinstance(obj["tmptypes"], dict)
+        assert all(isinstance(k, string_types) and isinstance(v, string_types) for k, v in obj["tmptypes"].items())
+
+        out = Executor.fromJson(obj)
+        out.__class__ = NativeExecutor
+        out.tmptypes = dict((ColumnName.parse(k), numpy.dtype(v)) for k, v in obj["tmptypes"].items())
+        return out
+
     def compileLoops(self):
         self.tmptypes = {}
-        for i, loops in enumerate(sorted(self.loops.values(), key=lambda x: x[0].targets)):
-            for j, loop in enumerate(loops):
-                fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
+        for i, loop in enumerate(self.order):
+            if isinstance(loop, Loop):
+                fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
 
@@ -574,4 +635,4 @@ class NativeExecutor(Executor):
         return dict((n, numpy.array(a)) for n, a in super(NativeExecutor, self).sizearrays(group, inarrays).items())
 
     def workarrays(self, group, lengths):
-        return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
+        return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries)

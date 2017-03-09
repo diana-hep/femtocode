@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import ast
+import json
 import re
 import sys
 import unittest
@@ -26,6 +27,7 @@ from femtocode.parser import parse
 from femtocode.testdataset import TestDataset
 from femtocode.testdataset import TestSession
 from femtocode.typesystem import *
+from femtocode.workflow import *
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
 import femtocode.asts.typedtree as typedtree
@@ -37,20 +39,13 @@ class TestExecution(unittest.TestCase):
         pass
 
     def test_submit(self):
-        TestSession.executorClass = NativeExecutor
-
         session = TestSession()
 
         source = session.source("Test", x=integer, y=real)
         for i in xrange(100):
             source.dataset.fill({"x": i, "y": 0.2})
 
-        sink = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5")
-
-        # import pickle
-        # sink = pickle.loads(pickle.dumps(sink))
-
-        result = sink.submit()
+        result = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
 
         self.assertEqual(source.dataset.numEntries, result.numEntries)
 

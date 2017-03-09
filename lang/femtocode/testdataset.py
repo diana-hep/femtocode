@@ -63,8 +63,7 @@ class TestGroup(Group):
         return TestGroup(
             group["id"],
             dict((ColumnName.parse(k), TestSegment.fromJson(v)) for k, v in group["segments"].items()),
-            group["numEntries"],
-            group["data"])
+            group["numEntries"])
 
     def __eq__(self, other):
         return other.__class__ == TestGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries
@@ -84,7 +83,7 @@ class TestColumn(Column):
         return TestColumn(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
-            numpy.dtype(column["dataType"]))
+            column["dataType"])
 
     def __eq__(self, other):
         return other.__class__ == TestColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType
@@ -331,13 +330,11 @@ class TestDataset(Dataset):
         return TestDataset.TestDatasetIterator(self)
 
 class TestSession(object):
-    executorClass = Executor
-
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
     def submit(self, query):
-        executor = self.executorClass(query)
+        executor = Executor(query)
 
         tally = executor.initialize()
 

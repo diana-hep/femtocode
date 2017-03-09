@@ -84,7 +84,7 @@ class NumpyColumn(Column):
         return NumpyColumn(
             ColumnName.parse(column["data"]),
             None if column["size"] is None else ColumnName.parse(column["size"]),
-            numpy.dtype(column["dataType"]))
+            column["dataType"])
 
     def __eq__(self, other):
         return other.__class__ == NumpyColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType
