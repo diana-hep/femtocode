@@ -23,6 +23,8 @@ from femtocode.dataset import Segment
 from femtocode.dataset import Group
 from femtocode.dataset import Column
 from femtocode.dataset import Dataset
+from femtocode.typesystem import Schema
+from femtocode.numpyio.fetch import NumpyFetcher
 
 class NumpySegment(Segment):
     def __init__(self, numEntries, dataLength, sizeLength, files):
@@ -93,6 +95,8 @@ class NumpyColumn(Column):
         return hash(("NumpyColumn", self.data, self.size, self.dataType))
 
 class NumpyDataset(Dataset):
+    fetcher = NumpyFetcher
+
     def __init__(self, name, schema, columns, groups, numEntries):
         super(NumpyDataset, self).__init__(name, schema, columns, groups, numEntries)
 

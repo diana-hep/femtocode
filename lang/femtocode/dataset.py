@@ -23,23 +23,6 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 
-class Metadata(object):
-    def toJsonString(self):
-        return json.dumps(self.toJson())
-
-class MetadataFromJson(object):
-    def __init__(self, datasetClass, directory="."):
-        self.datasetClass = datasetClass
-        self.directory = directory
-        self._cache = {}
-
-    def dataset(self, name, groups=(), columns=(), schema=False):
-        if name not in self._cache:
-            fileName = os.path.join(self.directory, name) + ".json"
-            self._cache[name] = self.datasetClass.fromJsonString(open(fileName).read())
-
-        return self._cache[name]
-
 sizeType = "uint64"
 
 class ColumnName(object):
@@ -179,6 +162,10 @@ class ColumnName(object):
 
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
+
+class Metadata(object):
+    def toJsonString(self):
+        return json.dumps(self.toJson())
 
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength, sizeLength):
@@ -355,3 +342,15 @@ class Dataset(Metadata):
             return self.columns[ColumnName(*dataColumnPath)].size
         else:
             return None
+
+class MetadataFromJson(object):
+    def __init__(self, directory="."):
+        self.directory = directory
+        self._cache = {}
+
+    def dataset(self, name, groups=(), columns=(), schema=False):
+        if name not in self._cache:
+            fileName = os.path.join(self.directory, name) + ".json"
+            self._cache[name] = Dataset.fromJsonString(open(fileName).read())
+
+        return self._cache[name]

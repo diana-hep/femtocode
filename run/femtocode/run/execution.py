@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import ctypes
+import threading
+import time
 
 import llvmlite.binding
 import numba
@@ -23,9 +25,11 @@ import numpy
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
 from femtocode.execution import Loop
+from femtocode.execution import LoopFunction
 from femtocode.execution import DependencyGraph
 from femtocode.execution import Compiler
 from femtocode.execution import Executor
+from femtocode.typesystem import *
 
 class PyTypeObject(ctypes.Structure):
     _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
@@ -192,3 +196,46 @@ class NativeExecutor(Executor):
 
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries)
+
+class NativeAsyncExecutor(NativeExecutor):
+    def __init__(self, query, future):
+        super(NativeAsyncExecutor, self).__init__(query)
+
+        # future and its associated data are transient: they're lost if you serialize/deserialize
+        self.future = future
+        if self.future is not None:
+            self.lock = threading.Lock()
+            self.loadsDone = dict((group.id, False) for group in query.dataset.groups)
+            self.computesDone = dict((group.id, False) for group in query.dataset.groups)
+            self.startTime = time.time()
+            self.computeTime = 0.0
+            self.data = None
+
+    def updateFuture(self):
+        self.future.update(
+            sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
+            sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
+            all(self.computesDone.values()),
+            time.time() - self.startTime,
+            self.computeTime,
+            self.data)
+
+    def oneLoadDone(self, groupid):
+        if self.future is not None:
+            self.loadsDone[groupid] = True
+            self.updateFuture()
+
+    def oneComputeDone(self, groupid, computeTime, data):
+        if self.future is not None:
+            self.computesDone[groupid] = True
+            with self.lock:
+                self.computeTime += computeTime
+                self.data = data   # FIXME
+            self.updateFuture()
+
+    @staticmethod
+    def fromJson(obj):
+        out = NativeExecutor.fromJson(obj)
+        out.__class__ = NativeAsyncExecutor
+        out.future = None
+        return out

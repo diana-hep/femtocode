@@ -48,7 +48,7 @@ class ROOTFetcher(threading.Thread):
             columnNameToArray[column] = occupant.rawarray
 
             filesetTree = (tuple(sorted(self.files(column))),
-                       self.workItem.work.dataset.columns[column].tree)
+                       self.workItem.executor.dataset.columns[column].tree)
 
             if not column.issize():
                 if filesetTree not in filesetsToColumns:
@@ -63,9 +63,9 @@ class ROOTFetcher(threading.Thread):
             toget = []
             for column in columns:
                 if not column.issize():
-                    dataBranch = self.workItem.work.dataset.columns[column].dataBranch
-                    sizeBranch = self.workItem.work.dataset.columns[column].sizeBranch
-                    dataArray = columnNameToArray[column].view(self.workItem.work.dataset.columns[column].dataType)
+                    dataBranch = self.workItem.executor.dataset.columns[column].dataBranch
+                    sizeBranch = self.workItem.executor.dataset.columns[column].sizeBranch
+                    dataArray = columnNameToArray[column].view(self.workItem.executor.dataset.columns[column].dataType)
 
                     if sizeBranch is None:
                         toget.append((dataBranch, dataArray))

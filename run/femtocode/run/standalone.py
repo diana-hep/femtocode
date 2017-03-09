@@ -21,16 +21,12 @@ try:
 except ImportError:
     import queue
 
-########################################### TODO: temporary!
-from femtocode.rootio.dataset import ROOTDataset
-from femtocode.rootio.fetch import ROOTFetcher
-###########################################
-
+from femtocode.dataset import MetadataFromJson
+from femtocode.numpyio.dataset import NumpyDataset
 from femtocode.run.cache import *
 from femtocode.run.execution import *
-from femtocode.dataset import MetadataFromJson
-from femtocode.workflow import Source
 from femtocode.util import *
+from femtocode.workflow import Source
 
 class FutureQueryResult(object):
     class _KeepPythonAlive(threading.Thread):
@@ -50,8 +46,8 @@ class FutureQueryResult(object):
         self.computeTime = 0.0
         self.data = None
         self._lock = threading.Lock()
-        self._keepPythonAlive = FutureQueryResult._KeepPythonAlive()
-        self._keepPythonAlive.start()
+        # self._keepPythonAlive = FutureQueryResult._KeepPythonAlive()
+        # self._keepPythonAlive.start()
 
     def __repr__(self):
         return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
@@ -72,14 +68,13 @@ class StandaloneSession(object):
     def __init__(self,
                  numMinions=multiprocessing.cpu_count(),
                  cacheLimitBytes=1024**3,
-                 datasetDirectory=".",
-                 datasetClass=ROOTDataset,
-                 fetcherClass=ROOTFetcher):
+                 metadata=MetadataFromJson("."),
+                 datasetClass=NumpyDataset):
 
         minionsIncoming = queue.Queue()
         self.minions = [Minion(minionsIncoming, None) for i in range(numMinions)]
-        self.metadata = MetadataFromJson(datasetClass, datasetDirectory)
-        self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes, fetcherClass), self.minions)
+        self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes), self.minions)
+        self.metadata = metadata
 
         for minion in self.minions:
             minion.start()
@@ -89,19 +84,23 @@ class StandaloneSession(object):
         return Source(self, self.metadata.dataset(name))
 
     def submit(self, query):
-        executor = AsynchronousNativeExecutor(query)
-        
-        work = Work(executor.compiledQuery(),
-                    self.metadata.dataset(query.dataset, query.groupids, executor.requires),
-                    executor,
-                    FutureQueryResult(query))
+        # create an executor with a reference to the FutureQueryResult we will return to the user
+        executor = NativeAsyncExecutor(query, FutureQueryResult(query))
 
-        self.cacheMaster.incoming.put(work)
+        # modify the dataset to include detailed group information (may come as nothing but a dataset.name)
+        # query.dataset = self.metadata.dataset(query.dataset.name, range(query.dataset.numGroups), executor.requires)
+        ### not in a StandaloneSession, but hold this thought for the server implementation
+
+        # queue it up
+        self.cacheMaster.incoming.put(executor)
+
+        # user can watch it fill
         return work.future
 
 ########################################### TODO: temporary!
 
-session = StandaloneSession(datasetDirectory="/home/pivarski/diana/femtocode/tests")
-f = session.submit("whatever")
+session = StandaloneSession()
+session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
-###########################################
+result = session.source("xy").toPython("Test", a = "x + y").submit()
+

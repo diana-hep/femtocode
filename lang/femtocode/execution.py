@@ -432,7 +432,7 @@ class Executor(object):
 
         return out
 
-    def run(self, group, tally):
+    def run(self, group):
         inarrays = self.inarrays(group)
 
         lengths = {}
@@ -452,5 +452,4 @@ class Executor(object):
         arrays.update(sizearrays)
         arrays.update(workarrays)
 
-        subtally = self.runloops(group, lengths, arrays)
-        return self.update(tally, subtally)
+        return self.runloops(group, lengths, arrays)

@@ -25,6 +25,7 @@ import numpy
 
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
+from femtocode.dataset import sizeType
 from femtocode.run.messages import *
 from femtocode.util import *
 
@@ -44,85 +45,72 @@ class DataAddress(object):
     def __hash__(self):
         return hash(("DataAddress", self.dataset, self.column, self.group))
 
-class Work(object):
-    def __init__(self, query, dataset, executor, future):
-        self.query = query
-        self.dataset = dataset
-        self.executor = executor
-        self.future = future
-        if self.future is not None:
-            self.lock = threading.Lock()
-            self.loadsDone = dict((groupid, False) for groupid in query.groupids)
-            self.computesDone = dict((groupid, False) for groupid in query.groupids)
-            self.startTime = time.time()
-            self.computeTime = 0.0
-            self.data = None
-
-    def __repr__(self):
-        return "<Work for {0} at 0x{1:012x}>".format(self.query.queryid, id(self))
-
-    def updateFuture(self):
-        self.future.update(
-            sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
-            sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
-            all(self.computesDone.values()),
-            time.time() - self.startTime,
-            self.computeTime,
-            self.data)
-
-    def oneLoadDone(self, groupid):
-        if self.future is not None:
-            self.loadsDone[groupid] = True
-            self.updateFuture()
-
-    def oneComputeDone(self, groupid, computeTime, data):
-        if self.future is not None:
-            self.computesDone[groupid] = True
-            with self.lock:
-                self.computeTime += computeTime
-                self.data = data   # FIXME
-            self.updateFuture()
-
-class Result(object):
-    def __init__(self, retaddr, queryid, groupid, data):
-        self.retaddr = retaddr
-        self.queryid = queryid
-        self.groupid = groupid
-        self.data = data
-
-    def __repr__(self):
-        return "<Result for {0}({1}) at 0x{2:012x}>".format(self.queryid, self.groupid, id(self))
+# class Work(object):
+#     def __init__(self, query, dataset, executor, future):
+#         self.query = query
+#         self.dataset = dataset
+#         self.executor = executor
+#         self.future = future
+#         if self.future is not None:
+#             self.lock = threading.Lock()
+#             self.loadsDone = dict((groupid, False) for groupid in query.groupids)
+#             self.computesDone = dict((groupid, False) for groupid in query.groupids)
+#             self.startTime = time.time()
+#             self.computeTime = 0.0
+#             self.data = None
+#     def __repr__(self):
+#         return "<Work for {0} at 0x{1:012x}>".format(self.query.queryid, id(self))
+#     def updateFuture(self):
+#         self.future.update(
+#             sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
+#             sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
+#             all(self.computesDone.values()),
+#             time.time() - self.startTime,
+#             self.computeTime,
+#             self.data)
+#     def oneLoadDone(self, groupid):
+#         if self.future is not None:
+#             self.loadsDone[groupid] = True
+#             self.updateFuture()
+#     def oneComputeDone(self, groupid, computeTime, data):
+#         if self.future is not None:
+#             self.computesDone[groupid] = True
+#             with self.lock:
+#                 self.computeTime += computeTime
+#                 self.data = data   # FIXME
+#             self.updateFuture()
+# class Result(object):
+#     def __init__(self, retaddr, queryid, groupid, data):
+#         self.retaddr = retaddr
+#         self.queryid = queryid
+#         self.groupid = groupid
+#         self.data = data
+#     def __repr__(self):
+#         return "<Result for {0}({1}) at 0x{2:012x}>".format(self.queryid, self.groupid, id(self))
 
 class WorkItem(object):
-    def __init__(self, work, groupid):
-        self.work = work
-
-        self.group = None
-        for group in self.work.dataset.groups:
-            if group.id == groupid:
-                self.group = group
-                break
-        assert self.group is not None
-
+    def __init__(self, executor, group):
+        self.executor = executor
+        self.group = group
         self.occupants = []
 
     def __repr__(self):
-        return "<WorkItem for {0}({1}) at 0x{2:012x}>".format(self.work.query.queryid, self.group.id, id(self))
+        return "<WorkItem for query {0}, group {1} at 0x{2:012x}>".format(self.executor.query.id, self.group.id, id(self))
 
-    def requires(self):
-        return [DataAddress(self.work.query.dataset, column, self.group.id) for column in self.work.query.inputs]
+    def required(self):
+        return [DataAddress(self.executor.query.dataset.name, column, self.group.id) for column in self.executor.required]
 
     def columnBytes(self, column):
         if isinstance(column, string_types):
             column = ColumnName.parse(column)
 
         if column.issize():
-            return self.group.numEvents * sizeType.itemsize
+            return self.group.numEvents * numpy.dtype(sizeType).itemsize
         else:
             return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
 
     def columnDtype(self, column):
-        return numpy.dtype(self.work.dataset.columns[column].dataType)
+        return numpy.dtype(self.executor.query.dataset.columns[column].dataType)
 
     def attachOccupant(self, occupant):
         self.occupants.append(occupant)
@@ -137,10 +125,15 @@ class WorkItem(object):
             occupant.decrementNeed()
 
     def run(self):
-        return Result(self.work.query.retaddr,
-                      self.work.query.queryid,
-                      self.group.id,
-                      self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
+        # FIXME
+        self.executor.run(self.group)
+        # return Result(self.work.query.retaddr,
+        #               self.work.query.queryid,
+        #               self.group.id,
+        #               self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
+        class Something(object):
+            data = None
+        return Something()
 
     def decrementNeed(self):
         assert len(self.occupants) != 0
@@ -244,16 +237,15 @@ class CacheOrder(object):
             self.order = self.order[numToEvict:]
 
 class NeedWantCache(object):
-    def __init__(self, limitBytes, fetcherClass):
+    def __init__(self, limitBytes):
         self.limitBytes = limitBytes
-        self.fetcherClass = fetcherClass
 
         self.usedBytes = 0
         self.need = {}             # unordered: we need them all, cannot proceed without them
         self.want = CacheOrder()   # least recently used is most likely to be evicted
 
     def __repr__(self):
-        return "<NeedWantCache with {0} at 0x{1:012x}>".format(self.fetcherClass, id(self))
+        return "<NeedWantCache at 0x{0:012x}>".format(id(self))
 
     def demoteNeedsToWants(self):
         # migrate occupants from 'need' to 'want' if the minion thread is done using it for calculations
@@ -267,10 +259,10 @@ class NeedWantCache(object):
             self.want.add(occupant)
             
     def howManyToEvict(self, workItem):
-        requires = workItem.requires()
+        required = workItem.required()
 
         neededBytes = 0
-        for address in requires:
+        for address in required:
             if address not in self.need and address not in self.want:
                 neededBytes += workItem.columnBytes(address.column)
 
@@ -279,7 +271,7 @@ class NeedWantCache(object):
         numToEvict = 0
         reclaimableBytes = 0
         for occupant in self.want:
-            if occupant.address not in requires:
+            if occupant.address not in required:
                 if reclaimableBytes >= additionalBytesRequired:
                     break
 
@@ -296,7 +288,7 @@ class NeedWantCache(object):
         self.want.evict(numToEvict)
 
         tofetch = []
-        for address in workItem.requires():
+        for address in workItem.required():
             if address in self.need:                        # case 1: "I need it, too!"
                 self.need[address].incrementNeed()
 
@@ -317,7 +309,7 @@ class NeedWantCache(object):
             workItem.attachOccupant(self.need[address])
 
         if len(tofetch) > 0:
-            fetcher = self.fetcherClass(tofetch, workItem)
+            fetcher = workItem.dataset.fetcher(tofetch, workItem)
             fetcher.start()
 
     def maybeReserve(self, waiting):
@@ -382,7 +374,7 @@ class Minion(threading.Thread):
                 self.outgoing.put(result)
 
             # for the FutureQueryResult (standalone mode)
-            workItem.work.oneComputeDone(workItem.group.id, endTime - startTime, result.data)
+            workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, result.data)
 
 class CacheMaster(threading.Thread):
     loopdelay = 0.001           # 1 ms       pause time at the end of the loop
@@ -407,9 +399,9 @@ class CacheMaster(threading.Thread):
     def run(self):
         while True:
             # put new work in the waiting
-            for work in drainQueue(self.incoming):
-                for groupid in work.query.groupids:
-                    self.waiting.append(WorkItem(work, groupid))
+            for executor in drainQueue(self.incoming):
+                for group in executor.query.dataset.groups:
+                    self.waiting.append(WorkItem(executor, group))
                 
             # move work from waiting to loading or minions
             while True:

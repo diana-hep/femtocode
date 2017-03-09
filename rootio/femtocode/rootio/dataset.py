@@ -27,6 +27,7 @@ from femtocode.rootio._fastreader import fillarrays
 from femtocode.rootio._fastreader import getsize
 from femtocode.rootio.xrootd import filesFromPath
 from femtocode.typesystem import Schema
+from femtocode.rootio.fetch import ROOTFetcher
 
 class ROOTSegment(Segment):
     def __init__(self, numEntries, dataLength, sizeLength, files):
@@ -107,6 +108,8 @@ class ROOTColumn(Column):
         return hash(("ROOTColumn", self.data, self.size, self.dataType, self.tree, self.dataBranch, self.sizeBranch))
 
 class ROOTDataset(Dataset):
+    fetcher = ROOTFetcher
+
     @staticmethod
     def fromYamlString(declaration):
         return ROOTDataset.fromDeclaration(DatasetDeclaration.fromYamlString(declaration))
