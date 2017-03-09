@@ -117,24 +117,26 @@ NativeCompiler.llvmengine = NativeCompiler.newengine()
 class CompiledLoopFunction(LoopFunction):
     def toJson(self):
         llvmname, compiledobj = NativeCompiler.serialize(self.fcn)
-        return {"module": self.__class__.__module__,
-                "class": self.__class__.__name__,
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
                 "name": llvmname,
                 "code": base64.b64encode(compiledobj)}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["module", "class", "name", "code"])
-        assert isinstance(obj["module"], string_types)
+        assert set(obj.keys()) == set(["class", "name", "code"])
         assert isinstance(obj["class"], string_types)
+        assert "." in obj["class"]
 
-        if obj["module"] == CompiledLoopFunction.__module__ and obj["class"] == CompiledLoopFunction.__name__:
+        mod = obj["class"][:obj["class"].rindex(".")]
+        cls = obj["class"][obj["class"].rindex(".") + 1:]
+
+        if mod == CompiledLoopFunction.__module__ and cls == CompiledLoopFunction.__name__:
             assert isinstance(obj["name"], string_types)
             assert isinstance(obj["code"], string_types)
             return DeserializedLoopFunction(NativeCompiler.deserialize(obj["name"], base64.b64decode(obj["code"])), obj["name"], obj["code"])
         else:
-            return getattr(importlib.import_module(obj["module"]), obj["class"]).fromJson(obj)
+            return getattr(importlib.import_module(mod), cls).fromJson(obj)
 
 class DeserializedLoopFunction(CompiledLoopFunction):
     def __init__(self, fcn, llvmname, compiledobj):
@@ -143,8 +145,7 @@ class DeserializedLoopFunction(CompiledLoopFunction):
         self.compiledobj = compiledobj
 
     def toJson(self):
-        return {"module": CompiledLoopFunction.__module__,
-                "class": CompiledLoopFunction.__name__,
+        return {"class": CompiledLoopFunction.__module__ + "." + CompiledLoopFunction.__name__,
                 "name": self.llvmname,
                 "code": base64.b64encode(self.compiledobj)}
 

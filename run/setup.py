@@ -33,7 +33,7 @@ setup(name = "femtocode-run",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = ["femtocode", "numba", "numpy"],
+      install_requires = ["femtocode", "femtocode-numpyio", "numba", "numpy"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!

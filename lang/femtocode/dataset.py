@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import json
 import os
 import re
@@ -266,7 +267,12 @@ class Dataset(Metadata):
         return "<{0} name={1} len(groups)={2}, numEntries={3} at 0x{4:012x}>".format(self.__class__.__name__, self.name, len(self.groups), self.numEntries, id(self))
 
     def toJson(self):
-        return {"name": self.name, "schema": dict((k, v.toJson()) for k, v in self.schema.items()), "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()), "groups": [x.toJson() for x in self.groups], "numEntries": self.numEntries}
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "name": self.name,
+                "schema": dict((k, v.toJson()) for k, v in self.schema.items()),
+                "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()),
+                "groups": [x.toJson() for x in self.groups],
+                "numEntries": self.numEntries}
 
     @classmethod
     def fromJsonString(cls, dataset):
@@ -274,12 +280,21 @@ class Dataset(Metadata):
 
     @staticmethod
     def fromJson(dataset):
-        return Dataset(
-            dataset["name"],
-            dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
-            dict((ColumnName.parse(k), Column.fromJson(v)) for k, v in dataset["columns"].items()),
-            [Group.fromJson(x) for x in dataset["groups"]],
-            dataset["numEntries"])
+        assert isinstance(dataset, dict)
+        assert "class" in dataset
+
+        mod = dataset["class"][:dataset["class"].rindex(".")]
+        cls = dataset["class"][dataset["class"].rindex(".") + 1:]
+        
+        if mod == Dataset.__module__ and cls == Dataset.__name__:
+            return Dataset(
+                dataset["name"],
+                dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
+                dict((ColumnName.parse(k), Column.fromJson(v)) for k, v in dataset["columns"].items()),
+                [Group.fromJson(x) for x in dataset["groups"]],
+                dataset["numEntries"])
+        else:
+            return getattr(importlib.import_module(mod), cls).fromJson(dataset)
 
     def __eq__(self, other):
         return other.__class__ == Dataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries

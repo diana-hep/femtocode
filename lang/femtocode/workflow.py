@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import json
-import importlib
 
 from femtocode.dataset import Dataset
 from femtocode.defs import *
@@ -48,9 +47,7 @@ class Query(object):
         return json.dumps(self.toJson())
 
     def toJson(self):
-        return {"dataset-module": self.dataset.__class__.__module__,
-                "dataset-class": self.dataset.__class__.__name__,
-                "dataset": self.dataset.toJson(),
+        return {"dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions]}
 
@@ -61,11 +58,9 @@ class Query(object):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["dataset-module", "dataset-class", "dataset", "statements", "actions"])
+        assert set(obj.keys()) == set(["dataset", "statements", "actions"])
 
-        assert isinstance(obj["dataset-module"], string_types)
-        assert isinstance(obj["dataset-class"], string_types)
-        dataset = getattr(importlib.import_module(obj["dataset-module"]), obj["dataset-class"]).fromJson(obj["dataset"])
+        dataset = Dataset.fromJson(obj["dataset"])
 
         statements = statementlist.Statement.fromJson(obj["statements"])
         assert isinstance(statements, statementlist.Statements)
