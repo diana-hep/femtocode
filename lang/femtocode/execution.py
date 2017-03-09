@@ -15,9 +15,11 @@
 # limitations under the License.
 
 import ast
+import base64
 import marshal
 import sys
 import types
+import importlib
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
@@ -284,11 +286,25 @@ class LoopFunction(object):
     def __call__(self, *args, **kwds):
         return self.fcn(*args, **kwds)
 
-    def __getstate__(self):
-        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
+    def toJson(self):
+        return {"module": self.__class__.__module__,
+                "class": self.__class__.__name__,
+                "name": self.fcn.func_name,
+                "code": base64.b64encode(marshal.dumps(self.fcn.func_code))}
 
-    def __setstate__(self, state):
-        self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()) == set(["module", "class", "name", "code"])
+        assert isinstance(obj["module"], string_types)
+        assert isinstance(obj["class"], string_types)
+
+        if obj["module"] == LoopFunction.__module__ and obj["class"] == LoopFunction.__name__:
+            assert isinstance(obj["name"], string_types)
+            assert isinstance(obj["code"], string_types)
+            return LoopFunction(types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"]))
+        else:
+            return getattr(importlib.import_module(obj["module"]), obj["class"]).fromJson(obj)
 
 class Executor(object):
     def __init__(self, query):
@@ -485,7 +501,7 @@ class NativeCompiler(Compiler):
         cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
 
         # the cpython.* function takes Python pointers to closure, args, kwds and unpacks them
-        return DeserializedLoopFunction(cpythonfcn)
+        return cpythonfcn
 
     @staticmethod
     def newengine():
@@ -499,17 +515,38 @@ class NativeCompiler(Compiler):
 NativeCompiler.llvmengine = NativeCompiler.newengine()
 
 class CompiledLoopFunction(LoopFunction):
-    def __getstate__(self):
-        return NativeCompiler.serialize(self.fcn)
+    def toJson(self):
+        llvmname, compiledobj = NativeCompiler.serialize(self.fcn)
+        return {"module": self.__class__.__module__,
+                "class": self.__class__.__name__,
+                "name": llvmname,
+                "code": base64.b64encode(compiledobj)}
 
-    def __setstate__(self, state):
-        self.llvmname, self.compiledobj = state
-        self.fcn = NativeCompiler.deserialize(self.llvmname, self.compiledobj).fcn
-        self.__class__ = DeserializedLoopFunction
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()) == set(["module", "class", "name", "code"])
+        assert isinstance(obj["module"], string_types)
+        assert isinstance(obj["class"], string_types)
+
+        if obj["module"] == CompiledLoopFunction.__module__ and obj["class"] == CompiledLoopFunction.__name__:
+            assert isinstance(obj["name"], string_types)
+            assert isinstance(obj["code"], string_types)
+            return DeserializedLoopFunction(NativeCompiler.deserialize(obj["name"], base64.b64decode(obj["code"])), obj["name"], obj["code"])
+        else:
+            return getattr(importlib.import_module(obj["module"]), obj["class"]).fromJson(obj)
 
 class DeserializedLoopFunction(CompiledLoopFunction):
-    def __getstate__(self):
-        return self.llvmname, self.compiledobj
+    def __init__(self, fcn, llvmname, compiledobj):
+        self.fcn = fcn
+        self.llvmname = llvmname
+        self.compiledobj = compiledobj
+
+    def toJson(self):
+        return {"module": CompiledLoopFunction.__module__,
+                "class": CompiledLoopFunction.__name__,
+                "name": self.llvmname,
+                "code": base64.b64encode(self.compiledobj)}
 
     def __call__(self, *args, **kwds):
         closure = ()
@@ -538,5 +575,3 @@ class NativeExecutor(Executor):
 
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
-
-
