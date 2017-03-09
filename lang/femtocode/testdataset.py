@@ -330,26 +330,6 @@ class TestDataset(Dataset):
     def __iter__(self):
         return TestDataset.TestDatasetIterator(self)
 
-## Maybe never cover this case
-#
-# class TestFetcher(object):
-#     def __init__(self, occupants, workItem):
-#         self.occupants = occupants
-#         self.workItem = workItem
-#
-#     def start(self):   # the other Fetchers are asynchronous threading.Threads; this one isn't
-#         dataset = self.workitem.work.dataset
-#         segments = self.workItem.group.segments
-#
-#         for occupant in self.occupants:
-#             name = occupant.address.column
-#             if name.issize():
-#                 array = segment[dataset.sizeColumn(name.dropsize()).dropsize()].size
-#             else:
-#                 array = segment[name].data
-#
-#             occupant.rawarray[:] = array   # Fetchers have to force their data into preallocated Numpy arrays (it's a femtocode-run thing)
-
 class TestSession(object):
     executorClass = Executor
 
@@ -365,52 +345,3 @@ class TestSession(object):
             tally = executor.run(group, tally)
 
         return executor.finalize(tally)
-
-
-
-######################################
-
-# executor = PythonExecutor(query.actions[0].targets[0], list(query.dataset.schema), query.statements, lambda start, end: False)
-
-# for group in query.dataset.groups:
-#     dataLengths = executor.dataLengths(query.dataset, group)
-
-#     arrays = {}
-#     for name in executor.inputs:
-#         assert not name.issize()
-#         arrays[name] = group.segments[name].data
-
-#     data, size = executor.run(arrays, dataLengths)
-#     print("data: {} size: {}".format(data, size))
-
-######################################
-
-# import random
-# import math
-
-# Event = namedtuple("Test", ["jets", "muons"])
-# Jet = namedtuple("jets", ["eta", "mass", "phi", "pt"])
-# Muon = namedtuple("muons", ["eta", "phi", "pt"])
-
-# events = []
-# for i in range(1000):
-#     events.append(Event([
-#         Jet(random.uniform(-5, 5),
-#             random.expovariate(0.1),
-#             random.uniform(-math.pi, math.pi),
-#             random.expovariate(0.01))
-#         for i in xrange(random.randint(0, 10))],
-#                         [
-#         Muon(random.uniform(-2.4, 2.4),
-#              random.uniform(-math.pi, math.pi),
-#              random.expovariate(0.1))
-#         for i in xrange(random.randint(0, 3))]))
-
-# schema = {"muons": collection(record(pt=real(0, almost(inf)), eta=real(-2.4, 2.4), phi=real(-math.pi, math.pi))),
-#           "jets": collection(record(pt=real(0, almost(inf)), eta=real(-5, 5), phi=real(-math.pi, math.pi), mass=real(0, almost(inf))))}
-
-# td = TestDataset.fromSchema("Test", **schema)
-# td.fillall(events, groupLimit=150)
-
-# for old, new in zip(events, td):
-#     assert old == new

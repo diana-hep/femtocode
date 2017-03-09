@@ -29,6 +29,7 @@ class Loop(object):
         self.size = size
         self.targets = []
         self.statements = []
+        self.run = None
 
     def __repr__(self):
         return "<Loop over {0} at 0x{1:012x}>".format(str(self.size), id(self))
@@ -215,7 +216,7 @@ class Compiler(object):
         modulecomp = compile(moduleast, "Femtocode", "exec")
         out = {}
         exec(modulecomp, out)
-        return out[name]
+        return LoopFunction(out[name])
 
     @staticmethod
     def compileToPython(fcnname, loop):
@@ -273,6 +274,13 @@ class Compiler(object):
 
         fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
         return fcn, imax
+
+class LoopFunction(object):
+    def __init__(self, fcn):
+        self.fcn = fcn
+
+    def __call__(self, *args, **kwds):
+        return self.fcn(*args, **kwds)
     
 class Executor(object):
     def __init__(self, query):
@@ -284,13 +292,10 @@ class Executor(object):
         self.compileLoops()
 
     def compileLoops(self):
-        for i, loops in enumerate(self.loops.values()):
+        for i, loops in enumerate(sorted(self.loops.values(), key=lambda x: x[0].targets)):
             for j, loop in enumerate(loops):
                 fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
-                loop.pythonfcn, loop.imax = Compiler.compileToPython(fcnname, loop)
-
-    def runloop(self, loop, args):
-        loop.pythonfcn(*args)
+                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop)
 
     def initialize(self):
         action = self.query.actions[-1]   # the tally is only affected by the last action
@@ -338,14 +343,17 @@ class Executor(object):
     def workarrays(self, group, lengths):
         return dict((data, [None] * lengths[data]) for data, size in self.temporaries())
 
+    def imax(self, imax):
+        return imax
+
     def runloops(self, group, lengths, arrays):
         out = None
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
-                imax = [group.numEntries if loop.size is None else lengths[loop.size]]
+                imax = self.imax([group.numEntries if loop.size is None else lengths[loop.size]])
                 args = [arrays[x] for x in loop.params() + loop.targets]
-                self.runloop(loop, [imax] + args)
+                loop.run(*([imax] + args))
 
             else:
                 action = loopOrAction
@@ -378,16 +386,22 @@ class Executor(object):
 
 
 
+################################################################
 
 
-#####################################################################
-## Test them here (to avoid stale bytecode during development)
 
 import ctypes
 
 import llvmlite.binding
 import numba
 import numpy
+
+from femtocode.asts import statementlist
+from femtocode.dataset import ColumnName
+from femtocode.execution import Loop
+from femtocode.execution import DependencyGraph
+from femtocode.execution import Compiler
+from femtocode.execution import Executor
 
 class PyTypeObject(ctypes.Structure):
     _fields_ = ("ob_refcnt", ctypes.c_int), ("ob_type", ctypes.c_void_p), ("ob_size", ctypes.c_int), ("tp_name", ctypes.c_char_p)
@@ -405,6 +419,7 @@ class NativeCompiler(Compiler):
     @staticmethod
     def compileToNative(fcnname, loop, columns):
         pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop)
+        pythonfcn = pythonfcn.fcn
 
         sig = (numba.int64[:],)
 
@@ -433,15 +448,16 @@ class NativeCompiler(Compiler):
                 else:
                     raise NotImplementedError
 
-        return numba.jit([sig], nopython=True)(pythonfcn), imax, tmptypes
+        return CompiledLoopFunction(numba.jit([sig], nopython=True)(pythonfcn)), imax, tmptypes
 
     @staticmethod
     def serialize(nativefcn):
+        nativefcn = nativefcn.fcn
         assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
         cres = nativefcn.overloads.values()[0]
         llvmnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
         assert len(llvmnames) == 1, "expected only one function from dynamically generated Python"
-        return (llvmnames[0], cres.library._compiled_object)
+        return llvmnames[0], cres.library._compiled_object
 
     @staticmethod
     def deserialize(llvmname, compiledobj):
@@ -462,11 +478,7 @@ class NativeCompiler(Compiler):
         cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
 
         # the cpython.* function takes Python pointers to closure, args, kwds and unpacks them
-        def wrapped(*args, **kwds):
-            closure = ()
-            return cpythonfcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
-
-        return wrapped
+        return DeserializedLoopFunction(cpythonfcn)
 
     @staticmethod
     def newengine():
@@ -479,24 +491,42 @@ class NativeCompiler(Compiler):
 # you should *probably* make sure that access to this is from a single thread...
 NativeCompiler.llvmengine = NativeCompiler.newengine()
 
+class CompiledLoopFunction(LoopFunction): pass
+
+class DeserializedLoopFunction(CompiledLoopFunction):
+    def __init__(self, fcn):
+        self.fcn = fcn
+
+    def __call__(self, *args, **kwds):
+        closure = ()
+        return self.fcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
+
 class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
 
     def compileLoops(self):
         self.tmptypes = {}
-        for i, loops in enumerate(self.loops.values()):
+        for i, loops in enumerate(sorted(self.loops.values(), key=lambda x: x[0].targets)):
             for j, loop in enumerate(loops):
                 fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
-                loop.nativefcn, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
+                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
 
-                llvmname, compiledobj = NativeCompiler.serialize(loop.nativefcn)
-                loop.nativefcn = NativeCompiler.deserialize(llvmname, compiledobj)
+                llvmname, compiledobj = NativeCompiler.serialize(loop.run)
+                loop.run = NativeCompiler.deserialize(llvmname, compiledobj)
 
-    def runloop(self, loop, args):
-        imax = numpy.array(args[0], dtype=numpy.int64)
-        loop.nativefcn(*([imax] + args[1:]))
+    def FIXME(self):
+        llvmname, compiledobj = NativeCompiler.serialize(loop.run)
+        loop.run = NativeCompiler.deserialize(llvmname, compiledobj)
+
+
+
+
+
+
+    def imax(self, imax):
+        return numpy.array(imax, dtype=numpy.int64)
 
     def inarrays(self, group):
         return dict((n, numpy.array(a)) for n, a in super(NativeExecutor, self).inarrays(group).items())
@@ -506,3 +536,5 @@ class NativeExecutor(Executor):
 
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries())
+
+
