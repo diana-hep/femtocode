@@ -53,17 +53,17 @@ class NumpyFetcher(threading.Thread):
         return out
 
     def run(self):
-        fileNamesToOccupants = {}
+        filesToOccupants = {}
 
         for occupant in self.occupants:
-            for fileName in self.fileNames(ColumnName.parse(occupant.address.column)):
-                if fileName not in fileNamesToOccupants:
-                    fileNamesToOccupants[fileName] = []
-                fileNamesToOccupants[fileName].append(occupant)
+            for fileName in self.files(occupant.address.column):
+                if fileName not in filesToOccupants:
+                    filesToOccupants[fileName] = []
+                filesToOccupants[fileName].append(occupant)
 
-        for fileName, occupants in fileNamesToOccupants.items():
+        for fileName, occupants in filesToOccupants.items():
             protocol = urlparse(fileName).scheme
-            if protocol is None:
+            if protocol == "":
                 zf = zipfile.ZipFile(open(fileName, "rb"))
             elif protocol == "root":
                 zf = zipfile.ZipFile(XRootDReader(fileName))
@@ -71,7 +71,7 @@ class NumpyFetcher(threading.Thread):
                 raise NotImplementedError
 
             for occupant in occupants:
-                stream = zf.open(occupant.address.column + ".npy")
+                stream = zf.open(str(occupant.address.column) + ".npy")
                 assert stream.read(6) == "\x93NUMPY"
 
                 version = struct.unpack("bb", stream.read(2))

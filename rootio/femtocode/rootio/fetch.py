@@ -44,7 +44,7 @@ class ROOTFetcher(threading.Thread):
         filesetsToOccupants = {}
 
         for occupant in self.occupants:
-            column = ColumnName.parse(occupant.address.column)
+            column = occupant.address.column
             columnNameToArray[column] = occupant.rawarray
 
             filesetTree = (tuple(sorted(self.files(column))),

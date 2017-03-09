@@ -30,7 +30,6 @@ from femtocode.run.messages import *
 from femtocode.util import *
 
 class DataAddress(object):
-    __slots__ = ("dataset", "column", "group")
     def __init__(self, dataset, column, group):
         self.dataset = dataset
         self.column = column
@@ -179,7 +178,7 @@ class CacheOccupant(object):
 
     def fill(self, data):
         numBytes = len(data)
-        assert self.filledBytes + numBytes < self.totalBytes
+        assert self.filledBytes + numBytes <= self.totalBytes
         self.rawarray[self.filledBytes : self.filledBytes + numBytes] = numpy.frombuffer(data, dtype=self.untyped)
         with self.lock:
             self.filledBytes += numBytes
@@ -309,7 +308,7 @@ class NeedWantCache(object):
             workItem.attachOccupant(self.need[address])
 
         if len(tofetch) > 0:
-            fetcher = workItem.dataset.fetcher(tofetch, workItem)
+            fetcher = workItem.executor.query.dataset.fetcher(tofetch, workItem)
             fetcher.start()
 
     def maybeReserve(self, waiting):

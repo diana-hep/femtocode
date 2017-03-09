@@ -95,7 +95,7 @@ class StandaloneSession(object):
         self.cacheMaster.incoming.put(executor)
 
         # user can watch it fill
-        return work.future
+        return executor.future
 
 ########################################### TODO: temporary!
 
@@ -104,3 +104,5 @@ session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
 result = session.source("xy").toPython("Test", a = "x + y").submit()
 
+import time
+time.sleep(10)
