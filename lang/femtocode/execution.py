@@ -15,7 +15,9 @@
 # limitations under the License.
 
 import ast
+import marshal
 import sys
+import types
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
@@ -281,7 +283,13 @@ class LoopFunction(object):
 
     def __call__(self, *args, **kwds):
         return self.fcn(*args, **kwds)
-    
+
+    def __getstate__(self):
+        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
+
+    def __setstate__(self, state):
+        self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
+
 class Executor(object):
     def __init__(self, query):
         self.query = query
@@ -452,7 +460,6 @@ class NativeCompiler(Compiler):
 
     @staticmethod
     def serialize(nativefcn):
-        nativefcn = nativefcn.fcn
         assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
         cres = nativefcn.overloads.values()[0]
         llvmnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
@@ -491,11 +498,18 @@ class NativeCompiler(Compiler):
 # you should *probably* make sure that access to this is from a single thread...
 NativeCompiler.llvmengine = NativeCompiler.newengine()
 
-class CompiledLoopFunction(LoopFunction): pass
+class CompiledLoopFunction(LoopFunction):
+    def __getstate__(self):
+        return NativeCompiler.serialize(self.fcn)
+
+    def __setstate__(self, state):
+        self.llvmname, self.compiledobj = state
+        self.fcn = NativeCompiler.deserialize(self.llvmname, self.compiledobj).fcn
+        self.__class__ = DeserializedLoopFunction
 
 class DeserializedLoopFunction(CompiledLoopFunction):
-    def __init__(self, fcn):
-        self.fcn = fcn
+    def __getstate__(self):
+        return self.llvmname, self.compiledobj
 
     def __call__(self, *args, **kwds):
         closure = ()
@@ -512,18 +526,6 @@ class NativeExecutor(Executor):
                 fcnname = "f{0}_{1}_{2}".format(self.query.id, i, j)
                 loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
                 self.tmptypes.update(tmptypes)
-
-                llvmname, compiledobj = NativeCompiler.serialize(loop.run)
-                loop.run = NativeCompiler.deserialize(llvmname, compiledobj)
-
-    def FIXME(self):
-        llvmname, compiledobj = NativeCompiler.serialize(loop.run)
-        loop.run = NativeCompiler.deserialize(llvmname, compiledobj)
-
-
-
-
-
 
     def imax(self, imax):
         return numpy.array(imax, dtype=numpy.int64)
