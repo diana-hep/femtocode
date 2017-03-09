@@ -125,7 +125,13 @@ class WorkItem(object):
 
     def run(self):
         # FIXME
-        self.executor.run(self.group)
+        inarrays = dict((x.address.column, x.array()) for x in self.occupants)
+
+        tally = self.executor.run(inarrays, self.group)
+
+        print "TALLY", tally["a"].data
+
+
         # return Result(self.work.query.retaddr,
         #               self.work.query.queryid,
         #               self.group.id,
@@ -409,7 +415,7 @@ class CacheMaster(threading.Thread):
                     break
                 elif workItem.ready():
                     self.outgoing.put(workItem)
-                    workItem.work.oneLoadDone(workItem.group.id)
+                    workItem.executor.oneLoadDone(workItem.group.id)
                 else:
                     self.loading.append(workItem)
 
@@ -419,7 +425,7 @@ class CacheMaster(threading.Thread):
                 if workItem.ready():
                     toremove.append(index)
                     self.outgoing.put(workItem)
-                    workItem.work.oneLoadDone(workItem.group.id)
+                    workItem.executor.oneLoadDone(workItem.group.id)
             while len(toremove) > 0:
                 del self.loading[toremove.pop()]
 

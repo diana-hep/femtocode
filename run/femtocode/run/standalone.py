@@ -60,9 +60,9 @@ class FutureQueryResult(object):
             self.wallTime = wallTime
             self.computeTime = computeTime
             self.data = data
-        if done is True:
-            print("FIXME {0}".format(self))
-            self._keepPythonAlive.done.set()
+        # if done is True:
+        #     print("FIXME {0}".format(self))
+        #     self._keepPythonAlive.done.set()
 
 class StandaloneSession(object):
     def __init__(self,

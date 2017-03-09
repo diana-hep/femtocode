@@ -339,7 +339,7 @@ class TestSession(object):
         tally = executor.initialize()
 
         for group in query.dataset.groups:
-            subtally = executor.run(group)
+            subtally = executor.run(executor.inarrays(group), group)
             executor.update(tally, subtally)
 
         return executor.finalize(tally)

@@ -432,9 +432,7 @@ class Executor(object):
 
         return out
 
-    def run(self, group):
-        inarrays = self.inarrays(group)
-
+    def run(self, inarrays, group):
         lengths = {}
         for data, size in self.temporaries:
             if size is not None:
