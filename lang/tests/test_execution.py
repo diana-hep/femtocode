@@ -32,8 +32,6 @@ import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
 import femtocode.asts.typedtree as typedtree
 
-from femtocode.execution import NativeExecutor
-
 class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
