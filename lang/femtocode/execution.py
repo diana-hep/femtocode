@@ -20,6 +20,11 @@ import marshal
 import sys
 import types
 import importlib
+import traceback
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
@@ -330,6 +335,48 @@ class LoopFunction(object):
             return LoopFunction(types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"]))
         else:
             return getattr(importlib.import_module(mod), cls).fromJson(obj)
+
+class ExecutionFailure(object):
+    def __init__(self, exception, traceback):
+        self.exception = exception
+        self.traceback = traceback
+
+    def __repr__(self):
+        return "<ExecutionFailure: {0}>".format(str(self.exception))
+
+    def __str__(self):
+        if self.traceback is None:
+            return repr(self)
+        elif isinstance(self.traceback, string_types):
+            return self.traceback
+        else:
+            return "".join(traceback.format_exception(self.exception.__class__, self.exception, self.traceback))
+
+    def reraise(self):
+        if isinstance(self.exception, string_types):
+            raise StopIteration(self.exception)
+
+        elif isinstance(self.traceback, string_types):
+            raise RuntimeError("Remote exception: {0}\n\n{1}".format(str(self.exception), self.traceback))
+
+        else:
+            if sys.version_info[0] <= 2:
+                raise self.exception.__class__, self.exception, self.traceback
+            else:
+                raise self.exception.with_traceback(self.traceback)
+
+    def toJson(self):
+        return {"class": self.exception.__class__.__name__,
+                "message": str(self.exception),
+                "traceback": str(self)}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert "class" in obj
+        assert "message" in obj
+        assert "traceback" in obj
+        return ExecutionFailure("{0}: {1}".format(obj["class"], obj["message"], obj["traceback"]))
 
 class Executor(object):
     def __init__(self, query):

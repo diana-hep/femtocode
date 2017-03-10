@@ -337,7 +337,7 @@ class TestSession(object):
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
-    def submit(self, query, callback=None):
+    def submit(self, query, ondone=None, onupdate=None):
         executor = Executor(query)
         action = query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
@@ -346,9 +346,11 @@ class TestSession(object):
 
         for group in query.dataset.groups:
             subtally = executor.run(executor.inarraysFromTest(group), group)
-            action.update(tally, subtally)
+            tally = action.update(tally, subtally)
+            if onupdate is not None:
+                onupdate(tally)
 
         result = action.finalize(tally)
-        if callback is not None:
-            callback(result)
+        if ondone is not None:
+            ondone(result)
         return result

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+import threading
 
 from femtocode.dataset import Dataset
 from femtocode.defs import *

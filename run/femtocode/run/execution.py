@@ -17,8 +17,6 @@
 import ctypes
 import threading
 import time
-import traceback
-import sys
 
 import llvmlite.binding
 import numba
@@ -199,30 +197,6 @@ class NativeExecutor(Executor):
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries)
 
-class ExecutionFailure(object):
-    def __init__(self, exception, exc_info):
-        self.exception = exception
-        self.exc_info = exc_info
-
-    def __repr__(self):
-        return "<ExecutionFailure: {0}>".format(str(self.exception))
-
-    def __str__(self):
-        if isinstance(self.exception, Exception):
-            return "".join(traceback.format_exception(self.exception.__class__, self.exception, self.exc_info[2]))
-        else:
-            return repr(self)
-
-    def reraise(self):
-        if isinstance(self.exception, Exception):
-            if sys.version_info[0] <= 2:
-                raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
-            else:
-                raise self.exc_info[1].with_traceback(self.exc_info[2])
-
-        else:
-            raise StopIteration(self.exception)
-
 class NativeAsyncExecutor(NativeExecutor):
     def __init__(self, query, future):
         super(NativeAsyncExecutor, self).__init__(query)
@@ -242,7 +216,7 @@ class NativeAsyncExecutor(NativeExecutor):
             self.tally = self.action.initialize()
 
     def updateFuture(self, args):
-        self.future.update(*args)
+        self.future._update(*args)
 
     def futureargs(self):
         return (sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),

@@ -16,13 +16,58 @@
 
 import json
 import socket
+import threading
 try:
-    from urllib2 import urlopen, HTTPError
+    from urllib2 import urlparse, urlopen, HTTPError
 except ImportError:
+    from urllib.parse import urlparse
     from urllib.request import urlopen
     from urllib.error import HTTPError
 
 from femtocode.dataset import Dataset
+from femtocode.workflow import Source
+from femtocode.util import *
+
+class FutureQueryResult(object):
+    class PollForUpdates(threading.Thread):
+        loopdelay = 1.0             # 1 sec      pause time for polling server
+
+        def __init__(self, future, ondone, onupdate):
+            super(FutureQueryResult.PollForUpdates, self).__init__()
+            self.future = future
+            self.ondone = ondone
+            self.onupdate = onupdate
+            self.daemon = False   # why this is a thread: don't let Python exit until the callback is done!
+
+        def run(self):
+            
+
+
+    def __init__(self, query, ondone=None, onupdate=None):
+        self.query = query
+        self.query.dataset = self.query.dataset.strip(set(columnNames()))
+
+        self.loaded = 0.0
+        self.computed = 0.0
+        self.done = False
+        self.wallTime = 0.0
+        self.computeTime = 0.0
+        self.data = None
+        self._lock = threading.Lock()
+        self._doneevent = threading.Event()
+
+    def __repr__(self):
+        return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
+
+    def await(self, timeout=None):
+        self._doneevent.wait(timeout)
+        if isinstance(self.data, ExecutionFailure):
+            self.data.reraise()
+        else:
+            return self.data
+
+    def cancel(self):
+        self.query.cancelled = True
 
 class MetadataFromRemote(object):
     def __init__(self, url, timeout=None):
@@ -50,11 +95,49 @@ class MetadataFromRemote(object):
 
         return self.cache[request]
 
-# class RemoteSession(object):
-#     def __init__(self, )
+class RemoteSession(object):
+    def __init__(self, url, timeout=None):
+        self.url = url
+        self.timeout = timeout
+        self.metadata = MetadataFromRemote(self.metadata_url, self.timeout)
+
+    @property
+    def url(self):
+        return self._url
+
+    @url.setter
+    def url(self, value):
+        self._url = value
+
+        p = urlparse.urlparse(self.url)
+        def sub(x):
+            return urlparse.urlunparse(urlparse.ParseResult(p.scheme, p.hostname + ":" + repr(p.port), p.path + "/" + x, "", "", ""))
+
+        self.submit_url = sub("submit")
+        self.metadata_url = sub("metadata")
+        self.store_url = sub("store")
+
+        if hasattr(self, "metadata"):
+            self.metadata.url = self.metadata_url
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        self._timeout = value
+
+        if hasattr(self, "metadata"):
+            self.metadata.timeout = self.timeout
+
+    def source(self, name):
+        return Source(self, self.metadata.dataset(name))
+
+    def submit(self, query, ondone=None):
+        
 
 
-# set(columnNames())
 
 
 #     def source(self, name, asdict=None, **askwds):

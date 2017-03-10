@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import multiprocessing
-import threading
 try:
     import Queue as queue
 except ImportError:
@@ -29,12 +28,12 @@ from femtocode.util import *
 from femtocode.workflow import Source
 
 class FutureQueryResult(object):
-    class Callback(threading.Thread):
+    class OnDone(threading.Thread):
         def __init__(self, fcn):
-            super(FutureQueryResult.Callback, self).__init__()
+            super(FutureQueryResult.OnDone, self).__init__()
             self.incoming = queue.Queue()
             self.fcn = fcn
-            self.daemon = False
+            self.daemon = False   # why this is a thread: don't let Python exit until the callback is done!
 
         def run(self):
             data = self.incoming.get()
@@ -43,7 +42,7 @@ class FutureQueryResult(object):
             else:
                 self.fcn(data)
 
-    def __init__(self, query, callback):
+    def __init__(self, query, ondone, onupdate):
         self.query = query
 
         self.loaded = 0.0
@@ -54,17 +53,18 @@ class FutureQueryResult(object):
         self.data = None
         self._lock = threading.Lock()
 
-        if callback is not None:
-            self._callback = FutureQueryResult.Callback(callback)
-            self._callback.start()
+        if ondone is not None:
+            self._ondone = FutureQueryResult.OnDone(ondone)
+            self._ondone.start()
         else:
-            self._callback = None
+            self._ondone = None
+        self._onupdate = onupdate
         self._doneevent = threading.Event()
 
     def __repr__(self):
         return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
 
-    def update(self, loaded, computed, done, wallTime, computeTime, data):
+    def _update(self, loaded, computed, done, wallTime, computeTime, data):
         with self._lock:
             self.loaded = loaded
             self.computed = computed
@@ -73,9 +73,12 @@ class FutureQueryResult(object):
             self.computeTime = computeTime
             self.data = data
 
+        if self._onupdate is not None:
+            self._onupdate(data)                 # not self.data because not in lock
+
         if done:
-            if self._callback is not None:
-                self._callback.incoming.put(data)  # not self.data because not in lock
+            if self._ondone is not None:
+                self._ondone.incoming.put(data)  # not self.data because not in lock
             self._doneevent.set()
 
     def await(self, timeout=None):
@@ -92,8 +95,7 @@ class StandaloneSession(object):
     def __init__(self,
                  numMinions=multiprocessing.cpu_count(),
                  cacheLimitBytes=1024**3,
-                 metadata=MetadataFromJson("."),
-                 datasetClass=NumpyDataset):
+                 metadata=MetadataFromJson(".")):
 
         minionsIncoming = queue.Queue()
         self.minions = [Minion(minionsIncoming, None) for i in range(numMinions)]
@@ -107,9 +109,9 @@ class StandaloneSession(object):
     def source(self, name):
         return Source(self, self.metadata.dataset(name))
 
-    def submit(self, query, callback=None):
+    def submit(self, query, ondone=None, onupdate=None):
         # create an executor with a reference to the FutureQueryResult we will return to the user
-        executor = NativeAsyncExecutor(query, FutureQueryResult(query, callback))
+        executor = NativeAsyncExecutor(query, FutureQueryResult(query, ondone, onupdate))
 
         # queue it up
         self.cacheMaster.incoming.put(executor)

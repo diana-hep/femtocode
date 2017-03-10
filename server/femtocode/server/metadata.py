@@ -113,7 +113,7 @@ class MetadataAPIServer(object):
             start_response("200 OK", [("Content-type", "application/json")])
             return [serialized]
 
-m = MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests"))
+# m = MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests"))
 
 # from femtocode.rootio.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)

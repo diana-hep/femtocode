@@ -325,7 +325,7 @@ class Minion(threading.Thread):
                 endTime = time.time()
 
             except Exception as exception:
-                failure = ExecutionFailure(exception, sys.exc_info())
+                failure = ExecutionFailure(exception, sys.exc_info()[2])
 
                 # for the cache
                 workItem.decrementNeed()
