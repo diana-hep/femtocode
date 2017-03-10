@@ -27,7 +27,6 @@ import numpy
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
-from femtocode.run.messages import *
 from femtocode.util import *
 from femtocode.run.execution import *
 

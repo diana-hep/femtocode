@@ -23,7 +23,6 @@ except ImportError:
 
 from femtocode.scope.assignment import *
 from femtocode.scope.communication import *
-from femtocode.run.messages import *
 
 class GaboClient(threading.Thread):
     listenThreshold = 0.030     # 30 ms      no response from the minion; reset Client recv/send state
