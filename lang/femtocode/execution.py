@@ -371,22 +371,7 @@ class Executor(object):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.run, loop.imax = Compiler.compileToPython(fcnname, loop)
 
-    def initialize(self):
-        action = self.query.actions[-1]   # the tally is only affected by the last action
-        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
-        return action.initialize()
-
-    def finalize(self, tally):
-        action = self.query.actions[-1]   # the tally is only affected by the last action
-        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
-        return action.finalize(tally)
-
-    def update(self, tally, subtally):
-        action = self.query.actions[-1]   # the tally is only affected by the last action
-        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
-        return action.update(tally, subtally)
-        
-    def inarrays(self, group):
+    def inarraysFromTest(self, group):
         out = {}
         for column in self.required:
             if column.issize():

@@ -17,6 +17,8 @@
 import ctypes
 import threading
 import time
+import traceback
+import sys
 
 import llvmlite.binding
 import numba
@@ -197,45 +199,105 @@ class NativeExecutor(Executor):
     def workarrays(self, group, lengths):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries)
 
+class ExecutionFailure(object):
+    def __init__(self, exception, exc_info):
+        self.exception = exception
+        self.exc_info = exc_info
+
+    def __repr__(self):
+        return "<ExecutionFailure: {0}>".format(str(self.exception))
+
+    def __str__(self):
+        if isinstance(self.exception, Exception):
+            return "".join(traceback.format_exception(self.exception.__class__, self.exception, self.exc_info[2]))
+        else:
+            return repr(self)
+
+    def reraise(self):
+        if isinstance(self.exception, Exception):
+            if sys.version_info[0] <= 2:
+                raise self.exc_info[0], self.exc_info[1], self.exc_info[2]
+            else:
+                raise self.exc_info[1].with_traceback(self.exc_info[2])
+
+        else:
+            raise StopIteration(self.exception)
+
 class NativeAsyncExecutor(NativeExecutor):
     def __init__(self, query, future):
         super(NativeAsyncExecutor, self).__init__(query)
 
-        # future and its associated data are transient: they're lost if you serialize/deserialize
+        # all associated data are transient: they're lost if you serialize/deserialize
         self.future = future
+        self.lock = threading.Lock()
+        self.cancelled = False
         if self.future is not None:
-            self.lock = threading.Lock()
             self.loadsDone = dict((group.id, False) for group in query.dataset.groups)
             self.computesDone = dict((group.id, False) for group in query.dataset.groups)
             self.startTime = time.time()
             self.computeTime = 0.0
-            self.data = None
 
-    def updateFuture(self):
-        self.future.update(
-            sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
-            sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
-            all(self.computesDone.values()),
-            time.time() - self.startTime,
-            self.computeTime,
-            self.data)
+            self.action = self.query.actions[-1]
+            assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
+            self.tally = self.action.initialize()
+
+    def updateFuture(self, args):
+        self.future.update(*args)
+
+    def futureargs(self):
+        return (sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
+                sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
+                self.cancelled or all(self.computesDone.values()),
+                time.time() - self.startTime,
+                self.computeTime,
+                self.tally)
 
     def oneLoadDone(self, groupid):
         if self.future is not None:
-            self.loadsDone[groupid] = True
-            self.updateFuture()
-
-    def oneComputeDone(self, groupid, computeTime, data):
-        if self.future is not None:
-            self.computesDone[groupid] = True
             with self.lock:
-                self.computeTime += computeTime
-                self.data = data   # FIXME
-            self.updateFuture()
+                if not self.cancelled:
+                    self.loadsDone[groupid] = True
+                    futureargs = self.futureargs()
+
+                else:
+                    futureargs = None
+
+            if futureargs is not None:
+                self.updateFuture(futureargs)
+
+    def oneComputeDone(self, groupid, computeTime, subtally):
+        if self.future is not None:
+            with self.lock:
+                if not self.cancelled:
+                    self.computesDone[groupid] = True
+                    self.computeTime += computeTime
+
+                    self.tally = self.action.update(self.tally, subtally)
+
+                    if all(self.computesDone.values()):
+                        self.tally = self.action.finalize(self.tally)
+
+                    futureargs = self.futureargs()
+
+                else:
+                    futureargs = None
+
+            if futureargs is not None:
+                self.updateFuture(futureargs)
+
+    def oneFailure(self, failure):
+        with self.lock:
+            self.cancelled = True
+            self.tally = failure
+            futureargs = self.futureargs()
+
+        self.updateFuture(futureargs)
 
     @staticmethod
     def fromJson(obj):
         out = NativeExecutor.fromJson(obj)
         out.__class__ = NativeAsyncExecutor
+        out.lock = threading.Lock()
+        out.cancelled = False
         out.future = None
         return out

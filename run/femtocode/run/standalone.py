@@ -29,16 +29,23 @@ from femtocode.util import *
 from femtocode.workflow import Source
 
 class FutureQueryResult(object):
-    class _KeepPythonAlive(threading.Thread):
-        def __init__(self):
-            super(FutureQueryResult._KeepPythonAlive, self).__init__()
-            self.done = threading.Event()
+    class Callback(threading.Thread):
+        def __init__(self, fcn):
+            super(FutureQueryResult.Callback, self).__init__()
+            self.incoming = queue.Queue()
+            self.fcn = fcn
             self.daemon = False
-        def run(self):
-            self.done.wait()
 
-    def __init__(self, query):
+        def run(self):
+            data = self.incoming.get()
+            if isinstance(data, ExecutionFailure):
+                data.reraise()
+            else:
+                self.fcn(data)
+
+    def __init__(self, query, callback):
         self.query = query
+
         self.loaded = 0.0
         self.computed = 0.0
         self.done = False
@@ -46,8 +53,13 @@ class FutureQueryResult(object):
         self.computeTime = 0.0
         self.data = None
         self._lock = threading.Lock()
-        # self._keepPythonAlive = FutureQueryResult._KeepPythonAlive()
-        # self._keepPythonAlive.start()
+
+        if callback is not None:
+            self._callback = FutureQueryResult.Callback(callback)
+            self._callback.start()
+        else:
+            self._callback = None
+        self._doneevent = threading.Event()
 
     def __repr__(self):
         return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
@@ -60,9 +72,21 @@ class FutureQueryResult(object):
             self.wallTime = wallTime
             self.computeTime = computeTime
             self.data = data
-        # if done is True:
-        #     print("FIXME {0}".format(self))
-        #     self._keepPythonAlive.done.set()
+
+        if done:
+            if self._callback is not None:
+                self._callback.incoming.put(data)  # not self.data because not in lock
+            self._doneevent.set()
+
+    def await(self, timeout=None):
+        self._doneevent.wait(timeout)
+        if isinstance(self.data, ExecutionFailure):
+            self.data.reraise()
+        else:
+            return self.data
+
+    def cancel(self):
+        self.query.cancelled = True
 
 class StandaloneSession(object):
     def __init__(self,
@@ -83,13 +107,9 @@ class StandaloneSession(object):
     def source(self, name):
         return Source(self, self.metadata.dataset(name))
 
-    def submit(self, query):
+    def submit(self, query, callback=None):
         # create an executor with a reference to the FutureQueryResult we will return to the user
-        executor = NativeAsyncExecutor(query, FutureQueryResult(query))
-
-        # modify the dataset to include detailed group information (may come as nothing but a dataset.name)
-        # query.dataset = self.metadata.dataset(query.dataset.name, range(query.dataset.numGroups), executor.requires)
-        ### not in a StandaloneSession, but hold this thought for the server implementation
+        executor = NativeAsyncExecutor(query, FutureQueryResult(query, callback))
 
         # queue it up
         self.cacheMaster.incoming.put(executor)
@@ -102,7 +122,9 @@ class StandaloneSession(object):
 session = StandaloneSession()
 session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
+def callback(outputdataset):
+    print outputdataset, len(list(outputdataset))
+
 result = session.source("xy").toPython("Test", a = "x + y").submit()
 
-import time
-time.sleep(10)
+print result.await()

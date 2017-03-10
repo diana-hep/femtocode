@@ -16,6 +16,7 @@
 
 import threading
 import time
+import sys
 try:
     import Queue as queue
 except ImportError:
@@ -28,6 +29,7 @@ from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.run.messages import *
 from femtocode.util import *
+from femtocode.run.execution import *
 
 class DataAddress(object):
     def __init__(self, dataset, column, group):
@@ -81,20 +83,8 @@ class WorkItem(object):
             occupant.decrementNeed()
 
     def run(self):
-        # FIXME
         inarrays = dict((x.address.column, x.array()) for x in self.occupants)
-
-        tally = self.executor.run(inarrays, self.group)
-
-        print "TALLY", tally["a"].data
-
-        # return Result(self.work.query.retaddr,
-        #               self.work.query.queryid,
-        #               self.group.id,
-        #               self.work.executor.run(dict((occupant.address.column, occupant.array()) for occupant in self.occupants)))
-        class Something(object):
-            data = None
-        return Something()
+        return self.executor.run(inarrays, self.group)
 
     def decrementNeed(self):
         assert len(self.occupants) != 0
@@ -321,21 +311,43 @@ class Minion(threading.Thread):
         while True:
             workItem = self.incoming.get()
 
-            # actually do the work; ideally 99.999% of the time spent in this whole project
-            # should be in that second line
-            startTime = time.time()
-            result = workItem.run()
-            endTime = time.time()
+            # don't process cancelled executors
+            if getattr(workItem.executor.query, "cancelled", False):
+                workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
+            with workItem.executor.lock:
+                cancelled = workItem.executor.cancelled
+            if cancelled: continue
 
-            # for the cache
-            workItem.decrementNeed()
+            try:
+                # actually do the work; ideally 99.999% of the time spent in this whole project
+                # should be in that second line
+                startTime = time.time()
+                subtally = workItem.run()
+                endTime = time.time()
 
-            # for the output (Scope mode)
-            if self.outgoing is not None:
-                self.outgoing.put(result)
+            except Exception as exception:
+                failure = ExecutionFailure(exception, sys.exc_info())
 
-            # for the FutureQueryResult (standalone mode)
-            workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, result.data)
+                # for the cache
+                workItem.decrementNeed()
+
+                # for the output (server mode)
+                if self.outgoing is not None:
+                    self.outgoing.put(failure)
+
+                # for the FutureQueryResult (standalone mode)
+                workItem.executor.oneFailure(failure)
+
+            else:
+                # for the cache
+                workItem.decrementNeed()
+
+                # for the output (server mode)
+                if self.outgoing is not None:
+                    self.outgoing.put(Result(subtally, workItem.executor))
+
+                # for the FutureQueryResult (standalone mode)
+                workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, subtally)
 
 class CacheMaster(threading.Thread):
     loopdelay = 0.001           # 1 ms       pause time at the end of the loop
@@ -363,9 +375,22 @@ class CacheMaster(threading.Thread):
             for executor in drainQueue(self.incoming):
                 for group in executor.query.dataset.groups:
                     self.waiting.append(WorkItem(executor, group))
-                
+
+            # check for cancelled executors
+            todrop = []
+            for i, workItem in enumerate(self.waiting):
+                if getattr(workItem.executor.query, "cancelled", False):
+                    workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
+                if workItem.executor.cancelled:
+                    todrop.append(i)
+
+            # remove all workItems associated with cancelled executors
+            while len(todrop) > 0:
+                del self.waiting[todrop.pop()]
+
             # move work from waiting to loading or minions
             while True:
+                # try to reserve space in the cache for the next surviving workItem
                 workItem = self.needWantCache.maybeReserve(self.waiting)
                 if workItem is None:
                     break

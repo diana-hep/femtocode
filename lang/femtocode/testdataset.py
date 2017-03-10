@@ -17,6 +17,7 @@
 import threading
 from collections import namedtuple
 
+import femtocode.asts.statementlist as statementlist
 from femtocode.dataset import *
 from femtocode.defs import *
 from femtocode.py23 import *
@@ -333,13 +334,18 @@ class TestSession(object):
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
-    def submit(self, query):
+    def submit(self, query, callback=None):
         executor = Executor(query)
+        action = query.actions[-1]
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
-        tally = executor.initialize()
+        tally = action.initialize()
 
         for group in query.dataset.groups:
-            subtally = executor.run(executor.inarrays(group), group)
-            executor.update(tally, subtally)
+            subtally = executor.run(executor.inarraysFromTest(group), group)
+            action.update(tally, subtally)
 
-        return executor.finalize(tally)
+        result = action.finalize(tally)
+        if callback is not None:
+            callback(result)
+        return result

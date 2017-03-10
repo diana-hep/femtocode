@@ -43,9 +43,12 @@ class TestExecution(unittest.TestCase):
         for i in xrange(100):
             source.dataset.fill({"x": i, "y": 0.2})
 
-        result = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
+        def callback(x):
+            self.assertEqual(source.dataset.numEntries, x.numEntries)
 
-        self.assertEqual(source.dataset.numEntries, result.numEntries)
+        result = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit(callback)
+
+        # TestDataset is synchronous, so both callback and assuming it's blocking work
 
         for old, new in zip(source.dataset, result):
             self.assertAlmostEqual(old.x + old.y - 3, new.a)

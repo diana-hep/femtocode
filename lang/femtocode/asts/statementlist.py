@@ -627,9 +627,7 @@ class ReturnPythonDataset(Aggregation):
         tally.newGroup()
         tally.groups[-1].segments = subtally
         tally.groups[-1].numEntries = numEntries
-        return tally
 
-    def finalize(self, tally):
         tally.numEntries = sum(group.numEntries for group in tally.groups)
         return tally
 
