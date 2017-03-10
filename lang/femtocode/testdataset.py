@@ -93,8 +93,8 @@ class TestColumn(Column):
         return hash(("TestColumn", self.data, self.size, self.dataType))
 
 class TestDataset(Dataset):
-    def __init__(self, name, schema, columns, groups, numEntries):
-        super(TestDataset, self).__init__(name, schema, columns, groups, numEntries)
+    def __init__(self, name, schema, columns, groups, numEntries, numGroups):
+        super(TestDataset, self).__init__(name, schema, columns, groups, numEntries, numGroups)
 
         self.types = {None: namedtuple(name, sorted(self.schema))}
         def gettypes(n, t):
@@ -119,13 +119,14 @@ class TestDataset(Dataset):
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
             dict((ColumnName.parse(k), TestColumn.fromJson(v)) for k, v in dataset["columns"].items()),
             [TestGroup.fromJson(x) for x in dataset["groups"]],
-            dataset["numEntries"])
+            dataset["numEntries"],
+            dataset["numGroups"])
 
     def __eq__(self, other):
-        return other.__class__ == TestDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+        return other.__class__ == TestDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups
 
     def __hash__(self):
-        return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
+        return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
 
     @staticmethod
     def fromSchema(name, asdict=None, **askwds):
@@ -169,7 +170,7 @@ class TestDataset(Dataset):
         for n, t in schema.items():
             getcolumns(ColumnName(n), t, False)
 
-        out = TestDataset(name, schema, columns, [], 0)
+        out = TestDataset(name, schema, columns, [], 0, 0)
         for n, c in out.columns.items():
             c.size = out.sizeColumn(n)    # point all equivalent size columns to the first, alphabetically
         return out
@@ -177,9 +178,11 @@ class TestDataset(Dataset):
     def clear(self):
         self.groups = []
         self.numEntries = 0
+        self.numGroups = 0
 
     def newGroup(self):
         self.groups.append(TestGroup(len(self.groups), dict((n, TestSegment(0, 0, 0, [], [] if c.size == n.size() else None)) for n, c in self.columns.items()), 0))
+        self.numGroups += 1
 
     def _fill(self, group, datum, name, schema):
         if datum not in schema:

@@ -334,10 +334,11 @@ class ROOTDataset(Dataset):
             dict((k, v.schema) for k, v in declaration.fields.items()),
             columns,
             groups,
-            sum(x.numEntries for x in groups))
+            sum(x.numEntries for x in groups),
+            len(groups))
 
-    def __init__(self, name, schema, columns, groups, numEntries):
-        super(ROOTDataset, self).__init__(name, schema, columns, groups, numEntries)
+    def __init__(self, name, schema, columns, groups, numEntries, numGroups):
+        super(ROOTDataset, self).__init__(name, schema, columns, groups, numEntries, numGroups)
 
     @classmethod
     def fromJson(cls, dataset):
@@ -346,10 +347,11 @@ class ROOTDataset(Dataset):
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
             dict((ColumnName.parse(k), ROOTColumn.fromJson(v)) for k, v in dataset["columns"].items()),
             [ROOTGroup.fromJson(x) for x in dataset["groups"]],
-            dataset["numEntries"])
+            dataset["numEntries"],
+            dataset["numGroups"])
 
     def __eq__(self, other):
-        return other.__class__ == ROOTDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+        return other.__class__ == ROOTDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups
 
     def __hash__(self):
-        return hash(("ROOTDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
+        return hash(("ROOTDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))

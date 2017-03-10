@@ -243,15 +243,16 @@ class Column(Metadata):
         return hash(("Column", self.data, self.size, self.dataType))
 
 class Dataset(Metadata):
-    def __init__(self, name, schema, columns, groups, numEntries):
+    def __init__(self, name, schema, columns, groups, numEntries, numGroups):
         self.name = name
         self.schema = schema
         self.columns = columns
         self.groups = groups
         self.numEntries = numEntries
+        self.numGroups = numGroups
 
     def __repr__(self):
-        return "<{0} name={1} len(groups)={2}, numEntries={3} at 0x{4:012x}>".format(self.__class__.__name__, self.name, len(self.groups), self.numEntries, id(self))
+        return "<{0} name={1} numEntries={2} numGroups={3} at 0x{4:012x}>".format(self.__class__.__name__, self.name, self.numEntries, self.numGroups, id(self))
 
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
@@ -259,7 +260,8 @@ class Dataset(Metadata):
                 "schema": dict((k, v.toJson()) for k, v in self.schema.items()),
                 "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()),
                 "groups": [x.toJson() for x in self.groups],
-                "numEntries": self.numEntries}
+                "numEntries": self.numEntries,
+                "numGroups": self.numGroups}
 
     @classmethod
     def fromJsonString(cls, dataset):
@@ -279,15 +281,16 @@ class Dataset(Metadata):
                 dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
                 dict((ColumnName.parse(k), Column.fromJson(v)) for k, v in dataset["columns"].items()),
                 [Group.fromJson(x) for x in dataset["groups"]],
-                dataset["numEntries"])
+                dataset["numEntries"],
+                dataset["numGroups"])
         else:
             return getattr(importlib.import_module(mod), cls).fromJson(dataset)
 
     def __eq__(self, other):
-        return other.__class__ == Dataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+        return other.__class__ == Dataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups
 
     def __hash__(self):
-        return hash(("Dataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
+        return hash(("Dataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
 
     def dataColumn(self, columnName):
         if isinstance(columnName, string_types):

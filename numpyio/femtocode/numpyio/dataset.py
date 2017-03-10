@@ -97,8 +97,8 @@ class NumpyColumn(Column):
 class NumpyDataset(Dataset):
     fetcher = NumpyFetcher
 
-    def __init__(self, name, schema, columns, groups, numEntries):
-        super(NumpyDataset, self).__init__(name, schema, columns, groups, numEntries)
+    def __init__(self, name, schema, columns, groups, numEntries, numGroups):
+        super(NumpyDataset, self).__init__(name, schema, columns, groups, numEntries, numGroups)
 
     @staticmethod
     def fromJson(dataset):
@@ -107,10 +107,11 @@ class NumpyDataset(Dataset):
             dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
             dict((ColumnName.parse(k), NumpyColumn.fromJson(v)) for k, v in dataset["columns"].items()),
             [NumpyGroup.fromJson(x) for x in dataset["groups"]],
-            dataset["numEntries"])
+            dataset["numEntries"],
+            dataset["numGroups"])
 
     def __eq__(self, other):
-        return other.__class__ == NumpyDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries
+        return other.__class__ == NumpyDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups
 
     def __hash__(self):
-        return hash(("NumpyDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries))
+        return hash(("NumpyDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
