@@ -26,24 +26,44 @@ except ImportError:
 
 from femtocode.dataset import Dataset
 from femtocode.workflow import Source
+from femtocode.execution import ExecutionFailure
 from femtocode.util import *
 
 class FutureQueryResult(object):
     class PollForUpdates(threading.Thread):
-        loopdelay = 1.0             # 1 sec      pause time for polling server
-
-        def __init__(self, future, ondone, onupdate):
+        def __init__(self, future, ondone, onupdate, url, minpolldelay, maxpolldelay):
             super(FutureQueryResult.PollForUpdates, self).__init__()
             self.future = future
             self.ondone = ondone
             self.onupdate = onupdate
+            self.url = url
+            self.minpolldelay = minpolldelay
+            self.maxpolldelay = maxpolldelay
             self.daemon = False   # why this is a thread: don't let Python exit until the callback is done!
 
         def run(self):
+            polldelay = self.minpolldelay
+            while True:
+
+                if getattr(self.future.query, "cancelled", False):
+                    pass
+
+                # HERE
+                with self.future._lock:
+                    self.future.loaded = 1.0
+                    self.future.computed = 1.0
+                    self.future.done = True
+                    self.future.wallTime = 999.0
+                    self.future.computeTime = 3.14
+                    self.future.data = None
+
+                if done:
+                    self.future._doneevent.set()
+
+                time.sleep(polldelay)
+                polldelay = min(polldelay * 2, self.maxpolldelay)
             
-
-
-    def __init__(self, query, ondone=None, onupdate=None):
+    def __init__(self, query, ondone, onupdate, url, minpolldelay, maxpolldelay):
         self.query = query
         self.query.dataset = self.query.dataset.strip(set(columnNames()))
 
@@ -134,11 +154,12 @@ class RemoteSession(object):
     def source(self, name):
         return Source(self, self.metadata.dataset(name))
 
-    def submit(self, query, ondone=None):
+    def submit(self, query, ondone=None, onupdate=None, minpolldelay=0.5, maxpolldelay=60.0):
         
+        future = FutureQueryResult(query, ondone, onupdate, self.submit_url, minpolldelay, maxpolldelay)
 
 
-
+        return future
 
 #     def source(self, name, asdict=None, **askwds):
 #         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))

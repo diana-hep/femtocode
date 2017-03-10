@@ -366,9 +366,16 @@ class ExecutionFailure(object):
                 raise self.exception.with_traceback(self.traceback)
 
     def toJson(self):
+        if self.traceback is None:
+            traceback = None
+        elif isinstance(self.traceback, string_types):
+            traceback = self.traceback
+        else:
+            traceback = str(self.traceback)
+
         return {"class": self.exception.__class__.__name__,
                 "message": str(self.exception),
-                "traceback": str(self)}
+                "traceback": traceback}
 
     @staticmethod
     def fromJson(obj):
