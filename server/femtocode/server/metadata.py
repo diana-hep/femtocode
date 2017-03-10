@@ -33,8 +33,8 @@ class MetadataFromMongoDB(object):
         self.timeout = timeout
         self._cache = {}
 
-    def dataset(self, name, groups=(), columns=(), schema=True):
-        key = (name, tuple(groups) if isinstance(groups, list) else groups, tuple(columns) if isinstance(columns, list) else columns, schema)
+    def dataset(self, name, groups=(), columns=None, schema=True):
+        key = (name, tuple(sorted(groups)), None if columns is None else tuple(sorted(columns)), schema)
         if key not in self._cache:
             project = {"name": True, "numEntries": True}
             if schema:
@@ -48,10 +48,14 @@ class MetadataFromMongoDB(object):
                 project["groups.numEntries"] = True
                 project["groups.files"] = True
 
-            for column in columns:
-                project["columns." + column] = True
-                project["groups.segments." + column] = True
-                project["groups.segments." + column + ".files"] = True
+            if columns is None:
+                project["columns"] = True
+                project["groups.segments"] = True
+            else:
+                for column in columns:
+                    project["columns." + column] = True
+                    project["groups.segments." + column] = True
+                    project["groups.segments." + column + ".files"] = True
 
             results = list(self.collection.find(select, project, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)}))
 
@@ -97,11 +101,8 @@ class MetadataAPIServer(object):
             data = environ["wsgi.input"].read(length)
             obj = json.loads(data)
             name = obj["name"]
-            groups = obj["groups"]
-            columns = obj["columns"]
-            schema = obj["schema"]
 
-            dataset = self.metadb.dataset(name, groups, columns, schema)
+            dataset = self.metadb.dataset(name, (), None, True)
             serialized = json.dumps(dataset.toJson())
 
         except Exception as err:

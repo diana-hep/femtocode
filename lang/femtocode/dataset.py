@@ -163,9 +163,7 @@ class ColumnName(object):
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 
-class Metadata(object):
-    def toJsonString(self):
-        return json.dumps(self.toJson())
+class Metadata(object): pass
 
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength, sizeLength):
@@ -266,19 +264,15 @@ class Dataset(Metadata):
                 "numEntries": self.numEntries,
                 "numGroups": self.numGroups}
 
-    @classmethod
-    def fromJsonString(cls, dataset):
-        return cls.fromJson(json.loads(dataset))
-
     @staticmethod
-    def fromJson(dataset):
+    def fromJson(dataset, ignoreclass=False):
         assert isinstance(dataset, dict)
         assert "class" in dataset
 
         mod = dataset["class"][:dataset["class"].rindex(".")]
         cls = dataset["class"][dataset["class"].rindex(".") + 1:]
         
-        if mod == Dataset.__module__ and cls == Dataset.__name__:
+        if ignoreclass or (mod == Dataset.__module__ and cls == Dataset.__name__):
             return Dataset(
                 dataset["name"],
                 dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
@@ -354,15 +348,36 @@ class MetadataFromJson(object):
         self.directory = directory
         self._cache = {}
 
-    def dataset(self, name, groups=(), columns=(), schema=True):
-        # groups, columns, and schema are ignored: you get everything back
-
-        if name not in self._cache:
+    def dataset(self, name, groups=(), columns=None, schema=True):
+        key = (name, tuple(sorted(groups)), None if columns is None else tuple(sorted(columns)), schema)
+        if key not in self._cache:
             fileName = os.path.join(self.directory, name) + ".json"
             try:
                 file = open(fileName)
             except IOError:
                 raise IOError("dataset {0} not found (no file named {1})".format(name, fileName))
-            self._cache[name] = Dataset.fromJsonString(file.read())
 
-        return self._cache[name]
+            # get the whole dataset (only thing you can do from a plain text file)
+            dataset = Dataset.fromJson(json.loads(file.read()))
+
+            # drop groups if not requested
+            todrop = []
+            for i, group in enumerate(dataset.groups):
+                if group.id not in groups:
+                    todrop.append(i)
+            while len(todrop) > 0:
+                del dataset.groups[todrop.pop()]
+
+            # drop columns if not requested
+            if columns is not None:
+                for column in list(dataset.columns):
+                    if column not in columns:
+                        del dataset.columns[column]
+
+            # drop schema if not requested
+            if not schema:
+                dataset.schema = {}
+
+            self._cache[key] = dataset
+
+        return self._cache[key]

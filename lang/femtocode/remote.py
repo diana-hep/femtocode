@@ -30,8 +30,8 @@ class MetadataFromRemote(object):
         self.timeout = timeout
         self.cache = {}
 
-    def dataset(self, name, groups=(), columns=(), schema=True):
-        request = json.dumps({"name": name, "groups": groups, "columns": map(str, columns), "schema": schema})
+    def dataset(self, name):
+        request = json.dumps({"name": name})
         if request not in self.cache:
             try:
                 if self.timeout is None:
@@ -39,7 +39,7 @@ class MetadataFromRemote(object):
                 else:
                     handle = urlopen(self.url, request, self.timeout)
 
-                self.cache[request] = Dataset.fromJson(json.loads(handle.read()))
+                self.cache[request] = Dataset.fromJson(json.loads(handle.read()), ignoreclass=True)
 
             except socket.timeout:
                 raise IOError("Attempt to access {0} failed after {1} seconds.".format(self.url, self.timeout))
