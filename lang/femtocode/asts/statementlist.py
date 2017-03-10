@@ -230,6 +230,9 @@ class Statements(Statement, list):
     def copy(self):
         return self.stmts.copy()
 
+    def columnNames(self):
+        return sum([x.columnNames() for x in self.stmts], [])
+
 class Ref(Statement):
     def __init__(self, name, schema, data, size):
         if isinstance(name, ColumnName):
@@ -254,6 +257,9 @@ class Ref(Statement):
 
     def __hash__(self):
         return hash(("statementlist.Ref", self.name, self.schema, self.data, self.size))
+
+    def columnNames(self):
+        return [self.name, self.data] + [] if self.size is None else [self.size]
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -287,6 +293,9 @@ class Literal(Statement):
 
     def __hash__(self):
         return hash(("statementlist.Literal", self.value, self.schema))
+
+    def columnNames(self):
+        return []
 
     def buildexec(self):
         if isinstance(self.schema, Null):
@@ -327,6 +336,9 @@ class Call(Statement):
     def __hash__(self):
         return hash(("statementlist.Call", self.column, self.schema, self.tosize, self.fcnname, self.args))
 
+    def columnNames(self):
+        return [self.column] + self.args + [] if self.tosize is None else [self.tosize]
+
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
         self.column = column
@@ -357,6 +369,9 @@ class Explode(Call):
     def __hash__(self):
         return hash(("statementlist.Explode", self.column, self.schema, self.data, self.tosize))
 
+    def columnNames(self):
+        return [self.column, self.data, self.tosize]
+
 class ExplodeSize(Call):
     def __init__(self, column, tosize):
         self.column = column
@@ -384,6 +399,9 @@ class ExplodeSize(Call):
 
     def __hash__(self):
         return hash(("statementlist.ExplodeSize", self.column, self.tosize))
+
+    def columnNames(self):
+        return [self.column] + list(self.tosize)
 
 class ExplodeData(Call):
     def __init__(self, column, schema, data, fromsize, tosize):
@@ -415,6 +433,9 @@ class ExplodeData(Call):
 
     def __hash__(self):
         return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.tosize))
+
+    def columnNames(self):
+        return [self.column, self.data, self.fromsize] + list(self.tosize)
 
 def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
@@ -609,6 +630,9 @@ class ReturnPythonDataset(Aggregation):
 
     def columns(self):
         return [r.size for n, r in self.namesToRefs if r.size is not None] + [r.data for n, r in self.namesToRefs]
+
+    def columnNames(self):
+        return sum(self.namesToRefs.columnNames(), [])
 
     def initialize(self):
         from femtocode.testdataset import TestDataset

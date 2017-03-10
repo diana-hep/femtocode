@@ -14,20 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import sys
+import traceback
+from wsgiref.simple_server import make_server
+
 from pymongo import MongoClient
 
 from femtocode.util import *
+from femtocode.dataset import Dataset
+from femtocode.dataset import MetadataFromJson
 
 class MetadataFromMongoDB(object):
-    def __init__(self, datasetClass, mongourl, database, collection, timeout):
-        self.datasetClass = datasetClass
+    def __init__(self, mongourl, database, collection, timeout):
         self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
         self.timeout = timeout
         self._cache = {}
 
-    def dataset(self, name, groups=(), columns=(), schema=False):
+    def dataset(self, name, groups=(), columns=(), schema=True):
         key = (name, tuple(groups) if isinstance(groups, list) else groups, tuple(columns) if isinstance(columns, list) else columns, schema)
         if key not in self._cache:
             project = {"name": True, "numEntries": True}
@@ -72,9 +78,41 @@ class MetadataFromMongoDB(object):
                 if "columns" not in results[0]:
                     results[0]["columns"] = {}
 
-                self._cache[key] = self.datasetClass.fromJson(results[0])
+                self._cache[key] = Dataset.fromJson(results[0])
 
         return self._cache[key]
+
+class MetadataAPIServer(object):
+    def __init__(self, metadb, bindaddr="", bindport=8080):
+        self.metadb = metadb
+        self.bindaddr = bindaddr
+        self.bindport = bindport
+
+        self.server = make_server(self.bindaddr, self.bindport, self)
+        self.server.serve_forever()
+
+    def __call__(self, environ, start_response):
+        try:
+            length = int(environ.get("CONTENT_LENGTH", "0"))
+            data = environ["wsgi.input"].read(length)
+            obj = json.loads(data)
+            name = obj["name"]
+            groups = obj["groups"]
+            columns = obj["columns"]
+            schema = obj["schema"]
+
+            dataset = self.metadb.dataset(name, groups, columns, schema)
+            serialized = json.dumps(dataset.toJson())
+
+        except Exception as err:
+            start_response("400 Bad Request", [("Content-type", "text/plain")])
+            return [traceback.format_exc()]
+
+        else:
+            start_response("200 OK", [("Content-type", "application/json")])
+            return [serialized]
+
+m = MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests"))
 
 # from femtocode.rootio.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
