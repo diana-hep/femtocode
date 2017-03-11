@@ -182,4 +182,3 @@ class RemoteSession(object):
 #         if callback is not None:
 #             callback(result)
 #         return result
-

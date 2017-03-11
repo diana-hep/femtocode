@@ -16,31 +16,44 @@
 
 from wsgiref.simple_server import make_server
 
-class DispatchAPIServer(object):
-    def __init__(self, bindaddr="", bindport=8080):
+from femtocode.py23 import *
+from femtocode.server.metadata import MetadataAPIServer
+from femtocode.server.util import *
+
+class DispatchAPIServer(HTTPServer):
+    def __init__(self, metadb, bindaddr="", bindport=8080, timeout=None):
+        self.metadb = metadb
         self.bindaddr = bindaddr
         self.bindport = bindport
-
-        self.server = make_server(self.bindaddr, self.bindport, self)
-        self.server.serve_forever()
+        self.timeout = timeout
 
     def __call__(self, environ, start_response):
-        pass
+        path = environ.get("PATH_INFO", "").lstrip("/")
 
-        # try:
-        #     length = int(environ.get("CONTENT_LENGTH", "0"))
-        #     data = environ["wsgi.input"].read(length)
-        #     obj = json.loads(data)
-        #     name = obj["name"]
+        if path == "submit":
+            return self.senderror("501 Not Implemented", start_response)
 
-        #     dataset = self.metadb.dataset(name, (), None, True)
-        #     serialized = json.dumps(dataset.toJson())
+        elif path == "metadata":
+            if isinstance(self.metadb, string_types):
+                # self.metadb the url of an upstream server
+                return self.gateway(environ, start_response)
 
-        # except Exception as err:
-        #     start_response("400 Bad Request", [("Content-type", "text/plain")])
-        #     return [traceback.format_exc()]
+            elif isinstance(self.metadb, MetadataAPIServer):
+                # self.metadb is an embedded server class
+                return self.metadb(environ, start_response)
 
-        # else:
-        #     start_response("200 OK", [("Content-type", "application/json")])
-        #     return [serialized]
+            else:
+                return self.senderror("500 Internal Server Error", start_response)
+                
+        elif path == "store":
+            return self.senderror("501 Not Implemented", start_response)
 
+        else:
+            return self.senderror("404 Not Found", start_response)
+
+# from femtocode.dataset import MetadataFromJson
+# m = DispatchAPIServer(MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests")))
+# m.start()
+
+# m = DispatchAPIServer("http://localhost:8081", timeout=1.0)
+# m.start()

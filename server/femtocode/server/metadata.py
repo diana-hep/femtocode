@@ -14,14 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import sys
-import traceback
-from wsgiref.simple_server import make_server
-
 from pymongo import MongoClient
 
 from femtocode.util import *
+from femtocode.server.util import *
 from femtocode.dataset import Dataset
 from femtocode.dataset import MetadataFromJson
 
@@ -86,34 +82,31 @@ class MetadataFromMongoDB(object):
 
         return self._cache[key]
 
-class MetadataAPIServer(object):
+class MetadataAPIServer(HTTPServer):
     def __init__(self, metadb, bindaddr="", bindport=8080):
         self.metadb = metadb
         self.bindaddr = bindaddr
         self.bindport = bindport
 
-        self.server = make_server(self.bindaddr, self.bindport, self)
-        self.server.serve_forever()
-
     def __call__(self, environ, start_response):
         try:
-            length = int(environ.get("CONTENT_LENGTH", "0"))
-            data = environ["wsgi.input"].read(length)
-            obj = json.loads(data)
+            obj = self.getjson(environ)
             name = obj["name"]
+            assert isinstance(name, string_types)
 
-            dataset = self.metadb.dataset(name, (), None, True)
-            serialized = json.dumps(dataset.toJson())
-
-        except Exception as err:
-            start_response("400 Bad Request", [("Content-type", "text/plain")])
-            return [traceback.format_exc()]
+        except:
+            return self.senderror("400 Bad Request", start_response)
 
         else:
-            start_response("200 OK", [("Content-type", "application/json")])
-            return [serialized]
+            try:
+                dataset = self.metadb.dataset(name, (), None, True)
+            except:
+                return self.senderror("500 Internal Server Error", start_response)
+            else:
+                return self.sendjson(dataset.toJson(), start_response)
 
 # m = MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests"))
+# m.start()
 
 # from femtocode.rootio.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
