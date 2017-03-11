@@ -14,4 +14,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from wsgiref.simple_server import make_server
+
+class DispatchAPIServer(object):
+    def __init__(self, bindaddr="", bindport=8080):
+        self.bindaddr = bindaddr
+        self.bindport = bindport
+
+        self.server = make_server(self.bindaddr, self.bindport, self)
+        self.server.serve_forever()
+
+    def __call__(self, environ, start_response):
+        pass
+
+        # try:
+        #     length = int(environ.get("CONTENT_LENGTH", "0"))
+        #     data = environ["wsgi.input"].read(length)
+        #     obj = json.loads(data)
+        #     name = obj["name"]
+
+        #     dataset = self.metadb.dataset(name, (), None, True)
+        #     serialized = json.dumps(dataset.toJson())
+
+        # except Exception as err:
+        #     start_response("400 Bad Request", [("Content-type", "text/plain")])
+        #     return [traceback.format_exc()]
+
+        # else:
+        #     start_response("200 OK", [("Content-type", "application/json")])
+        #     return [serialized]
 
