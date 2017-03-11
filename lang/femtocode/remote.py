@@ -44,11 +44,11 @@ class FutureQueryResult(object):
         def run(self):
             polldelay = self.minpolldelay
             while True:
+                # FIXME: the contents of this loop are very sketchy
 
                 if getattr(self.future.query, "cancelled", False):
-                    pass
+                    break
 
-                # HERE
                 with self.future._lock:
                     self.future.loaded = 1.0
                     self.future.computed = 1.0
@@ -75,6 +75,9 @@ class FutureQueryResult(object):
         self.data = None
         self._lock = threading.Lock()
         self._doneevent = threading.Event()
+
+        # poll = FutureQueryResult.PollForUpdates(self, ondone, onupdate, url, minpolldelay, maxpolldelay)
+        # poll.start()
 
     def __repr__(self):
         return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
@@ -155,9 +158,9 @@ class RemoteSession(object):
         return Source(self, self.metadata.dataset(name))
 
     def submit(self, query, ondone=None, onupdate=None, minpolldelay=0.5, maxpolldelay=60.0):
+        # FIXME: this is sketchy, too
         
         future = FutureQueryResult(query, ondone, onupdate, self.submit_url, minpolldelay, maxpolldelay)
-
 
         return future
 
