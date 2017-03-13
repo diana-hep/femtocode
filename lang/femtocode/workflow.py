@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
 import json
 import threading
 
@@ -29,7 +30,17 @@ import femtocode.asts.typedtree as typedtree
 import femtocode.lib.standard as standard
 import femtocode.parser as parser
 
-class Query(Serializable):
+class Message(Serializable):
+    @staticmethod
+    def fromJson(obj, ignoreclass=False):
+        assert isinstance(obj, dict)
+        assert "class" in obj
+
+        mod = obj["class"][:obj["class"].rindex(".")]
+        cls = obj["class"][obj["class"].rindex(".") + 1:]
+        return getattr(importlib.import_module(mod), cls).fromJson(obj)
+
+class Query(Message):
     def __init__(self, dataset, statements, actions):
         self.dataset = dataset
         self.statements = statements
@@ -45,20 +56,21 @@ class Query(Serializable):
         return self._id
 
     def __eq__(self, other):
-        return other.__class__ == Query and self.dataset == other.dataset and self.statements == other.statements and self.actions == other.actions
+        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
-        return hash(("Query", self.dataset, self.statements, tuple(self.actions)))
+        return hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
 
     def toJson(self):
-        return {"dataset": self.dataset.toJson(),
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions]}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["dataset", "statements", "actions"])
+        assert set(obj.keys()) == set(["class", "dataset", "statements", "actions"])
 
         dataset = Dataset.fromJson(obj["dataset"])
 

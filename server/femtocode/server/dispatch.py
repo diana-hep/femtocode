@@ -15,7 +15,12 @@
 # limitations under the License.
 
 import json
-from wsgiref.simple_server import make_server
+try:
+    from urllib2 import urlparse, urlopen, HTTPError
+except ImportError:
+    from urllib.parse import urlparse
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
 
 from femtocode.py23 import *
 from femtocode.server.metadata import MetadataAPIServer
@@ -49,13 +54,16 @@ class DispatchAPIServer(HTTPServer):
             elif path == "submit":
                 query = Query.fromJson(self.getjson(environ))
 
+                # NOTE: The following seek through accumulates is synchronous and blocking; each dead accumulate adds self.timeout (0.5 sec) to the
+                #       total response time. If the number of accumulates ever becomes large (e.g. several), this will need to become asynchronous.
                 cut = query.id % len(self.accumulates)
                 statusUpdates = []
+                finalResult = None
                 for accumulate in self.accumulates[cut:] + self.accumulates[:cut]:
                     if isinstance(accumulate, string_types):
                         # accumulate the url of an upstream server
-                        result = Result.fromJson(json.loads(self.gateway(accumulate, environ, start_response)))
-
+                        result = Result.fromJson(json.loads(self.gateway(accumulate, environ, start_response), exceptionForTimeout=False))
+                        
                     elif isinstance(accumulate, AccumulateAPIServer):
                         # accumulate is a class embedded in this process
                         result = accumulate(environ, start_response)
@@ -63,19 +71,29 @@ class DispatchAPIServer(HTTPServer):
                     else:
                         assert isinstance(accumulate, string_types) or isinstance(accumulate, AccumulateAPIServer), "self.accumulates improperly configured")
 
-                    if isinstance(result, StatusUpdate):
+                    if result is None:   # timeout from upstream server
+                        continue         # ignore it; use the other servers
+                    elif isinstance(result, StatusUpdate):
+                        result.accumulate = accumulate
                         statusUpdates.append(result)
                     else:
-                        return self.sendjson(result.toJson(), start_response)
+                        # make sure nobody else thinks they're running this query
+                        query.cancelled = True
+                        finalResult = result
+
+                if finalResult is not None:
+                    return self.sendjson(result.toJson(), start_response)
 
                 assert len(statusUpdates) != 0, "all accumulate servers are unresponsive"
                 bestChoice = min(statusUpdates, key=lambda x: x.load)
-                bestChoice.assign(query)
 
-                return self.sendjson({"assigned": bestChoice.name}, start_response)
+                if isinstance(bestChoice.accumulate, string_types):
+                    remote = urlopen(bestChoice.accumulate, json.dumps(Assign(query).toJson()), self.timeout)
+                    result = Message.fromJson(json.loads(remote.read()))
+                else:
+                    result = bestChoice.accumulate.assign(query)
 
-            elif path == "store":
-                return self.senderror("501 Not Implemented", start_response, "large object storage has not yet been implemented")
+                return self.sendjson(result.toJson(), start_response)
 
             else:
                 return self.senderror("404 Not Found", start_response, "URL path not recognized by dispatcher: {0}".format(path))

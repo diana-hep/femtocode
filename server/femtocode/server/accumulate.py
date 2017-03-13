@@ -23,6 +23,8 @@ except ImportError:
 
 from femtocode.server.assignment import *
 from femtocode.server.communication import *
+from femtocode.workflow import Message
+from femtocode.workflow import Query
 
 class GaboClient(threading.Thread):
     listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
@@ -84,7 +86,78 @@ class GaboClients(object):
                     survivors.discard(client.minionaddr)
                     groupids.extend(failures)
 
+class Result(Message):
+    def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
+        self.loadsDone = loadsDone
+        self.computesDone = computesDone
+        self.done = done
+        self.wallTime = wallTime
+        self.computeTime = computeTime
+        self.lastUpdate = lastUpdate
+        self.data = data
+
+    def __repr__(self):
+        return "Result({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(self.loadsDone, self.computesDone, self.done, self.wallTime, self.computeTime, self.lastUpdate, self.data)
+
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "loadsDone": self.loadsDone,
+                "computesDone": self.computesDone,
+                "done": self.done,
+                "wallTime": self.wallTime,
+                "computeTime": self.computeTime,
+                "lastUpdate": self.lastUpdate,
+                "data": self.data.toJson()}
+
+    @staticmethod
+    def fromJson(obj):
+        return Result(obj["loadsDone"],
+                      obj["computesDone"],
+                      obj["done"],
+                      obj["wallTime"],
+                      obj["computeTime"],
+                      obj["lastUpdate"],
+                      obj["data"])
+
+class StatusUpdate(Message):
+    def __init__(self, load):
+        self.load = load
+
+    def __repr__(self):
+        return "StatusUpdate({0})".format(self.load)
+
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "load": load}
+
+    @staticmethod
+    def fromJson(self):
+        return StatusUpdate(obj["load"])
+
 class AccumulateAPIServer(HTTPServer):
+    def __init__(self, rolloverCache, bigdataCache, gabos, bindaddr="", bindport=8080):
+        self.rolloverCache = rolloverCache
+        self.bigdataCache = bigdataCache
+        self.gabos = gabos
+        self.bindaddr = bindaddr
+        self.bindport = bindport
+
+    def __call__(self, environ, start_response):
+        try:
+            message = Message.fromJson(self.getjson(environ))
+
+            if isinstance(message, Query):
+                if message.id in self.rolloverCache:
+                    return self.sendjson(self.rolloverCache.current(message).toJson())
+
+                elif message.id in self.bigdataCache:
+                    return self.sendjson(self.bigdataCache.current(message).toJson())
+
+            elif 
+            
+
+
+
     # def __init__(self, metadb, bindaddr="", bindport=8080):
     #     self.metadb = metadb
     #     self.bindaddr = bindaddr

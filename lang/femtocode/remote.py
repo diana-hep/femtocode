@@ -138,7 +138,6 @@ class RemoteSession(object):
 
         self.submit_url = sub("submit")
         self.metadata_url = sub("metadata")
-        self.store_url = sub("store")
 
         if hasattr(self, "metadata"):
             self.metadata.url = self.metadata_url
