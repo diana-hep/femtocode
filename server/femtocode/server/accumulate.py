@@ -23,7 +23,6 @@ except ImportError:
 
 from femtocode.server.assignment import *
 from femtocode.server.communication import *
-from femtocode.workflow import Message
 from femtocode.workflow import Query
 
 class GaboClient(threading.Thread):
@@ -86,58 +85,13 @@ class GaboClients(object):
                     survivors.discard(client.minionaddr)
                     groupids.extend(failures)
 
-class Result(Message):
-    def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
-        self.loadsDone = loadsDone
-        self.computesDone = computesDone
-        self.done = done
-        self.wallTime = wallTime
-        self.computeTime = computeTime
-        self.lastUpdate = lastUpdate
-        self.data = data
-
-    def __repr__(self):
-        return "Result({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(self.loadsDone, self.computesDone, self.done, self.wallTime, self.computeTime, self.lastUpdate, self.data)
-
-    def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "loadsDone": self.loadsDone,
-                "computesDone": self.computesDone,
-                "done": self.done,
-                "wallTime": self.wallTime,
-                "computeTime": self.computeTime,
-                "lastUpdate": self.lastUpdate,
-                "data": self.data.toJson()}
-
-    @staticmethod
-    def fromJson(obj):
-        return Result(obj["loadsDone"],
-                      obj["computesDone"],
-                      obj["done"],
-                      obj["wallTime"],
-                      obj["computeTime"],
-                      obj["lastUpdate"],
-                      obj["data"])
-
-class StatusUpdate(Message):
+class StatusUpdate(object):
     def __init__(self, load):
         self.load = load
 
-    def __repr__(self):
-        return "StatusUpdate({0})".format(self.load)
-
-    def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "load": load}
-
-    @staticmethod
-    def fromJson(self):
-        return StatusUpdate(obj["load"])
-
 class Tallyman(object):
-    def __init__(self, rolloverCache, bigdataCache, gabos, bindaddr="", bindport=8080):
+    def __init__(self, rolloverCache, gabos, bindaddr="", bindport=8080):
         self.rolloverCache = rolloverCache
-        self.bigdataCache = bigdataCache
         self.gabos = gabos
         self.bindaddr = bindaddr
         self.bindport = bindport
@@ -145,9 +99,6 @@ class Tallyman(object):
     def result(self, query):
         if query in self.rolloverCache:
             return self.rolloverCache.result(query)
-
-        elif query in self.bigdataCache:
-            return self.bigdataCache.result(query)
 
         else:
             return StatusUpdate(self.rolloverCache.load())
@@ -174,7 +125,7 @@ class TallymanServer(threading.Thread):
             message = self.server.recv()
 
             if isinstance(message, (int, long)):
-                if message in self.tallyman.rolloverCache or message self.tallyman.bigdataCache:
+                if message in self.tallyman.rolloverCache:
                     self.server.send(SendWholeQuery(message))
 
             elif isinstance(message, Query):

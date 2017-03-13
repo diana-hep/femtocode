@@ -51,15 +51,15 @@ class Query(Message):
 
     @property
     def id(self):
-        if not hasattr(self, "_id"):
-            self._id = "{0:016x}".format(hash(self) + 2**63)
-        return self._id
+        return "{0:016x}".format(hash(self) + 2**63)
 
     def __eq__(self, other):
         return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
-        return hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
+        if not hasattr(self, "_hash"):
+            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
+        return self._hash
 
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
