@@ -22,6 +22,7 @@ import re
 from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
+from femtocode.util import *
 
 sizeType = "uint64"
 

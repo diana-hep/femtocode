@@ -22,6 +22,7 @@ import re
 from femtocode.parser import t_NAME
 from femtocode.defs import FemtocodeError
 from femtocode.py23 import *
+from femtocode.util import *
 
 inf = float("inf")
 

@@ -56,7 +56,7 @@ class TestStatementlist(unittest.TestCase):
         for n, t in symbolTypes.items():
             build(t, ColumnName(n), False)
 
-        return Dataset("Dummy", symbolTypes, columns, [], 0)
+        return Dataset("Dummy", symbolTypes, columns, [], 0, 0)
 
     def compile(self, code, dataset):
         lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in dataset.schema)))

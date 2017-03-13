@@ -21,8 +21,9 @@ from femtocode.server.metadata import MetadataAPIServer
 from femtocode.server.util import *
 
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, metadb, bindaddr="", bindport=8080, timeout=None):
+    def __init__(self, metadb, accumulates, bindaddr="", bindport=8080, timeout=None):
         self.metadb = metadb
+        self.accumulates = accumulates
         self.bindaddr = bindaddr
         self.bindport = bindport
         self.timeout = timeout
@@ -30,10 +31,7 @@ class DispatchAPIServer(HTTPServer):
     def __call__(self, environ, start_response):
         path = environ.get("PATH_INFO", "").lstrip("/")
 
-        if path == "submit":
-            return self.senderror("501 Not Implemented", start_response)
-
-        elif path == "metadata":
+        if path == "metadata":
             if isinstance(self.metadb, string_types):
                 # self.metadb the url of an upstream server
                 return self.gateway(environ, start_response)
@@ -44,6 +42,9 @@ class DispatchAPIServer(HTTPServer):
 
             else:
                 return self.senderror("500 Internal Server Error", start_response)
+
+        elif path == "submit":
+            return self.senderror("501 Not Implemented", start_response)
                 
         elif path == "store":
             return self.senderror("501 Not Implemented", start_response)

@@ -24,6 +24,7 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.dataset import *
+from femtocode.util import *
 
 class Statement(Serializable):
     @staticmethod

@@ -22,6 +22,7 @@ from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.version import version
+from femtocode.util import *
 import femtocode.asts.lispytree as lispytree
 import femtocode.asts.statementlist as statementlist
 import femtocode.asts.typedtree as typedtree
@@ -39,7 +40,9 @@ class Query(Serializable):
 
     @property
     def id(self):
-        return "{0:016x}".format(hash(self) + 2**63)
+        if not hasattr(self, "_id"):
+            self._id = "{0:016x}".format(hash(self) + 2**63)
+        return self._id
 
     def __eq__(self, other):
         return other.__class__ == Query and self.dataset == other.dataset and self.statements == other.statements and self.actions == other.actions
