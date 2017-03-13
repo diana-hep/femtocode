@@ -17,7 +17,7 @@
 from pymongo import MongoClient
 
 from femtocode.util import *
-from femtocode.server.util import *
+from femtocode.server.communication import *
 from femtocode.dataset import Dataset
 from femtocode.dataset import MetadataFromJson
 

@@ -26,14 +26,14 @@ from femtocode.rootio.dataset import ROOTDataset
 from femtocode.rootio.fetch import ROOTFetcher
 from femtocode.run.cache import *
 from femtocode.run.execution import *
-from femtocode.scope.communication import *
-from femtocode.scope.metadata import MetadataFromMongoDB
+from femtocode.server.communication import *
+from femtocode.server.metadata import MetadataFromMongoDB
 from femtocode.run.metadata import MetadataFromJson
 
 class GaboServer(threading.Thread):
     def __init__(self, bindaddr, metadata, cacheMaster, executorClass):
         super(GaboServer, self).__init__()
-        self.server = Server(bindaddr, None)
+        self.server = ZMQServer(bindaddr, None)
         self.metadata = metadata
         self.cacheMaster = cacheMaster
         self.executorClass = executorClass
@@ -55,24 +55,22 @@ class GaboServer(threading.Thread):
 
 ########################################### TODO: temporary!
 
-datasetClass = ROOTDataset
-fetcherClass = ROOTFetcher
-executorClass = DummyExecutor
+# datasetClass = ROOTDataset
+# fetcherClass = ROOTFetcher
+# executorClass = DummyExecutor
 
-minion = Minion(queue.Queue(), queue.Queue())
-# metadata = MetadataFromMongoDB(datasetClass, "mongodb://localhost:27017", "metadb", "datasets", 1.0)
-metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode/tests")
+# minion = Minion(queue.Queue(), queue.Queue())
+# # metadata = MetadataFromMongoDB(datasetClass, "mongodb://localhost:27017", "metadb", "datasets", 1.0)
+# metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode/tests")
 
-cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), [minion])
-gaboServer = GaboServer("tcp://*:5556", metadata, cacheMaster, executorClass)
+# cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), [minion])
+# gaboServer = GaboServer("tcp://*:5556", metadata, cacheMaster, executorClass)
 
-minion.start()
-cacheMaster.start()
-gaboServer.start()
+# minion.start()
+# cacheMaster.start()
+# gaboServer.start()
 
-while True:
-    if not minion.isAlive() or not cacheMaster.isAlive() or not gaboServer.isAlive():
-        sys.exit()
-    time.sleep(1)
-
-###########################################
+# while True:
+#     if not minion.isAlive() or not cacheMaster.isAlive() or not gaboServer.isAlive():
+#         sys.exit()
+#     time.sleep(1)

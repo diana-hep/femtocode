@@ -21,16 +21,16 @@ try:
 except ImportError:
     import queue
 
-from femtocode.scope.assignment import *
-from femtocode.scope.communication import *
+from femtocode.server.assignment import *
+from femtocode.server.communication import *
 
 class GaboClient(threading.Thread):
-    listenThreshold = 0.030     # 30 ms      no response from the minion; reset Client recv/send state
+    listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
 
     def __init__(self, minionaddr):
         super(GaboClient, self).__init__()
         self.minionaddr = minionaddr
-        self.client = Client(self.minionaddr, self.listenThreshold)
+        self.client = ZMQClient(self.minionaddr, self.listenThreshold)
         self.incoming = queue.Queue()
         self.failures = queue.Queue()
         self.daemon = True
@@ -41,7 +41,7 @@ class GaboClient(threading.Thread):
             self.client.send(query)
 
             if self.client.recv() is None:
-                self.client = Client(self.minionaddr, self.listenThreshold)
+                self.client = ZMQClient(self.minionaddr, self.listenThreshold)
                 self.failures.put(query.groupids)
             else:
                 self.failures.put([])
@@ -84,26 +84,54 @@ class GaboClients(object):
                     survivors.discard(client.minionaddr)
                     groupids.extend(failures)
 
+class AccumulateAPIServer(HTTPServer):
+    # def __init__(self, metadb, bindaddr="", bindport=8080):
+    #     self.metadb = metadb
+    #     self.bindaddr = bindaddr
+    #     self.bindport = bindport
+
+    # def __call__(self, environ, start_response):
+    #     try:
+    #         obj = self.getjson(environ)
+    #         name = obj["name"]
+    #         assert isinstance(name, string_types)
+
+    #     except:
+    #         return self.senderror("400 Bad Request", start_response)
+
+    #     else:
+    #         try:
+    #             dataset = self.metadb.dataset(name, (), None, True)
+    #         except:
+    #             return self.senderror("500 Internal Server Error", start_response)
+    #         else:
+    #             return self.sendjson(dataset.toJson(), start_response)
+
 ########################################### TODO: temporary!
 
-import sys
 
-gaboClients = GaboClients(["tcp://localhost:5556"])
 
-for i in range(1000):
-    print("submit {}!".format(i))
-    try:
-        gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
-    except IOError:
-        print("oops")
 
-time.sleep(5)
 
-for i in range(1000):
-    print("submit {}!".format(i))
-    try:
-        gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
-    except IOError:
-        print("oops")
 
-###########################################
+########################################### TODO: temporary!
+
+# import sys
+
+# gaboClients = GaboClients(["tcp://localhost:5556"])
+
+# for i in range(1000):
+#     print("submit {}!".format(i))
+#     try:
+#         gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+#     except IOError:
+#         print("oops")
+
+# time.sleep(5)
+
+# for i in range(1000):
+#     print("submit {}!".format(i))
+#     try:
+#         gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+#     except IOError:
+#         print("oops")
