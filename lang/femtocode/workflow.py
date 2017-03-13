@@ -28,7 +28,7 @@ import femtocode.asts.typedtree as typedtree
 import femtocode.lib.standard as standard
 import femtocode.parser as parser
 
-class Query(object):
+class Query(Serializable):
     def __init__(self, dataset, statements, actions):
         self.dataset = dataset
         self.statements = statements
@@ -39,22 +39,18 @@ class Query(object):
 
     @property
     def id(self):
-        return abs(hash(self))
+        return "{0:016x}".format(hash(self) + 2**63)
+
+    def __eq__(self, other):
+        return other.__class__ == Query and self.dataset == other.dataset and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
         return hash(("Query", self.dataset, self.statements, tuple(self.actions)))
-
-    def toJsonString(self):
-        return json.dumps(self.toJson())
 
     def toJson(self):
         return {"dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions]}
-
-    @staticmethod
-    def fromJsonString(string):
-        return Query.fromJson(json.loads(string))
 
     @staticmethod
     def fromJson(obj):

@@ -25,14 +25,7 @@ from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.dataset import *
 
-class Statement(object):
-    def toJsonString(self):
-        return json.dumps(self.toJson())
-
-    @staticmethod
-    def fromJsonString(string):
-        return Statement.fromJson(json.loads(string))
-
+class Statement(Serializable):
     @staticmethod
     def fromJson(obj):
         def build(obj, path):

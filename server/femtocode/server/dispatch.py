@@ -39,7 +39,7 @@ class DispatchAPIServer(HTTPServer):
                 return self.gateway(environ, start_response)
 
             elif isinstance(self.metadb, MetadataAPIServer):
-                # self.metadb is an embedded server class
+                # self.metadb is a class embedded in this process
                 return self.metadb(environ, start_response)
 
             else:
@@ -49,7 +49,7 @@ class DispatchAPIServer(HTTPServer):
             return self.senderror("501 Not Implemented", start_response)
 
         else:
-            return self.senderror("404 Not Found", start_response)
+            return self.senderror("404 Not Found", start_response, "URL path not recognized by dispatcher: {0}".format(path))
 
 # from femtocode.dataset import MetadataFromJson
 # m = DispatchAPIServer(MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests")))

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import math
 
 try:
@@ -38,3 +39,18 @@ def dropIfPresent(d, key):
         del d[key]
     except KeyError:
         pass
+
+class Serializable(object):
+    def toJsonString(self):
+        return json.dumps(self.toJson())
+
+    def toJsonFile(self, file):
+        json.dump(file, self.toJson())
+
+    @classmethod
+    def fromJsonString(cls, string):
+        return cls.fromJson(json.loads(string))
+
+    @classmethod
+    def fromJsonFile(cls, file):
+        return cls.fromJson(json.load(file))

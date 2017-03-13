@@ -163,7 +163,7 @@ class ColumnName(object):
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 
-class Metadata(object): pass
+class Metadata(Serializable): pass
 
 class Segment(Metadata):
     def __init__(self, numEntries, dataLength, sizeLength):

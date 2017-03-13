@@ -144,7 +144,7 @@ class almost(float):
         a, b = divmod(other, self.real)
         return (almost(a), almost(b))
 
-class Schema(object):
+class Schema(Serializable):
     def __init__(self, alias=None):
         self.alias = alias
         if alias is None:
@@ -452,22 +452,8 @@ class Schema(object):
 
         return resolve([out])[0]
 
-    @staticmethod
-    def fromJsonString(obj):
-        return Schema.fromJson(json.loads(obj))
-
-    @staticmethod
-    def fromJsonFile(file):
-        return Schema.fromJson(json.load(file))
-
     def toJson(self):
         return self._json_memo(set())
-
-    def toJsonString(self):
-        return json.dumps(self.toJson())
-
-    def toJsonFile(self, file):
-        json.dump(file, self.toJson())
 
 class Impossible(Schema):   # results in a compilation error
     order = 0

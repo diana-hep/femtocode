@@ -31,10 +31,11 @@ from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.lib.standard import table
 from femtocode.py23 import *
+from femtocode.util import *
 from femtocode.typesystem import *
 from femtocode.workflow import Query
 
-class Loop(object):
+class Loop(Serializable):
     def __init__(self, size):
         self.size = size
         self.targets = []
@@ -307,7 +308,7 @@ class Compiler(object):
         fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
         return fcn, imax
 
-class LoopFunction(object):
+class LoopFunction(Serializable):
     def __init__(self, fcn):
         self.fcn = fcn
 
@@ -336,7 +337,7 @@ class LoopFunction(object):
         else:
             return getattr(importlib.import_module(mod), cls).fromJson(obj)
 
-class ExecutionFailure(object):
+class ExecutionFailure(Serializable):
     def __init__(self, exception, traceback):
         self.exception = exception
         self.traceback = traceback
@@ -385,7 +386,7 @@ class ExecutionFailure(object):
         assert "traceback" in obj
         return ExecutionFailure("{0}: {1}".format(obj["class"], obj["message"], obj["traceback"]))
 
-class Executor(object):
+class Executor(Serializable):
     def __init__(self, query):
         self.query = query
         targetsToEndpoints, lookup, self.required = DependencyGraph.wholedag(self.query)
