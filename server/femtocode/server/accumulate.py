@@ -134,7 +134,7 @@ class StatusUpdate(Message):
     def fromJson(self):
         return StatusUpdate(obj["load"])
 
-class AccumulateAPIServer(HTTPServer):
+class Tallyman(object):
     def __init__(self, rolloverCache, bigdataCache, gabos, bindaddr="", bindport=8080):
         self.rolloverCache = rolloverCache
         self.bigdataCache = bigdataCache
@@ -142,43 +142,75 @@ class AccumulateAPIServer(HTTPServer):
         self.bindaddr = bindaddr
         self.bindport = bindport
 
-    def __call__(self, environ, start_response):
-        try:
-            message = Message.fromJson(self.getjson(environ))
+    def result(self, query):
+        if query in self.rolloverCache:
+            return self.rolloverCache.result(query)
 
-            if isinstance(message, Query):
-                if message.id in self.rolloverCache:
-                    return self.sendjson(self.rolloverCache.current(message).toJson())
+        elif query in self.bigdataCache:
+            return self.bigdataCache.result(query)
 
-                elif message.id in self.bigdataCache:
-                    return self.sendjson(self.bigdataCache.current(message).toJson())
+        else:
+            return StatusUpdate(self.rolloverCache.load())
 
-            elif 
-            
+    def assign(self, query):
+        return self.rolloverCache.assign(query)
 
+class SendWholeQuery(object):
+    def __init__(self, crossCheckId):
+        self.crossCheckId = crossCheckId
 
+class Assign(object):
+    def __init__(self, query):
+        self.query = query
 
-    # def __init__(self, metadb, bindaddr="", bindport=8080):
-    #     self.metadb = metadb
-    #     self.bindaddr = bindaddr
-    #     self.bindport = bindport
+class TallymanServer(threading.Thread):
+    def __init__(self, tallyman, bindaddr, timeout):
+        self.tallyman = tallyman
+        self.server = ZMQServer(bindaddr, timeout)
+        self.daemon = True
 
-    # def __call__(self, environ, start_response):
-    #     try:
-    #         obj = self.getjson(environ)
-    #         name = obj["name"]
-    #         assert isinstance(name, string_types)
+    def run(self):
+        while True:
+            message = self.server.recv()
 
-    #     except:
-    #         return self.senderror("400 Bad Request", start_response)
+            if isinstance(message, (int, long)):
+                if message in self.tallyman.rolloverCache or message self.tallyman.bigdataCache:
+                    self.server.send(SendWholeQuery(message))
 
-    #     else:
-    #         try:
-    #             dataset = self.metadb.dataset(name, (), None, True)
-    #         except:
-    #             return self.senderror("500 Internal Server Error", start_response)
-    #         else:
-    #             return self.sendjson(dataset.toJson(), start_response)
+            elif isinstance(message, Query):
+                self.server.send(self.tallyman.result(message))
+
+            elif isinstance(message, Assign):
+                self.server.send(self.tallyman.assign(message.query))
+
+            else:
+                self.server.send(None)
+
+class TallymanClient(Tallyman):
+    def __init__(self, connaddr, timeout):
+        self.client = ZMQClient(connaddr, timeout)
+
+    def result(self, query):
+        self.client.send(query.id)
+        result = self.client.recv()
+
+        if isinstance(result, SendWholeQuery):
+            self.client.send(query)
+            return self.client.recv()
+
+        elif isinstance(result, (Result, StatusUpdate)):
+            return result
+
+        elif result is None:
+            return result      # timeout; dispatch will ignore this tallyman
+
+        else:
+            assert False, "unexpected result: {0}".format(result)
+
+    def assign(self, query):
+        self.client.send(query)
+        result = self.client.recv()
+        assert isinstance(result, Result), "unexpected response from assign: {0}".format(result)
 
 ########################################### TODO: temporary!
 

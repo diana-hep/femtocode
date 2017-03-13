@@ -156,15 +156,12 @@ class HTTPServer(object):
         else:
             return [message]
 
-    def gateway(self, url, environ, start_response, exceptionForTimeout=True):
+    def gateway(self, url, environ, start_response):
         try:
             remote = urlopen(url, self.getstring(environ), self.timeout)
             result = remote.read()
         except socket.timeout:
-            if exceptionForTimeout:
-                return self.senderror("502 Bad Gateway", start_response)
-            else:
-                return None
+            return self.senderror("502 Bad Gateway", start_response)
         except HTTPError as err:
             return self.senderror(err, start_response, err.read())
         else:

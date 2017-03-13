@@ -28,7 +28,7 @@ from femtocode.server.communication import *
 from femtocode.workflow import Query
 
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, metadb, accumulates, bindaddr="", bindport=8080, timeout=0.5):
+    def __init__(self, metadb, accumulates, bindaddr="", bindport=8080):
         self.metadb = metadb
         self.accumulates = accumulates
         self.bindaddr = bindaddr
@@ -60,16 +60,7 @@ class DispatchAPIServer(HTTPServer):
                 statusUpdates = []
                 finalResult = None
                 for accumulate in self.accumulates[cut:] + self.accumulates[:cut]:
-                    if isinstance(accumulate, string_types):
-                        # accumulate the url of an upstream server
-                        result = Result.fromJson(json.loads(self.gateway(accumulate, environ, start_response), exceptionForTimeout=False))
-                        
-                    elif isinstance(accumulate, AccumulateAPIServer):
-                        # accumulate is a class embedded in this process
-                        result = accumulate(environ, start_response)
-
-                    else:
-                        assert isinstance(accumulate, string_types) or isinstance(accumulate, AccumulateAPIServer), "self.accumulates improperly configured")
+                    result = accumulate.result(query)
 
                     if result is None:   # timeout from upstream server
                         continue         # ignore it; use the other servers
@@ -77,9 +68,11 @@ class DispatchAPIServer(HTTPServer):
                         result.accumulate = accumulate
                         statusUpdates.append(result)
                     else:
+                        if finalResult is None:
+                            finalResult = result
+
                         # make sure nobody else thinks they're running this query
                         query.cancelled = True
-                        finalResult = result
 
                 if finalResult is not None:
                     return self.sendjson(result.toJson(), start_response)
@@ -87,12 +80,7 @@ class DispatchAPIServer(HTTPServer):
                 assert len(statusUpdates) != 0, "all accumulate servers are unresponsive"
                 bestChoice = min(statusUpdates, key=lambda x: x.load)
 
-                if isinstance(bestChoice.accumulate, string_types):
-                    remote = urlopen(bestChoice.accumulate, json.dumps(Assign(query).toJson()), self.timeout)
-                    result = Message.fromJson(json.loads(remote.read()))
-                else:
-                    result = bestChoice.accumulate.assign(query)
-
+                result = bestChoice.accumulate.assign(query)
                 return self.sendjson(result.toJson(), start_response)
 
             else:
