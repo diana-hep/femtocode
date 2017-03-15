@@ -41,10 +41,11 @@ class Message(Serializable):
         return getattr(importlib.import_module(mod), cls).fromJson(obj)
 
 class Query(Message):
-    def __init__(self, dataset, statements, actions):
+    def __init__(self, dataset, statements, actions, cancelled):
         self.dataset = dataset
         self.statements = statements
         self.actions = actions
+        self.cancelled = cancelled
 
     def __repr__(self):
         return "Query.fromJson({0})".format(self.toJson())
@@ -54,23 +55,24 @@ class Query(Message):
         return "{0:016x}".format(hash(self) + 2**63)
 
     def __eq__(self, other):
-        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
+        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions and self.cancelled == other.cancelled
 
     def __hash__(self):
         if not hasattr(self, "_hash"):
-            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
+            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions), self.cancelled))
         return self._hash
 
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
                 "dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
-                "actions": [action.toJson() for action in self.actions]}
+                "actions": [action.toJson() for action in self.actions],
+                "cancelled": False}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["class", "dataset", "statements", "actions"])
+        assert set(obj.keys()) == set(["class", "dataset", "statements", "actions", "cancelled"])
 
         dataset = Dataset.fromJson(obj["dataset"])
 
@@ -80,8 +82,8 @@ class Query(Message):
         actions = [statementlist.Statement.fromJson(action) for action in obj["actions"]]
         for action in actions:
             assert isinstance(action, statementlist.Action)
-
-        return Query(dataset, statements, actions)
+        
+        return Query(dataset, statements, actions, obj["cancelled"])
 
 class Workflow(object):
     def _compileInScope(self, code, symbolTable, typeTable):
@@ -181,7 +183,7 @@ class Goal(NotFirst, Workflow):
 
             actions.append(preaction.finalize(refs))
 
-        return Query(source.dataset, statements, actions)
+        return Query(source.dataset, statements, actions, False)
 
     def submit(self, callback=None, libs=()):
         return self.source().session.submit(self.compile(libs), callback)

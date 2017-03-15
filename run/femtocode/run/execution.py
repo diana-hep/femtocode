@@ -204,7 +204,6 @@ class NativeAsyncExecutor(NativeExecutor):
         # all associated data are transient: they're lost if you serialize/deserialize
         self.future = future
         self.lock = threading.Lock()
-        self.cancelled = False
         if self.future is not None:
             self.loadsDone = dict((group.id, False) for group in query.dataset.groups)
             self.computesDone = dict((group.id, False) for group in query.dataset.groups)
@@ -215,13 +214,10 @@ class NativeAsyncExecutor(NativeExecutor):
             assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
             self.tally = self.action.initialize()
 
-    def updateFuture(self, args):
-        self.future._update(*args)
-
     def futureargs(self):
         return (sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),
                 sum(1.0 for x in self.computesDone.values() if x) / len(self.computesDone),
-                self.cancelled or all(self.computesDone.values()),
+                self.query.cancelled or all(self.computesDone.values()),
                 time.time() - self.startTime,
                 self.computeTime,
                 self.tally)
@@ -229,7 +225,7 @@ class NativeAsyncExecutor(NativeExecutor):
     def oneLoadDone(self, groupid):
         if self.future is not None:
             with self.lock:
-                if not self.cancelled:
+                if not self.query.cancelled:
                     self.loadsDone[groupid] = True
                     futureargs = self.futureargs()
 
@@ -237,12 +233,12 @@ class NativeAsyncExecutor(NativeExecutor):
                     futureargs = None
 
             if futureargs is not None:
-                self.updateFuture(futureargs)
+                self.future._update(*futureargs)
 
     def oneComputeDone(self, groupid, computeTime, subtally):
         if self.future is not None:
             with self.lock:
-                if not self.cancelled:
+                if not self.query.cancelled:
                     self.computesDone[groupid] = True
                     self.computeTime += computeTime
 
@@ -257,21 +253,20 @@ class NativeAsyncExecutor(NativeExecutor):
                     futureargs = None
 
             if futureargs is not None:
-                self.updateFuture(futureargs)
+                self.future._update(*futureargs)
 
     def oneFailure(self, failure):
         with self.lock:
-            self.cancelled = True
+            self.query.cancelled = True
             self.tally = failure
             futureargs = self.futureargs()
 
-        self.updateFuture(futureargs)
+        self.future._update(*futureargs)
 
     @staticmethod
     def fromJson(obj):
         out = NativeExecutor.fromJson(obj)
         out.__class__ = NativeAsyncExecutor
         out.lock = threading.Lock()
-        out.cancelled = False
         out.future = None
         return out

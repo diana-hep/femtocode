@@ -310,11 +310,11 @@ class Minion(threading.Thread):
         while True:
             workItem = self.incoming.get()
 
-            # don't process cancelled executors
-            if getattr(workItem.executor.query, "cancelled", False):
+            # don't process cancelled queries
+            if workItem.executor.query.cancelled:
                 workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
             with workItem.executor.lock:
-                cancelled = workItem.executor.cancelled
+                cancelled = workItem.executor.query.cancelled
             if cancelled: continue
 
             try:
@@ -378,9 +378,11 @@ class CacheMaster(threading.Thread):
             # check for cancelled executors
             todrop = []
             for i, workItem in enumerate(self.waiting):
-                if getattr(workItem.executor.query, "cancelled", False):
+                if workItem.executor.query.cancelled:
                     workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
-                if workItem.executor.cancelled:
+                with workItem.executor.lock:
+                    cancelled = workItem.executor.query.cancelled
+                if cancelled:
                     todrop.append(i)
 
             # remove all workItems associated with cancelled executors

@@ -386,6 +386,10 @@ class ExecutionFailure(Serializable):
         assert "traceback" in obj
         return ExecutionFailure("{0}: {1}".format(obj["class"], obj["message"], obj["traceback"]))
 
+    @staticmethod
+    def failureJson(obj):
+        return isinstance(obj, dict) and set(obj.keys()) == set(["class", "message", "traceback"])
+
 class Executor(Serializable):
     def __init__(self, query):
         self.query = query

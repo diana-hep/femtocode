@@ -26,41 +26,6 @@ except:
 
 import psutil
 
-from femtocode.workflow import Message
-
-class Result(Message):
-    def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
-        self.loadsDone = loadsDone
-        self.computesDone = computesDone
-        self.done = done
-        self.wallTime = wallTime
-        self.computeTime = computeTime
-        self.lastUpdate = lastUpdate
-        self.data = data
-
-    def __repr__(self):
-        return "Result({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(self.loadsDone, self.computesDone, self.done, self.wallTime, self.computeTime, self.lastUpdate, self.data)
-
-    def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "loadsDone": self.loadsDone,
-                "computesDone": self.computesDone,
-                "done": self.done,
-                "wallTime": self.wallTime,
-                "computeTime": self.computeTime,
-                "lastUpdate": self.lastUpdate,
-                "data": self.data.toJson()}
-
-    @staticmethod
-    def fromJson(obj):
-        return Result(obj["loadsDone"],
-                      obj["computesDone"],
-                      obj["done"],
-                      obj["wallTime"],
-                      obj["computeTime"],
-                      obj["lastUpdate"],
-                      obj["data"])
-
 class SimpleCacheOccupant(object):
     def __init__(self, query, result):
         self.query = query
@@ -74,6 +39,10 @@ class PartitionedCacheOccupant(object):
     @property
     def result(self):
         raise NotImplementedError
+
+class SendWholeQuery(object):
+    def __init__(self, crossCheckId):
+        self.crossCheckId = crossCheckId
 
 class RolloverCache(object):
     def __init__(self, directory, memoryMarginBytes, diskMarginBytes, rolloverTime=24*60*60, idchars=4):
@@ -111,24 +80,118 @@ class RolloverCache(object):
         rollovers.sort(key=lambda x: -int(x))
         return [os.path.join(self.directory, partialdir) for partialdir in rollovers]
 
+    def ensure(self, dir):
+        if not os.path.exists(dir):
+            init, last = os.path.split(dir)
+            self.ensure(init)
+            os.mkdir(last)
+
     def __contains__(self, query):
         if isinstance(query, (int, long)):
-            return query in self.queryids or self.ondisk(query)
+            return len(self.queryids.get(query, [])) > 0 or self.ondisk(query)
         else:
             return query in self.lookup or self.ondisk(query)
 
-    def result(self, query):
-        out = self.lookup.get(query)
-        if out is not None:
-            return out.result
+    def ondisk(self, query):
+        if isinstance(query, (int, long)):
+            queryid = query
         else:
-            return self.fromdisk(query)
+            queryid = query.id
+
+        for fullpath in self.fullpaths(time.time(), queryid):
+            if os.path.exists(fullpath):
+                if isinstance(query, (int, long)):
+                    return True
+
+                for occupant in pickle.load(open(fullpath, "rb")):
+                    if occupant.query == query:
+                        return True
+
+        return False
+
+    def get(self, query):
+        if isinstance(query, (int, long)):
+            matches = self.queryids.get(query, [])
+
+            if len(matches) == 0:
+                occupant = self.fromdisk(query)   # deletes from disk
+                self.queryids[occupant.query.id] = self.queryids.get(occupant.query.id, []) + [occupant.query]
+                self.order.append(occupant)
+                self.lookup[occupant.query] = occupant
+                return occupant
+
+            elif len(matches) == 1:
+                occupant = self.lookup[matches[0]]
+
+                index = len(self.order)           # move occupant to the front of self.order
+                while index >= 0:
+                    index -= 1
+                    if self.order[index].query.id == query:
+                        del self.order[index]
+                        break
+                self.order.append(occupant)
+                return occupant
+
+            else:
+                return SendWholeQuery(query)      # queryid is not unique; need more information
+
+        else:
+            occupant = self.lookup.get(query)
+
+            if occupant is not None:
+                index = len(self.order)           # move occupant to the front of self.order
+                while index >= 0:
+                    index -= 1
+                    if self.order[index].query.id == query.id and self.order[index].query == query:
+                        del self.order[index]
+                        break
+                self.order.append(occupant)
+                return occupant
+
+            else:
+                occupant = self.fromdisk(query)   # deletes from disk
+                self.queryids[occupant.query.id] = self.queryids.get(occupant.query.id, []) + [occupant.query]
+                self.order.append(occupant)
+                self.lookup[occupant.query] = occupant
+                return occupant
+
+    def fromdisk(self, query):
+        now = time.time()
+        if isinstance(query, (int, long)):
+            queryid = query
+        else:
+            queryid = query.id
+
+        out = []
+        for fullpath in self.fullpaths(now, queryid):
+            if os.path.exists(fullpath):
+                # each query contains *in principle* multiple queries because of (very unlikely) queryid collision
+                for occupant in pickle.load(open(fullpath, "rb")):
+                    if occupant.query == query:
+                        os.remove(fullpath)   # remove from disk so that it can be put in memory
+                        return occupant
+
+                    elif isinstance(query, (int, long)):
+                        out.append((fullpath, occupant))
+
+        if len(out) == 1:                     # found unique query by id alone
+            fullpath, occupant = out[0]
+            os.remove(fullpath)               # remove from disk so that it can be put in memory
+            return occupant
+
+        elif len(out) > 1:
+            return SendWholeQuery(query)      # cannot disambiguate query by id alone
+
+        assert False, "couldn't find {0} on disk".format(query.id)
+
+    def result(self, query):
+        return self.get(query)
 
     def assign(self, query):
         # TODO: determine if this is a SimpleCacheOccupant or a PartitionedCacheOccupant
         occupant = SimpleCacheOccupant(query, None)
 
-        self.queryids[query.id] = self.queryids.get(query.id, 0) + 1
+        self.queryids[query.id] = self.queryids.get(query.id, []) + [query]
         self.order.append(occupant)
         self.lookup[query] = occupant
 
@@ -139,8 +202,8 @@ class RolloverCache(object):
         while psutil.virtual_memory().available < self.memoryMarginBytes:
             occupant = self.deque.popleft()
             del self.lookup[occupant.query]
-            self.queryids[occupant.query.id] -= 1
-            if self.queryids[occupant.query.id] == 0:
+            self.queryids[occupant.query.id].remove(occupant.query)
+            if len(self.queryids[occupant.query.id]) == 0:
                 del self.queryids[occupant.query.id]
 
             self.todisk(occupant)
@@ -169,39 +232,8 @@ class RolloverCache(object):
             if occupant.query not in [x.query for x in values]:
                 values = values + [occupant]
             
+            self.ensure(os.path.split(fullpath)[0])
             pickle.dump(values, open(fullpath, "wb"), pickle.HIGHEST_PROTOCOL)
 
         else:
             raise NotImplementedError
-
-    def fromdisk(self, query):
-        now = time.time()
-        for fullpath in self.fullpaths(now, query.id):
-            if os.path.exists(fullpath):
-                # each query contains *in principle* multiple queries because of (very unlikely) query.id collision
-                for occupant in pickle.load(open(fullpath, "rb")):
-                    if occupant.query == query:
-                        # if we found this in and old (not the most recent) directory
-                        if fullpath != self.fullpath(self.fulldir(now), query.id):
-                            self.todisk(occupant)   # put it in the most recent directory
-
-                        return occupant
-
-        assert False, "couldn't find {0} on disk".format(query.id)
-
-    def ondisk(self, query):
-        if isinstance(query, (int, long)):
-            queryid = query
-        else:
-            queryid = query.id
-
-        for fullpath in self.fullpaths(time.time(), queryid):
-            if os.path.exists(fullpath):
-                if isinstance(query, (int, long)):
-                    return True
-
-                for occupant in pickle.load(open(fullpath, "rb")):
-                    if occupant.query == query:
-                        return True
-
-        return False

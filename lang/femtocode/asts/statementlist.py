@@ -603,6 +603,10 @@ class ReturnPythonDataset(Aggregation):
         def finalize(self, refs):
             return ReturnPythonDataset(self.datasetName, [(n, ref) for ref, (n, tt) in zip(refs, self.namesToTypedTrees)])
 
+    def tallyFromJson(self, obj):
+        from femtocode.testdataset import TestDataset
+        return TestDataset.fromJson(obj)
+
     @staticmethod
     def fromJson(targets, structure):
         return ReturnPythonDataset(
