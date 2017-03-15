@@ -18,7 +18,6 @@ import os
 import os.path
 import time
 import math
-from collections import deque
 try:
     import cPickle as pickle
 except:
@@ -26,19 +25,16 @@ except:
 
 import psutil
 
-class SimpleCacheOccupant(object):
-    def __init__(self, query, result):
-        self.query = query
-        self.result = result
+class CacheOccupant(object):
+    def __init__(self, executor):
+        self.executor = executor
+        self.query = self.executor.query
+        self.result = self.executor.result
 
-class PartitionedCacheOccupant(object):
-    def __init__(self, query, pieces):
-        self.query = query
-        self.pieces = pieces
-
-    @property
-    def result(self):
-        raise NotImplementedError
+    def running(self):
+        if self.executor.done:
+            self.executor = None
+        return not self.executor.done
 
 class SendWholeQuery(object):
     def __init__(self, crossCheckId):
@@ -55,7 +51,7 @@ class RolloverCache(object):
         assert os.path.exists(self.directory) and os.path.isdir(self.directory)
 
         self.queryids = {}
-        self.order = deque()
+        self.order = []
         self.lookup = {}
 
     def partialdir(self, when):
@@ -187,26 +183,29 @@ class RolloverCache(object):
     def result(self, query):
         return self.get(query)
 
-    def assign(self, query):
-        # TODO: determine if this is a SimpleCacheOccupant or a PartitionedCacheOccupant
-        occupant = SimpleCacheOccupant(query, None)
+    def assign(self, executor):
+        occupant = CacheOccupant(executor)
 
-        self.queryids[query.id] = self.queryids.get(query.id, []) + [query]
+        self.queryids[occupant.query.id] = self.queryids.get(occupant.query.id, []) + [occupant.query]
         self.order.append(occupant)
-        self.lookup[query] = occupant
+        self.lookup[occupant.query] = occupant
 
         self.rolloverMemory()
         self.rolloverDisk()
 
     def rolloverMemory(self):
         while psutil.virtual_memory().available < self.memoryMarginBytes:
-            occupant = self.deque.popleft()
-            del self.lookup[occupant.query]
-            self.queryids[occupant.query.id].remove(occupant.query)
-            if len(self.queryids[occupant.query.id]) == 0:
-                del self.queryids[occupant.query.id]
+            if len(self.order) > 0:
+                occupant = self.order[0]
+                if not occupant.running():
+                    del self.order[0]
 
-            self.todisk(occupant)
+                    del self.lookup[occupant.query]
+                    self.queryids[occupant.query.id].remove(occupant.query)
+                    if len(self.queryids[occupant.query.id]) == 0:
+                        del self.queryids[occupant.query.id]
+
+                    self.todisk(occupant)
 
     def rolloverDisk(self):
         while psutil.disk_usage(self.directory).free < self.diskMarginBytes:
@@ -221,19 +220,15 @@ class RolloverCache(object):
         now = time.time()
         self.rollovers(now)
 
-        if isinstance(occupant, SimpleCacheOccupant):
-            # each query contains *in principle* multiple queries because of (very unlikely) query.id collision
-            fullpath = self.fullpath(self.fulldir(now), occupant.query.id)
-            if os.path.exists(fullpath):
-                values = pickle.load(open(fullpath, "rb"))
-            else:
-                values = []
-
-            if occupant.query not in [x.query for x in values]:
-                values = values + [occupant]
-            
-            self.ensure(os.path.split(fullpath)[0])
-            pickle.dump(values, open(fullpath, "wb"), pickle.HIGHEST_PROTOCOL)
-
+        # each query contains *in principle* multiple queries because of (very unlikely) query.id collision
+        fullpath = self.fullpath(self.fulldir(now), occupant.query.id)
+        if os.path.exists(fullpath):
+            values = pickle.load(open(fullpath, "rb"))
         else:
-            raise NotImplementedError
+            values = []
+
+        if occupant.query not in [x.query for x in values]:
+            values = values + [occupant]
+
+        self.ensure(os.path.split(fullpath)[0])
+        pickle.dump(values, open(fullpath, "wb"), pickle.HIGHEST_PROTOCOL)

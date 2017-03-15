@@ -101,21 +101,45 @@ class Tallyman(object):
         else:
             return StatusUpdate(self.rolloverCache.load())
 
-    def assign(self, query):
-        return self.rolloverCache.assign(query)
+    def assign(self, executor):
+        return self.rolloverCache.assign(executor)
 
-    def oneLoadDone(self, groupid):
-        raise NotImplementedError  # FIXME
+    def oneLoadDone(self, query, groupid):
+        occupant = self.rolloverCache.get(query)
 
-    def oneComputeDone(self, groupid, computeTime, subtally):
-        raise NotImplementedError  # FIXME
+        if isinstance(occupant, SendWholeQuery):
+            return occupant
 
-    def oneFailure(self, failure):
-        raise NotImplementedError  # FIXME
+        elif occupant.executor is not None:
+            occupant.executor.oneLoadDone(groupid)
+
+        return True
+
+    def oneComputeDone(self, query, groupid, computeTime, subtally):
+        occupant = self.rolloverCache.get(query)
+
+        if isinstance(occupant, SendWholeQuery):
+            return occupant
+
+        elif occupant.executor is not None:
+            occupant.executor.oneComputeDone(groupid, computeTime, subtally)
+
+        return True
+
+    def oneFailure(self, query, failure):
+        occupant = self.rolloverCache.get(query)
+
+        if isinstance(occupant, SendWholeQuery):
+            return occupant
+
+        elif occupant.executor is not None:
+            occupant.executor.oneFailure(failure)
+
+        return True
 
 class Assign(object):
-    def __init__(self, query):
-        self.query = query
+    def __init__(self, executor):
+        self.executor = executor
 
 class OneLoadDone(object):
     def __init__(self, query, groupid):
@@ -152,7 +176,16 @@ class TallymanServer(threading.Thread):
                 self.server.send(self.tallyman.result(message))
 
             elif isinstance(message, Assign):
-                self.server.send(self.tallyman.assign(message.query))
+                self.server.send(self.tallyman.assign(NativeAccumulateExecutor.fromJson(message.executor)))
+
+            elif isinstance(message, OneLoadDone):
+                self.server.send(self.tallyman.oneLoadDone(message.query, message.groupid))
+
+            elif isinstance(message, OneComputeDone):
+                self.server.send(self.tallyman.oneComputeDone(message.query, message.groupid, message.computeTime, message.subtally))
+
+            elif isinstance(message, OneFailure):
+                self.server.send(self.tallyman.oneFailure(message.query, message.failure))
 
             else:
                 self.server.send(None)
@@ -178,8 +211,8 @@ class TallymanClient(Tallyman):
         else:
             assert False, "unexpected result: {0}".format(result)
 
-    def assign(self, query):
-        self.client.send(query)
+    def assign(self, executor):
+        self.client.send(executor.toJson())
         result = self.client.recv()
         assert isinstance(result, Result), "unexpected response from assign: {0}".format(result)
 
