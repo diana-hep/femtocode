@@ -30,38 +30,34 @@ from femtocode.server.communication import *
 from femtocode.server.metadata import MetadataFromMongoDB
 from femtocode.run.metadata import MetadataFromJson
 
-class GaboServer(threading.Thread):
-    def __init__(self, bindaddr, metadata, cacheMaster, executorClass):
-        super(GaboServer, self).__init__()
-        self.server = ZMQServer(bindaddr, None)
+class CacheMasterWithMetadata(CacheMaster):
+    def __init__(self, needWantCache, minions, metadata):
+        super(CacheMasterWithMetadata, self).__init__(needWantCache, minions)
         self.metadata = metadata
+
+    def prepare(self, executor):
+        executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
+        return executor
+
+class GaboServer(threading.Thread):
+    listenThreshold = 0.030     # 30 ms      no response from accumulate; reset ZMQClient recv/send state
+
+    def __init__(self, bindaddr, cacheMaster):
+        super(GaboServer, self).__init__()
+        self.server = ZMQServer(bindaddr, self.listenThreshold)
         self.cacheMaster = cacheMaster
-        self.executorClass = executorClass
-        self.outgoing = cacheMaster.incoming
         self.daemon = True
 
     def run(self):
         while True:
-            executor = self.server.recv()
-            assert isinstance(executor, NativeComputeExecutor)
-
-            executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
-
-
-
-
-
-
             message = self.server.recv()
 
-            if isinstance(message, CompiledQuery):
-                work = Work(message,
-                            self.metadata.dataset(message.dataset, message.groupids, message.inputs),
-                            self.executorClass(message),
-                            None)
-                self.outgoing.put(work)
+            # new work to do: yay! (else just a heartbeat ping)
+            if isinstance(message, NativeComputeExecutor):
+                self.cacheMaster.incoming.put(message)
 
-            self.server.send(Ack())
+            if message is not None:
+                self.server.send(True)
 
 ########################################### TODO: temporary!
 

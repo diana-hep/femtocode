@@ -253,11 +253,15 @@ class CacheMaster(threading.Thread):
 
     def __repr__(self):
         return "<CacheMaster at 0x{0:012x}>".format(id(self))
-        
+
+    def prepare(self, executor):   # overloaded in the server
+        return executor
+
     def run(self):
         while True:
             # put new work in the waiting
             for executor in drainQueue(self.incoming):
+                executor = self.prepare(executor)
                 for group in executor.query.dataset.groups:
                     self.waiting.append(WorkItem(executor, group))
 

@@ -33,7 +33,7 @@ setup(name = "femtocode-server",
       download_url = "https://github.com/diana-hep/femtocode",
       license = "Apache Software License v2",
       test_suite = "tests",
-      install_requires = ["femtocode", "femtocode-run", "pyzmq", "pymongo", "psutil"],
+      install_requires = ["femtocode", "femtocode-run", "pyzmq", "pymongo"],
       tests_require = [],
       classifiers = ["Development Status :: 2 - Pre-Alpha",
                      # "Development Status :: 5 - Production/Stable",   # no way!
