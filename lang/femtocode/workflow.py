@@ -50,6 +50,17 @@ class Query(Message):
     def __repr__(self):
         return "Query.fromJson({0})".format(self.toJson())
 
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = Query.__new__(Query)
+        if hasattr(self, "_hash"):
+            out._hash = self._hash
+        out.dataset = Dataset.fromJson(self.dataset.toJson())
+        out.statements = self.statements
+        out.actions = self.actions
+        out.cancelled = self.cancelled
+        return out
+
     @property
     def id(self):
         return "{0:016x}".format(hash(self) + 2**63)

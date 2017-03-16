@@ -71,16 +71,16 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.action = self.query.actions[-1]
         assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
 
-    def _copy(self):
-        # reference that which is read-only, but actually copy what is mutable
-        out = super(NativeAccumulateExecutor, self)._copy()
-        out.__class__ = NativeAccumulateExecutor
-        out.loadsDone = dict(self.loadsDone.items())
-        out.computesDone = dict(self.computesDone.items())
-        out.startTime = self.startTime
-        out._setaction()
-        out.result = Result.fromJson(self.result.toJson(), out.action)
-        return out
+    # def _copy(self):
+    #     # reference that which is read-only, but actually copy what is mutable
+    #     out = super(NativeAccumulateExecutor, self)._copy()
+    #     out.__class__ = NativeAccumulateExecutor
+    #     out.loadsDone = dict(self.loadsDone.items())
+    #     out.computesDone = dict(self.computesDone.items())
+    #     out.startTime = self.startTime
+    #     out._setaction()
+    #     out.result = Result.fromJson(self.result.toJson(), out.action)
+    #     return out
 
     def toJson(self):
         out = super(NativeAccumulateExecutor, self).toJson()
@@ -101,6 +101,19 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.result = Result.fromJson(self.action)
         return out
 
+    def toCompute(self, groupids, conaddr, timeout):
+        out = NativeComputeExecutor.__new__(NativeComputeExecutor)
+        out.query = self.query
+        out.required = self.required
+        out.temporaries = self.temporaries
+        out.order = self.order
+        out.tmptypes = self.tmptypes
+
+        out.groupids = groupids
+        out.client = TallymanClient(connaddr, timeout)
+
+        return out
+        
     def oneLoadDone(self, groupid):
         if not self.query.cancelled:
             self.loadsDone[groupid] = True
@@ -135,16 +148,17 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.query.cancelled = True
 
 class NativeComputeExecutor(NativeExecutor):
-    def __init__(self, query, connaddr, timeout):
+    def __init__(self, query, groupids, connaddr, timeout):
         super(NativeComputeExecutor, self).__init__(query)
+        self.groupids = groupids
         self.client = TallymanClient(connaddr, timeout)
 
-    def _copy(self):
-        # reference that which is read-only, but actually copy what is mutable
-        out = super(NativeComputeExecutor, self)._copy()
-        out.__class__ = NativeComputeExecutor
-        out.client = TallymanClient(self.client.connaddr, self.client.timeout)
-        return out
+    # def _copy(self):
+    #     # reference that which is read-only, but actually copy what is mutable
+    #     out = super(NativeComputeExecutor, self)._copy()
+    #     out.__class__ = NativeComputeExecutor
+    #     out.client = TallymanClient(self.client.connaddr, self.client.timeout)
+    #     return out
 
     def toJson(self):
         out = super(NativeComputeExecutor, self).toJson()

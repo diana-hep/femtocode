@@ -44,13 +44,16 @@ class GaboClient(threading.Thread):
 
             if self.client.recv() is None:
                 self.client = ZMQClient(self.minionaddr, self.listenThreshold)
-                self.failures.put([x.id for x in executor.dataset.groups])
+                self.failures.put(executor.groupids)
             else:
                 self.failures.put([])
 
 class GaboClients(object):
-    def __init__(self, minionaddrs):
+    def __init__(self, minionaddrs, tallymanaddr, tallymantimeout):
         self.minionaddrs = minionaddrs
+        self.tallymanaddr = tallymanaddr
+        self.tallymantimeout = tallymantimeout
+
         self.clients = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
         for client in self.clients:
             client.start()
@@ -62,8 +65,7 @@ class GaboClients(object):
                 self.clients[i].start()
 
         offset = executor.query.id
-        groupids = [x.id for x in executor.query.dataset.groups]
-        numGroups = len(groupids)
+        groupids = list(range(executor.query.numGroups))
         workers = self.minionaddrs
         survivors = set(self.minionaddrs)   # start each query optimistically
 
@@ -73,10 +75,10 @@ class GaboClients(object):
 
             activeclients = []
             for client in self.clients:
-                subquery = query.copy()
-                subquery.groupids = assign(offset, groupids, numGroups, client.minionaddr, workers, survivors)
-                if len(subquery.groupids) > 0:
-                    client.incoming.put(subquery)
+                subset = assign(offset, groupids, executor.query.numGroups, client.minionaddr, workers, survivors)
+                if len(subset) > 0:
+                    subexec = execute.toCompute(subset, self.tallymanaddr, self.tallymantimeout)
+                    client.incoming.put(subexec)
                     activeclients.append(client)
 
             groupids = []
@@ -104,8 +106,6 @@ class Tallyman(object):
             return StatusUpdate(self.rolloverCache.load())
 
     def assign(self, executor):
-        # attach a more detailed Dataset to the query (same content, but with runtime details)
-        executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
         return self.rolloverCache.assign(executor)
 
     def oneLoadDone(self, query, groupid):
