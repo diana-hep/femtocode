@@ -25,6 +25,7 @@ from femtocode.execution import ExecutionFailure
 from femtocode.numpyio.dataset import NumpyDataset
 from femtocode.py23 import *
 from femtocode.run.cache import *
+from femtocode.run.compute import *
 from femtocode.run.execution import *
 from femtocode.util import *
 from femtocode.workflow import Source

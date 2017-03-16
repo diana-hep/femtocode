@@ -16,7 +16,6 @@
 
 import threading
 import time
-import sys
 try:
     import Queue as queue
 except ImportError:
@@ -25,26 +24,9 @@ except ImportError:
 import numpy
 
 from femtocode.py23 import *
-from femtocode.dataset import ColumnName
-from femtocode.dataset import sizeType
 from femtocode.util import *
-from femtocode.run.execution import *
-from femtocode.run.compute import *
-
-class DataAddress(object):
-    def __init__(self, dataset, column, group):
-        self.dataset = dataset
-        self.column = column
-        self.group = group
-
-    def __repr__(self):
-        return "DataAddress({0}, {1}, {2})".format(repr(self.dataset), repr(self.column), repr(self.group))
-
-    def __eq__(self, other):
-        return other.__class__ == DataAddress and other.dataset == self.dataset and other.column == self.column and other.group == self.group
-
-    def __hash__(self):
-        return hash(("DataAddress", self.dataset, self.column, self.group))
+from femtocode.execution import ExecutionFailure
+from femtocode.run.compute import WorkItem
 
 class CacheOccupant(object):
     untyped = numpy.uint8

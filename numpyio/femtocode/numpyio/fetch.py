@@ -29,7 +29,7 @@ import numpy
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
-from femtocode.run.cache import DataAddress
+from femtocode.run.compute import DataAddress
 from femtocode.run.cache import CacheOccupant
 from femtocode.numpyio.xrootd import XRootDReader
 
