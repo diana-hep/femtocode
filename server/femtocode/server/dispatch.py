@@ -80,7 +80,7 @@ class DispatchAPIServer(HTTPServer):
                 assert len(statusUpdates) != 0, "all accumulate servers are unresponsive"
                 bestChoice = min(statusUpdates, key=lambda x: x.load)
 
-                result = bestChoice.accumulate.assign(query)
+                result = bestChoice.accumulate.assign(NativeAccumulateExecutor(query))
                 return self.sendjson(result.toJson(), start_response)
 
             else:

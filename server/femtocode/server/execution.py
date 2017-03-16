@@ -71,6 +71,17 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.action = self.query.actions[-1]
         assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
 
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = super(NativeAccumulateExecutor, self)._copy()
+        out.__class__ = NativeAccumulateExecutor
+        out.loadsDone = dict(self.loadsDone.items())
+        out.computesDone = dict(self.computesDone.items())
+        out.startTime = self.startTime
+        out._setaction()
+        out.result = Result.fromJson(self.result.toJson(), out.action)
+        return out
+
     def toJson(self):
         out = super(NativeAccumulateExecutor, self).toJson()
         out["loadsDone"] = self.loadsDone
@@ -127,6 +138,13 @@ class NativeComputeExecutor(NativeExecutor):
     def __init__(self, query, connaddr, timeout):
         super(NativeComputeExecutor, self).__init__(query)
         self.client = TallymanClient(connaddr, timeout)
+
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = super(NativeComputeExecutor, self)._copy()
+        out.__class__ = NativeComputeExecutor
+        out.client = TallymanClient(self.client.connaddr, self.client.timeout)
+        return out
 
     def toJson(self):
         out = super(NativeComputeExecutor, self).toJson()

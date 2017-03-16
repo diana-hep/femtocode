@@ -119,6 +119,14 @@ class NativeCompiler(Compiler):
 NativeCompiler.llvmengine = NativeCompiler.newengine()
 
 class CompiledLoopFunction(LoopFunction):
+    def __getstate__(self):
+        return NativeCompiler.serialize(self.fcn)
+
+    def __setstate__(self, state):
+        self.llvmname, self.compiledobj = state
+        self.fcn = NativeCompiler.deserialize(self.llvmname, self.compiledobj).fcn
+        self.__class__ = DeserializedLoopFunction
+
     def toJson(self):
         llvmname, compiledobj = NativeCompiler.serialize(self.fcn)
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
@@ -148,6 +156,9 @@ class DeserializedLoopFunction(CompiledLoopFunction):
         self.llvmname = llvmname
         self.compiledobj = compiledobj
 
+    def __getstate__(self):
+        return self.llvmname, self.compiledobj
+
     def toJson(self):
         return {"class": CompiledLoopFunction.__module__ + "." + CompiledLoopFunction.__name__,
                 "name": self.llvmname,
@@ -160,6 +171,13 @@ class DeserializedLoopFunction(CompiledLoopFunction):
 class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
+
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = super(NativeExecutor, self)._copy()
+        out.__class__ = NativeExecutor
+        out.tmptypes = self.tmptypes
+        return out
 
     def toJson(self):
         out = super(NativeExecutor, self).toJson()
@@ -213,6 +231,12 @@ class NativeAsyncExecutor(NativeExecutor):
             self.action = self.query.actions[-1]
             assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
             self.tally = self.action.initialize()
+
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = super(NativeAsyncExecutor, self)._copy()
+        out.__class__ = NativeAsyncExecutor
+        return out
 
     def futureargs(self):
         return (sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),

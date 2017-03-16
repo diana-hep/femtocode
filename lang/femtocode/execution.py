@@ -21,10 +21,6 @@ import sys
 import types
 import importlib
 import traceback
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
@@ -315,6 +311,12 @@ class LoopFunction(Serializable):
     def __call__(self, *args, **kwds):
         return self.fcn(*args, **kwds)
 
+    def __getstate__(self):
+        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
+
+    def __setstate__(self, state):
+        self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
+
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
                 "name": self.fcn.func_name,
@@ -399,6 +401,15 @@ class Executor(Serializable):
         loops = DependencyGraph.loops(targetsToEndpoints.values())
         self.order = DependencyGraph.order(loops, self.query.actions, self.required)
         self.compileLoops()
+
+    def _copy(self):
+        # reference that which is read-only, but actually copy what is mutable
+        out = Executor.__new__(Executor)
+        out.query = self.query._copy()
+        out.required = self.required
+        out.temporaries = self.temporaries
+        out.order = self.order
+        return out
 
     def toJson(self):
         return {"query": self.query.toJson(),

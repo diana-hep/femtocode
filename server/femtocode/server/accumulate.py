@@ -21,78 +21,80 @@ try:
 except ImportError:
     import queue
 
+from femtocode.dataset import MetadataFromJson
 from femtocode.server.assignment import *
 from femtocode.server.communication import *
 from femtocode.workflow import Query
 
-# class GaboClient(threading.Thread):
-#     listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
+class GaboClient(threading.Thread):
+    listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
 
-#     def __init__(self, minionaddr):
-#         super(GaboClient, self).__init__()
-#         self.minionaddr = minionaddr
-#         self.client = ZMQClient(self.minionaddr, self.listenThreshold)
-#         self.incoming = queue.Queue()
-#         self.failures = queue.Queue()
-#         self.daemon = True
+    def __init__(self, minionaddr):
+        super(GaboClient, self).__init__()
+        self.minionaddr = minionaddr
+        self.client = ZMQClient(self.minionaddr, self.listenThreshold)
+        self.incoming = queue.Queue()
+        self.failures = queue.Queue()
+        self.daemon = True
 
-#     def run(self):
-#         while True:
-#             query = self.incoming.get()
-#             self.client.send(query)
+    def run(self):
+        while True:
+            executor = self.incoming.get()
+            self.client.send(executor)
 
-#             if self.client.recv() is None:
-#                 self.client = ZMQClient(self.minionaddr, self.listenThreshold)
-#                 self.failures.put(query.groupids)
-#             else:
-#                 self.failures.put([])
+            if self.client.recv() is None:
+                self.client = ZMQClient(self.minionaddr, self.listenThreshold)
+                self.failures.put([x.id for x in executor.dataset.groups])
+            else:
+                self.failures.put([])
 
-# class GaboClients(object):
-#     def __init__(self, minionaddrs):
-#         self.minionaddrs = minionaddrs
-#         self.clients = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
-#         for client in self.clients:
-#             client.start()
+class GaboClients(object):
+    def __init__(self, minionaddrs):
+        self.minionaddrs = minionaddrs
+        self.clients = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
+        for client in self.clients:
+            client.start()
 
-#     def sendQuery(self, query):
-#         for i, client in enumerate(self.clients):
-#             if not client.isAlive():
-#                 self.clients[i] = GaboClient(client.minionaddr)
-#                 self.clients[i].start()
+    def sendWork(self, executor):
+        for i, client in enumerate(self.clients):
+            if not client.isAlive():
+                self.clients[i] = GaboClient(client.minionaddr)
+                self.clients[i].start()
 
-#         offset = query.queryid
-#         groupids = query.groupids
-#         numGroups = len(query.groupids)
-#         workers = self.minionaddrs
-#         survivors = set(self.minionaddrs)   # start each query optimistically
+        offset = executor.query.id
+        groupids = [x.id for x in executor.query.dataset.groups]
+        numGroups = len(groupids)
+        workers = self.minionaddrs
+        survivors = set(self.minionaddrs)   # start each query optimistically
 
-#         while len(groupids) > 0:
-#             if len(survivors) == 0:
-#                 raise IOError("cannot send query; no surviving workers")
+        while len(groupids) > 0:
+            if len(survivors) == 0:
+                raise IOError("cannot send query; no surviving workers")
 
-#             activeclients = []
-#             for client in self.clients:
-#                 subquery = query.copy()
-#                 subquery.groupids = assign(offset, groupids, numGroups, client.minionaddr, workers, survivors)
-#                 if len(subquery.groupids) > 0:
-#                     client.incoming.put(subquery)
-#                     activeclients.append(client)
+            activeclients = []
+            for client in self.clients:
+                subquery = query.copy()
+                subquery.groupids = assign(offset, groupids, numGroups, client.minionaddr, workers, survivors)
+                if len(subquery.groupids) > 0:
+                    client.incoming.put(subquery)
+                    activeclients.append(client)
 
-#             groupids = []
-#             for client in activeclients:
-#                 failures = client.failures.get()
-#                 if len(failures) > 0:
-#                     survivors.discard(client.minionaddr)
-#                     groupids.extend(failures)
+            groupids = []
+            for client in activeclients:
+                failures = client.failures.get()
+                if len(failures) > 0:
+                    survivors.discard(client.minionaddr)
+                    groupids.extend(failures)
 
 class StatusUpdate(object):
     def __init__(self, load):
         self.load = load
 
 class Tallyman(object):
-    def __init__(self, rolloverCache, gabos):
+    def __init__(self, rolloverCache, metadata, gaboClients):
         self.rolloverCache = rolloverCache
-        self.gabos = gabos
+        self.metadata = metadata
+        self.gaboClients = gaboClients
 
     def result(self, query):
         if query in self.rolloverCache:
@@ -102,6 +104,8 @@ class Tallyman(object):
             return StatusUpdate(self.rolloverCache.load())
 
     def assign(self, executor):
+        # attach a more detailed Dataset to the query (same content, but with runtime details)
+        executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
         return self.rolloverCache.assign(executor)
 
     def oneLoadDone(self, query, groupid):
@@ -176,7 +180,7 @@ class TallymanServer(threading.Thread):
                 self.server.send(self.tallyman.result(message))
 
             elif isinstance(message, Assign):
-                self.server.send(self.tallyman.assign(NativeAccumulateExecutor.fromJson(message.executor)))
+                self.server.send(self.tallyman.assign(message.executor))
 
             elif isinstance(message, OneLoadDone):
                 self.server.send(self.tallyman.oneLoadDone(message.query, message.groupid))
@@ -212,7 +216,7 @@ class TallymanClient(Tallyman):
             assert False, "unexpected result: {0}".format(result)
 
     def assign(self, executor):
-        self.client.send(executor.toJson())
+        self.client.send(executor)
         result = self.client.recv()
         assert isinstance(result, Result), "unexpected response from assign: {0}".format(result)
 
@@ -245,14 +249,6 @@ class TallymanClient(Tallyman):
             return self.client.recv()
         else:
             return response
-
-
-########################################### TODO: temporary!
-
-
-
-
-
 
 ########################################### TODO: temporary!
 
