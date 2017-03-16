@@ -48,22 +48,22 @@ class GaboClient(threading.Thread):
             else:
                 self.failures.put([])
 
-class GaboClients(object):
-    def __init__(self, minionaddrs, tallymanaddr, tallymantimeout):
-        self.minionaddrs = minionaddrs
+class Foreman(threading.Thread):
+    def __init__(self, minionaddrs, minionTimeout, tallyman, tallymanaddr, tallymanTimeout):
+        self.tallyman = tallyman
         self.tallymanaddr = tallymanaddr
-        self.tallymantimeout = tallymantimeout
+        self.tallymanTimeout = tallymanTimeout
 
-        self.clients = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
+        self.clients = [GaboClient(minionaddr) for minionaddr in minionaddrs]
         for client in self.clients:
             client.start()
+        
+    def run(self):
+        HERE
 
-    def sendWork(self, executor):
-        for i, client in enumerate(self.clients):
-            if not client.isAlive():
-                self.clients[i] = GaboClient(client.minionaddr)
-                self.clients[i].start()
 
+
+    def assign(self, executor):
         offset = executor.query.id
         groupids = list(range(executor.query.numGroups))
         workers = self.minionaddrs
@@ -77,7 +77,7 @@ class GaboClients(object):
             for client in self.clients:
                 subset = assign(offset, groupids, executor.query.numGroups, client.minionaddr, workers, survivors)
                 if len(subset) > 0:
-                    subexec = execute.toCompute(subset, self.tallymanaddr, self.tallymantimeout)
+                    subexec = execute.toCompute(subset, self.tallymanaddr, self.tallymanTimeout)
                     client.incoming.put(subexec)
                     activeclients.append(client)
 
@@ -93,10 +93,10 @@ class StatusUpdate(object):
         self.load = load
 
 class Tallyman(object):
-    def __init__(self, rolloverCache, metadata, gaboClients):
+    def __init__(self, rolloverCache, metadata, foreman):
         self.rolloverCache = rolloverCache
         self.metadata = metadata
-        self.gaboClients = gaboClients
+        self.foreman = foreman
 
     def result(self, query):
         if query in self.rolloverCache:
@@ -254,12 +254,12 @@ class TallymanClient(Tallyman):
 
 # import sys
 
-# gaboClients = GaboClients(["tcp://localhost:5556"])
+# foreman = Foreman(["tcp://localhost:5556"])
 
 # for i in range(1000):
 #     print("submit {}!".format(i))
 #     try:
-#         gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+#         foreman.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
 #     except IOError:
 #         print("oops")
 
@@ -268,6 +268,6 @@ class TallymanClient(Tallyman):
 # for i in range(1000):
 #     print("submit {}!".format(i))
 #     try:
-#         gaboClients.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
+#         foreman.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
 #     except IOError:
 #         print("oops")

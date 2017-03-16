@@ -193,6 +193,8 @@ class RolloverCache(object):
         self.rolloverMemory()
         self.rolloverDisk()
 
+        return occupant
+
     def rolloverMemory(self):
         while psutil.virtual_memory().available < self.memoryMarginBytes:
             if len(self.order) > 0:

@@ -42,6 +42,16 @@ class GaboServer(threading.Thread):
 
     def run(self):
         while True:
+            executor = self.server.recv()
+            assert isinstance(executor, NativeComputeExecutor)
+
+            executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
+
+
+
+
+
+
             message = self.server.recv()
 
             if isinstance(message, CompiledQuery):
