@@ -172,13 +172,6 @@ class NativeExecutor(Executor):
     def __init__(self, query):
         super(NativeExecutor, self).__init__(query)
 
-    # def _copy(self):
-    #     # reference that which is read-only, but actually copy what is mutable
-    #     out = super(NativeExecutor, self)._copy()
-    #     out.__class__ = NativeExecutor
-    #     out.tmptypes = self.tmptypes
-    #     return out
-
     def toJson(self):
         out = super(NativeExecutor, self).toJson()
         out["tmptypes"] = dict((str(k), str(v)) for k, v in self.tmptypes.items())
@@ -231,12 +224,6 @@ class NativeAsyncExecutor(NativeExecutor):
             self.action = self.query.actions[-1]
             assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
             self.tally = self.action.initialize()
-
-    # def _copy(self):
-    #     # reference that which is read-only, but actually copy what is mutable
-    #     out = super(NativeAsyncExecutor, self)._copy()
-    #     out.__class__ = NativeAsyncExecutor
-    #     return out
 
     def futureargs(self):
         return (sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone),

@@ -402,15 +402,6 @@ class Executor(Serializable):
         self.order = DependencyGraph.order(loops, self.query.actions, self.required)
         self.compileLoops()
 
-    # def _copy(self):
-    #     # reference that which is read-only, but actually copy what is mutable
-    #     out = Executor.__new__(Executor)
-    #     out.query = self.query._copy()
-    #     out.required = self.required
-    #     out.temporaries = self.temporaries
-    #     out.order = self.order
-    #     return out
-
     def toJson(self):
         return {"query": self.query.toJson(),
                 "required": [str(x) for x in self.required],
