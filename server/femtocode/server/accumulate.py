@@ -26,120 +26,194 @@ from femtocode.server.assignment import *
 from femtocode.server.communication import *
 from femtocode.workflow import Query
 
+class SubmitStatus(object):
+    def __init__(self, minionaddr, success):
+        self.minionaddr = minionaddr
+        self.success = success
+
+class MinionDied(object):
+    def __init__(self, minionaddr):
+        self.minionaddr = minionaddr
+
+class QueryDone(object): pass
+
+class RunningQueries(object):      # a tallyman for each running query; has a lock to ensure synchronized access to the dictionary
+    def __init__(self):
+        self.tallymen = {}
+        self.lock = threading.Lock()
+
+    def get(self, query):
+        with self.lock:
+            return self.tallymen.get(query)
+
+    def load(self):
+        with self.lock:
+            return len(self.tallymen)
+
+    def startTallyman(self, tallyman):
+        with self.lock:
+            self.tallymen[tallyman.executor.query] = tallyman
+        tallyman.start()
+
+    def submitStatus(self, query, minionaddr, success):
+        with self.lock:
+            self.tallymen[query].events.put(SubmitStatus(minionaddr, success))
+
+    def minionDied(self, minionaddr):
+        with self.lock:
+            for tallyman in self.tallymen.values():
+                tallyman.events.put(MinionDied(minionaddr))
+
+    def queryDone(self, query):
+        with self.lock:
+            self.tallymen[query].events.put(QueryDone())
+            if query in self.tallymen:
+                del self.tallymen[query]
+
 class GaboClient(threading.Thread):
     listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
 
-    def __init__(self, minionaddr):
+    def __init__(self, minionaddr, runningQueries):
         super(GaboClient, self).__init__()
         self.minionaddr = minionaddr
+
         self.client = ZMQClient(self.minionaddr, self.listenThreshold)
         self.incoming = queue.Queue()
-        self.failures = queue.Queue()
+        self.runningQueries = runningQueries
         self.daemon = True
 
     def run(self):
         while True:
-            executor = self.incoming.get()
-            self.client.send(executor)
+            try:
+                subexec = self.incoming.get(timeout=self.listenThreshold)   (same timescale as self.client.timeout)
+                self.client.send(subexec)
 
-            if self.client.recv() is None:
-                self.client = ZMQClient(self.minionaddr, self.listenThreshold)
-                self.failures.put(executor.groupids)
-            else:
-                self.failures.put([])
+                # always return a SubmitStatus: success or failure
+                success = self.client.recv() is not None
+                self.runningQueries.submitStatus(subexec.query, self.minionaddr, success)
 
-class Foreman(threading.Thread):
-    def __init__(self, minionaddrs, minionTimeout, tallyman, tallymanaddr, tallymanTimeout):
-        self.tallyman = tallyman
-        self.tallymanaddr = tallymanaddr
-        self.tallymanTimeout = tallymanTimeout
+            except queue.Empty:
+                # no work to send; time for a heartbeat ping
+                self.client.send(True)
 
-        self.clients = [GaboClient(minionaddr) for minionaddr in minionaddrs]
-        for client in self.clients:
-            client.start()
-        
+                if self.client.recv() is None:
+                    # no response; this minion is dead
+                    self.runningQueries.put(MinionDied(self.minionaddr))
+
+class Tallyman(threading.Thread):                                  # watches and accumulates results for just one query
+    def __init__(self, gabos, executor, retaddr, rolloverCache):
+        super(Tallyman, self).__init__()
+        self.gabos = gabos
+        self.executor = executor
+        self.retaddr = retaddr
+        self.rolloverCache = rolloverCache
+
+        self.events = queue.Queue()
+        self.daemon = True
+
+    def assign(self, groupids):
+        if len(self.survivors) == 0:
+            raise IOError("cannot send query; no surviving workers")
+
+        activeclients = []
+        for gabo in self.gabos:
+            subset = assign(offset, groupids, executor.query.numGroups, gabo.minionaddr, self.minionaddrs, survivors)
+
+            if len(subset) > 0:
+                subexec = self.executor.toCompute(subset, self.retaddr)
+                self.assignment[gabo.minionaddr] = subset
+                gabo.incoming.put(subexec)
+                activeclients.append(gabo)
+
     def run(self):
-        HERE
+        self.offset = self.executor.query.id
+        self.survivors = set(gabo.minionaddr for gabo in self.gabos)   start each query optimistically
+        self.assignment = {}
 
+        # first assignment of work
+        self.assign(list(range(self.executor.query.numGroups)))
 
+        while True:
+            event = self.events.get()
 
-    def assign(self, executor):
-        offset = executor.query.id
-        groupids = list(range(executor.query.numGroups))
-        workers = self.minionaddrs
-        survivors = set(self.minionaddrs)   # start each query optimistically
+            if isinstance(event, SubmitStatus):
+                # every submission generates a SubmitStatus event; either success or failure
+                if not event.success:
+                    # mark this minion as dead
+                    self.survivors.discard(event.minionaddr)
+                    # reassign them
+                    self.assign(self.assignment.pop(event.minionaddr))
 
-        while len(groupids) > 0:
-            if len(survivors) == 0:
-                raise IOError("cannot send query; no surviving workers")
+            elif isinstance(event, MinionDied):
+                # same issue, but this happened later in the processing of the query (and therefore won't always raise an event)
+                self.survivors.discard(event.minionaddr)
+                self.assign(self.assignment.pop(event.minionaddr))
+                
+            elif isinstance(event, QueryDone):
+                break  # done!
 
-            activeclients = []
-            for client in self.clients:
-                subset = assign(offset, groupids, executor.query.numGroups, client.minionaddr, workers, survivors)
-                if len(subset) > 0:
-                    subexec = execute.toCompute(subset, self.tallymanaddr, self.tallymanTimeout)
-                    client.incoming.put(subexec)
-                    activeclients.append(client)
-
-            groupids = []
-            for client in activeclients:
-                failures = client.failures.get()
-                if len(failures) > 0:
-                    survivors.discard(client.minionaddr)
-                    groupids.extend(failures)
+        # done! put it in disk cache for future generations
+        if not isinstance(self.executor.result, ExecutionFailure):
+            self.rolloverCache.put(self.executor.query, self.executor.result)
 
 class StatusUpdate(object):
     def __init__(self, load):
         self.load = load
 
-class Tallyman(object):
-    def __init__(self, rolloverCache, metadata, foreman):
+class Foreman(object):
+    def __init__(self, retaddr, minionaddrs, rolloverCache):
+        self.retaddr = retaddr
+
+        self.gabos = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
+        for gabo in self.gabos:
+            gabo.start()
+
+        self.runningQueries = RunningQueries()
         self.rolloverCache = rolloverCache
-        self.metadata = metadata
-        self.foreman = foreman
 
     def result(self, query):
-        if query in self.rolloverCache:
-            return self.rolloverCache.result(query)
+        # maybe it's running; if so, give them that
+        tallyman = self.runningQueries.get(query)
+        if tallyman is not None:
+            return tallyman.executor.result
 
-        else:
-            return StatusUpdate(self.rolloverCache.load())
+        # maybe it's done and on disk; if so, give them that
+        result = self.rolloverCache.get(query)
+        if result is not None:
+            return result
+
+        # nope: just tell them our load
+        return StatusUpdate(self.runningQueries.load())
 
     def assign(self, executor):
-        return self.rolloverCache.assign(executor)
+        self.runningQueries.startTallyman(Tallyman(self.gabos, executor, self.retaddr, self.rolloverCache))
 
     def oneLoadDone(self, query, groupid):
-        occupant = self.rolloverCache.get(query)
-
-        if isinstance(occupant, SendWholeQuery):
-            return occupant
-
-        elif occupant.executor is not None:
-            occupant.executor.oneLoadDone(groupid)
-
-        return True
+        tallyman = self.runningQueries.get(query)
+        if tallyman is not None:
+            tallyman.executor.oneLoadDone(groupid)
+            return True
+        else:
+            return False
 
     def oneComputeDone(self, query, groupid, computeTime, subtally):
-        occupant = self.rolloverCache.get(query)
-
-        if isinstance(occupant, SendWholeQuery):
-            return occupant
-
-        elif occupant.executor is not None:
-            occupant.executor.oneComputeDone(groupid, computeTime, subtally)
-
-        return True
+        tallyman = self.runningQueries.get(query)
+        if tallyman is not None:
+            tallyman.executor.oneComputeDone(groupid, computeTime, subtally)
+            if tallyman.executor.result.done:
+                self.runningQueries.queryDone(query)
+            return True
+        else:
+            return False
 
     def oneFailure(self, query, failure):
-        occupant = self.rolloverCache.get(query)
-
-        if isinstance(occupant, SendWholeQuery):
-            return occupant
-
-        elif occupant.executor is not None:
-            occupant.executor.oneFailure(failure)
-
-        return True
+        tallyman = self.runningQueries.get(query)
+        if tallyman is not None:
+            tallyman.executor.oneFailure(failure)
+            self.runningQueries.queryDone(query)
+            return True
+        else:
+            return False
 
 class Assign(object):
     def __init__(self, executor):
@@ -162,9 +236,9 @@ class OneFailure(object):
         self.query = query
         self.failure = failure
 
-class TallymanServer(threading.Thread):
-    def __init__(self, tallyman, bindaddr, timeout):
-        self.tallyman = tallyman
+class ForemanServer(threading.Thread):
+    def __init__(self, foreman, bindaddr, timeout):
+        self.foreman = foreman
         self.server = ZMQServer(bindaddr, timeout)
         self.daemon = True
 
@@ -173,44 +247,40 @@ class TallymanServer(threading.Thread):
             message = self.server.recv()
 
             if isinstance(message, (int, long)):
-                if message in self.tallyman.rolloverCache:
+                if message in self.foreman.rolloverCache:
                     self.server.send(SendWholeQuery(message))
 
             elif isinstance(message, Query):
-                self.server.send(self.tallyman.result(message))
+                self.server.send(self.foreman.result(message))
 
             elif isinstance(message, Assign):
-                self.server.send(self.tallyman.assign(message.executor))
+                self.server.send(self.foreman.assign(message.executor))
 
             elif isinstance(message, OneLoadDone):
-                self.server.send(self.tallyman.oneLoadDone(message.query, message.groupid))
+                self.server.send(self.foreman.oneLoadDone(message.query, message.groupid))
 
             elif isinstance(message, OneComputeDone):
-                self.server.send(self.tallyman.oneComputeDone(message.query, message.groupid, message.computeTime, message.subtally))
+                self.server.send(self.foreman.oneComputeDone(message.query, message.groupid, message.computeTime, message.subtally))
 
             elif isinstance(message, OneFailure):
-                self.server.send(self.tallyman.oneFailure(message.query, message.failure))
+                self.server.send(self.foreman.oneFailure(message.query, message.failure))
 
             else:
                 self.server.send(None)
 
-class TallymanClient(Tallyman):
+class ForemanClient(Foreman):
     def __init__(self, connaddr, timeout):
         self.client = ZMQClient(connaddr, timeout)
 
     def result(self, query):
-        self.client.send(query.id)
+        self.client.send(query)
         result = self.client.recv()
 
-        if isinstance(result, SendWholeQuery):
-            self.client.send(query)
-            return self.client.recv()
-
-        elif isinstance(result, (Result, StatusUpdate)):
+        if isinstance(result, (Result, StatusUpdate)):
             return result
 
         elif result is None:
-            return result      # timeout; dispatch will ignore this tallyman
+            return result      # timeout; dispatch will ignore this foreman
 
         else:
             assert False, "unexpected result: {0}".format(result)
@@ -221,34 +291,16 @@ class TallymanClient(Tallyman):
         assert isinstance(result, Result), "unexpected response from assign: {0}".format(result)
 
     def oneLoadDone(self, query, groupid):
-        self.client.send(OneLoadDone(query.id, groupid))
-        response = self.client.recv()
-
-        if isinstance(response, SendWholeQuery):
-            self.client.send(OneLoadDone(query, groupid))
-            return self.client.recv()
-        else:
-            return response
+        self.client.send(OneLoadDone(query, groupid))
+        return self.client.recv()
 
     def oneComputeDone(self, query, groupid, computeTime, subtally):
-        self.client.send(OneComputeDone(query.id, groupid, computeTime, subtally))
-        response = self.client.recv()
-
-        if isinstance(response, SendWholeQuery):
-            self.client.send(OneComputeDone(query, groupid, computeTime, subtally))
-            return self.client.recv()
-        else:
-            return response
+        self.client.send(OneComputeDone(query, groupid, computeTime, subtally))
+        return self.client.recv()
 
     def oneFailure(self, query, failure):
-        self.client.send(OneFailure(query.id, failure))
-        response = self.client.recv()
-
-        if isinstance(response, SendWholeQuery):
-            self.client.send(OneFailure(query, failure))
-            return self.client.recv()
-        else:
-            return response
+        self.client.send(OneFailure(query, failure))
+        return self.client.recv()
 
 ########################################### TODO: temporary!
 

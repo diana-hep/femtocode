@@ -101,7 +101,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.result = Result.fromJson(self.action)
         return out
 
-    def toCompute(self, groupids, conaddr, timeout):
+    def toCompute(self, groupids, conaddr):
         out = NativeComputeExecutor.__new__(NativeComputeExecutor)
         out.query = self.query
         out.required = self.required
@@ -110,7 +110,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.tmptypes = self.tmptypes
 
         out.groupids = groupids
-        out.client = TallymanClient(connaddr, timeout)
+        out.client = TallymanClient(connaddr, NativeComputeExecutor.listenThreshold)
 
         return out
         
@@ -148,10 +148,12 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.query.cancelled = True
 
 class NativeComputeExecutor(NativeExecutor):
-    def __init__(self, query, groupids, connaddr, timeout):
+    listenThreshold = 0.030     # 30 ms      no response from tallyman; reset ZMQClient recv/send state
+
+    def __init__(self, query, groupids, connaddr):
         super(NativeComputeExecutor, self).__init__(query)
         self.groupids = groupids
-        self.client = TallymanClient(connaddr, timeout)
+        self.client = TallymanClient(connaddr, self.listenThreshold)
 
     # def _copy(self):
     #     # reference that which is read-only, but actually copy what is mutable
