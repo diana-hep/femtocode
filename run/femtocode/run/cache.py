@@ -29,6 +29,7 @@ from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.util import *
 from femtocode.run.execution import *
+from femtocode.run.compute import *
 
 class DataAddress(object):
     def __init__(self, dataset, column, group):
@@ -44,51 +45,6 @@ class DataAddress(object):
 
     def __hash__(self):
         return hash(("DataAddress", self.dataset, self.column, self.group))
-
-class WorkItem(object):
-    def __init__(self, executor, group):
-        self.executor = executor
-        self.group = group
-        self.occupants = []
-
-    def __repr__(self):
-        return "<WorkItem for query {0}, group {1} at 0x{2:012x}>".format(self.executor.query.id, self.group.id, id(self))
-
-    def required(self):
-        return [DataAddress(self.executor.query.dataset.name, column, self.group.id) for column in self.executor.required]
-
-    def columnBytes(self, column):
-        if isinstance(column, string_types):
-            column = ColumnName.parse(column)
-
-        if column.issize():
-            return self.group.numEvents * numpy.dtype(sizeType).itemsize
-        else:
-            return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
-
-    def columnDtype(self, column):
-        return numpy.dtype(self.executor.query.dataset.columns[column].dataType)
-
-    def attachOccupant(self, occupant):
-        self.occupants.append(occupant)
-
-    def ready(self):
-        assert len(self.occupants) != 0
-        return all(occupant.ready() for occupant in self.occupants)
-
-    def decrementNeed(self):
-        assert len(self.occupants) != 0
-        for occupant in self.occupants:
-            occupant.decrementNeed()
-
-    def run(self):
-        inarrays = dict((x.address.column, x.array()) for x in self.occupants)
-        return self.executor.run(inarrays, self.group)
-
-    def decrementNeed(self):
-        assert len(self.occupants) != 0
-        for occupant in self.occupants:
-            occupant.decrementNeed()
 
 class CacheOccupant(object):
     untyped = numpy.uint8
@@ -295,58 +251,6 @@ class NeedWantCache(object):
 
         else:
             return None
-
-class Minion(threading.Thread):
-    def __init__(self, minionIncoming, minionOutgoing):
-        super(Minion, self).__init__()
-        self.incoming = minionIncoming
-        self.outgoing = minionOutgoing
-        self.daemon = True
-
-    def __repr__(self):
-        return "<Minion at 0x{0:012x}>".format(id(self))
-
-    def run(self):
-        while True:
-            workItem = self.incoming.get()
-
-            # don't process cancelled queries
-            if workItem.executor.query.cancelled:
-                workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
-            with workItem.executor.lock:
-                cancelled = workItem.executor.query.cancelled
-            if cancelled: continue
-
-            try:
-                # actually do the work; ideally 99.999% of the time spent in this whole project
-                # should be in that second line
-                startTime = time.time()
-                subtally = workItem.run()
-                endTime = time.time()
-
-            except Exception as exception:
-                failure = ExecutionFailure(exception, sys.exc_info()[2])
-
-                # for the cache
-                workItem.decrementNeed()
-
-                # for the output (server mode)
-                if self.outgoing is not None:
-                    self.outgoing.put(failure)
-
-                # for the FutureQueryResult (standalone mode)
-                workItem.executor.oneFailure(failure)
-
-            else:
-                # for the cache
-                workItem.decrementNeed()
-
-                # for the output (server mode)
-                if self.outgoing is not None:
-                    self.outgoing.put(Result(subtally, workItem.executor))
-
-                # for the FutureQueryResult (standalone mode)
-                workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, subtally)
 
 class CacheMaster(threading.Thread):
     loopdelay = 0.001           # 1 ms       pause time at the end of the loop
