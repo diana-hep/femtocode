@@ -331,7 +331,7 @@ class Call(Statement):
         return hash(("statementlist.Call", self.column, self.schema, self.tosize, self.fcnname, self.args))
 
     def columnNames(self):
-        return [self.column] + self.args + [] if self.tosize is None else [self.tosize]
+        return [self.column] + list(self.args) + [] if self.tosize is None else [self.tosize]
 
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):

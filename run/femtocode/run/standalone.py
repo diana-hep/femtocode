@@ -21,7 +21,9 @@ except ImportError:
     import queue
 
 from femtocode.dataset import MetadataFromJson
+from femtocode.execution import ExecutionFailure
 from femtocode.numpyio.dataset import NumpyDataset
+from femtocode.py23 import *
 from femtocode.run.cache import *
 from femtocode.run.execution import *
 from femtocode.util import *
@@ -107,9 +109,12 @@ class StandaloneSession(object):
         self.cacheMaster.start()
 
     def source(self, name):
-        return Source(self, self.metadata.dataset(name))
+        return Source(self, self.metadata.dataset(name).strip())
 
     def submit(self, query, ondone=None, onupdate=None):
+        # attach a more detailed Dataset to the query (same content, but with runtime hints)
+        query.dataset = self.metadata.dataset(query.dataset.name, list(xrange(query.dataset.numGroups)), query.statements.columnNames(), False)
+
         # create an executor with a reference to the FutureQueryResult we will return to the user
         executor = NativeAsyncExecutor(query, FutureQueryResult(query, ondone, onupdate))
 
@@ -121,12 +126,13 @@ class StandaloneSession(object):
 
 ########################################### TODO: temporary!
 
-# session = StandaloneSession()
-# session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
+session = StandaloneSession()
+session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
-# def callback(outputdataset):
-#     print outputdataset, len(list(outputdataset))
+def callback(outputdataset):
+    print outputdataset, len(list(outputdataset))
 
-# result = session.source("xy").toPython("Test", a = "x + y").submit()
+result = session.source("xy").toPython("Test", a = "x + y").submit()
 
-# print result.await()
+for event in result.await():
+    print event

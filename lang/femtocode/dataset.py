@@ -250,8 +250,9 @@ class Dataset(Metadata):
         self.numEntries = numEntries
         self.numGroups = numGroups
 
-    def strip(self, columns=()):
-        return self.__class__(self.name, {}, dict((k, v) for k, v in self.columns if k in columns), [], self.numEntries, self.numGroups)
+    def strip(self):
+        # remove class specialization and per-group information (femtocode-run or femtocode-server will reconstruct it by name from the metadata database)
+        return Dataset(self.name, self.schema, self.columns, [], self.numEntries, self.numGroups)
 
     def __repr__(self):
         return "<{0} name={1} numEntries={2} numGroups={3} at 0x{4:012x}>".format(self.__class__.__name__, self.name, self.numEntries, self.numGroups, id(self))
