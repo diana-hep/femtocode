@@ -95,8 +95,10 @@ class TestColumn(Column):
 class TestDataset(Dataset):
     def __init__(self, name, schema, columns, groups, numEntries, numGroups):
         super(TestDataset, self).__init__(name, schema, columns, groups, numEntries, numGroups)
+        self._settypes()
 
-        self.types = {None: namedtuple(name, sorted(self.schema))}
+    def _settypes(self):
+        self.types = {None: namedtuple(self.name, sorted(self.schema))}
         def gettypes(n, t):
             if isinstance(t, Collection):
                 gettypes(n.coll(), t.items)
@@ -121,6 +123,13 @@ class TestDataset(Dataset):
             [TestGroup.fromJson(x) for x in dataset["groups"]],
             dataset["numEntries"],
             dataset["numGroups"])
+
+    def __getstate__(self):
+        return self.name, self.schema, self.columns, self.groups, self.numEntries, self.numGroups
+
+    def __setstate__(self, state):
+        self.name, self.schema, self.columns, self.groups, self.numEntries, self.numGroups = state
+        self._settypes()
 
     def __eq__(self, other):
         return other.__class__ == TestDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups

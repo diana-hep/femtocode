@@ -17,6 +17,7 @@
 import ctypes
 import threading
 import time
+import base64
 
 import llvmlite.binding
 import numba
