@@ -56,32 +56,37 @@ class ZMQServer(object):
         self.socket.bind(self.bindaddr)
 
     def send(self, message):
-        self.socket.send_pyobj(message)
+        self.socket.send(serialize(message, self.protocol))
 
     def recv(self):
-        return self.socket.recv_pyobj()
+        return deserialize(self.socket.recv())
 
 class ZMQClient(object):
     def __init__(self, connaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):
         self.connaddr = connaddr
         self.timeout = timeout
         self.protocol = protocol
-        self.reboot()
 
-    def reboot(self):
+        self.start()
+
+    def start(self):
         self.socket = context.socket(zmq.REQ)
         self.socket.connect(self.connaddr)
         if self.timeout is not None:
             self.socket.RCVTIMEO = roundup(self.timeout * 1000)
+            # self.socket.REQ_RELAXED = 1
+            # self.socket.REQ_CORRELATE = 1
 
     def send(self, message):
-        self.socket.send_pyobj(message)
+        self.socket.send(serialize(message, self.protocol))
 
     def recv(self):
         try:
-            return self.socket.recv_pyobj()
+            return deserialize(self.socket.recv())
         except zmq.Again:
-            self.reboot()
+            self.socket.disconnect(self.connaddr)
+            self.socket.close()
+            self.start()
             return None
 
 class ZMQBroadcast(object):

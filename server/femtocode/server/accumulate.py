@@ -95,11 +95,18 @@ class GaboClient(threading.Thread):
 
             except queue.Empty:
                 # no work to send; time for a heartbeat ping
+                print "send heartbeat"
                 self.client.send(True)
+                print "sent"
 
                 if self.client.recv() is None:
+                    print "no response!"
+
                     # no response; this minion is dead
                     self.runningQueries.minionDied(self.minionaddr)
+
+                else:
+                    print "yes response"
 
 class Tallyman(threading.Thread):                                  # watches and accumulates results for just one query
     def __init__(self, gabos, executor, retaddr, rolloverCache):

@@ -24,32 +24,37 @@ try:
 except:
     import pickle
 
+class GarbageCollector(threading.Thread):
+    def __init__(self, rolloverCache, partitionMarginBytes, gcTime):
+        super(GarbageCollector, self).__init__()
+        self.rolloverCache = rolloverCache
+        self.partitionMarginBytes = partitionMarginBytes
+        self.gcTime = gcTime
+        self.daemon = True
+
+    def run(self):
+        while True:
+            while os.statvfs(self.rolloverCache.directory).f_bavail * os.statvfs(self.rolloverCache.directory).f_frsize < self.partitionMarginBytes:
+                rollovers = self.rolloverCache.rollovers(time.time())
+                for dirpath, dirnames, filnames in os.walk(rollovers[-1], topdown=False):
+                    for name in filenames:
+                        with self.rolloverCache.lock:
+                            os.remove(os.path.join(dirpath, name))
+                    for name in dirnames:
+                        with self.rolloverCache.lock:
+                            os.rmdir(os.path.join(dirpath, name))
+            time.sleep(self.gcTime)
+        
 class RolloverCache(object):
     def __init__(self, directory, partitionMarginBytes, rolloverTime, gcTime, idchars):
         self.directory = directory
-        self.partitionMarginBytes = partitionMarginBytes
         self.rolloverTime = rolloverTime
         self.idchars = idchars
 
         assert os.path.exists(self.directory) and os.path.isdir(self.directory)
 
-        self.lock = threading.Lock
-
-        def gc():
-            while True:
-                while os.statvfs(self.directory).f_bavail * os.statvfs(self.directory).f_frsize < self.partitionMarginBytes:
-                    rollovers = self.rollovers(time.time())
-                    for dirpath, dirnames, filnames in os.walk(rollovers[-1], topdown=False):
-                        for name in filenames:
-                            with self.lock:
-                                os.remove(os.path.join(dirpath, name))
-                        for name in dirnames:
-                            with self.lock:
-                                os.rmdir(os.path.join(dirpath, name))
-                time.sleep(gcTime)
-
-        self.gcThread = threading.Thread(target=gc, name="RolloverCache-GarbageCollector")
-        self.gcThread.daemon = True
+        self.lock = threading.Lock()
+        self.gcThread = GarbageCollector(self, partitionMarginBytes, gcTime)
         self.gcThread.start()
         
     def partialdir(self, when):
