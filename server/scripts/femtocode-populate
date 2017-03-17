@@ -16,10 +16,14 @@
 
 import argparse
 
+class Formatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        return "\n".join(textwrap.fill(x, width) for x in text.splitlines())
+
 if __name__ == "__main__":
     argumentParser = argparse.ArgumentParser(description="""The femtocode-populate tool fills a database or file with a properly-formatted Dataset (JSON) from a user-written Description (YAML).
 
 The format of the YAML Description and JSON Dataset depends on the type of backend (e.g. numpyio or rootio). The destination file or database is also configurable.
 
 The process of building a Dataset from a Description involves an examination of the data files to check for conformance with the stated schema and may be time-consuming. It is undertaken by the femtocode-server maintainer, not ordinary users.
-""")
+""", formatter_class=Formatter)

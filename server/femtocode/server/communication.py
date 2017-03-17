@@ -38,7 +38,7 @@ from femtocode.util import *
 
 #################################################################### ZeroMQ (for internal communication)
 
-# global
+# The ONLY global variable in this entire project!
 context = zmq.Context()
 
 def serialize(message, protocol=pickle.HIGHEST_PROTOCOL):

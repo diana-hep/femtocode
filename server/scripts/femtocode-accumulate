@@ -16,10 +16,15 @@
 
 import argparse
 
+class Formatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        return "\n".join(textwrap.fill(x, width) for x in text.splitlines())
+
 if __name__ == "__main__":
     argumentParser = argparse.ArgumentParser(description="""A femtocode-accumulate process aggregates subtallies from femtocode-compute processes and responds to requests from femtocode-dispatch with the current partial result (if still running) or the final result (if remembered).
 
 A femtocode-accumulate process has the following responsibilities:
+
    - "Owns" a collection of queries, assigns parts of their work to femtocode-compute processes, and reassigns them if femtocode-compute processes disappear.
    - Runs code (compiled by femtocode-dispatch) to combine subtallies into the final result.
    - Maintains a disk-based cache of old final results.
@@ -28,6 +33,6 @@ Femtocode-accumulate processes are STATEFUL: they keep a query and its executor 
 
 Communication with femtocode-dispatch and femtocode-compute is ZeroMQ.
 
-We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
+We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.
 
-    
+A femtocode-accumulate process must be given a SUPERSET of femtocode-compute server:ports. It can recover from missing femtocode-computes, but it cannot discover new ones.""", formatter_class=Formatter)

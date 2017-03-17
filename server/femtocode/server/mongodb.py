@@ -82,29 +82,6 @@ class MetadataFromMongoDB(object):
 
         return self._cache[key]
 
-class MetadataAPIServer(HTTPServer):
-    def __init__(self, metadb, bindaddr="", bindport=8080):
-        self.metadb = metadb
-        self.bindaddr = bindaddr
-        self.bindport = bindport
-
-    def __call__(self, environ, start_response):
-        try:
-            obj = self.getjson(environ)
-            name = obj["name"]
-            assert isinstance(name, string_types)
-
-        except:
-            return self.senderror("400 Bad Request", start_response)
-
-        else:
-            try:
-                dataset = self.metadb.dataset(name, (), None, True)
-            except:
-                return self.senderror("500 Internal Server Error", start_response)
-            else:
-                return self.sendjson(dataset.toJson(), start_response)
-
 def populateMongo(dataset, mongourl, database, collection):
     client = MongoClient(mongourl)
     client[database][collection].insert_one(dataset.toJson())

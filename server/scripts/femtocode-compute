@@ -16,10 +16,15 @@
 
 import argparse
 
+class Formatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        return "\n".join(textwrap.fill(x, width) for x in text.splitlines())
+
 if __name__ == "__main__":
     argumentParser = argparse.ArgumentParser(description="""A femtocode-compute process does the heavy computation, acquiring and maintaining whatever data and metadata is necessary to get the work done.
 
 A femtocode-compute process has the following responsibilities:
+
    - Communicates with a data storage backend through a generic API (satisfied by numpyio and rootio).
    - Fetches metadata with per-group information for that backend to fetch stripes.
    - Maintains a cache of data segments and fetches data if not already in cache.
@@ -31,4 +36,6 @@ Femtocode-compute processes are STATEFUL: they keep a queue of work to be done w
 
 Communication with femtocode-compute is ZeroMQ. Metadata may be file-based or a database.
 
-We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
+We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.
+
+A femtocode-compute process does not need to be given the server:ports of any femtocode-accumulate processes.""", formatter_class=Formatter)

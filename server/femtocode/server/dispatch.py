@@ -23,12 +23,35 @@ except ImportError:
     from urllib.error import HTTPError
 
 from femtocode.py23 import *
-from femtocode.server.metadata import MetadataAPIServer
 from femtocode.server.communication import *
 from femtocode.workflow import Query
 
+# the fact that MetadataAPIServer can be an independent process has never been exercised; just called directly by DispatchAPIServer
+class MetadataAPIServer(HTTPServer):
+    def __init__(self, metadb, bindaddr, bindport):
+        self.metadb = metadb
+        self.bindaddr = bindaddr
+        self.bindport = bindport
+
+    def __call__(self, environ, start_response):
+        try:
+            obj = self.getjson(environ)
+            name = obj["name"]
+            assert isinstance(name, string_types)
+
+        except:
+            return self.senderror("400 Bad Request", start_response)
+
+        else:
+            try:
+                dataset = self.metadb.dataset(name, (), None, True)
+            except:
+                return self.senderror("500 Internal Server Error", start_response)
+            else:
+                return self.sendjson(dataset.toJson(), start_response)
+
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, metadb, accumulates, bindaddr="", bindport=8080):
+    def __init__(self, metadb, accumulates, bindaddr, bindport, timeout):
         self.metadb = metadb
         self.accumulates = accumulates
         self.bindaddr = bindaddr
@@ -49,7 +72,7 @@ class DispatchAPIServer(HTTPServer):
                     return self.metadb(environ, start_response)
 
                 else:
-                    assert isinstance(self.metadb, string_types) or isinstance(self.metadb, MetadataAPIServer), "self.metadb improperly configured")
+                    assert False, "self.metadb improperly configured"
 
             elif path == "submit":
                 query = Query.fromJson(self.getjson(environ))

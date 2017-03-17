@@ -15,31 +15,83 @@
 # limitations under the License.
 
 import argparse
+import os.path
+import textwrap
+try:
+    from urllib2 import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 from femtocode.dataset import MetadataFromJson
+from femtocode.server.mongodb import MetadataFromMongoDB
+from femtocode.server.dispatch import DispatchAPIServer
+from femtocode.server.dispatch import MetadataAPIServer
+
+class Formatter(argparse.HelpFormatter):
+    def _fill_text(self, text, width, indent):
+        return "\n".join(textwrap.fill(x, width) for x in text.splitlines())
 
 if __name__ == "__main__":
     argumentParser = argparse.ArgumentParser(description="""A femtocode-dispatch process acts as a front-end to clients, hiding the complexity of the server architecture from users.
 
 A femtocode-dispatch process has the following responsibilities:
-   - Redirects user requests for metadata to the appropriate source, through a generic API (satisfied by MetadataFromJson and MetadataFromMongoDB).
+
+   - Redirects user requests for metadata to the appropriate source.
    - Accepts queries as Femtocode-compiled lists of statements.
    - Checks all femtocode-accumulate processes to see if one "owns" the query.
-      - If so, it forwards the femtocode-accumulate's response back to the user.
-      - If not, it byte-compiles the query and assigns it to the femtocode-accumulate with the least load.
+      - If so, forwards the femtocode-accumulate's response back to the user.
+      - If not, byte-compiles the query and assigns it to the femtocode-accumulate with the least load.
 
 Femtocode-dispatch processes are STATELESS; they may be restarted with impunity and put behind a naive load-balancer.
 
 The user-facing server is HTTP; communication with femtocode-accumulate is ZeroMQ. Metadata may be file-based or a database.
 
-We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
+We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.
 
+A femtocode-dispatch process must be given a SUPERSET of femtocode-accumulate server:ports. It can recover from missing femtocode-accumulates, but it cannot discover new ones.""", formatter_class=Formatter)
 
+    argumentParser.add_argument("metadata", help="""directory path for file-based metadata, URL for remote (e.g. mongodb://site:port/;db;collection)""")
+    argumentParser.add_argument("accumulates", nargs="+", help="""ZeroMQ URLs (e.g. server:port) for at least one accumulate process""")
+    argumentParser.add_argument("--bind", default="", help="""address pattern from which to accept incoming HTTP requests (default: accept requests from anywhere)""")
+    argumentParser.add_argument("--port", default=80, type=int, help="""port on which to accept incoming HTTP requests (default: 80)""")
+    argumentParser.add_argument("--timeout", default=0.5, type=float, help="""number of seconds to wait before calling an accumulate process "dead" (default: 0.5 sec)""")
 
+    args = argumentParser.parse_args()
 
+    metadataurl = urlparse.urlparse(args.metadata)
 
-# m = DispatchAPIServer(MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests")))
-# m.start()
+    if metadataurl.scheme == "file" or (metadataurl.scheme == "" and metadataurl.netloc == ""):
+        if metadataurl.netloc is not "":
+            path = os.path.join(os.sep, metadataurl.netloc, *metadataurl.path.split("/"))
 
-# m = DispatchAPIServer("http://localhost:8081", timeout=1.0)
-# m.start()
+        elif metadataurl.path.startswith("/"):
+            path = os.path.join(os.sep, *metadataurl.path.split("/"))
+
+        else:
+            path = os.path.join(*metadataurl.path.split("/"))
+
+        metadb = MetadataAPIServer(MetadataFromJson(path), None, None)
+
+    elif metadataurl.scheme == "mongodb":
+        url = urlparse.urlunparse(urlparse.ParseResult(metadataurl.scheme, metadataurl.netloc, metadataurl.path, "", "", ""))
+        database = "test"
+        collection = "datasets"
+        for i, param in enumerate(metadataurl.params.split(";")):
+            if i == 0:
+                database = param
+            elif i == 1:
+                collection = param
+
+        metadb = MetadataAPIServer(MetadataFromMongoDB(url, database, collection, args.timeout), None, None)
+
+    else:
+        raise NotImplementedError("Only MetadataFromJson and MetadataFromMongoDB implemented so far.")
+
+    accumulates = []
+    for accumulate in args.accumulates:
+        accumulateurl = urlparse.urlparse(accumulate)
+        if accumulateurl.scheme == "tcp" or accumulateurl.scheme == "":
+            accumulates.append(urlparse.urlunparse(urlparse.ParseResult("tcp" if accumulateurl.scheme == "" else accumulateurl.scheme, accumulateurl.netloc, accumulateurl.path, accumulateurl.params, accumulateurl.query, accumulateurl.fragment)))
+
+    server = DispatchAPIServer(metadb, accumulates, args.bind, args.port, args.timeout)
+    server.start()
