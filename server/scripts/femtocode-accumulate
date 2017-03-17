@@ -1,0 +1,33 @@
+#!/usr/bin/env python
+
+# Copyright 2016 DIANA-HEP
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+
+if __name__ == "__main__":
+    argumentParser = argparse.ArgumentParser(description="""A femtocode-accumulate process aggregates subtallies from femtocode-compute processes and responds to requests from femtocode-dispatch with the current partial result (if still running) or the final result (if remembered).
+
+A femtocode-accumulate process has the following responsibilities:
+   - "Owns" a collection of queries, assigns parts of their work to femtocode-compute processes, and reassigns them if femtocode-compute processes disappear.
+   - Runs code (compiled by femtocode-dispatch) to combine subtallies into the final result.
+   - Maintains a disk-based cache of old final results.
+
+Femtocode-accumulate processes are STATEFUL: they keep a query and its executor in memory while the work is in progress and keep a disk cache of old results. Restarting a femtocode-accumulate process effectively cancels its ongoing queries, but a new process can reuse the old one's disk-based cache. Losing a disk simply forces the old queries to be recomputed.
+
+Communication with femtocode-dispatch and femtocode-compute is ZeroMQ.
+
+We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
+
+    

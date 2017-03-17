@@ -1,0 +1,33 @@
+#!/usr/bin/env python
+
+# Copyright 2016 DIANA-HEP
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+
+if __name__ == "__main__":
+    argumentParser = argparse.ArgumentParser(description="""A femtocode-dispatch process acts as a front-end to clients, hiding the complexity of the server architecture from users.
+
+A femtocode-dispatch process has the following responsibilities:
+   - Redirects user requests for metadata to the appropriate source, through a generic API (satisfied by MetadataFromJson and MetadataFromMongoDB).
+   - Accepts queries as Femtocode-compiled lists of statements.
+   - Checks all femtocode-accumulate processes to see if one "owns" the query.
+      - If so, it forwards the femtocode-accumulate's response back to the user.
+      - If not, it byte-compiles the query and assigns it to the femtocode-accumulate with the least load.
+
+Femtocode-dispatch processes are STATELESS; they may be restarted with impunity and put behind a naive load-balancer.
+
+The user-facing server is HTTP; communication with femtocode-accumulate is ZeroMQ. Metadata may be file-based or a database.
+
+We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
