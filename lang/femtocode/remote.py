@@ -31,6 +31,8 @@ from femtocode.execution import ExecutionFailure
 from femtocode.util import *
 
 class FutureQueryResult(object):
+    number = 0
+
     class PollForUpdates(threading.Thread):
         def __init__(self, future, ondone, onupdate, url, minpolldelay, maxpolldelay):
             super(FutureQueryResult.PollForUpdates, self).__init__()
@@ -44,6 +46,8 @@ class FutureQueryResult(object):
             self.action = future.query.actions[-1]
             assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
 
+            FutureQueryResult.number += 1
+            self.name = "<Dataset \"{0}\" Query {1}>".format(self.future.query.dataset.name, FutureQueryResult.number)
             self.daemon = False   # why this is a thread: don't let Python exit until the callback is done!
 
         def update(self):
@@ -51,7 +55,7 @@ class FutureQueryResult(object):
                 obj = urlopen(self.url, self.future.query.toJsonString()).read()
 
             except HTTPError as err:
-                out = "Remote server raised {0}\n\n----%<-----------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
+                out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
                 raise IOError(out)
 
             else:

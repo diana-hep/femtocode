@@ -52,7 +52,9 @@ class ZMQServer(object):
         self.bindaddr = bindaddr
         self.timeout = timeout     # in seconds
         self.protocol = protocol
+        self.reboot()
 
+    def reboot(self):
         self.socket = context.socket(zmq.REP)
         self.socket.bind(self.bindaddr)
         if self.timeout is not None:
@@ -65,6 +67,7 @@ class ZMQServer(object):
         try:
             return self.socket.recv_pyobj()
         except zmq.Again:
+            self.reboot()
             return None
 
 class ZMQClient(object):
@@ -72,10 +75,12 @@ class ZMQClient(object):
         self.connaddr = connaddr
         self.timeout = timeout
         self.protocol = protocol
+        self.reboot()
 
+    def reboot(self):
         self.socket = context.socket(zmq.REQ)
         self.socket.connect(self.connaddr)
-        if timeout is not None:
+        if self.timeout is not None:
             self.socket.RCVTIMEO = roundup(self.timeout * 1000)
 
     def send(self, message):
@@ -85,6 +90,7 @@ class ZMQClient(object):
         try:
             return self.socket.recv_pyobj()
         except zmq.Again:
+            self.reboot()
             return None
 
 class ZMQBroadcast(object):

@@ -273,9 +273,6 @@ class ForemanClient(Foreman):
     def __init__(self, connaddr, timeout):
         self.client = ZMQClient(connaddr, timeout)
 
-    def reboot(self):
-        self.client = ZMQClient(self.client.connaddr, self.client.timeout)
-
     def result(self, query):
         self.client.send(query)
         result = self.client.recv()
@@ -284,7 +281,6 @@ class ForemanClient(Foreman):
             return result
 
         elif result is None:
-            self.reboot()
             return result      # timeout; dispatch will ignore this foreman
 
         else:
