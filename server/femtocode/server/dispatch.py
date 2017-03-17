@@ -105,7 +105,9 @@ class DispatchAPIServer(HTTPServer):
                 assert len(statusUpdates) != 0, "all accumulate servers are unresponsive"
                 bestChoice = min(statusUpdates, key=lambda x: x.load)
 
+                # TODO: should this compilation be on another thread? to respond to the user without waiting for compilation?
                 result = bestChoice.accumulate.assign(NativeAccumulateExecutor(query))
+
                 return self.sendjson(result.toJson(), start_response)
 
             else:

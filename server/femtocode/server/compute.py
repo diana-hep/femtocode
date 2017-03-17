@@ -40,11 +40,9 @@ class CacheMasterWithMetadata(CacheMaster):
         return executor
 
 class GaboServer(threading.Thread):
-    listenThreshold = 0.030     # 30 ms      no response from accumulate; reset ZMQClient recv/send state
-
     def __init__(self, bindaddr, cacheMaster):
         super(GaboServer, self).__init__()
-        self.server = ZMQServer(bindaddr, self.listenThreshold)
+        self.server = ZMQServer(bindaddr)
         self.cacheMaster = cacheMaster
         self.daemon = True
 
@@ -52,12 +50,21 @@ class GaboServer(threading.Thread):
         while True:
             message = self.server.recv()
 
-            # new work to do: yay! (else just a heartbeat ping)
-            if isinstance(message, NativeComputeExecutor):
-                self.cacheMaster.incoming.put(message)
+            try:
+                # new work to do: yay! (else just a heartbeat ping)
+                if isinstance(message, NativeComputeExecutor):
+                    self.cacheMaster.incoming.put(message)
 
-            if message is not None:
-                self.server.send(True)
+                if message is None:
+                    response = None
+                else:
+                    response = True
+
+            except:
+                self.server.send(None)
+
+            else:
+                self.server.send(response)
 
 ########################################### TODO: temporary!
 

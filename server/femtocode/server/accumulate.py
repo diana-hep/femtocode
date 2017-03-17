@@ -99,7 +99,7 @@ class GaboClient(threading.Thread):
 
                 if self.client.recv() is None:
                     # no response; this minion is dead
-                    self.runningQueries.put(MinionDied(self.minionaddr))
+                    self.runningQueries.minionDied(self.minionaddr)
 
 class Tallyman(threading.Thread):                                  # watches and accumulates results for just one query
     def __init__(self, gabos, executor, retaddr, rolloverCache):
@@ -154,7 +154,7 @@ class Tallyman(threading.Thread):                                  # watches and
                 break  # done!
 
         # done! put it in disk cache for future generations
-        if not isinstance(self.executor.result, ExecutionFailure):
+        if self.rolloverCache is not None and not isinstance(self.executor.result, ExecutionFailure):
             self.rolloverCache.put(self.executor.query, self.executor.result)
 
 class StatusUpdate(object):
@@ -165,12 +165,12 @@ class Foreman(object):
     def __init__(self, retaddr, minionaddrs, rolloverCache):
         self.retaddr = retaddr
 
-        self.gabos = [GaboClient(minionaddr) for minionaddr in self.minionaddrs]
-        for gabo in self.gabos:
-            gabo.start()
-
         self.runningQueries = RunningQueries()
         self.rolloverCache = rolloverCache
+
+        self.gabos = [GaboClient(minionaddr, self.runningQueries) for minionaddr in minionaddrs]
+        for gabo in self.gabos:
+            gabo.start()
 
     def result(self, query):
         # maybe it's running; if so, give them that
@@ -179,12 +179,16 @@ class Foreman(object):
             return tallyman.executor.result
 
         # maybe it's done and on disk; if so, give them that
-        result = self.rolloverCache.get(query)
+        if self.rolloverCache is None:
+            result = None
+        else:
+            result = self.rolloverCache.get(query)  # returns None if not found
+
         if result is not None:
             return result
-
-        # nope: just tell them our load
-        return StatusUpdate(self.runningQueries.load())
+        else:
+            # nope: just tell them our load
+            return StatusUpdate(self.runningQueries.load())
 
     def assign(self, executor):
         self.runningQueries.startTallyman(Tallyman(self.gabos, executor, self.retaddr, self.rolloverCache))
@@ -239,6 +243,7 @@ class OneFailure(object):
 
 class ForemanServer(threading.Thread):
     def __init__(self, foreman, bindaddr, timeout):
+        super(ForemanServer, self).__init__()
         self.foreman = foreman
         self.server = ZMQServer(bindaddr, timeout)
         self.daemon = True
@@ -247,27 +252,35 @@ class ForemanServer(threading.Thread):
         while True:
             message = self.server.recv()
 
-            if isinstance(message, (int, long)):
-                if message in self.foreman.rolloverCache:
-                    self.server.send(SendWholeQuery(message))
+            try:
+                if isinstance(message, (int, long)):
+                    if message in self.foreman.rolloverCache:
+                        response = SendWholeQuery(message)
 
-            elif isinstance(message, Query):
-                self.server.send(self.foreman.result(message))
+                elif isinstance(message, Query):
+                    response = self.foreman.result(message)
 
-            elif isinstance(message, Assign):
-                self.server.send(self.foreman.assign(message.executor))
+                elif isinstance(message, Assign):
+                    response = self.foreman.assign(message.executor)
 
-            elif isinstance(message, OneLoadDone):
-                self.server.send(self.foreman.oneLoadDone(message.query, message.groupid))
+                elif isinstance(message, OneLoadDone):
+                    response = self.foreman.oneLoadDone(message.query, message.groupid)
 
-            elif isinstance(message, OneComputeDone):
-                self.server.send(self.foreman.oneComputeDone(message.query, message.groupid, message.computeTime, message.subtally))
+                elif isinstance(message, OneComputeDone):
+                    response = self.foreman.oneComputeDone(message.query, message.groupid, message.computeTime, message.subtally)
 
-            elif isinstance(message, OneFailure):
-                self.server.send(self.foreman.oneFailure(message.query, message.failure))
+                elif isinstance(message, OneFailure):
+                    response = self.foreman.oneFailure(message.query, message.failure)
+
+                else:
+                    response = None
+                    
+            except:
+                self.server.send(None)
+                raise
 
             else:
-                self.server.send(None)
+                self.server.send(response)
 
 class ForemanClient(Foreman):
     def __init__(self, connaddr, timeout):

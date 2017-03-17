@@ -25,7 +25,7 @@ except:
     import pickle
 
 class RolloverCache(object):
-    def __init__(self, directory, partitionMarginBytes, rolloverTime=60*60, gcTime=60, idchars=4):
+    def __init__(self, directory, partitionMarginBytes, rolloverTime, gcTime, idchars):
         self.directory = directory
         self.partitionMarginBytes = partitionMarginBytes
         self.rolloverTime = rolloverTime
@@ -48,7 +48,7 @@ class RolloverCache(object):
                                 os.rmdir(os.path.join(dirpath, name))
                 time.sleep(gcTime)
 
-        self.gcThread = threading.Thread(gc)
+        self.gcThread = threading.Thread(target=gc, name="RolloverCache-GarbageCollector")
         self.gcThread.daemon = True
         self.gcThread.start()
         

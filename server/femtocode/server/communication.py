@@ -48,27 +48,18 @@ def deserialize(message):
     return pickle.loads(message)
 
 class ZMQServer(object):
-    def __init__(self, bindaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):
+    def __init__(self, bindaddr, protocol=pickle.HIGHEST_PROTOCOL):
         self.bindaddr = bindaddr
-        self.timeout = timeout     # in seconds
         self.protocol = protocol
-        self.reboot()
 
-    def reboot(self):
         self.socket = context.socket(zmq.REP)
         self.socket.bind(self.bindaddr)
-        if self.timeout is not None:
-            self.socket.RCVTIMEO = roundup(self.timeout * 1000)
 
     def send(self, message):
         self.socket.send_pyobj(message)
 
     def recv(self):
-        try:
-            return self.socket.recv_pyobj()
-        except zmq.Again:
-            self.reboot()
-            return None
+        return self.socket.recv_pyobj()
 
 class ZMQClient(object):
     def __init__(self, connaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):

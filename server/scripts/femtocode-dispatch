@@ -53,9 +53,9 @@ A femtocode-dispatch process must be given a SUPERSET of femtocode-accumulate se
 
     argumentParser.add_argument("metadata", help="""directory path for file-based metadata, URL for remote (e.g. mongodb://site:port/;db;collection)""")
     argumentParser.add_argument("accumulates", nargs="+", help="""ZeroMQ URLs (e.g. tcp://server:port) for at least one accumulate process""")
-    argumentParser.add_argument("--bind", default="", help="""address pattern from which to accept incoming HTTP requests (default: accept requests from anywhere)""")
-    argumentParser.add_argument("--port", default=80, type=int, help="""port on which to accept incoming HTTP requests (default: 80)""")
-    argumentParser.add_argument("--timeout", default=0.5, type=float, help="""number of seconds to wait before calling an accumulate process "dead" (default: 0.5 sec)""")
+    argumentParser.add_argument("--bind", metavar="ADDR", default="", help="""address pattern from which to accept incoming HTTP requests (default: accept requests from anywhere)""")
+    argumentParser.add_argument("--port", metavar="PORT", default=80, type=int, help="""port on which to accept incoming HTTP requests (default: 80)""")
+    argumentParser.add_argument("--timeout", metavar="SECS", default=0.5, type=float, help="""number of seconds to wait before calling an accumulate process "dead" (default: 0.5 sec)""")
 
     args = argumentParser.parse_args()
 
