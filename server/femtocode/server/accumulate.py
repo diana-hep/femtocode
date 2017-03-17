@@ -25,6 +25,7 @@ from femtocode.dataset import MetadataFromJson
 from femtocode.server.assignment import *
 from femtocode.server.communication import *
 from femtocode.workflow import Query
+from femtocode.server.execution import Result
 
 class SubmitStatus(object):
     def __init__(self, minionaddr, success):
@@ -85,7 +86,7 @@ class GaboClient(threading.Thread):
     def run(self):
         while True:
             try:
-                subexec = self.incoming.get(timeout=self.listenThreshold)   (same timescale as self.client.timeout)
+                subexec = self.incoming.get(timeout=self.listenThreshold)   # (same timescale as self.client.timeout)
                 self.client.send(subexec)
 
                 # always return a SubmitStatus: success or failure
@@ -126,8 +127,8 @@ class Tallyman(threading.Thread):                                  # watches and
                 activeclients.append(gabo)
 
     def run(self):
-        self.offset = self.executor.query.id
-        self.survivors = set(gabo.minionaddr for gabo in self.gabos)   start each query optimistically
+        self.offset = hash(self.executor.query)
+        self.survivors = set(gabo.minionaddr for gabo in self.gabos)   # start each query optimistically
         self.assignment = {}
 
         # first assignment of work
@@ -272,6 +273,9 @@ class ForemanClient(Foreman):
     def __init__(self, connaddr, timeout):
         self.client = ZMQClient(connaddr, timeout)
 
+    def reboot(self):
+        self.client = ZMQClient(self.client.connaddr, self.client.timeout)
+
     def result(self, query):
         self.client.send(query)
         result = self.client.recv()
@@ -280,6 +284,7 @@ class ForemanClient(Foreman):
             return result
 
         elif result is None:
+            self.reboot()
             return result      # timeout; dispatch will ignore this foreman
 
         else:
@@ -301,25 +306,3 @@ class ForemanClient(Foreman):
     def oneFailure(self, query, failure):
         self.client.send(OneFailure(query, failure))
         return self.client.recv()
-
-########################################### TODO: temporary!
-
-# import sys
-
-# foreman = Foreman(["tcp://localhost:5556"])
-
-# for i in range(1000):
-#     print("submit {}!".format(i))
-#     try:
-#         foreman.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
-#     except IOError:
-#         print("oops")
-
-# time.sleep(5)
-
-# for i in range(1000):
-#     print("submit {}!".format(i))
-#     try:
-#         foreman.sendQuery(CompiledQuery("retaddr", i, "MuOnia", ["muons[]-pt", "jets[]-pt"], [0]))
-#     except IOError:
-#         print("oops")

@@ -24,6 +24,7 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 
+import femtocode.asts.statementlist as statementlist
 from femtocode.dataset import Dataset
 from femtocode.workflow import Source
 from femtocode.execution import ExecutionFailure
@@ -39,45 +40,61 @@ class FutureQueryResult(object):
             self.url = url
             self.minpolldelay = minpolldelay
             self.maxpolldelay = maxpolldelay
+
+            self.action = future.query.actions[-1]
+            assert isinstance(self.action, statementlist.Aggregation), "last action must always be an aggregation"
+
             self.daemon = False   # why this is a thread: don't let Python exit until the callback is done!
+
+        def update(self):
+            try:
+                obj = urlopen(self.url, self.future.query.toJsonString()).read()
+
+            except HTTPError as err:
+                out = "Remote server raised {0}\n\n----%<-----------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
+                raise IOError(out)
+
+            else:
+                result = Result.fromJson(json.loads(obj), self.action)
+                with self.future._lock:
+                    self.future.loaded = result.loadsDone
+                    self.future.computed = result.computesDone
+                    self.future.done = result.done
+                    self.future.wallTime = result.wallTime
+                    self.future.computeTime = result.computeTime
+                    self.future.lastUpdate = result.lastUpdate
+                    self.future.data = result.data
+
+                return result.done
 
         def run(self):
             polldelay = self.minpolldelay
-            while True:
-                # FIXME: the contents of this loop are very sketchy
 
-                if getattr(self.future.query, "cancelled", False):
-                    break
+            try:
+                while True:
+                    if self.update(): break
+                    time.sleep(polldelay)
+                    polldelay = min(polldelay * 2, self.maxpolldelay)
 
-                with self.future._lock:
-                    self.future.loaded = 1.0
-                    self.future.computed = 1.0
-                    self.future.done = True
-                    self.future.wallTime = 999.0
-                    self.future.computeTime = 3.14
-                    self.future.data = None
+            finally:
+                self.future._doneevent.set()
 
-                if done:
-                    self.future._doneevent.set()
-
-                time.sleep(polldelay)
-                polldelay = min(polldelay * 2, self.maxpolldelay)
-            
     def __init__(self, query, ondone, onupdate, url, minpolldelay, maxpolldelay):
         self.query = query
-        self.query.dataset = self.query.dataset.strip(set(columnNames()))
+        self.query.dataset = self.query.dataset.strip()
 
         self.loaded = 0.0
         self.computed = 0.0
         self.done = False
         self.wallTime = 0.0
         self.computeTime = 0.0
+        self.lastUpdate = None
         self.data = None
         self._lock = threading.Lock()
         self._doneevent = threading.Event()
 
-        # poll = FutureQueryResult.PollForUpdates(self, ondone, onupdate, url, minpolldelay, maxpolldelay)
-        # poll.start()
+        poll = FutureQueryResult.PollForUpdates(self, ondone, onupdate, url, minpolldelay, maxpolldelay)
+        poll.start()
 
     def __repr__(self):
         return "<FutureQueryResult {0}% loaded {1}% computed{2}>".format(roundup(self.loaded * 100), roundup(self.computed * 100), " (wall: {0:.2g} sec, cpu: {1:.2g} core-sec)".format(self.wallTime, self.computeTime) if self.done else "")
@@ -157,27 +174,12 @@ class RemoteSession(object):
         return Source(self, self.metadata.dataset(name))
 
     def submit(self, query, ondone=None, onupdate=None, minpolldelay=0.5, maxpolldelay=60.0):
-        # FIXME: this is sketchy, too
-        
-        future = FutureQueryResult(query, ondone, onupdate, self.submit_url, minpolldelay, maxpolldelay)
+        return FutureQueryResult(query, ondone, onupdate, self.submit_url, minpolldelay, maxpolldelay)
 
-        return future
+###############################################################
 
-#     def source(self, name, asdict=None, **askwds):
-#         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
+session = RemoteSession("http://localhost:8080")
 
-#     def submit(self, query, callback=None):
-#         executor = Executor(query)
-#         action = query.actions[-1]
-#         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+result = session.source("xy").define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
 
-#         tally = action.initialize()
-
-#         for group in query.dataset.groups:
-#             subtally = executor.run(executor.inarraysFromTest(group), group)
-#             action.update(tally, subtally)
-
-#         result = action.finalize(tally)
-#         if callback is not None:
-#             callback(result)
-#         return result
+print result.await()

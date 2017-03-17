@@ -79,9 +79,11 @@ class DispatchAPIServer(HTTPServer):
 
                 # NOTE: The following seek through accumulates is synchronous and blocking; each dead accumulate adds self.timeout (0.5 sec) to the
                 #       total response time. If the number of accumulates ever becomes large (e.g. several), this will need to become asynchronous.
-                cut = query.id % len(self.accumulates)
+                cut = hash(query) % len(self.accumulates)
+
                 statusUpdates = []
                 finalResult = None
+
                 for accumulate in self.accumulates[cut:] + self.accumulates[:cut]:
                     result = accumulate.result(query)
 
@@ -109,5 +111,5 @@ class DispatchAPIServer(HTTPServer):
             else:
                 return self.senderror("404 Not Found", start_response, "URL path not recognized by dispatcher: {0}".format(path))
 
-        except Exception:
+        except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)

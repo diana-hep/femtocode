@@ -127,13 +127,13 @@ class StandaloneSession(object):
 
 ########################################### TODO: temporary!
 
-session = StandaloneSession()
-session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
+# session = StandaloneSession()
+# session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
-def callback(outputdataset):
-    print outputdataset, len(list(outputdataset))
+# def callback(outputdataset):
+#     print outputdataset, len(list(outputdataset))
 
-result = session.source("xy").toPython("Test", a = "x + y").submit()
+# result = session.source("xy").toPython("Test", a = "x + y").submit()
 
-for event in result.await():
-    print event
+# for event in result.await():
+#     print event

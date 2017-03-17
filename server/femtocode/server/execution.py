@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
+
 from femtocode.run.execution import NativeExecutor
 
 from femtocode.workflow import Message
@@ -109,7 +111,7 @@ class NativeAccumulateExecutor(NativeExecutor):
             self.result.loadsDone = sum(1.0 for x in self.loadsDone.values() if x) / len(self.loadsDone)
             now = time.time()
             self.result.wallTime = now - self.startTime
-            self.result.lastUpdate = now
+            self.result.lastUpdate = datetime.datetime.utcnow().isoformat(" ") + " UTC"
 
     def oneComputeDone(self, groupid, computeTime, subtally):
         if not self.query.cancelled:
@@ -119,7 +121,7 @@ class NativeAccumulateExecutor(NativeExecutor):
             now = time.time()
             self.result.wallTime = now - self.startTime
             self.result.computeTime += computeTime
-            self.result.lastUpdate = now
+            self.result.lastUpdate = datetime.datetime.utcnow().isoformat(" ") + " UTC"
 
             if not isinstance(self.result.data, ExecutionFailure):
                 self.result.data = self.action.update(self.result.data, subtally)
@@ -132,7 +134,7 @@ class NativeAccumulateExecutor(NativeExecutor):
             now = time.time()
             self.result.wallTime = now - self.startTime
             self.result.data = failure   # only report the first failure
-            self.result.lastUpdate = now
+            self.result.lastUpdate = datetime.datetime.utcnow().isoformat(" ") + " UTC"
 
         self.query.cancelled = True
 
