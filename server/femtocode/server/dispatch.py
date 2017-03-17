@@ -23,8 +23,10 @@ except ImportError:
     from urllib.error import HTTPError
 
 from femtocode.py23 import *
-from femtocode.server.communication import *
 from femtocode.workflow import Query
+from femtocode.server.communication import *
+from femtocode.server.accumulate import StatusUpdate
+from femtocode.server.execution import NativeAccumulateExecutor
 
 # the fact that MetadataAPIServer can be an independent process has never been exercised; just called directly by DispatchAPIServer
 class MetadataAPIServer(HTTPServer):

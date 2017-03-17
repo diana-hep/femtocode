@@ -72,7 +72,7 @@ A femtocode-accumulate process must be given a SUPERSET of femtocode-compute ser
 
     rolloverCache = RolloverCache(args.cache_dir, margin, args.cache_roll, args.cache_gc, args.cache_idchars)
 
-    foreman = Foreman(args.self, args.computes, rolloverCache)
+    foreman = Foreman(args.self, args.computes, rolloverCache, args.timeout)
 
-    server = ForemanServer(foreman, "tcp://*:{0}".format(port), args.timeout)
+    server = ForemanServer(foreman, "tcp://*:{0}".format(port))
     server.run()

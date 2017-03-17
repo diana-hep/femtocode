@@ -55,16 +55,11 @@ class GaboServer(threading.Thread):
                 if isinstance(message, NativeComputeExecutor):
                     self.cacheMaster.incoming.put(message)
 
-                if message is None:
-                    response = None
-                else:
-                    response = True
-
             except:
                 self.server.send(None)
 
             else:
-                self.server.send(response)
+                self.server.send(True)
 
 ########################################### TODO: temporary!
 

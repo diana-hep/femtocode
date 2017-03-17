@@ -71,6 +71,8 @@ class RunningQueries(object):      # a tallyman for each running query; has a lo
             if query in self.tallymen:
                 del self.tallymen[query]
 
+# FIXME: heartbeats are gone and I need to replace them with something
+
 class GaboClient(threading.Thread):
     listenThreshold = 0.030     # 30 ms      no response from the minion; reset ZMQClient recv/send state
 
@@ -85,28 +87,12 @@ class GaboClient(threading.Thread):
 
     def run(self):
         while True:
-            try:
-                subexec = self.incoming.get(timeout=self.listenThreshold)   # (same timescale as self.client.timeout)
-                self.client.send(subexec)
+            subexec = self.incoming.get()
+            self.client.send(subexec)
 
-                # always return a SubmitStatus: success or failure
-                success = self.client.recv() is not None
-                self.runningQueries.submitStatus(subexec.query, self.minionaddr, success)
-
-            except queue.Empty:
-                # no work to send; time for a heartbeat ping
-                print "send heartbeat"
-                self.client.send(True)
-                print "sent"
-
-                if self.client.recv() is None:
-                    print "no response!"
-
-                    # no response; this minion is dead
-                    self.runningQueries.minionDied(self.minionaddr)
-
-                else:
-                    print "yes response"
+            # always return a SubmitStatus: success or failure
+            success = self.client.recv() is not None
+            self.runningQueries.submitStatus(subexec.query, self.minionaddr, success)
 
 class Tallyman(threading.Thread):                                  # watches and accumulates results for just one query
     def __init__(self, gabos, executor, retaddr, rolloverCache):
@@ -169,7 +155,7 @@ class StatusUpdate(object):
         self.load = load
 
 class Foreman(object):
-    def __init__(self, retaddr, minionaddrs, rolloverCache):
+    def __init__(self, retaddr, minionaddrs, rolloverCache, heartbeatTimeout):   # FIXME: implement heartbeatTimeout
         self.retaddr = retaddr
 
         self.runningQueries = RunningQueries()
@@ -249,10 +235,10 @@ class OneFailure(object):
         self.failure = failure
 
 class ForemanServer(threading.Thread):
-    def __init__(self, foreman, bindaddr, timeout):
+    def __init__(self, foreman, bindaddr):
         super(ForemanServer, self).__init__()
         self.foreman = foreman
-        self.server = ZMQServer(bindaddr, timeout)
+        self.server = ZMQServer(bindaddr)
         self.daemon = True
 
     def run(self):
