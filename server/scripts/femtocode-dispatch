@@ -16,6 +16,8 @@
 
 import argparse
 
+from femtocode.dataset import MetadataFromJson
+
 if __name__ == "__main__":
     argumentParser = argparse.ArgumentParser(description="""A femtocode-dispatch process acts as a front-end to clients, hiding the complexity of the server architecture from users.
 
@@ -31,3 +33,13 @@ Femtocode-dispatch processes are STATELESS; they may be restarted with impunity 
 The user-facing server is HTTP; communication with femtocode-accumulate is ZeroMQ. Metadata may be file-based or a database.
 
 We assume that femtocode-dispatch, femtocode-accumulate, and femtocode-compute run on the same processor architecture, accepting the same bytecode.""")
+
+
+
+
+
+# m = DispatchAPIServer(MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests")))
+# m.start()
+
+# m = DispatchAPIServer("http://localhost:8081", timeout=1.0)
+# m.start()

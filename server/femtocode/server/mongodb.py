@@ -105,8 +105,15 @@ class MetadataAPIServer(HTTPServer):
             else:
                 return self.sendjson(dataset.toJson(), start_response)
 
+def populateMongo(dataset, mongourl, database, collection):
+    client = MongoClient(mongourl)
+    client[database][collection].insert_one(dataset.toJson())
+
 # m = MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests"))
 # m.start()
 
 # from femtocode.rootio.dataset import ROOTDataset
 # db = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
+
+# metadataFileName = "tests/metadataFromRoot.yaml"
+# populateMongo(ROOTDataset.fromYamlString(open(metadataFileName)), "mongodb://localhost:27017", "metadb", "datasets")

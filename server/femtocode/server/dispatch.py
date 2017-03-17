@@ -88,10 +88,3 @@ class DispatchAPIServer(HTTPServer):
 
         except Exception:
             return self.senderror("500 Internal Server Error", start_response)
-
-# from femtocode.dataset import MetadataFromJson
-# m = DispatchAPIServer(MetadataAPIServer(MetadataFromJson("/home/pivarski/diana/femtocode/tests")))
-# m.start()
-
-# m = DispatchAPIServer("http://localhost:8081", timeout=1.0)
-# m.start()
