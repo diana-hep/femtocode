@@ -102,25 +102,11 @@ class SimpleServer(threading.Thread):
                     ret = self.handler(arg)
                 except Exception as err:
                     ret = SimpleServerError(err)
-
                 try:
                     sendobj(ret, self.connection, self.chunksize, self.protocol)
                 except:
+                    self.connection.close()
                     break
-
-            # recv = self.connection.recv(8)
-            # while len(recv) == 8:
-            #     try:
-            #         length, = struct.unpack("!Q", recv)
-            #         data = self.connection.recv(length)
-            #         arg = pickle.loads(data)
-            #         ret = self.handler(arg)
-            #     except Exception as err:
-            #         ret = Error(err)
-            #     message = pickle.dumps(ret, self.protocol)
-            #     self.connection.send(struct.pack("!Q", len(message)))
-            #     self.connection.send(message)
-            #     recv = self.connection.recv(8)
 
     def __init__(self, bindaddr, bindport, handler, chunksize=2**12, protocol=pickle.HIGHEST_PROTOCOL):
         super(SimpleServer, self).__init__()
@@ -158,7 +144,8 @@ class SimpleClient(object):
         self.timeout = timeout
         self.chunksize = chunksize
         self.protocol = protocol
-        self.connect()
+        self.socket = None
+        self.sent = False
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -168,24 +155,15 @@ class SimpleClient(object):
         
     def send(self, obj):
         assert not self.sent, "two subsequent calls to send"
+        if self.socket is None:
+            self.connect()
 
         sendobj(obj, self.socket, self.chunksize, self.protocol)
-
-        # message = pickle.dumps(obj)
-        # length = len(message)
-        # self.socket.send(struct.pack("!Q", length))
-        # uploaded = 0
-        # while uploaded < length:
-        #     nextlength = min(self.chunksize, length - uploaded)
-        #     assert self.socket.send(message[uploaded : uploaded + nextlength]) == nextlength
-        #     uploaded += nextlength
-        # self.socket.send(message)
 
         self.sent = True
 
     def recv(self):
         assert self.sent, "recv called before send"
-
         try:
             return recvobj(self.socket, self.chunksize, self.timeout)
 
@@ -197,30 +175,10 @@ class SimpleClient(object):
         finally:
             self.sent = False
 
-        # ready = select.select([self.socket], [], [], self.timeout)
-        # if ready[0]:
-        #     recv = self.socket.recv(8)
-        #     assert len(recv) == 8
-        #     length, = struct.unpack("!Q", recv)
-
-            # data = []
-            # downloaded = 0
-            # while downloaded < length:
-            #     nextlength = min(self.chunksize, length - downloaded)
-            #     next = self.socket.recv(nextlength)
-            #     assert len(next) == nextlength
-            #     data.append(next)
-            #     downloaded += nextlength
-            # out = pickle.loads("".join(data))
-
-        #     data = self.socket.recv(length)
-        #     assert len(data) == length
-        #     out = pickle.loads(data)
-
-        #     return out
-
-        # else:
-        #     raise socket.timeout("server did not respond in {0} seconds".format(self.timeout))
+    def close(self):
+        if self.socket is not None:
+            self.socket.close()
+        self.socket = None
 
 #################################################################### HTTP (public-facing APIs)
 
