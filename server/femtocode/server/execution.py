@@ -18,7 +18,9 @@ import datetime
 import time
 
 import femtocode.asts.statementlist as statementlist
+from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
+from femtocode.server.accumulate import TallymanClient
 from femtocode.workflow import Message
 
 class Result(Message):
@@ -90,7 +92,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.computesDone = obj["computesDone"]
         out.startTime = obj["startTime"]
         out._setaction()
-        out.result = Result.fromJson(self.action)
+        out.result = Result.fromJson(obj["result"], out.action)
         return out
 
     def toCompute(self, groupids, connaddr):

@@ -40,10 +40,6 @@ class PyObject(ctypes.Structure):
 
 PyObjectPtr = ctypes.POINTER(PyObject)
 
-llvmlite.binding.initialize()
-llvmlite.binding.initialize_native_target()
-llvmlite.binding.initialize_native_asmprinter()
-
 class NativeCompiler(Compiler):
     @staticmethod
     def compileToNative(fcnname, loop, columns):
@@ -116,6 +112,9 @@ class NativeCompiler(Compiler):
         backing_mod = llvmlite.binding.parse_assembly("")
         return llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
 
+# initialize all the parts of LLVM that Numba needs
+numba.jit([(numba.float64[:],)], nopython=True)(lambda x: x[0])
+
 # you should *probably* make sure that access to this is from a single thread...
 NativeCompiler.llvmengine = NativeCompiler.newengine()
 
@@ -125,7 +124,7 @@ class CompiledLoopFunction(LoopFunction):
 
     def __setstate__(self, state):
         self.llvmname, self.compiledobj = state
-        self.fcn = NativeCompiler.deserialize(self.llvmname, self.compiledobj).fcn
+        self.fcn = NativeCompiler.deserialize(self.llvmname, self.compiledobj)
         self.__class__ = DeserializedLoopFunction
 
     def toJson(self):

@@ -124,7 +124,7 @@ class Statement(Serializable):
 
         return build(obj, "")
 
-class Statements(Statement, list):
+class Statements(Statement):
     def __init__(self, *stmts):
         self.stmts = list(stmts)
 
@@ -136,6 +136,12 @@ class Statements(Statement, list):
 
     def toJson(self):
         return [x.toJson() for x in self.stmts]
+
+    def __getstate__(self):
+        return self.stmts
+
+    def __setstate__(self, state):
+        self.stmts = state
 
     def __eq__(self, other):
         return other.__class__ == Statements and self.stmts == other.stmts
