@@ -16,7 +16,11 @@
 
 import json
 import traceback
+import threading
 import socket
+import select
+import struct
+import sys
 from wsgiref.simple_server import make_server
 try:
     from urllib2 import urlparse, urlopen, HTTPError
@@ -29,97 +33,196 @@ try:
 except ImportError:
     import pickle
 
-import zmq
-import zmq.eventloop.zmqstream
-import zmq.eventloop.ioloop
-
 from femtocode.py23 import *
 from femtocode.util import *
 
-#################################################################### ZeroMQ (for internal communication)
+#################################################################### sockets (internal communication)
 
-# The ONLY global variable in this entire project!
-context = zmq.Context()
+def sendobj(obj, sock, chunksize, protocol=pickle.HIGHEST_PROTOCOL):
+    message = pickle.dumps(obj, protocol)
+    length = len(message)
 
-def serialize(message, protocol=pickle.HIGHEST_PROTOCOL):
-    return pickle.dumps(message, protocol)
+    if sock.send(struct.pack("!Q", length)) != 8:
+        raise socket.error("connection closed early")
 
-def deserialize(message):
-    return pickle.loads(message)
+    uploaded = 0
+    while uploaded < length:
+        nextlength = min(chunksize, length - uploaded)
+        if sock.send(message[uploaded : uploaded + nextlength]) != nextlength:
+            raise socket.error("connection closed early")
+        uploaded += nextlength
 
-class ZMQServer(object):
-    def __init__(self, bindaddr, protocol=pickle.HIGHEST_PROTOCOL):
+def recvobj(sock, chunksize, timeout=None):
+    if timeout is not None:
+        ready = select.select([sock], [], [], timeout)
+        if not ready[0]:
+            raise socket.timeout("no response in {0} seconds".format(timeout))
+
+    recv = sock.recv(8)
+    if len(recv) != 8:
+        raise socket.error("connection closed early")
+    length, = struct.unpack("!Q", recv)
+
+    data = []
+    downloaded = 0
+    while downloaded < length:
+        nextlength = min(chunksize, length - downloaded)
+        next = sock.recv(nextlength)
+        if len(next) != nextlength:
+            raise socket.error("connection closed early")
+        data.append(next)
+        downloaded += nextlength
+
+    try:
+        return pickle.loads("".join(data))
+    except:
+        raise socket.error("bad object in wire protocol")
+
+class SimpleServerError(object):
+    def __init__(self, exception):
+        self.type = exception.__class__.__name__
+        self.message = str(exception)
+        self.traceback = "".join(traceback.format_exception(exception.__class__, exception, sys.exc_info()[2]))
+
+class SimpleServer(threading.Thread):
+    class Handler(threading.Thread):
+        def __init__(self, connection, address, handler, chunksize, protocol):
+            super(SimpleServer.Handler, self).__init__()
+            self.connection = connection
+            self.address = address
+            self.handler = handler
+            self.chunksize = chunksize
+            self.protocol = protocol
+            self.daemon = True
+
+        def run(self):
+            while True:
+                try:
+                    arg = recvobj(self.connection, self.chunksize, None)
+                    ret = self.handler(arg)
+                except Exception as err:
+                    ret = SimpleServerError(err)
+
+                try:
+                    sendobj(ret, self.connection, self.chunksize, self.protocol)
+                except:
+                    break
+
+            # recv = self.connection.recv(8)
+            # while len(recv) == 8:
+            #     try:
+            #         length, = struct.unpack("!Q", recv)
+            #         data = self.connection.recv(length)
+            #         arg = pickle.loads(data)
+            #         ret = self.handler(arg)
+            #     except Exception as err:
+            #         ret = Error(err)
+            #     message = pickle.dumps(ret, self.protocol)
+            #     self.connection.send(struct.pack("!Q", len(message)))
+            #     self.connection.send(message)
+            #     recv = self.connection.recv(8)
+
+    def __init__(self, bindaddr, bindport, handler, chunksize=2**12, protocol=pickle.HIGHEST_PROTOCOL):
+        super(SimpleServer, self).__init__()
         self.bindaddr = bindaddr
+        self.bindport = bindport
+        self.handler = handler
+        self.chunksize = chunksize
         self.protocol = protocol
+        self.daemon = True
 
-        self.socket = context.socket(zmq.REP)
-        self.socket.bind(self.bindaddr)
+        assert callable(self.handler)
+        self.bind()
 
-    def send(self, message):
-        self.socket.send(serialize(message, self.protocol))
+    def bind(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((self.bindaddr, self.bindport))
+        self.socket.listen(0)
 
-    def recv(self):
-        return deserialize(self.socket.recv())
+    def run(self):
+        while True:
+            try:
+                connection, address = self.socket.accept()
 
-class ZMQClient(object):
-    def __init__(self, connaddr, timeout=None, protocol=pickle.HIGHEST_PROTOCOL):
+            except:
+                self.socket.close()
+                self.bind()
+
+            else:
+                SimpleServer.Handler(connection, address, self.handler, self.chunksize, self.protocol).start()
+
+class SimpleClient(object):
+    def __init__(self, connaddr, connport, timeout, chunksize=2**12, protocol=pickle.HIGHEST_PROTOCOL):
         self.connaddr = connaddr
+        self.connport = connport
         self.timeout = timeout
+        self.chunksize = chunksize
         self.protocol = protocol
+        self.connect()
 
-        self.start()
+    def connect(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.connaddr, self.connport))
+        self.socket.setblocking(0)
+        self.sent = False
+        
+    def send(self, obj):
+        assert not self.sent, "two subsequent calls to send"
 
-    def start(self):
-        self.socket = context.socket(zmq.REQ)
-        self.socket.connect(self.connaddr)
-        if self.timeout is not None:
-            self.socket.RCVTIMEO = roundup(self.timeout * 1000)
-            # self.socket.REQ_RELAXED = 1
-            # self.socket.REQ_CORRELATE = 1
+        sendobj(obj, self.socket, self.chunksize, self.protocol)
 
-    def send(self, message):
-        self.socket.send(serialize(message, self.protocol))
+        # message = pickle.dumps(obj)
+        # length = len(message)
+        # self.socket.send(struct.pack("!Q", length))
+        # uploaded = 0
+        # while uploaded < length:
+        #     nextlength = min(self.chunksize, length - uploaded)
+        #     assert self.socket.send(message[uploaded : uploaded + nextlength]) == nextlength
+        #     uploaded += nextlength
+        # self.socket.send(message)
+
+        self.sent = True
 
     def recv(self):
+        assert self.sent, "recv called before send"
+
         try:
-            return deserialize(self.socket.recv())
-        except zmq.Again:
-            self.socket.disconnect(self.connaddr)
+            return recvobj(self.socket, self.chunksize, self.timeout)
+
+        except Exception:
             self.socket.close()
-            self.start()
-            return None
+            self.connect()
+            raise
 
-class ZMQBroadcast(object):
-    def __init__(self, bindaddr, protocol=pickle.HIGHEST_PROTOCOL):
-        self.bindaddr = bindaddr
-        self.protocol = protocol
+        finally:
+            self.sent = False
 
-        self.socket = context.socket(zmq.PUB)
-        self.socket.bind(self.bindaddr)
+        # ready = select.select([self.socket], [], [], self.timeout)
+        # if ready[0]:
+        #     recv = self.socket.recv(8)
+        #     assert len(recv) == 8
+        #     length, = struct.unpack("!Q", recv)
 
-    def send(self, message):
-        self.socket.send(serialize(message, self.protocol))
+            # data = []
+            # downloaded = 0
+            # while downloaded < length:
+            #     nextlength = min(self.chunksize, length - downloaded)
+            #     next = self.socket.recv(nextlength)
+            #     assert len(next) == nextlength
+            #     data.append(next)
+            #     downloaded += nextlength
+            # out = pickle.loads("".join(data))
 
-class ZMQListen(object):
-    def __init__(self, connaddr, callback):
-        self.callback = callback
-        self.connaddr = connaddr
+        #     data = self.socket.recv(length)
+        #     assert len(data) == length
+        #     out = pickle.loads(data)
 
-        self.socket = context.socket(zmq.SUB)
-        self.socket.setsockopt(zmq.SUBSCRIBE, b"")   # no topics, please
-        self.stream = zmq.eventloop.zmqstream.ZMQStream(self.socket)
+        #     return out
 
-        def handle(messages):
-            for message in messages:
-                callback(deserialize(message))
+        # else:
+        #     raise socket.timeout("server did not respond in {0} seconds".format(self.timeout))
 
-        self.stream.on_recv(handle)
-        self.socket.connect(self.connaddr)
-
-def zmqloop():
-    zmq.eventloop.ioloop.IOLoop.instance().start()
-
-#################################################################### HTTP (for APIs)
+#################################################################### HTTP (public-facing APIs)
 
 class HTTPServer(object):
     # assumes you have a bindaddr, bindport, and __call__ handles HTTP requests
