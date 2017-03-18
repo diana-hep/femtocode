@@ -20,7 +20,6 @@ import time
 import femtocode.asts.statementlist as statementlist
 from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
-from femtocode.server.accumulate import TallymanClient
 from femtocode.workflow import Message
 
 class Result(Message):
@@ -95,7 +94,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.result = Result.fromJson(obj["result"], out.action)
         return out
 
-    def toCompute(self, groupids, connaddr):
+    def toCompute(self, groupids, retaddr):
         out = NativeComputeExecutor.__new__(NativeComputeExecutor)
         out.query = self.query
         out.required = self.required
@@ -104,8 +103,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.tmptypes = self.tmptypes
 
         out.groupids = groupids
-        out.client = TallymanClient(connaddr, NativeComputeExecutor.listenThreshold)
-
+        out.retaddr = retaddr
         return out
         
     def oneLoadDone(self, groupid):
@@ -142,25 +140,29 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.query.cancelled = True
 
 class NativeComputeExecutor(NativeExecutor):
-    listenThreshold = 0.030     # 30 ms      no response from tallyman; reset ZMQClient recv/send state
+    listenThreshold = 0.030     # 30 ms      no response from foreman; reset ZMQClient recv/send state
 
-    def __init__(self, query, groupids, connaddr):
+    def __init__(self, query, groupids, retaddr):
         super(NativeComputeExecutor, self).__init__(query)
         self.groupids = groupids
-        self.client = TallymanClient(connaddr, self.listenThreshold)
+        self.retaddr = retaddr
 
     def toJson(self):
         out = super(NativeComputeExecutor, self).toJson()
-        out["connaddr"] = self.client.connaddr
-        out["timeout"] = self.client.timeout
+        out["groupids"] = self.groupids
+        out["retaddr"] = self.retaddr
         return out
 
     @staticmethod
     def fromJson(obj):
         out = NativeExecutor.fromJson(obj)
+        out.groupids = obj["groupids"]
+        out.retaddr = obj["retaddr"]
         out.__class__ = NativeComputeExecutor
-        out.client = TallymanClient(obj["connaddr"], obj["timeout"])
         return out
+
+    def setAccumulate(self, accumulates):
+        self.client = accumulates.open(self.retaddr)
 
     def oneLoadDone(self, groupid):
         if self.client.oneLoadDone(self.query, groupid) is None:
