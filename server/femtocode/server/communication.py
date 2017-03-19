@@ -37,151 +37,7 @@ except ImportError:
 from femtocode.py23 import *
 from femtocode.util import *
 
-#################################################################### sockets (internal communication)
-
-def sendobj(obj, sock, chunksize, protocol=pickle.HIGHEST_PROTOCOL):
-    message = pickle.dumps(obj, protocol)
-    length = len(message)
-
-    if sock.send(struct.pack("!Q", length)) != 8:
-        raise socket.error("connection closed early")
-
-    uploaded = 0
-    while uploaded < length:
-        nextlength = min(chunksize, length - uploaded)
-        if sock.send(message[uploaded : uploaded + nextlength]) != nextlength:
-            raise socket.error("connection closed early")
-        uploaded += nextlength
-
-def recvobj(sock, chunksize, timeout=None):
-    if timeout is not None:
-        ready = select.select([sock], [], [], timeout)
-        if not ready[0]:
-            raise socket.timeout("no response in {0} seconds".format(timeout))
-
-    recv = sock.recv(8)
-    if len(recv) != 8:
-        raise socket.error("connection closed early")
-    length, = struct.unpack("!Q", recv)
-
-    data = []
-    downloaded = 0
-    while downloaded < length:
-        nextlength = min(chunksize, length - downloaded)
-        next = sock.recv(nextlength)
-        if len(next) != nextlength:
-            raise socket.error("connection closed early")
-        data.append(next)
-        downloaded += nextlength
-
-    try:
-        return pickle.loads("".join(data))
-    except:
-        raise socket.error("bad object in wire protocol")
-
-class SimpleServerError(object):
-    def __init__(self, exception):
-        self.type = exception.__class__.__name__
-        self.message = str(exception)
-        self.traceback = "".join(traceback.format_exception(exception.__class__, exception, sys.exc_info()[2]))
-
-class SimpleServer(object):
-    class Handler(threading.Thread):
-        def __init__(self, connection, address, handler, chunksize, protocol):
-            super(SimpleServer.Handler, self).__init__()
-            self.connection = connection
-            self.address = address
-            self.handler = handler
-            self.chunksize = chunksize
-            self.protocol = protocol
-            self.daemon = True
-
-        def run(self):
-            while True:
-                try:
-                    arg = recvobj(self.connection, self.chunksize, None)
-                    ret = self.handler(arg)
-                except Exception as err:
-                    ret = SimpleServerError(err)
-                try:
-                    sendobj(ret, self.connection, self.chunksize, self.protocol)
-                except:
-                    self.connection.close()
-                    break
-
-    def __init__(self, bindaddr, bindport, handler, chunksize=2**12, protocol=pickle.HIGHEST_PROTOCOL):
-        super(SimpleServer, self).__init__()
-        self.bindaddr = bindaddr
-        self.bindport = bindport
-        self.handler = handler
-        self.chunksize = chunksize
-        self.protocol = protocol
-        self.daemon = True
-
-        assert callable(self.handler)
-        self.bind()
-
-    def bind(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind((self.bindaddr, self.bindport))
-        self.socket.listen(0)
-
-    def start(self):
-        while True:
-            try:
-                connection, address = self.socket.accept()
-
-            except:
-                self.socket.close()
-                self.bind()
-
-            else:
-                SimpleServer.Handler(connection, address, self.handler, self.chunksize, self.protocol).start()
-
-class SimpleClient(object):
-    def __init__(self, connaddr, connport, timeout, chunksize=2**12, protocol=pickle.HIGHEST_PROTOCOL):
-        self.connaddr = connaddr
-        self.connport = connport
-        self.timeout = timeout
-        self.chunksize = chunksize
-        self.protocol = protocol
-        self.socket = None
-        self.sent = False
-
-    def connect(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((self.connaddr, self.connport))
-        self.socket.setblocking(0)
-        self.sent = False
-        
-    def send(self, obj):
-        assert not self.sent, "two subsequent calls to send"
-        if self.socket is None:
-            self.connect()
-
-        sendobj(obj, self.socket, self.chunksize, self.protocol)
-
-        self.sent = True
-
-    def recv(self):
-        assert self.sent, "recv called before send"
-        try:
-            return recvobj(self.socket, self.chunksize, self.timeout)
-
-        except Exception:
-            self.socket.close()
-            self.connect()
-            raise
-
-        finally:
-            self.sent = False
-
-    def close(self):
-        if self.socket is not None:
-            self.socket.close()
-        self.socket = None
-
-#################################################################### HTTP (public-facing APIs)
+#################################################################### HTTP for public-facing APIs
 
 class HTTPServer(object):
     # assumes you have a and __call__ handles HTTP requests
@@ -244,7 +100,7 @@ class HTTPServer(object):
         else:
             return self.sendstring(result, start_response)
 
-#################################################################### HTTP and multiprocessing (alternative for internal communication)
+#################################################################### HTTP for internal communication
 
 class HTTPInternalProcess(multiprocessing.Process):
     def __init__(self, name, pipe):
@@ -365,16 +221,3 @@ class HTTPInternalServer(HTTPServer):
 
         except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)
-
-import time
-
-class TestProc(HTTPInternalProcess):
-    def __init__(self, name, pipe):
-        super(TestProc, self).__init__(name, pipe)
-
-    def run(self):
-        while True:
-            x = self.recv()
-            self.send(x + 10)
-
-application = HTTPInternalServer(TestProc, 1.0)
