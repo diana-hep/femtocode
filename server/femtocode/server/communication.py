@@ -16,11 +16,7 @@
 
 import json
 import multiprocessing
-import select
 import socket
-import struct
-import sys
-import threading
 import traceback
 from wsgiref.simple_server import make_server
 try:
@@ -166,7 +162,6 @@ class HTTPInternalServer(HTTPServer):
         self.procclass = procclass
         self.timeout = timeout
 
-        self.lock = threading.Lock()
         self.processes = {}
 
     def startProcess(self, path):
