@@ -15,12 +15,13 @@
 # limitations under the License.
 
 import json
-import traceback
-import threading
-import socket
+import multiprocessing
 import select
+import socket
 import struct
 import sys
+import threading
+import traceback
 from wsgiref.simple_server import make_server
 try:
     from urllib2 import urlparse, urlopen, HTTPError
@@ -84,7 +85,7 @@ class SimpleServerError(object):
         self.message = str(exception)
         self.traceback = "".join(traceback.format_exception(exception.__class__, exception, sys.exc_info()[2]))
 
-class SimpleServer(threading.Thread):
+class SimpleServer(object):
     class Handler(threading.Thread):
         def __init__(self, connection, address, handler, chunksize, protocol):
             super(SimpleServer.Handler, self).__init__()
@@ -125,7 +126,7 @@ class SimpleServer(threading.Thread):
         self.socket.bind((self.bindaddr, self.bindport))
         self.socket.listen(0)
 
-    def run(self):
+    def start(self):
         while True:
             try:
                 connection, address = self.socket.accept()
@@ -183,10 +184,10 @@ class SimpleClient(object):
 #################################################################### HTTP (public-facing APIs)
 
 class HTTPServer(object):
-    # assumes you have a bindaddr, bindport, and __call__ handles HTTP requests
+    # assumes you have a and __call__ handles HTTP requests
 
-    def start(self):
-        server = make_server(self.bindaddr, self.bindport, self)
+    def start(self, bindaddr, bindport):
+        server = make_server(bindaddr, bindport, self)
         server.serve_forever()
 
     def getstring(self, environ):
@@ -196,6 +197,10 @@ class HTTPServer(object):
     def getjson(self, environ):
         length = int(environ.get("CONTENT_LENGTH", "0"))
         return json.loads(environ["wsgi.input"].read(length))
+
+    def getpickle(self, environ):
+        length = int(environ.get("CONTENT_LENGTH", "0"))
+        return pickle.loads(environ["wsgi.input"].read(length))
 
     def sendstring(self, string, start_response):
         start_response("200 OK", [("Content-type", "application/json")])
@@ -208,6 +213,15 @@ class HTTPServer(object):
             return self.senderror("500 Internal Server Error", start_response)
         else:
             start_response("200 OK", [("Content-type", "application/json")])
+            return [serialized]
+
+    def sendpickle(self, obj, start_response):
+        try:
+            serialized = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+        except:
+            return self.senderror("500 Internal Server Error", start_response)
+        else:
+            start_response("200 OK", [("Content-type", "application/octet-stream")])
             return [serialized]
 
     def senderror(self, code, start_response, message=None):
@@ -229,3 +243,138 @@ class HTTPServer(object):
             return self.senderror(err, start_response, err.read())
         else:
             return self.sendstring(result, start_response)
+
+#################################################################### HTTP and multiprocessing (alternative for internal communication)
+
+class HTTPInternalProcess(multiprocessing.Process):
+    def __init__(self, name, pipe):
+        super(HTTPInternalProcess, self).__init__()
+        self.pipe = pipe
+        self.daemon = True
+
+    def recv(self):
+        return pickle.loads(self.pipe.recv_bytes())
+
+    def send(self, obj):
+        self.pipe.send_bytes(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+
+class HTTPInternalClient(object):
+    class Error(object):
+        def __init__(self, message):
+            self.message = message
+            
+    class Response(object):
+        def __init__(self, fid):
+            self.fid = fid
+            self.data = None
+
+        def get(self):
+            if self.data is None:
+                try:
+                    data = self.fid.read()
+                except socket.timeout as err:
+                    self.data = HTTPInternalClient.Error("timeout")
+                except HTTPError as err:
+                    self.data = HTTPInternalClient.Error(err.read())
+                else:
+                    self.data = pickle.loads(data)
+
+            return self.data
+
+    class FailedResponse(object):
+        def __init__(self, error):
+            self.error = error
+
+        def get(self):
+            return self.error
+
+    def __init__(self, connaddr, connport, timeout):
+        self.connaddr = connaddr
+        self.connport = connport
+        self.timeout = timeout
+
+    def send(self, path, obj):
+        message = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+        try:
+            fid = urlopen("http://{0}:{1}/{2}".format(self.connaddr, self.connport, path), message, self.timeout)
+        except socket.timeout:
+            return HTTPInternalClient.FailedResponse(HTTPInternalClient.Error("timeout"))
+        except HTTPError as err:
+            return HTTPInternalClient.FailedResponse(HTTPInternalClient.Error(err.read()))
+        else:
+            return HTTPInternalClient.Response(fid)
+
+class HTTPInternalServer(HTTPServer):
+    def __init__(self, procclass, timeout):
+        super(HTTPInternalServer, self).__init__()
+        self.procclass = procclass
+        self.timeout = timeout
+
+        self.lock = threading.Lock()
+        self.processes = {}
+
+    def startProcess(self, path):
+        oldproc = self.processes.get(path)
+
+        if oldproc is not None and oldproc.is_alive():
+            oldproc.terminate()
+
+        myend, yourend = multiprocessing.Pipe()
+        proc = self.procclass(path, yourend)
+        proc.start()
+
+        self.processes[path] = (proc, myend)
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "").strip("/")
+
+        try:
+            if path == "":
+                # broadcast to all processes (that exist)
+                data = self.getstring(environ)
+
+                for proc, myend in self.processes.values():
+                    myend.send_bytes(data)
+
+                alive = []
+                for path, (proc, myend) in list(self.processes.items()):
+                    if myend.poll(self.timeout):
+                        myend.recv_bytes()
+                        alive.append(path)
+                    else:
+                        proc.terminate()
+                        del self.processes[path]
+
+                # return a list of the processes that still exist
+                return self.sendjson(alive, start_response)
+
+            else:
+                # send to a particular process, creating it if necessary
+                if path not in self.processes or not self.processes[path][0].is_alive():
+                    self.startProcess(path)
+
+                proc, myend = self.processes[path]
+                myend.send_bytes(self.getstring(environ))
+
+                if myend.poll(self.timeout):
+                    return self.sendstring(myend.recv_bytes(), start_response)
+                else:
+                    proc.terminate()
+                    del self.processes[path]
+                    return self.senderror("500 Internal Server Error", start_response, "process unresponsive; killed")
+
+        except Exception as err:
+            return self.senderror("500 Internal Server Error", start_response)
+
+import time
+
+class TestProc(HTTPInternalProcess):
+    def __init__(self, name, pipe):
+        super(TestProc, self).__init__(name, pipe)
+
+    def run(self):
+        while True:
+            x = self.recv()
+            self.send(x + 10)
+
+application = HTTPInternalServer(TestProc, 1.0)
