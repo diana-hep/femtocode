@@ -56,7 +56,7 @@ class FutureQueryResult(object):
 
             except HTTPError as err:
                 out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
-                raise IOError(out)
+                raise RuntimeError(out)
 
             else:
                 result = Result.fromJson(json.loads(obj), self.action)

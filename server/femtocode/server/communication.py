@@ -18,6 +18,7 @@ import json
 import multiprocessing
 import socket
 import traceback
+import threading
 from wsgiref.simple_server import make_server
 try:
     from urllib2 import urlparse, urlopen, HTTPError
@@ -32,6 +33,7 @@ except ImportError:
 
 from femtocode.py23 import *
 from femtocode.util import *
+from femtocode.execution import ExecutionFailure
 
 #################################################################### HTTP for public-facing APIs
 
@@ -104,6 +106,14 @@ class HTTPInternalProcess(multiprocessing.Process):
         self.pipe = pipe
         self.daemon = True
 
+    def run(self):
+        while True:
+            try:
+                if not self.cycle():
+                    break
+            except Exception as err:
+                self.send(ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2]))))
+
     def recv(self):
         out = pickle.loads(self.pipe.recv_bytes())
         while out is None:   # this is just a ping to ensure that the process exists
@@ -115,49 +125,43 @@ class HTTPInternalProcess(multiprocessing.Process):
         self.pipe.send_bytes(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
 
 class HTTPInternalClient(object):
-    class Error(object):
-        def __init__(self, message):
-            self.message = message
-            
-    class Response(object):
-        def __init__(self, fid):
-            self.fid = fid
+    class Response(threading.Thread):
+        def __init__(self, handle, path, message):
+            super(HTTPInternalClient.Response, self).__init__()
+            self._handle = handle
+            self._path = path
+            self._message = message
+            self.daemon = True
 
-        def get(self):
-            if not hasattr(self, "data"):
-                try:
-                    data = self.fid.read()
-                except socket.timeout as err:
-                    self.data = HTTPInternalClient.Error("timeout")
-                except HTTPError as err:
-                    self.data = HTTPInternalClient.Error(err.read())
-                else:
-                    self.data = pickle.loads(data)
+        def run(self):
+            self._result = self._handle(self._path, self._message)
 
-            return self.data
-
-    class FailedResponse(object):
-        def __init__(self, error):
-            self.error = error
-
-        def get(self):
-            return self.error
+        def await(self):
+            self.join()
+            return self._result
 
     def __init__(self, connaddr, connport, timeout):
         self.connaddr = connaddr
         self.connport = connport
         self.timeout = timeout
 
-    def send(self, path, obj):
-        message = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    def _handle(self, path, message):
         try:
-            fid = urlopen("http://{0}:{1}/{2}".format(self.connaddr, self.connport, path), message, self.timeout)
+            return pickle.loads(urlopen("http://{0}:{1}/{2}".format(self.connaddr, self.connport, path), message, self.timeout).read())
         except socket.timeout:
-            return HTTPInternalClient.FailedResponse(HTTPInternalClient.Error("timeout"))
+            return ExecutionFailure("socket.timeout: internal HTTP request timed out after {0} seconds".format(self.timeout), "")
         except HTTPError as err:
-            return HTTPInternalClient.FailedResponse(HTTPInternalClient.Error(err.read()))
-        else:
-            return HTTPInternalClient.Response(fid)
+            return ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), err.read())
+        except Exception as err:
+            return ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2])))
+
+    def sync(self, path, obj):
+        return self._handle(path, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+
+    def async(self, path, obj):
+        thread = HTTPInternalClient.Response(self._handle, path, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+        thread.start()
+        return thread
 
 class HTTPInternalServer(HTTPServer):
     def __init__(self, procclass, timeout):
@@ -170,7 +174,7 @@ class HTTPInternalServer(HTTPServer):
     def startProcess(self, path):
         oldproc = self.processes.get(path)
 
-        if oldproc is not None and oldproc.is_alive():
+        if oldproc is not None and oldproc[0].is_alive():
             oldproc.terminate()
 
         myend, yourend = multiprocessing.Pipe()

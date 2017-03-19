@@ -357,10 +357,12 @@ class ExecutionFailure(Serializable):
 
     def reraise(self):
         if isinstance(self.exception, string_types):
-            raise StopIteration(self.exception)
+            out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(self.exception, self.traceback)
+            raise RuntimeError(out)
 
         elif isinstance(self.traceback, string_types):
-            raise RuntimeError("Remote exception: {0}\n\n{1}".format(str(self.exception), self.traceback))
+            out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(self.exception), self.traceback)
+            raise RuntimeError(out)
 
         else:
             if sys.version_info[0] <= 2:
@@ -386,7 +388,7 @@ class ExecutionFailure(Serializable):
         assert "class" in obj
         assert "message" in obj
         assert "traceback" in obj
-        return ExecutionFailure("{0}: {1}".format(obj["class"], obj["message"], obj["traceback"]))
+        return ExecutionFailure("{0}: {1}".format(obj["class"], obj["message"]), obj["traceback"])
 
     @staticmethod
     def failureJson(obj):
