@@ -105,7 +105,11 @@ class HTTPInternalProcess(multiprocessing.Process):
         self.daemon = True
 
     def recv(self):
-        return pickle.loads(self.pipe.recv_bytes())
+        out = pickle.loads(self.pipe.recv_bytes())
+        while out is None:   # this is just a ping to ensure that the process exists
+            self.pipe.send_bytes(pickle.dumps(None, protocol=pickle.HIGHEST_PROTOCOL))
+            out = pickle.loads(self.pipe.recv_bytes())
+        return out
 
     def send(self, obj):
         self.pipe.send_bytes(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
@@ -118,10 +122,9 @@ class HTTPInternalClient(object):
     class Response(object):
         def __init__(self, fid):
             self.fid = fid
-            self.data = None
 
         def get(self):
-            if self.data is None:
+            if not hasattr(self, "data"):
                 try:
                     data = self.fid.read()
                 except socket.timeout as err:
@@ -197,7 +200,7 @@ class HTTPInternalServer(HTTPServer):
                         del self.processes[path]
 
                 # return a list of the processes that still exist
-                return self.sendjson(alive, start_response)
+                return self.sendpickle(alive, start_response)
 
             else:
                 # send to a particular process, creating it if necessary
