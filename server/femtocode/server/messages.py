@@ -19,8 +19,8 @@ class Message(object): pass
 # from dispatch to accumulate
 
 class GetQueryById(Message):
-    def __init__(self, id):
-        self.id = id
+    def __init__(self, queryid):
+        self.queryid = queryid
 
 class GetQuery(Message):
     def __init__(self, query):
@@ -36,7 +36,7 @@ class CancelQuery(Message):
 
 # from accumulate back to dispatch
 
-class DontHaveQueryId(Message): pass
+class DontHaveQuery(Message): pass
 
 class HaveIdPleaseSendQuery(Message): pass
 

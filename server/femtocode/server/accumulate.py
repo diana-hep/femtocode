@@ -35,6 +35,13 @@ class Tallyman(object):
         with self.lock:
             pass
 
+    def result(self):
+        with self.lock:
+            return self.executor.result
+
+    def cancel(self):
+        pass
+
 class Assignments(object):
     def __init__(self, minions):
         self.minions = minions
@@ -42,8 +49,17 @@ class Assignments(object):
         self.tallymans = {}
         self.lock = threading.Lock()
 
+    def has(self, queryid):
+        with self.lock:
+            return queryid in self.tallymans
+
     def queryids(self):
-        pass
+        with self.lock:
+            return list(self.tallymans)
+
+    def tallyman(self, queryid):
+        with self.lock:
+            return self.tallymans.get(queryid)
 
     def dead(self, minion):
         with self.lock:
@@ -53,8 +69,12 @@ class Assignments(object):
         with self.lock:
             self.survivors.add(minion)
 
+    def assign(self, executor):
+        # self.send(self.assignments.assign(message.executor))
+        pass
+
 class ResultPull(threading.Thread):
-    period  = 0.030    # poll for results every 30 ms
+    period  = 0.200    # poll for results every 200 ms
     timeout = 1.000    # no response after 1 second means it's dead
 
     def __init__(self, minion, assignments):
@@ -92,6 +112,7 @@ class Accumulate(HTTPInternalProcess):
 
         if not os.path.exists(cacheDirectory):
             os.mkdir(cacheDirectory)
+        assert os.path.isdir(cacheDirectory)
 
         myCacheDirectory = os.path.join(cacheDirectory, name)
         if not os.path.exists(myCacheDirectory):
@@ -103,18 +124,33 @@ class Accumulate(HTTPInternalProcess):
         message = self.recv()
 
         if isinstance(message, GetQueryById):
-            pass
+            if self.assignments.has(message.queryid) or self.cache.has(message.queryid):
+                self.send(HaveIdPleaseSendQuery())
+            else:
+                self.send(DontHaveQuery())
 
         elif isinstance(message, GetQuery):
-            pass
+            tallyman = self.assignments.get(message.query.id)
+            if tallyman is not None:
+                self.send(Result(tallyman.result()))
+            else:
+                result = self.cache.get(message.query)
+                if result is not None:
+                    self.send(Result(result))
+                else:
+                    self.send(DontHaveQuery())
 
         elif isinstance(message, AssignExecutor):
-            pass
+            self.send(self.assignments.assign(message.executor))
 
         elif isinstance(message, CancelQuery):
-            pass
+            tallyman = self.assignments.get(message.query.id)
+            if tallyman is not None:
+                tallyman.cancel()
+            self.send(None)
 
-        self.send(obj)
+        else:
+            assert False, "unrecognized message: {0}".format(message)
 
         return True
 
