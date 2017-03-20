@@ -20,45 +20,7 @@ import time
 import femtocode.asts.statementlist as statementlist
 from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
-from femtocode.workflow import Message
-
-class Result(Message):
-    def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
-        self.loadsDone = loadsDone
-        self.computesDone = computesDone
-        self.done = done
-        self.wallTime = wallTime
-        self.computeTime = computeTime
-        self.lastUpdate = lastUpdate
-        self.data = data
-
-    def __repr__(self):
-        return "Result({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(self.loadsDone, self.computesDone, self.done, self.wallTime, self.computeTime, self.lastUpdate, self.data)
-
-    def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "loadsDone": self.loadsDone,
-                "computesDone": self.computesDone,
-                "done": self.done,
-                "wallTime": self.wallTime,
-                "computeTime": self.computeTime,
-                "lastUpdate": self.lastUpdate,
-                "data": self.data.toJson()}
-
-    @staticmethod
-    def fromJson(obj, action):
-        if ExecutionFailure.failureJson(obj["data"]):
-            data = ExecutionFailure.fromJson(obj["data"])
-        else:
-            data = action.tallyFromJson(obj["data"])
-
-        return Result(obj["loadsDone"],
-                      obj["computesDone"],
-                      obj["done"],
-                      obj["wallTime"],
-                      obj["computeTime"],
-                      obj["lastUpdate"],
-                      data)
+from femtocode.remote import ResultMessage
 
 class NativeAccumulateExecutor(NativeExecutor):
     def __init__(self, query):
@@ -69,7 +31,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.startTime = time.time()
 
         self._setaction()
-        self.result = Result(0.0, 0.0, False, 0.0, 0.0, self.startTime, self.action.initialize())
+        self.result = ResultMessage(0.0, 0.0, False, 0.0, 0.0, self.startTime, self.action.initialize())
 
     def _setaction(self):
         self.action = self.query.actions[-1]
@@ -91,7 +53,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.computesDone = obj["computesDone"]
         out.startTime = obj["startTime"]
         out._setaction()
-        out.result = Result.fromJson(obj["result"], out.action)
+        out.result = ResultMessage.fromJson(obj["result"], out.action)
         return out
 
     def toCompute(self, groupids, retaddr):

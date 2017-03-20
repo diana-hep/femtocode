@@ -24,6 +24,8 @@ try:
 except:
     import pickle
 
+from femtocode.py23 import *
+
 class GarbageCollector(threading.Thread):
     def __init__(self, rolloverCache, partitionMarginBytes, gcTime):
         super(GarbageCollector, self).__init__()
@@ -84,6 +86,14 @@ class RolloverCache(object):
             init, last = os.path.split(dir)
             self.ensure(init)
             os.mkdir(last)
+
+    def has(self, queryid):
+        assert isinstance(queryid, string_types)
+        with self.lock:
+            for fullpath in self.fullpaths(time.time(), queryid):
+                if os.path.exists(fullpath):
+                    return True
+            return False
 
     def get(self, query):
         with self.lock:

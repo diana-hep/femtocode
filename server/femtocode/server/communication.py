@@ -44,6 +44,9 @@ class HTTPServer(object):
         server = make_server(bindaddr, bindport, self)
         server.serve_forever()
 
+    def getpath(self, environ):
+        return environ.get("PATH_INFO", "").lstrip("/")
+
     def getstring(self, environ):
         length = int(environ.get("CONTENT_LENGTH", "0"))
         return environ["wsgi.input"].read(length)
@@ -126,28 +129,26 @@ class HTTPInternalProcess(multiprocessing.Process):
 
 class HTTPInternalClient(object):
     class Response(threading.Thread):
-        def __init__(self, handle, path, message):
+        def __init__(self, handle, message):
             super(HTTPInternalClient.Response, self).__init__()
             self._handle = handle
-            self._path = path
             self._message = message
             self.daemon = True
 
         def run(self):
-            self._result = self._handle(self._path, self._message)
+            self._result = self._handle(self._message)
 
         def await(self):
             self.join()
             return self._result
 
-    def __init__(self, connaddr, connport, timeout):
-        self.connaddr = connaddr
-        self.connport = connport
+    def __init__(self, url, timeout):
+        self.url = url
         self.timeout = timeout
 
-    def _handle(self, path, message):
+    def _handle(self, message):
         try:
-            return pickle.loads(urlopen("http://{0}:{1}/{2}".format(self.connaddr, self.connport, path), message, self.timeout).read())
+            return pickle.loads(urlopen(self.url, message, self.timeout).read())
         except socket.timeout:
             return ExecutionFailure("socket.timeout: internal HTTP request timed out after {0} seconds".format(self.timeout), "")
         except HTTPError as err:
@@ -155,11 +156,11 @@ class HTTPInternalClient(object):
         except Exception as err:
             return ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2])))
 
-    def sync(self, path, obj):
-        return self._handle(path, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+    def sync(self, obj):
+        return self._handle(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
 
-    def async(self, path, obj):
-        thread = HTTPInternalClient.Response(self._handle, path, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
+    def async(self, obj):
+        thread = HTTPInternalClient.Response(self._handle, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
         thread.start()
         return thread
 

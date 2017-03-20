@@ -14,106 +14,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-try:
-    from urllib2 import urlparse, urlopen, HTTPError
-except ImportError:
-    from urllib.parse import urlparse
-    from urllib.request import urlopen
-    from urllib.error import HTTPError
-
 from femtocode.py23 import *
-from femtocode.workflow import Query
 from femtocode.server.communication import *
-from femtocode.server.accumulate import StatusUpdate
-from femtocode.server.execution import NativeAccumulateExecutor
-
-# the fact that MetadataAPIServer can be an independent process has never been exercised; just called directly by DispatchAPIServer
-class MetadataAPIServer(HTTPServer):
-    def __init__(self, metadb, bindaddr, bindport):
-        self.metadb = metadb
-        self.bindaddr = bindaddr
-        self.bindport = bindport
-
-    def __call__(self, environ, start_response):
-        try:
-            obj = self.getjson(environ)
-            name = obj["name"]
-            assert isinstance(name, string_types)
-
-        except:
-            return self.senderror("400 Bad Request", start_response)
-
-        else:
-            try:
-                dataset = self.metadb.dataset(name, (), None, True)
-            except:
-                return self.senderror("500 Internal Server Error", start_response)
-            else:
-                return self.sendjson(dataset.toJson(), start_response)
 
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, metadb, accumulates, bindaddr, bindport, timeout):
+    def __init__(self, selfaddr, accumulates, metadb, bindaddr, bindport, timeout):
+        self.selfaddr = selfaddr
+        self.accumulates = [HTTPInternalClient(x, timeout) for x in accumulates]
         self.metadb = metadb
-        self.accumulates = accumulates
         self.bindaddr = bindaddr
         self.bindport = bindport
         self.timeout = timeout
 
+        assert len(self.accumulates) > 0
+
     def __call__(self, environ, start_response):
-        path = environ.get("PATH_INFO", "").lstrip("/")
+        path = self.getpath(environ)
 
         try:
             if path == "metadata":
-                if isinstance(self.metadb, string_types):
-                    # self.metadb the url of an upstream server
-                    return self.gateway(self.metadb, environ, start_response)
-
-                elif isinstance(self.metadb, MetadataAPIServer):
-                    # self.metadb is a class embedded in this process
-                    return self.metadb(environ, start_response)
-
+                try:
+                    obj = self.getjson(environ)
+                    name = obj["name"]
+                    assert isinstance(name, string_types)
+                except:
+                    return self.senderror("400 Bad Request", start_response)
                 else:
-                    assert False, "self.metadb improperly configured"
+                    dataset = self.metadb.dataset(name, (), None, True)
+                    return self.sendjson(dataset.toJson(), start_response)
 
             elif path == "submit":
-                query = Query.fromJson(self.getjson(environ))
+                try:
+                    query = Query.fromJson(self.getjson(environ))
+                except:
+                    return self.senderror("400 Bad Request", start_response)
+                else:
+                    # rotate who gets to be the "first" accumulate so that load gets distributed
+                    cut = abs(hash(query)) % len(self.accumulates)
+                    accumulates = self.accumulates[cut:] + self.accumulates[:cut]
 
-                # NOTE: The following seek through accumulates is synchronous and blocking; each dead accumulate adds self.timeout (0.5 sec) to the
-                #       total response time. If the number of accumulates ever becomes large (e.g. several), this will need to become asynchronous.
-                cut = hash(query) % len(self.accumulates)
+                    waiting = [x.async(GetQueryById(query.id)) for x in accumulates]
+                    responses = [x.await() for x in waiting]
 
-                statusUpdates = []
-                finalResult = None
+                    for i, response in enumerate(responses):
+                        if isinstance(response, HaveIdPleaseSendQuery):
+                            responses[i] = accumulates[i].sync(GetQuery(query))
+                            responses[i].accumulate = accumulates[i]    # (attach for use in case 3)
 
-                for accumulate in self.accumulates[cut:] + self.accumulates[:cut]:
-                    result = accumulate.result(query)
+                    results = [x for x in responses if isinstance(x, Result)]
 
-                    if result is None:   # timeout from upstream server
-                        continue         # ignore it; use the other servers
-                    elif isinstance(result, StatusUpdate):
-                        result.accumulate = accumulate
-                        statusUpdates.append(result)
+                    if len(results) == 0:
+                        # case 1: nobody's heard of this query; assign it to the first accumulate
+                        result = accumulates[0].sync(Assign(query))
+                        return self.sendjson(result.resultMessage.toJson())
+
+                    elif len(results) == 1:
+                        # case 2: only one accumulate is working on it; return its (partial) result
+                        return self.sendjson(results[0].resultMessage.toJson())
+
                     else:
-                        if finalResult is None:
-                            finalResult = result
-
-                        # make sure nobody else thinks they're running this query
+                        # case 3: something went wrong (server was unreachable and then returned);
+                        #         cancel queries on all but the first accumulate and return that
                         query.cancelled = True
+                        for extraresult in results[1:]:
+                            extraresult.accumulate.sync(Assign(query))  # (attached above)
 
-                if finalResult is not None:
-                    return self.sendjson(result.toJson(), start_response)
-
-                assert len(statusUpdates) != 0, "all accumulate servers are unresponsive"
-                bestChoice = min(statusUpdates, key=lambda x: x.load)
-
-                # TODO: should this compilation be on another thread? to respond to the user without waiting for compilation?
-                result = bestChoice.accumulate.assign(NativeAccumulateExecutor(query))
-
-                return self.sendjson(result.toJson(), start_response)
-
-            else:
-                return self.senderror("404 Not Found", start_response, "URL path not recognized by dispatcher: {0}".format(path))
+                        return self.sendjson(results[0].resultMessage.toJson())
 
         except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)
