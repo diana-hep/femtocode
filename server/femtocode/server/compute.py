@@ -14,71 +14,81 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-import threading
 import time
-try:
-    import Queue as queue
-except ImportError:
-    import queue
 
-from femtocode.rootio.dataset import ROOTDataset
-from femtocode.rootio.fetch import ROOTFetcher
-from femtocode.run.cache import *
-from femtocode.run.execution import *
+from femtocode.run.cache import NeedWantCache
+from femtocode.server.messages import *
 from femtocode.server.communication import *
-from femtocode.server.metadata import MetadataFromMongoDB
-from femtocode.run.metadata import MetadataFromJson
 
-class CacheMasterWithMetadata(CacheMaster):
-    def __init__(self, needWantCache, minions, metadata):
-        super(CacheMasterWithMetadata, self).__init__(needWantCache, minions)
-        self.metadata = metadata
+class Compute(HTTPInternalProcess):
+    experationAfterDone = 60    # a fail-safe against accidental memory leaks: if a query result hasn't been requested in a minute, expire it
 
-    def prepare(self, executor):
-        executor.query.dataset = self.metadata.dataset(executor.query.dataset.name, list(xrange(executor.query.dataset.numGroups)), executor.query.statements.columnNames(), False)
-        return executor
+    def __init__(self, name, pipe, cacheLimitBytes, metadb):
+        super(Compute, self).__init__(name, pipe)
 
-class GaboServer(threading.Thread):
-    def __init__(self, bindaddr, cacheMaster):
-        super(GaboServer, self).__init__()
-        self.server = ZMQServer(bindaddr)
-        self.cacheMaster = cacheMaster
-        self.daemon = True
+        self.active = {}
+        self.expiration = {}
+        self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes), self.minions)
+        self.metadb = metadb
 
-    def run(self):
-        while True:
-            message = self.server.recv()
+    def cycle(self):
+        message = self.recv()
 
-            try:
-                # new work to do: yay! (else just a heartbeat ping)
-                if isinstance(message, NativeComputeExecutor):
-                    self.cacheMaster.incoming.put(message)
+        if isinstance(message, AssignExecutorGroupids):
+            dataset = self.metadb.dataset(message.executor.query.dataset.name, message.groupids, message.executor.query.statements.columnNames(), False)
+            executor = NativeComputeExecutor.fromNativeExecutor(message.executor, dataset, message.groupids)
 
-            except:
-                self.server.send(None)
+            self.active[executor.query.id] = self.active.get(executor.query.id, []) + [executor]
+            self.cacheMaster.incoming.put(executor)
 
-            else:
-                self.server.send(True)
+            self.send(None)
 
-########################################### TODO: temporary!
+        elif isinstance(message, GetResults):
+            queryidToAssignment = {}
+            queryidToMessages = {}
 
-# datasetClass = ROOTDataset
-# fetcherClass = ROOTFetcher
-# executorClass = DummyExecutor
+            for queryid, executors in self.active.items():
+                todrop = []
+                for i, executor in enumerate(executors):
+                    with executor.lock:
+                        if executor.query.id in message.queryids:
+                            queryidToAssignment[executor.query.id] = queryidToAssignment.get(executor.query.id, []) + executor.groupids
+                            queryidToMessages[executor.query.id] = queryidToMessages.get(executor.query.id, []) + executor.messages
 
-# minion = Minion(queue.Queue(), queue.Queue())
-# # metadata = MetadataFromMongoDB(datasetClass, "mongodb://localhost:27017", "metadb", "datasets", 1.0)
-# metadata = MetadataFromJson(datasetClass, "/home/pivarski/diana/femtocode/tests")
+                            if executor.done():
+                                todrop.append(i)
 
-# cacheMaster = CacheMaster(NeedWantCache(1024**3, fetcherClass), [minion])
-# gaboServer = GaboServer("tcp://*:5556", metadata, cacheMaster, executorClass)
+                        elif executor.done():
+                            expirationDate = self.expiration.get(executor.query, time.time())
+                            self.expiration[executor.query] = expirationDate
 
-# minion.start()
-# cacheMaster.start()
-# gaboServer.start()
+                            if time.time() - expirationDate > self.expirationAfterDone:
+                                todrop.append(i)
+                                del self.expiration[executor.query]
 
-# while True:
-#     if not minion.isAlive() or not cacheMaster.isAlive() or not gaboServer.isAlive():
-#         sys.exit()
-#     time.sleep(1)
+                while len(todrop) > 0:
+                    del executors[todrop.pop()]
+
+            self.send(Results(queryidToAssignment, queryidToMessages))
+                    
+        elif isinstance(message, CancelQueryById):
+            # FIXME
+
+            message.queryid
+            
+        else:
+            assert False, "unrecognized message: {0}".format(message)
+
+        return True
+
+# HTTPInternalServer(Compute, (cacheLimitBytes, MetadataFromJson(".")), timeout)
+
+
+
+
+
+
+# class Results(Message):
+#     def __init__(self, queryidToAssignment, queryidToMessages):
+#         self. = queryidToAssignment
+#         self. = queryidToMessages

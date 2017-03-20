@@ -47,8 +47,9 @@ class Result(Message):
 # from accumulate to compute
 
 class AssignExecutorGroupids(Message):
-    def __init__(self, subexec):
-        self.subexec = subexec
+    def __init__(self, executor, groupids):
+        self.executor = executor
+        self.groupids = groupids
 
 class GetResults(Message):
     def __init__(self, queryids):

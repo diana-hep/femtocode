@@ -16,12 +16,14 @@
 
 import datetime
 import time
+import threading
 
 import femtocode.asts.statementlist as statementlist
 from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
 from femtocode.remote import ResultMessage
 from femtocode.server.messages import *
+from femtocode.workflow import Query
 
 class NativeAccumulateExecutor(NativeExecutor):
     def __init__(self, query):
@@ -57,19 +59,15 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.result = ResultMessage.fromJson(obj["result"], out.action)
         return out
 
-    def toCompute(self, groupids):
-        out = NativeComputeExecutor.__new__(NativeComputeExecutor)
+    def toNativeExecutor(self):
+        out = NativeExecutor.__new__(NativeExecutor)
         out.query = self.query
         out.required = self.required
         out.temporaries = self.temporaries
         out.order = self.order
         out.tmptypes = self.tmptypes
-
-        out.groupids = groupids
-        out.messages = []
-
         return out
-        
+
     def oneLoadDone(self, groupid):
         if not self.query.cancelled:
             self.loadsDone[groupid] = True
@@ -104,29 +102,45 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.query.cancelled = True
 
 class NativeComputeExecutor(NativeExecutor):
+    @staticmethod
+    def fromNativeExecutor(executor, dataset, groupids):
+        out = NativeComputeExecutor.__new__(NativeComputeExecutor)
+        out.query = Query.fromJson(executor.query.toJson())  # because we'll be replacing the dataset
+        out.query.dataset = dataset
+        out.required = executor.required
+        out.temporaries = executor.temporaries
+        out.order = executor.order
+        out.tmptypes = executor.tmptypes
+        out._setTransients(groupids)
+        return out
+
     def __init__(self, query, groupids):
         super(NativeComputeExecutor, self).__init__(query)
+        self._setTransients(groupids)
+        
+    def _setTransients(self, groupids):
+        # transient; only used on compute nodes
         self.groupids = groupids
-        self.messages = []   # transient, unless you want to define JSON transformations for the three types of Messages
-
-    def toJson(self):
-        out = super(NativeComputeExecutor, self).toJson()
-        out["groupids"] = self.groupids
-        return out
-
-    @staticmethod
-    def fromJson(obj):
-        out = NativeExecutor.fromJson(obj)
-        out.groupids = obj["groupids"]
-        out.messages = []
-        out.__class__ = NativeComputeExecutor
-        return out
+        self.lock = threading.Lock()
+        self.groupsDone = dict((x, False) for x in self.groupids)
+        self.failed = False
+        self.messages = []
 
     def oneLoadDone(self, groupid):
-        self.messages.append(OneLoadDone(groupid))
+        with self.lock:
+            self.messages.append(OneLoadDone(groupid))
 
     def oneComputeDone(self, groupid, computeTime, subtally):
-        self.messages.append(OneComputeDone(groupid, computeTime, subtally))
-
+        with self.lock:
+            self.messages.append(OneComputeDone(groupid, computeTime, subtally))
+            self.groupsDone[groupid] = True
+        
     def oneFailure(self, failure):
-        self.messages.append(OneFailure(failure))
+        with self.lock:
+            if not self.failed:
+                self.messages.append(OneFailure(failure))
+                self.failed = True
+
+    def done(self):
+        with self.lock:
+            return self.failed or all(self.groupsDone.values())

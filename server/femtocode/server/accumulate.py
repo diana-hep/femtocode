@@ -33,19 +33,25 @@ class Tallyman(object):
         self.minionToGroupids = {}
         self.lock = threading.Lock()
     
-    def assign(self, survivors, groupids):
+    def assign(self, survivors):
         with self.lock:
             offset = abs(hash(self.executor.query))
+            groupids = list(xrange(executor.query.dataset.numGroups))
+            native = self.executor.toNativeExecutor()
 
             for minion, client in zip(self.minions, self.clients):
-                subset = assign(offset, groupids, self.executor.query.dataset.numGroups, minion, self.minions, survivors)
-                self.minionToGroupids[minion] = subset
+                if minion in survivors:
+                    subset = assign(offset, groupids, self.executor.query.dataset.numGroups, minion, self.minions, survivors)
 
-                if len(subset) > 0:
-                    subexec = self.executor.toCompute(subset)
-                    client.async(AssignExecutorGroupids(subexec))
-                    # don't care about the result; failures will be cleaned up later
-                    
+                    if len(subset) > 0 and self.minionToGroupids.get(minion, []) != subset:
+                        client.async(AssignExecutorGroupids(native, subset))
+                        # don't care about the result; failures-to-launch will be cleaned up afterward
+
+                    self.minionToGroupids[minion] = subset
+
+                else:
+                    self.minionToGroupids[minion] = []
+
     def cancel(self):
         for client in self.clients:
             client.async(CancelQueryById(self.executor.query.id))
@@ -60,8 +66,9 @@ class Tallyman(object):
                 # missing = what I think the minion ought to be working on that it doesn't know about
                 missing = set(self.minionToGroupids[minion]).difference(set(minionToGroupids[minion]))
                 if len(missing) > 0:
-                    subexec = self.executor.toCompute(sorted(missing))
-                    client.async(AssignExecutorGroupids(subexec))
+                    native = self.executor.toNativeExecutor()
+                    client.async(AssignExecutorGroupids(native, sorted(missing)))
+                    # don't care about the result; failures-to-launch will be cleaned up afterward
 
                 for message in messages:
                     if isinstance(message, OneLoadDone):
@@ -90,22 +97,35 @@ class Assignments(object):
         with self.lock:
             return self.tallymans.get(queryid)
 
+    def gettallymans(self):
+        with self.lock:
+            return list(self.tallymans)
+
     def dead(self, minion):
         with self.lock:
-            self.survivors.discard(minion)
+            if minion in self.survivors:
+                self.survivors.discard(minion)
+                return self.survivors
+            else:
+                return None
 
     def alive(self, minion):
         with self.lock:
-            self.survivors.add(minion)
+            if minion not in self.survivors:
+                self.survivors.add(minion)
+                return self.survivors
+            else:
+                return None
 
     def assign(self, executor):
         with self.lock:
             tallyman = self.tallymans.get(executor.query.id)
             if tallyman is None:
                 tallyman = Tallyman(self.minions, executor)
-                tallyman.assign(self.survivors, list(xrange(executor.query.dataset.numGroups)))
                 self.tallymans[executor.query.id] = tallyman
-            return tallyman
+
+        tallyman.assign(self.survivors)
+        return tallyman
 
 class ResultPull(threading.Thread):
     period  = 0.200    # poll for results every 200 ms
@@ -124,9 +144,9 @@ class ResultPull(threading.Thread):
             try:
                 results = self.client.sync(GetResults(self.assignments.queryids()))
             except socket.timeout:
-                self.assignments.dead(self.minion)
+                newsurvivors = self.assignments.dead(self.minion)
             else:
-                self.assignments.alive(self.minion)
+                newsurvivors = self.assignments.alive(self.minion)
 
                 for queryid, assignment in results.queryidToAssignment.items():
                     messages = results.queryidToMessages[queryid]   # asserting this structure
@@ -136,7 +156,11 @@ class ResultPull(threading.Thread):
                         tallyman.update(assignment, messages)
                     else:
                         self.client.sync(CancelQueryById(queryid))
-                        
+
+            if newsurvivors is not None:
+                for tallyman in self.assignments.gettallymans():
+                    tallyman.assign(newsurvivors)
+
             time.sleep(self.period)
 
 class Accumulate(HTTPInternalProcess):
