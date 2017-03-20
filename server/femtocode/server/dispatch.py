@@ -15,18 +15,20 @@
 # limitations under the License.
 
 from femtocode.py23 import *
+from femtocode.workflow import Query
+from femtocode.server.messages import *
 from femtocode.server.communication import *
+from femtocode.server.execution import NativeAccumulateExecutor
 
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, selfaddr, accumulates, metadb, bindaddr, bindport, timeout):
-        self.selfaddr = selfaddr
-        self.accumulates = [HTTPInternalClient(x, timeout) for x in accumulates]
+    def __init__(self, accumulates, metadb, bindaddr, bindport, timeout):
+        self.accumulateClients = [HTTPInternalClient(x, timeout) for x in accumulates]
         self.metadb = metadb
         self.bindaddr = bindaddr
         self.bindport = bindport
         self.timeout = timeout
 
-        assert len(self.accumulates) > 0
+        assert len(self.accumulateClients) > 0
 
     def __call__(self, environ, start_response):
         path = self.getpath(environ)
@@ -50,22 +52,26 @@ class DispatchAPIServer(HTTPServer):
                     return self.senderror("400 Bad Request", start_response)
                 else:
                     # rotate who gets to be the "first" accumulate so that load gets distributed
-                    cut = abs(hash(query)) % len(self.accumulates)
-                    accumulates = self.accumulates[cut:] + self.accumulates[:cut]
+                    cut = abs(hash(query)) % len(self.accumulateClients)
+                    accumulates = self.accumulateClients[cut:] + self.accumulateClients[:cut]
 
+                    # ask everybody for their status at the same time
                     waiting = [x.async(GetQueryById(query.id)) for x in accumulates]
                     responses = [x.await() for x in waiting]
 
+                    # those who respond positively to the queryid don't necessarily have the query
+                    # (due to extremely unlikely queryid collision); follow-up and make sure they do
                     for i, response in enumerate(responses):
                         if isinstance(response, HaveIdPleaseSendQuery):
                             responses[i] = accumulates[i].sync(GetQuery(query))
-                            responses[i].accumulate = accumulates[i]    # (attach for use in case 3)
-
+                            responses[i].accumulate = accumulates[i]         # (attach for possible case 3)
+                            
                     results = [x for x in responses if isinstance(x, Result)]
 
                     if len(results) == 0:
                         # case 1: nobody's heard of this query; assign it to the first accumulate
-                        result = accumulates[0].sync(Assign(query))
+                        executor = NativeAccumulateExecutor(query)
+                        result = accumulates[0].sync(AssignExecutor(executor))
                         return self.sendjson(result.resultMessage.toJson())
 
                     elif len(results) == 1:
@@ -75,11 +81,13 @@ class DispatchAPIServer(HTTPServer):
                     else:
                         # case 3: something went wrong (server was unreachable and then returned);
                         #         cancel queries on all but the first accumulate and return that
-                        query.cancelled = True
                         for extraresult in results[1:]:
-                            extraresult.accumulate.sync(Assign(query))  # (attached above)
+                            extraresult.accumulate.sync(CancelQuery(query))  # (extraresult.accumulate attached above)
 
                         return self.sendjson(results[0].resultMessage.toJson())
+
+            else:
+                return self.senderror("400 Bad Request", start_response)
 
         except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)

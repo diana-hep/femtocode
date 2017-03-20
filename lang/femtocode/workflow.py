@@ -54,11 +54,11 @@ class Query(Serializable):
         return "{0:016x}".format(hash(self) + 2**63)
 
     def __eq__(self, other):
-        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions and self.cancelled == other.cancelled
+        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
         if not hasattr(self, "_hash"):
-            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions), self.cancelled))
+            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
         return self._hash
 
     def toJson(self):
@@ -66,7 +66,7 @@ class Query(Serializable):
                 "dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions],
-                "cancelled": False}
+                "cancelled": self.cancelled}
 
     @staticmethod
     def fromJson(obj):

@@ -16,24 +16,69 @@
 
 class Message(object): pass
 
+# from dispatch to accumulate
+
 class GetQueryById(Message):
     def __init__(self, id):
         self.id = id
-
-class DontHaveQueryId(Message):
-    def __init__(self, load):
-        self.load = load
-
-class HaveIdPleaseSendQuery(Message): pass
 
 class GetQuery(Message):
     def __init__(self, query):
         self.query = query
 
+class AssignExecutor(Message):
+    def __init__(self, executor):
+        self.executor = executor
+
+class CancelQuery(Message):
+    def __init__(self, query):
+        self.query = query
+
+# from accumulate back to dispatch
+
+class DontHaveQueryId(Message): pass
+
+class HaveIdPleaseSendQuery(Message): pass
+
 class Result(Message):
     def __init__(self, resultMessage):
         self.resultMessage = resultMessage
 
-class Assign(Message):
-    def __init__(self, query):
-        self.query = query
+# from accumulate to compute
+
+class SendExecutor(Message):
+    def __init__(self, executor):
+        self.executor = executor
+
+class AssignGroupids(Message):
+    def __init__(self, queryid, groupids):
+        self.queryid = queryid
+        self.groupids = groupids
+
+class GetResults(Message):
+    def __init__(self, queryids):
+        self.queryids = queryids
+
+class CancelQueryById(Message):
+    def __init__(self, queryid):
+        self.queryid = queryid
+
+# from compute back to accumulate
+
+class OneLoadDone(Message):
+    def __init__(self, groupid):
+        self.groupid = groupid
+
+class OneComputeDone(Message):
+    def __init__(self, groupid, computeTime, subtally):
+        self.groupid = groupid
+        self.computeTime = computeTime
+        self.subtally = subtally
+
+class OneFailure(Message):
+    def __init__(self, failure):
+        self.failure = failure
+
+class Results(Message):
+    def __init__(self, queryToGroupids):
+        self.queryToGroupids = queryToGroupids

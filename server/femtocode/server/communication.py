@@ -134,6 +134,7 @@ class HTTPInternalClient(object):
             self._handle = handle
             self._message = message
             self.daemon = True
+            self.start()    # a self-starter
 
         def run(self):
             self._result = self._handle(self._message)
@@ -147,27 +148,19 @@ class HTTPInternalClient(object):
         self.timeout = timeout
 
     def _handle(self, message):
-        try:
-            return pickle.loads(urlopen(self.url, message, self.timeout).read())
-        except socket.timeout:
-            return ExecutionFailure("socket.timeout: internal HTTP request timed out after {0} seconds".format(self.timeout), "")
-        except HTTPError as err:
-            return ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), err.read())
-        except Exception as err:
-            return ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2])))
+        return pickle.loads(urlopen(self.url, message, self.timeout).read())
 
     def sync(self, obj):
         return self._handle(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
 
     def async(self, obj):
-        thread = HTTPInternalClient.Response(self._handle, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
-        thread.start()
-        return thread
+        return HTTPInternalClient.Response(self._handle, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
 
 class HTTPInternalServer(HTTPServer):
-    def __init__(self, procclass, timeout):
+    def __init__(self, procclass, procargs, timeout):
         super(HTTPInternalServer, self).__init__()
         self.procclass = procclass
+        self.procargs = procargs
         self.timeout = timeout
 
         self.processes = {}
@@ -179,7 +172,7 @@ class HTTPInternalServer(HTTPServer):
             oldproc.terminate()
 
         myend, yourend = multiprocessing.Pipe()
-        proc = self.procclass(path, yourend)
+        proc = self.procclass(path, yourend, *self.procargs)
         proc.start()
 
         self.processes[path] = (proc, myend)
@@ -198,8 +191,11 @@ class HTTPInternalServer(HTTPServer):
                 alive = []
                 for path, (proc, myend) in list(self.processes.items()):
                     if myend.poll(self.timeout):
-                        myend.recv_bytes()
-                        alive.append(path)
+                        if isinstance(myend.recv_bytes(), ExecutionFailure):
+                            proc.terminate()
+                            del self.processes[path]
+                        else:
+                            alive.append(path)
                     else:
                         proc.terminate()
                         del self.processes[path]
@@ -216,7 +212,13 @@ class HTTPInternalServer(HTTPServer):
                 myend.send_bytes(self.getstring(environ))
 
                 if myend.poll(self.timeout):
-                    return self.sendstring(myend.recv_bytes(), start_response)
+                    response = myend.recv_bytes()
+                    if isinstance(response, ExecutionFailure):
+                        proc.terminate()
+                        del self.processes[path]
+                        return self.senderror("500 Internal Server Error", start_response, str(response))
+                    else:
+                        return self.sendstring(response, start_response)
                 else:
                     proc.terminate()
                     del self.processes[path]
