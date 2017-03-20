@@ -137,7 +137,10 @@ class HTTPInternalClient(object):
             self.start()    # a self-starter
 
         def run(self):
-            self._result = self._handle(self._message)
+            try:
+                self._result = self._handle(self._message)
+            except Exception as err:
+                self._result = err
 
         def await(self):
             self.join()

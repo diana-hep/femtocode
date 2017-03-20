@@ -20,27 +20,56 @@ import time
 import threading
 import socket
 
+from femtocode.server.assignment import assign
 from femtocode.server.messages import *
 from femtocode.server.communication import *
 from femtocode.remote import ResultMessage
 
 class Tallyman(object):
     def __init__(self, minions, executor):
-        self.minions = minions
+        self.minions = minions   # order matters
+        self.clients = [HTTPInternalClient(minion, self.timeout) for minion in self.minions]
         self.executor = executor
-        self.assignments = {}
+        self.minionToGroupids = {}
         self.lock = threading.Lock()
-
-    def update(self, groupidToChange):
+    
+    def assign(self, survivors, groupids):
         with self.lock:
-            pass
+            offset = abs(hash(self.executor.query))
+
+            for minion, client in zip(self.minions, self.clients):
+                subset = assign(offset, groupids, self.executor.query.dataset.numGroups, minion, self.minions, survivors)
+                self.minionToGroupids[minion] = subset
+
+                if len(subset) > 0:
+                    subexec = self.executor.toCompute(subset)
+                    client.async(AssignExecutorGroupids(subexec))
+                    # don't care about the result; failures will be cleaned up later
+                    
+    def cancel(self):
+        for client in self.clients:
+            client.async(CancelQueryById(self.executor.query.id))
 
     def result(self):
         with self.lock:
             return self.executor.result
 
-    def cancel(self):
-        pass
+    def update(self, minionToGroupids, messages):
+        with self.lock:
+            for minion in self.minions:
+                # missing = what I think the minion ought to be working on that it doesn't know about
+                missing = set(self.minionToGroupids[minion]).difference(set(minionToGroupids[minion]))
+                if len(missing) > 0:
+                    subexec = self.executor.toCompute(sorted(missing))
+                    client.async(AssignExecutorGroupids(subexec))
+
+                for message in messages:
+                    if isinstance(message, OneLoadDone):
+                        self.executor.oneLoadDone(message.groupid)
+                    elif isinstance(message, OneComputeDone):
+                        self.executor.oneComputeDone(message.groupid, message.computeTime, message.subtally)
+                    elif isinstance(message, OneFailure):
+                        self.executor.oneFailure(message.failure)
 
 class Assignments(object):
     def __init__(self, minions):
@@ -70,8 +99,13 @@ class Assignments(object):
             self.survivors.add(minion)
 
     def assign(self, executor):
-        # self.send(self.assignments.assign(message.executor))
-        pass
+        with self.lock:
+            tallyman = self.tallymans.get(executor.query.id)
+            if tallyman is None:
+                tallyman = Tallyman(self.minions, executor)
+                tallyman.assign(self.survivors, list(xrange(executor.query.dataset.numGroups)))
+                self.tallymans[executor.query.id] = tallyman
+            return tallyman
 
 class ResultPull(threading.Thread):
     period  = 0.200    # poll for results every 200 ms
@@ -94,13 +128,15 @@ class ResultPull(threading.Thread):
             else:
                 self.assignments.alive(self.minion)
 
-                for queryid, groupidToChange in results.queryToGroupids.items():
+                for queryid, assignment in results.queryidToAssignment.items():
+                    messages = results.queryidToMessages[queryid]   # asserting this structure
+
                     tallyman = self.assignments.tallymans.get(queryid)
                     if tallyman is not None:
-                        tallyman.update(groupidToChange)
+                        tallyman.update(assignment, messages)
                     else:
                         self.client.sync(CancelQueryById(queryid))
-
+                        
             time.sleep(self.period)
 
 class Accumulate(HTTPInternalProcess):
@@ -141,7 +177,8 @@ class Accumulate(HTTPInternalProcess):
                     self.send(DontHaveQuery())
 
         elif isinstance(message, AssignExecutor):
-            self.send(self.assignments.assign(message.executor))
+            tallyman = self.assignments.assign(message.executor)
+            self.send(tallyman.result())
 
         elif isinstance(message, CancelQuery):
             tallyman = self.assignments.get(message.query.id)

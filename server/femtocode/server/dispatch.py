@@ -71,8 +71,18 @@ class DispatchAPIServer(HTTPServer):
                     if len(results) == 0:
                         # case 1: nobody's heard of this query; assign it to the first accumulate
                         executor = NativeAccumulateExecutor(query)
-                        result = accumulates[0].sync(AssignExecutor(executor))
-                        return self.sendjson(result.resultMessage.toJson())
+
+                        firstgood = None
+                        for accumulate in accumulates:
+                            if isinstance(accumulate, DontHaveQuery):
+                                firstgood = accumulate
+                                break
+
+                        if firstgood is None:
+                            return senderror("500 Internal Server Error", start_response, "all accumulate nodes are unresponsive")
+                        else:
+                            result = firstgood.sync(AssignExecutor(executor))
+                            return self.sendjson(result.resultMessage.toJson())
 
                     elif len(results) == 1:
                         # case 2: only one accumulate is working on it; return its (partial) result

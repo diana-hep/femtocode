@@ -46,14 +46,9 @@ class Result(Message):
 
 # from accumulate to compute
 
-class SendExecutor(Message):
-    def __init__(self, executor):
-        self.executor = executor
-
-class AssignGroupids(Message):
-    def __init__(self, queryid, groupids):
-        self.queryid = queryid
-        self.groupids = groupids
+class AssignExecutorGroupids(Message):
+    def __init__(self, subexec):
+        self.subexec = subexec
 
 class GetResults(Message):
     def __init__(self, queryids):
@@ -80,5 +75,6 @@ class OneFailure(Message):
         self.failure = failure
 
 class Results(Message):
-    def __init__(self, queryToGroupids):
-        self.queryToGroupids = queryToGroupids
+    def __init__(self, queryidToAssignment, queryidToMessages):
+        self.queryidToAssignment = queryidToAssignment
+        self.queryidToMessages = queryidToMessages

@@ -21,6 +21,7 @@ import femtocode.asts.statementlist as statementlist
 from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
 from femtocode.remote import ResultMessage
+from femtocode.server.messages import *
 
 class NativeAccumulateExecutor(NativeExecutor):
     def __init__(self, query):
@@ -56,7 +57,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.result = ResultMessage.fromJson(obj["result"], out.action)
         return out
 
-    def toCompute(self, groupids, retaddr):
+    def toCompute(self, groupids):
         out = NativeComputeExecutor.__new__(NativeComputeExecutor)
         out.query = self.query
         out.required = self.required
@@ -65,7 +66,8 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.tmptypes = self.tmptypes
 
         out.groupids = groupids
-        out.retaddr = retaddr
+        out.messages = []
+
         return out
         
     def oneLoadDone(self, groupid):
@@ -102,38 +104,29 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.query.cancelled = True
 
 class NativeComputeExecutor(NativeExecutor):
-    listenThreshold = 0.030     # 30 ms      no response from foreman; reset ZMQClient recv/send state
-
-    def __init__(self, query, groupids, retaddr):
+    def __init__(self, query, groupids):
         super(NativeComputeExecutor, self).__init__(query)
         self.groupids = groupids
-        self.retaddr = retaddr
+        self.messages = []   # transient, unless you want to define JSON transformations for the three types of Messages
 
     def toJson(self):
         out = super(NativeComputeExecutor, self).toJson()
         out["groupids"] = self.groupids
-        out["retaddr"] = self.retaddr
         return out
 
     @staticmethod
     def fromJson(obj):
         out = NativeExecutor.fromJson(obj)
         out.groupids = obj["groupids"]
-        out.retaddr = obj["retaddr"]
+        out.messages = []
         out.__class__ = NativeComputeExecutor
         return out
 
-    def setAccumulate(self, accumulates):
-        self.client = accumulates.open(self.retaddr)
-
     def oneLoadDone(self, groupid):
-        if self.client.oneLoadDone(self.query, groupid) is None:
-            self.query.cancelled = True
+        self.messages.append(OneLoadDone(groupid))
 
     def oneComputeDone(self, groupid, computeTime, subtally):
-        if self.client.oneComputeDone(self.query, groupid, computeTime, subtally) is None:
-            self.query.cancelled = True
+        self.messages.append(OneComputeDone(groupid, computeTime, subtally))
 
     def oneFailure(self, failure):
-        if self.client.oneFailure(self.query, failure) is None:
-            self.query.cancelled = True
+        self.messages.append(OneFailure(failure))
