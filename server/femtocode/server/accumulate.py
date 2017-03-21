@@ -231,6 +231,8 @@ class Accumulate(HTTPInternalProcess):
         elif isinstance(message, GetQuery):
             tallyman = self.assignments.tallyman(message.query.id)
             if tallyman is not None:
+                print "SENDING SUBSEQUENT RESULT", tallyman.result()
+
                 self.send(tallyman.result())
             else:
                 result = self.cache.get(message.query)
@@ -241,6 +243,9 @@ class Accumulate(HTTPInternalProcess):
 
         elif isinstance(message, AssignExecutor):
             tallyman = self.assignments.assign(message.executor)
+
+            print "SENDING FIRST RESULT", tallyman.result()
+
             self.send(tallyman.result())
 
         elif isinstance(message, CancelQuery):

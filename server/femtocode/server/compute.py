@@ -43,48 +43,75 @@ class Compute(HTTPInternalProcess):
     def cycle(self):
         message = self.recv()
 
-        print "active", self.active
-
         if isinstance(message, AssignExecutorGroupids):
-            try:
-                dataset = self.metadb.dataset(message.executor.query.dataset.name, message.groupids, message.executor.query.statements.columnNames(), False)
-                executor = NativeComputeExecutor.fromNativeExecutor(message.executor, dataset, message.groupids)
-                self.active[executor.query.id] = self.active.get(executor.query.id, []) + [executor]
-                self.cacheMaster.incoming.put(executor)
-                self.send(None)
-            except Exception as err:
-                print(err)    # FIXME: log errors somewhere
-                raise
+            dataset = self.metadb.dataset(message.executor.query.dataset.name, message.groupids, message.executor.query.statements.columnNames(), False)
+            executor = NativeComputeExecutor.fromNativeExecutor(message.executor, dataset, message.groupids)
+            # HERE: the problem is that the executor's lock is engaged, but I don't
+            # see any calls to its methods that would set the lock.
+
+            self.active[executor.query.id] = self.active.get(executor.query.id, []) + [executor]
+            self.cacheMaster.incoming.put(executor)
+            self.send(None)
 
         elif isinstance(message, GetResults):
-            print "GET RESULTS", message
+            try:
+                queryidToAssignment = {}
+                queryidToMessages = {}
 
-            queryidToAssignment = {}
-            queryidToMessages = {}
+                print "ONE", self.active
 
-            for queryid, executors in self.active.items():
-                todrop = []
-                for i, executor in enumerate(executors):
-                    with executor.lock:
-                        if executor.query.id in message.queryids:
-                            queryidToAssignment[executor.query.id] = queryidToAssignment.get(executor.query.id, []) + executor.groupids
-                            queryidToMessages[executor.query.id] = queryidToMessages.get(executor.query.id, []) + executor.messages
+                for queryid, executors in self.active.items():
+                    todrop = []
+                    print "TWO", executors
 
-                            if executor.done():
-                                todrop.append(i)
+                    for i, executor in enumerate(executors):
+                        print "THREE", executor
 
-                        elif executor.done():
-                            expirationDate = self.expiration.get(executor.query, time.time())
-                            self.expiration[executor.query] = expirationDate
+                        with executor.lock:
+                            print "FOUR", executor.query.id in message.queryids
 
-                            if time.time() - expirationDate > self.expirationAfterDone:
-                                todrop.append(i)
-                                del self.expiration[executor.query]
+                            if executor.query.id in message.queryids:
+                                print "FIVE"
 
-                while len(todrop) > 0:
-                    del executors[todrop.pop()]
+                                queryidToAssignment[executor.query.id] = queryidToAssignment.get(executor.query.id, []) + executor.groupids
 
-            self.send(Results(queryidToAssignment, queryidToMessages))
+                                print "SIX", queryidToAssignment[executor.query.id]
+
+                                queryidToMessages[executor.query.id] = queryidToMessages.get(executor.query.id, []) + executor.messages
+
+                                print "SEVEN", queryidToMessages[executor.query.id]
+
+                                if executor.done():
+                                    todrop.append(i)
+
+                            elif executor.done():
+                                print "EIGHT"
+
+                                expirationDate = self.expiration.get(executor.query, time.time())
+                                self.expiration[executor.query] = expirationDate
+
+                                if time.time() - expirationDate > self.expirationAfterDone:
+                                    todrop.append(i)
+                                    del self.expiration[executor.query]
+
+                                print "NINE"
+
+                    print "TEN", todrop
+
+                    while len(todrop) > 0:
+                        del executors[todrop.pop()]
+
+                    print "ELEVEN"
+
+                print "GET RESULTS", queryidToAssignment, queryidToMessages
+
+                self.send(Results(queryidToAssignment, queryidToMessages))
+
+            except Exception as err:
+                import traceback
+                import sys
+                print "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2]))
+                raise
                     
         elif isinstance(message, CancelQueryById):
             try:
