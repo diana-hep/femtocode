@@ -40,10 +40,6 @@ class DontHaveQuery(Message): pass
 
 class HaveIdPleaseSendQuery(Message): pass
 
-class Result(Message):
-    def __init__(self, resultMessage):
-        self.resultMessage = resultMessage
-
 # from accumulate to compute
 
 class AssignExecutorGroupids(Message):

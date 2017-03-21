@@ -14,11 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from femtocode.execution import ExecutionFailure
 from femtocode.py23 import *
-from femtocode.workflow import Query
-from femtocode.server.messages import *
 from femtocode.server.communication import *
 from femtocode.server.execution import NativeAccumulateExecutor
+from femtocode.server.messages import *
+from femtocode.workflow import Query
+from femtocode.remote import Result
 
 class DispatchAPIServer(HTTPServer):
     def __init__(self, accumulates, metadb, timeout):
@@ -62,7 +64,8 @@ class DispatchAPIServer(HTTPServer):
                     for i, response in enumerate(responses):
                         if isinstance(response, HaveIdPleaseSendQuery):
                             responses[i] = accumulates[i].sync(GetQuery(query))
-                            responses[i].accumulate = accumulates[i]         # (attach for possible case 3)
+
+                        responses[i].accumulate = accumulates[i]  # (attach for possible case 3)
                             
                     results = [x for x in responses if isinstance(x, Result)]
 
@@ -71,20 +74,32 @@ class DispatchAPIServer(HTTPServer):
                         executor = NativeAccumulateExecutor(query)
 
                         firstgood = None
-                        for accumulate in accumulates:
-                            if isinstance(accumulate, DontHaveQuery):
-                                firstgood = accumulate
+                        for response in responses:
+                            if isinstance(response, DontHaveQuery):
+                                firstgood = response
                                 break
 
                         if firstgood is None:
-                            return self.senderror("500 Internal Server Error", start_response, "all accumulate nodes are unresponsive")
+                            if len(responses) == 0:
+                                out = "(none! no responses at all...)"
+                            elif isinstance(responses[0], HTTPError):
+                                out = responses[0].read()
+                            else:
+                                out = str(responses[0])
+                            return self.senderror("500 Internal Server Error", start_response, "all accumulate nodes are unresponsive; first error:\n\n{0}".format(out))
+
                         else:
-                            result = firstgood.sync(AssignExecutor(executor))
-                            return self.sendjson(result.resultMessage.toJson())
+                            result = firstgood.accumulate.sync(AssignExecutor(executor))
+                            if isinstance(result, Result):
+                                return self.sendjson(result.toJson(), start_response)
+                            elif isinstance(result, ExecutionFailure):
+                                return self.senderror("500 Internal Server Error", start_response, str(result))
+                            else:
+                                assert False, "unrecognized message: {0}".format(result)
 
                     elif len(results) == 1:
                         # case 2: only one accumulate is working on it; return its (partial) result
-                        return self.sendjson(results[0].resultMessage.toJson())
+                        return self.sendjson(results[0].toJson(), start_response)
 
                     else:
                         # case 3: something went wrong (server was unreachable and then returned);
@@ -92,7 +107,7 @@ class DispatchAPIServer(HTTPServer):
                         for extraresult in results[1:]:
                             extraresult.accumulate.sync(CancelQuery(query))  # (extraresult.accumulate attached above)
 
-                        return self.sendjson(results[0].resultMessage.toJson())
+                        return self.sendjson(results[0].resultMessage.toJson(), start_response)
 
             else:
                 return self.senderror("400 Bad Request", start_response)

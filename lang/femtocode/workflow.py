@@ -30,15 +30,6 @@ import femtocode.asts.typedtree as typedtree
 import femtocode.lib.standard as standard
 import femtocode.parser as parser
 
-# class Message(Serializable):
-#     @staticmethod
-#     def fromJson(obj, ignoreclass=False):
-#         assert isinstance(obj, dict)
-#         assert "class" in obj
-#         mod = obj["class"][:obj["class"].rindex(".")]
-#         cls = obj["class"][obj["class"].rindex(".") + 1:]
-#         return getattr(importlib.import_module(mod), cls).fromJson(obj)
-
 class Query(Serializable):
     def __init__(self, dataset, statements, actions, cancelled):
         self.dataset = dataset

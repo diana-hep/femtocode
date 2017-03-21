@@ -108,17 +108,13 @@ class Minion(threading.Thread):
 
             try:
                 # actually do the work; ideally 99.999% of the time spent in this whole project
-                # should be in that second line
+                # should be in that second line there
                 startTime = time.time()
                 subtally = workItem.run()
                 endTime = time.time()
-
             except Exception as exception:
-                # for the FutureQueryResult (standalone mode)
                 workItem.executor.oneFailure(ExecutionFailure(exception, sys.exc_info()[2]))
-
             else:
-                # for the FutureQueryResult (standalone mode)
                 workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, subtally)
 
             # for the cache

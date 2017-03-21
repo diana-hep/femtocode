@@ -16,6 +16,7 @@
 
 import json
 import socket
+import time
 import threading
 try:
     from urllib2 import urlparse, urlopen, HTTPError
@@ -30,7 +31,7 @@ from femtocode.workflow import Source
 from femtocode.execution import ExecutionFailure
 from femtocode.util import *
 
-class ResultMessage(Serializable):
+class Result(Serializable):
     def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
         self.loadsDone = loadsDone
         self.computesDone = computesDone

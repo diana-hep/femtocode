@@ -21,7 +21,7 @@ import threading
 import femtocode.asts.statementlist as statementlist
 from femtocode.execution import ExecutionFailure
 from femtocode.run.execution import NativeExecutor
-from femtocode.remote import ResultMessage
+from femtocode.remote import Result
 from femtocode.server.messages import *
 from femtocode.workflow import Query
 
@@ -34,7 +34,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         self.startTime = time.time()
 
         self._setaction()
-        self.result = ResultMessage(0.0, 0.0, False, 0.0, 0.0, self.startTime, self.action.initialize())
+        self.result = Result(0.0, 0.0, False, 0.0, 0.0, self.startTime, self.action.initialize())
 
     def _setaction(self):
         self.action = self.query.actions[-1]
@@ -56,7 +56,7 @@ class NativeAccumulateExecutor(NativeExecutor):
         out.computesDone = obj["computesDone"]
         out.startTime = obj["startTime"]
         out._setaction()
-        out.result = ResultMessage.fromJson(obj["result"], out.action)
+        out.result = Result.fromJson(obj["result"], out.action)
         return out
 
     def toNativeExecutor(self):

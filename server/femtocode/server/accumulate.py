@@ -24,12 +24,12 @@ from femtocode.server.assignment import assign
 from femtocode.server.messages import *
 from femtocode.server.communication import *
 from femtocode.server.cache import RolloverCache
-from femtocode.remote import ResultMessage
+from femtocode.remote import Result
 
 class Tallyman(object):
-    def __init__(self, minions, executor):
+    def __init__(self, minions, executor, timeout):
         self.minions = minions   # order matters
-        self.clients = [HTTPInternalClient(minion, self.timeout) for minion in self.minions]
+        self.clients = [HTTPInternalClient(minion, timeout) for minion in self.minions]
         self.executor = executor
         self.minionToGroupids = {}
         self.lock = threading.Lock()
@@ -37,7 +37,7 @@ class Tallyman(object):
     def assign(self, survivors):
         with self.lock:
             offset = abs(hash(self.executor.query))
-            groupids = list(xrange(executor.query.dataset.numGroups))
+            groupids = list(xrange(self.executor.query.dataset.numGroups))
             native = self.executor.toNativeExecutor()
 
             for minion, client in zip(self.minions, self.clients):
@@ -80,8 +80,10 @@ class Tallyman(object):
                         self.executor.oneFailure(message.failure)
 
 class Assignments(object):
-    def __init__(self, minions):
+    def __init__(self, minions, timeout):
         self.minions = minions
+        self.timeout = timeout
+
         self.survivors = set()
         self.tallymans = {}
         self.lock = threading.Lock()
@@ -122,7 +124,7 @@ class Assignments(object):
         with self.lock:
             tallyman = self.tallymans.get(executor.query.id)
             if tallyman is None:
-                tallyman = Tallyman(self.minions, executor)
+                tallyman = Tallyman(self.minions, executor, self.timeout)
                 self.tallymans[executor.query.id] = tallyman
 
         tallyman.assign(self.survivors)
@@ -157,7 +159,7 @@ class ResultPull(threading.Thread):
                 for queryid, assignment in results.queryidToAssignment.items():
                     messages = results.queryidToMessages[queryid]   # asserting this structure
 
-                    tallyman = self.assignments.tallymans.get(queryid)
+                    tallyman = self.assignments.tallyman(queryid)
                     if tallyman is not None:
                         tallyman.update(assignment, messages)
                     else:
@@ -170,10 +172,10 @@ class ResultPull(threading.Thread):
             time.sleep(self.period)
 
 class Accumulate(HTTPInternalProcess):
-    def __init__(self, name, pipe, minions, cacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars):
+    def __init__(self, name, pipe, minions, timeout, cacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars):
         super(Accumulate, self).__init__(name, pipe)
 
-        self.assignments = Assignments(minions)
+        self.assignments = Assignments(minions, timeout)
         self.resultPulls = [ResultPull(minion, self.assignments) for minion in minions]
 
         if not os.path.exists(cacheDirectory):
@@ -196,13 +198,13 @@ class Accumulate(HTTPInternalProcess):
                 self.send(DontHaveQuery())
 
         elif isinstance(message, GetQuery):
-            tallyman = self.assignments.get(message.query.id)
+            tallyman = self.assignments.tallyman(message.query.id)
             if tallyman is not None:
-                self.send(Result(tallyman.result()))
+                self.send(tallyman.result())
             else:
                 result = self.cache.get(message.query)
                 if result is not None:
-                    self.send(Result(result))
+                    self.send(result)
                 else:
                     self.send(DontHaveQuery())
 
@@ -211,7 +213,7 @@ class Accumulate(HTTPInternalProcess):
             self.send(tallyman.result())
 
         elif isinstance(message, CancelQuery):
-            tallyman = self.assignments.get(message.query.id)
+            tallyman = self.assignments.tallyman(message.query.id)
             if tallyman is not None:
                 tallyman.cancel()
             self.send(None)
@@ -222,5 +224,5 @@ class Accumulate(HTTPInternalProcess):
         return True
 
 if __name__ == "__main__":
-    server = HTTPInternalServer(Accumulate, (["http://localhost:8082/bob"], "/tmp/downloads/cache", 100*1024**2, 60*60*24, 60, 8,), 1.0)
+    server = HTTPInternalServer(Accumulate, (["http://localhost:8082/bob"], 1.0, "/tmp/downloads/cache", 100*1024**2, 60*60*24, 60, 8,), 1.0)
     server.start("", 8081)
