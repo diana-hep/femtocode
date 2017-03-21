@@ -33,8 +33,12 @@ class Tallyman(object):
         self.executor = executor
         self.minionToGroupids = {}
         self.lock = threading.Lock()
-    
+
+        print "TALLYMAN CONSTRUCT"
+
     def assign(self, survivors):
+        print "TALLYMAN ASSIGN SURVIVORS", survivors, "MINIONS", self.minions
+
         with self.lock:
             offset = abs(hash(self.executor.query))
             groupids = list(xrange(self.executor.query.dataset.numGroups))
@@ -45,6 +49,8 @@ class Tallyman(object):
                     subset = assign(offset, groupids, self.executor.query.dataset.numGroups, minion, self.minions, survivors)
 
                     if len(subset) > 0 and self.minionToGroupids.get(minion, []) != subset:
+                        print "TALLYMAN ASSIGNING", subset
+
                         client.async(AssignExecutorGroupids(native, subset))
                         # don't care about the result; failures-to-launch will be cleaned up afterward
 
@@ -58,10 +64,14 @@ class Tallyman(object):
             client.async(CancelQueryById(self.executor.query.id))
 
     def result(self):
+        print "TALLYMAN RESULT"
+
         with self.lock:
             return self.executor.result
 
     def update(self, minionToGroupids, messages):
+        print "TALLYMAN UPDATE"
+
         with self.lock:
             for minion in self.minions:
                 # missing = what I think the minion ought to be working on that it doesn't know about
@@ -87,7 +97,7 @@ class Assignments(object):
         self.survivors = set()
         self.tallymans = {}
         self.lock = threading.Lock()
-
+        
     def has(self, queryid):
         with self.lock:
             return queryid in self.tallymans
@@ -142,33 +152,49 @@ class ResultPull(threading.Thread):
         self.daemon = True
         self.start()   # a self-starter
 
-    def run(self):
-        while True:
-            try:
-                results = self.client.sync(GetResults(self.assignments.queryids()))
-            except socket.timeout:
-                newsurvivors = self.assignments.dead(self.minion)
+    def poll(self):
+        try:
+            results = self.client.sync(GetResults(self.assignments.queryids()))
 
-            except HTTPError as err:
-                print(err.read())   # TODO: send compute error to log
-                raise
-
-            else:
-                newsurvivors = self.assignments.alive(self.minion)
-
-                for queryid, assignment in results.queryidToAssignment.items():
-                    messages = results.queryidToMessages[queryid]   # asserting this structure
-
-                    tallyman = self.assignments.tallyman(queryid)
-                    if tallyman is not None:
-                        tallyman.update(assignment, messages)
-                    else:
-                        self.client.sync(CancelQueryById(queryid))
-
+        except socket.timeout:
+            newsurvivors = self.assignments.dead(self.minion)
             if newsurvivors is not None:
                 for tallyman in self.assignments.gettallymans():
                     tallyman.assign(newsurvivors)
 
+            print "TIMEOUT", newsurvivors
+
+        except HTTPError as err:
+            print(err.read())   # TODO: send compute error to log
+            raise
+
+        else:
+            if isinstance(results, ExecutionFailure):
+                results.reraise()
+
+            self.assignments.alive(self.minion)
+
+            print "MINION ALIVE", self.minion
+            print "queryidToAssignment", list(results.queryidToAssignment.keys())
+            print "queryidToMessages", list(results.queryidToMessages.keys())
+
+            for queryid, assignment in results.queryidToAssignment.items():
+                messages = results.queryidToMessages[queryid]   # asserting this structure
+
+                tallyman = self.assignments.tallyman(queryid)
+
+                print "assignment", assignment
+                print "messages", messages
+                print "tallyman", tallyman
+
+                if tallyman is not None:
+                    tallyman.update(assignment, messages)
+                else:
+                    self.client.sync(CancelQueryById(queryid))
+
+    def run(self):
+        while True:
+            self.poll()
             time.sleep(self.period)
 
 class Accumulate(HTTPInternalProcess):
@@ -177,7 +203,7 @@ class Accumulate(HTTPInternalProcess):
 
         self.assignments = Assignments(minions, timeout)
         self.resultPulls = [ResultPull(minion, self.assignments) for minion in minions]
-
+        
         if not os.path.exists(cacheDirectory):
             os.mkdir(cacheDirectory)
         assert os.path.isdir(cacheDirectory)
@@ -187,6 +213,11 @@ class Accumulate(HTTPInternalProcess):
             os.mkdir(myCacheDirectory)
 
         self.cache = RolloverCache(myCacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars)
+
+    def initialize(self):
+        # start with a fresh list of self.assignments.survivors
+        for resultPull in self.resultPulls:
+            resultPull.poll()
 
     def cycle(self):
         message = self.recv()

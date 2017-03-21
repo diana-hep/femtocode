@@ -99,6 +99,9 @@ class DispatchAPIServer(HTTPServer):
 
                     elif len(results) == 1:
                         # case 2: only one accumulate is working on it; return its (partial) result
+
+                        print results[0]
+
                         return self.sendjson(results[0].toJson(), start_response)
 
                     else:

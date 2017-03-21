@@ -109,7 +109,18 @@ class HTTPInternalProcess(multiprocessing.Process):
         self.pipe = pipe
         self.daemon = True
 
+    def initialize(self):
+        pass                        # okay to not have an initialize
+
+    def cycle(self):
+        raise NotImplementedError   # not okay to not have a cycle
+
     def run(self):
+        try:
+            self.initialize()
+        except Exception as err:
+            self.send(ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2]))))
+
         while True:
             try:
                 if not self.cycle():

@@ -25,6 +25,7 @@ from femtocode.run.cache import NeedWantCache
 from femtocode.run.compute import Minion
 from femtocode.server.communication import *
 from femtocode.server.messages import *
+from femtocode.server.execution import NativeComputeExecutor
 
 class Compute(HTTPInternalProcess):
     experationAfterDone = 60    # a fail-safe against accidental memory leaks: if a query result hasn't been requested in a minute, expire it
@@ -42,16 +43,22 @@ class Compute(HTTPInternalProcess):
     def cycle(self):
         message = self.recv()
 
+        print "active", self.active
+
         if isinstance(message, AssignExecutorGroupids):
-            dataset = self.metadb.dataset(message.executor.query.dataset.name, message.groupids, message.executor.query.statements.columnNames(), False)
-            executor = NativeComputeExecutor.fromNativeExecutor(message.executor, dataset, message.groupids)
-
-            self.active[executor.query.id] = self.active.get(executor.query.id, []) + [executor]
-            self.cacheMaster.incoming.put(executor)
-
-            self.send(None)
+            try:
+                dataset = self.metadb.dataset(message.executor.query.dataset.name, message.groupids, message.executor.query.statements.columnNames(), False)
+                executor = NativeComputeExecutor.fromNativeExecutor(message.executor, dataset, message.groupids)
+                self.active[executor.query.id] = self.active.get(executor.query.id, []) + [executor]
+                self.cacheMaster.incoming.put(executor)
+                self.send(None)
+            except Exception as err:
+                print(err)    # FIXME: log errors somewhere
+                raise
 
         elif isinstance(message, GetResults):
+            print "GET RESULTS", message
+
             queryidToAssignment = {}
             queryidToMessages = {}
 
