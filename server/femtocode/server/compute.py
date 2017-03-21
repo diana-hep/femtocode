@@ -15,10 +15,16 @@
 # limitations under the License.
 
 import time
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 
+from femtocode.run.cache import CacheMaster
 from femtocode.run.cache import NeedWantCache
-from femtocode.server.messages import *
+from femtocode.run.compute import Minion
 from femtocode.server.communication import *
+from femtocode.server.messages import *
 
 class Compute(HTTPInternalProcess):
     experationAfterDone = 60    # a fail-safe against accidental memory leaks: if a query result hasn't been requested in a minute, expire it
@@ -26,9 +32,11 @@ class Compute(HTTPInternalProcess):
     def __init__(self, name, pipe, cacheLimitBytes, metadb):
         super(Compute, self).__init__(name, pipe)
 
+        self.minion = Minion(queue.Queue())
+
         self.active = {}
         self.expiration = {}
-        self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes), self.minions)
+        self.cacheMaster = CacheMaster(NeedWantCache(cacheLimitBytes), [self.minion])
         self.metadb = metadb
 
     def cycle(self):
@@ -72,23 +80,19 @@ class Compute(HTTPInternalProcess):
             self.send(Results(queryidToAssignment, queryidToMessages))
                     
         elif isinstance(message, CancelQueryById):
-            # FIXME
-
-            message.queryid
+            try:
+                executor = self.active.pop(message.queryid)
+            except KeyError:
+                pass
+            else:
+                executor.cancel()
             
         else:
             assert False, "unrecognized message: {0}".format(message)
 
         return True
 
-# HTTPInternalServer(Compute, (cacheLimitBytes, MetadataFromJson(".")), timeout)
-
-
-
-
-
-
-# class Results(Message):
-#     def __init__(self, queryidToAssignment, queryidToMessages):
-#         self. = queryidToAssignment
-#         self. = queryidToMessages
+if __name__ == "__main__":
+    from femtocode.dataset import MetadataFromJson
+    server = HTTPInternalServer(Compute, (1024**3, MetadataFromJson("/home/pivarski/diana/femtocode/tests/")), 1.0)
+    server.start("", 8082)

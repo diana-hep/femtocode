@@ -144,3 +144,7 @@ class NativeComputeExecutor(NativeExecutor):
     def done(self):
         with self.lock:
             return self.failed or all(self.groupsDone.values())
+
+    def cancel(self):
+        with self.lock:
+            self.query.cancelled = True

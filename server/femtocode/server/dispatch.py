@@ -21,11 +21,9 @@ from femtocode.server.communication import *
 from femtocode.server.execution import NativeAccumulateExecutor
 
 class DispatchAPIServer(HTTPServer):
-    def __init__(self, accumulates, metadb, bindaddr, bindport, timeout):
+    def __init__(self, accumulates, metadb, timeout):
         self.accumulateClients = [HTTPInternalClient(x, timeout) for x in accumulates]
         self.metadb = metadb
-        self.bindaddr = bindaddr
-        self.bindport = bindport
         self.timeout = timeout
 
         assert len(self.accumulateClients) > 0
@@ -79,7 +77,7 @@ class DispatchAPIServer(HTTPServer):
                                 break
 
                         if firstgood is None:
-                            return senderror("500 Internal Server Error", start_response, "all accumulate nodes are unresponsive")
+                            return self.senderror("500 Internal Server Error", start_response, "all accumulate nodes are unresponsive")
                         else:
                             result = firstgood.sync(AssignExecutor(executor))
                             return self.sendjson(result.resultMessage.toJson())
@@ -101,3 +99,8 @@ class DispatchAPIServer(HTTPServer):
 
         except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)
+
+if __name__ == "__main__":
+    from femtocode.dataset import MetadataFromJson
+    server = DispatchAPIServer(["http://localhost:8081/tally-me-banana"], MetadataFromJson("/home/pivarski/diana/femtocode/tests/"), 1.0)
+    server.start("", 8080)

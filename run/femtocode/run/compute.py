@@ -87,10 +87,9 @@ class WorkItem(object):
             occupant.decrementNeed()
 
 class Minion(threading.Thread):
-    def __init__(self, minionIncoming, minionOutgoing):
+    def __init__(self, minionIncoming):
         super(Minion, self).__init__()
         self.incoming = minionIncoming
-        self.outgoing = minionOutgoing
         self.daemon = True
 
     def __repr__(self):
@@ -115,25 +114,12 @@ class Minion(threading.Thread):
                 endTime = time.time()
 
             except Exception as exception:
-                failure = ExecutionFailure(exception, sys.exc_info()[2])
-
-                # for the cache
-                workItem.decrementNeed()
-
-                # for the output (server mode)
-                if self.outgoing is not None:
-                    self.outgoing.put(failure)
-
                 # for the FutureQueryResult (standalone mode)
-                workItem.executor.oneFailure(failure)
+                workItem.executor.oneFailure(ExecutionFailure(exception, sys.exc_info()[2]))
 
             else:
-                # for the cache
-                workItem.decrementNeed()
-
-                # for the output (server mode)
-                if self.outgoing is not None:
-                    self.outgoing.put(Result(subtally, workItem.executor))
-
                 # for the FutureQueryResult (standalone mode)
                 workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, subtally)
+
+            # for the cache
+            workItem.decrementNeed()

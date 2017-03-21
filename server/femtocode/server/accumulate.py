@@ -23,6 +23,7 @@ import socket
 from femtocode.server.assignment import assign
 from femtocode.server.messages import *
 from femtocode.server.communication import *
+from femtocode.server.cache import RolloverCache
 from femtocode.remote import ResultMessage
 
 class Tallyman(object):
@@ -132,7 +133,7 @@ class ResultPull(threading.Thread):
     timeout = 1.000    # no response after 1 second means it's dead
 
     def __init__(self, minion, assignments):
-        super(HeartbeatMonitor, self).__init__()
+        super(ResultPull, self).__init__()
         self.minion = minion
         self.client = HTTPInternalClient(self.minion, self.timeout)
         self.assignments = assignments
@@ -145,6 +146,11 @@ class ResultPull(threading.Thread):
                 results = self.client.sync(GetResults(self.assignments.queryids()))
             except socket.timeout:
                 newsurvivors = self.assignments.dead(self.minion)
+
+            except HTTPError as err:
+                print(err.read())   # TODO: send compute error to log
+                raise
+
             else:
                 newsurvivors = self.assignments.alive(self.minion)
 
@@ -215,4 +221,6 @@ class Accumulate(HTTPInternalProcess):
 
         return True
 
-# HTTPInternalServer(Accumulate, (minions, cacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars,), timeout)
+if __name__ == "__main__":
+    server = HTTPInternalServer(Accumulate, (["http://localhost:8082/bob"], "/tmp/downloads/cache", 100*1024**2, 60*60*24, 60, 8,), 1.0)
+    server.start("", 8081)
