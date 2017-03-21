@@ -68,7 +68,7 @@ class Compute(HTTPInternalProcess):
                         print "THREE", executor
 
                         with executor.lock:
-                            print "FOUR", executor.query.id in message.queryids
+                            print "FOUR", executor.query.id, message.queryids
 
                             if executor.query.id in message.queryids:
                                 print "FIVE"

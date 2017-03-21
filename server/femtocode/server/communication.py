@@ -122,11 +122,19 @@ class HTTPInternalProcess(multiprocessing.Process):
             self.send(ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2]))))
 
         while True:
+            print "BEFORE CYCLE"
+
             try:
                 if not self.cycle():
                     break
             except Exception as err:
+                print "CYCLE FAILURE"
+
                 self.send(ExecutionFailure("{0}: {1}".format(err.__class__.__name__, str(err)), "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2]))))
+
+            print "AFTER CYCLE"
+
+        print "AFTER LOOP"
 
     def recv(self):
         out = pickle.loads(self.pipe.recv_bytes())
@@ -170,6 +178,51 @@ class HTTPInternalClient(object):
     def async(self, obj):
         return HTTPInternalClient.Response(self._handle, pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL))
 
+class HTTPProcessesSingleton(object):
+    processes = {}
+    lock = threading.Lock()
+
+    def get(self, key):
+        with self.lock:
+            return HTTPProcessesSingleton.processes.get(key)
+
+    def __getitem__(self, key):
+        with self.lock:
+            return HTTPProcessesSingleton.processes[key]
+
+    def __setitem__(self, key, value):
+        with self.lock:
+            HTTPProcessesSingleton.processes[key] = value
+
+    def __delitem__(self, key):
+        with self.lock:
+            del HTTPProcessesSingleton.processes[key]
+
+    def keys(self):
+        with self.lock:
+            return list(HTTPProcessesSingleton.processes.keys())
+
+    def values(self):
+        with self.lock:
+            return list(HTTPProcessesSingleton.processes.values())
+
+    def items(self):
+        with self.lock:
+            return list(HTTPProcessesSingleton.processes.items())
+
+    def ensure(self, path, procclass, procargs):
+        with self.lock:
+            oldproc = HTTPProcessesSingleton.processes.get(path)
+            if oldproc is not None and oldproc[0].is_alive():
+                print "TERMINATING 3"
+                oldproc[0].terminate()
+
+            myend, yourend = multiprocessing.Pipe()
+            proc = procclass(path, yourend, *procargs)
+            proc.start()
+
+            HTTPProcessesSingleton.processes[path] = (proc, myend)
+
 class HTTPInternalServer(HTTPServer):
     def __init__(self, procclass, procargs, timeout):
         super(HTTPInternalServer, self).__init__()
@@ -177,50 +230,43 @@ class HTTPInternalServer(HTTPServer):
         self.procargs = procargs
         self.timeout = timeout
 
-        self.processes = {}
-
-    def startProcess(self, path):
-        oldproc = self.processes.get(path)
-
-        if oldproc is not None and oldproc[0].is_alive():
-            oldproc.terminate()
-
-        myend, yourend = multiprocessing.Pipe()
-        proc = self.procclass(path, yourend, *self.procargs)
-        proc.start()
-
-        self.processes[path] = (proc, myend)
+        self.processes = HTTPProcessesSingleton()
 
     def __call__(self, environ, start_response):
         path = environ.get("PATH_INFO", "").strip("/")
 
         try:
             if path == "":
-                # broadcast to all processes (that exist)
-                data = self.getstring(environ)
+                raise NotImplementedError
+                # try this out later
 
-                for proc, myend in self.processes.values():
-                    myend.send_bytes(data)
-
-                alive = []
-                for path, (proc, myend) in list(self.processes.items()):
-                    if myend.poll(self.timeout):
-                        if isinstance(myend.recv_bytes(), ExecutionFailure):
-                            proc.terminate()
-                            del self.processes[path]
-                        else:
-                            alive.append(path)
-                    else:
-                        proc.terminate()
-                        del self.processes[path]
-
-                # return a list of the processes that still exist
-                return self.sendpickle(alive, start_response)
+                # # broadcast to all processes (that exist)
+                # data = self.getstring(environ)
+                # for proc, myend in self.processes.values():
+                #     myend.send_bytes(data)
+                # alive = []
+                # for path, (proc, myend) in self.processes.items():
+                #     if myend.poll(self.timeout):
+                #         if isinstance(myend.recv_bytes(), ExecutionFailure):
+                #             proc.terminate()
+                #             try:
+                #                 del self.processes[path]
+                #             except KeyError:
+                #                 pass
+                #         else:
+                #             alive.append(path)
+                #     else:
+                #         proc.terminate()
+                #         try:
+                #             del self.processes[path]
+                #         except KeyError:
+                #             pass
+                # # return a list of the processes that still exist
+                # return self.sendpickle(alive, start_response)
 
             else:
                 # send to a particular process, creating it if necessary
-                if path not in self.processes or not self.processes[path][0].is_alive():
-                    self.startProcess(path)
+                self.processes.ensure(path, self.procclass, self.procargs)
 
                 proc, myend = self.processes[path]
                 myend.send_bytes(self.getstring(environ))
@@ -228,14 +274,22 @@ class HTTPInternalServer(HTTPServer):
                 if myend.poll(self.timeout):
                     response = myend.recv_bytes()
                     if isinstance(response, ExecutionFailure):
+                        print "TERMINATING 1"
                         proc.terminate()
-                        del self.processes[path]
+                        try:
+                            del self.processes[path]
+                        except KeyError:
+                            pass
                         return self.senderror("500 Internal Server Error", start_response, str(response))
                     else:
                         return self.sendstring(response, start_response)
                 else:
+                    print "TERMINATING 2"
                     proc.terminate()
-                    del self.processes[path]
+                    try:
+                        del self.processes[path]
+                    except KeyError:
+                        pass
                     return self.senderror("500 Internal Server Error", start_response, "process unresponsive; killed")
 
         except Exception as err:

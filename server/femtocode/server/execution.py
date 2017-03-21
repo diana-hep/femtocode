@@ -154,14 +154,7 @@ class NativeComputeExecutor(NativeExecutor):
         print "oneFailure exit"
 
     def done(self):
-        print "EXECUTOR DONE?", self.failed, self.groupsDone, self.lock.locked()
-
-        with self.lock:
-            print "ENTER LOCK"
-
-            return self.failed or all(self.groupsDone.values())
-
-        print "done exit"
+        return self.failed or all(self.groupsDone.values())
 
     def cancel(self):
         with self.lock:

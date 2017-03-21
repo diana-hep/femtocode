@@ -34,11 +34,7 @@ class Tallyman(object):
         self.minionToGroupids = {}
         self.lock = threading.Lock()
 
-        print "TALLYMAN CONSTRUCT"
-
     def assign(self, survivors):
-        print "TALLYMAN ASSIGN SURVIVORS", survivors, "MINIONS", self.minions
-
         with self.lock:
             offset = abs(hash(self.executor.query))
             groupids = list(xrange(self.executor.query.dataset.numGroups))
@@ -49,8 +45,6 @@ class Tallyman(object):
                     subset = assign(offset, groupids, self.executor.query.dataset.numGroups, minion, self.minions, survivors)
 
                     if len(subset) > 0 and self.minionToGroupids.get(minion, []) != subset:
-                        print "TALLYMAN ASSIGNING", subset
-
                         client.async(AssignExecutorGroupids(native, subset))
                         # don't care about the result; failures-to-launch will be cleaned up afterward
 
@@ -64,14 +58,10 @@ class Tallyman(object):
             client.async(CancelQueryById(self.executor.query.id))
 
     def result(self):
-        print "TALLYMAN RESULT"
-
         with self.lock:
             return self.executor.result
 
     def update(self, minionToGroupids, messages):
-        print "TALLYMAN UPDATE"
-
         with self.lock:
             for minion in self.minions:
                 # missing = what I think the minion ought to be working on that it doesn't know about
@@ -137,6 +127,10 @@ class Assignments(object):
                 tallyman = Tallyman(self.minions, executor, self.timeout)
                 self.tallymans[executor.query.id] = tallyman
 
+        import os
+        import threading
+        print "ASSIGNED", self.queryids(), os.getpid(), os.getppid(), threading.currentThread()
+
         tallyman.assign(self.survivors)
         return tallyman
 
@@ -153,6 +147,10 @@ class ResultPull(threading.Thread):
         self.start()   # a self-starter
 
     def poll(self):
+        import os
+        import threading
+        print "NOW QUERYIDS", self.assignments.queryids(), os.getpid(), os.getppid(), threading.currentThread()
+
         try:
             results = self.client.sync(GetResults(self.assignments.queryids()))
 
@@ -161,8 +159,6 @@ class ResultPull(threading.Thread):
             if newsurvivors is not None:
                 for tallyman in self.assignments.gettallymans():
                     tallyman.assign(newsurvivors)
-
-            print "TIMEOUT", newsurvivors
 
         except HTTPError as err:
             print(err.read())   # TODO: send compute error to log
@@ -199,6 +195,8 @@ class ResultPull(threading.Thread):
 
 class Accumulate(HTTPInternalProcess):
     def __init__(self, name, pipe, minions, timeout, cacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars):
+        print "NEW ACCUMULATE INSTANCE"
+
         super(Accumulate, self).__init__(name, pipe)
 
         self.assignments = Assignments(minions, timeout)
@@ -215,11 +213,15 @@ class Accumulate(HTTPInternalProcess):
         self.cache = RolloverCache(myCacheDirectory, partitionMarginBytes, rolloverTime, gcTime, idchars)
 
     def initialize(self):
+        print "NEW ACCUMULATE PROCESS"
+
         # start with a fresh list of self.assignments.survivors
         for resultPull in self.resultPulls:
             resultPull.poll()
 
     def cycle(self):
+        print "CYCLE", self.assignments.queryids()
+
         message = self.recv()
 
         if isinstance(message, GetQueryById):
@@ -231,8 +233,6 @@ class Accumulate(HTTPInternalProcess):
         elif isinstance(message, GetQuery):
             tallyman = self.assignments.tallyman(message.query.id)
             if tallyman is not None:
-                print "SENDING SUBSEQUENT RESULT", tallyman.result()
-
                 self.send(tallyman.result())
             else:
                 result = self.cache.get(message.query)
@@ -243,9 +243,6 @@ class Accumulate(HTTPInternalProcess):
 
         elif isinstance(message, AssignExecutor):
             tallyman = self.assignments.assign(message.executor)
-
-            print "SENDING FIRST RESULT", tallyman.result()
-
             self.send(tallyman.result())
 
         elif isinstance(message, CancelQuery):
