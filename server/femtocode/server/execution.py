@@ -127,31 +127,19 @@ class NativeComputeExecutor(NativeExecutor):
         self.messages = []
 
     def oneLoadDone(self, groupid):
-        print "oneLoadDone enter"
-
         with self.lock:
             self.messages.append(OneLoadDone(groupid))
 
-        print "oneLoadDone exit"
-
     def oneComputeDone(self, groupid, computeTime, subtally):
-        print "oneComputeDone enter"
-
         with self.lock:
             self.messages.append(OneComputeDone(groupid, computeTime, subtally))
             self.groupsDone[groupid] = True
 
-        print "oneComputeDone exit"
-
     def oneFailure(self, failure):
-        print "oneFailure enter"
-
         with self.lock:
             if not self.failed:
                 self.messages.append(OneFailure(failure))
                 self.failed = True
-
-        print "oneFailure exit"
 
     def done(self):
         return self.failed or all(self.groupsDone.values())

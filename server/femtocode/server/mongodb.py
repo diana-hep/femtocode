@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pymongo import MongoClient
+
 from femtocode.util import *
 from femtocode.server.communication import *
 from femtocode.dataset import Dataset
@@ -21,8 +23,6 @@ from femtocode.dataset import MetadataFromJson
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):
-        from pymongo import MongoClient    # pay for what you get
-
         self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
@@ -83,8 +83,6 @@ class MetadataFromMongoDB(object):
         return self._cache[key]
 
 def populateMongo(dataset, mongourl, database, collection):
-    from pymongo import MongoClient    # pay for what you get
-
     client = MongoClient(mongourl)
     client[database][collection].insert_one(dataset.toJson())
 
