@@ -53,7 +53,7 @@ class Loop(Serializable):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["size", "targets", "statements", "run"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["size", "targets", "statements", "run"])
         assert obj["size"] is None or isinstance(obj["size"], string_types)
         assert isinstance(obj["targets"], list)
         assert all(isinstance(x, string_types) for x in obj["targets"])
@@ -325,7 +325,7 @@ class LoopFunction(Serializable):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["class", "name", "code"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code"])
         assert isinstance(obj["class"], string_types)
         assert "." in obj["class"]
 
@@ -392,7 +392,7 @@ class ExecutionFailure(Serializable):
 
     @staticmethod
     def failureJson(obj):
-        return isinstance(obj, dict) and set(obj.keys()) == set(["class", "message", "traceback"])
+        return isinstance(obj, dict) and set(obj.keys()).difference(set(["_id"])) == set(["class", "message", "traceback"])
 
 class Executor(Serializable):
     def __init__(self, query):
@@ -413,7 +413,7 @@ class Executor(Serializable):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(["query", "required", "temporaries", "order"]).difference(set(obj.keys())) == set()
+        assert set(["query", "required", "temporaries", "order"]).difference(set(obj.keys()).difference(set(["_id"]))) == set()
         assert isinstance(obj["required"], list)
         assert all(isinstance(x, string_types) for x in obj["required"])
         assert isinstance(obj["temporaries"], list)

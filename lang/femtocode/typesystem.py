@@ -304,7 +304,7 @@ class Schema(Serializable):
                             kwds["min"] = Schema._numfromjson(obj["min"], path + "[\"min\"]")
                         if "max" in obj:
                             kwds["max"] = Schema._numfromjson(obj["max"], path + "[\"max\"]")
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "min", "max"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "min", "max"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
@@ -333,7 +333,7 @@ class Schema(Serializable):
                             kwds["fewest"] = Schema._numfromjson(obj["fewest"], path + "[\"fewest\"]")
                         if "most" in obj:
                             kwds["most"] = Schema._numfromjson(obj["most"], path + "[\"most\"]")
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "charset", "fewest", "most"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "charset", "fewest", "most"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
@@ -361,7 +361,7 @@ class Schema(Serializable):
                                 kwds["ordered"] = obj["ordered"]
                             else:
                                 raise FemtocodeError("Expected \"ordered\" for \"type\": \"{0}\" to be boolean at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["ordered"])))
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "items", "fewest", "most", "ordered"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "items", "fewest", "most", "ordered"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
@@ -390,7 +390,7 @@ class Schema(Serializable):
                                 raise FemtocodeError("Expected \"dimensions\" for \"type\": \"{0}\" to be [...] at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["dimensions"])))
                         else:
                             raise FemtocodeError("Expected \"dimensions\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "items", "dimensions"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "items", "dimensions"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
@@ -417,7 +417,7 @@ class Schema(Serializable):
                                 raise FemtocodeError("Expected \"fields\" for \"type\": \"{0}\" to be {{...}}} at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["fields"])))
                         else:
                             raise FemtocodeError("Expected \"fields\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "fields"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "fields"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:
@@ -433,7 +433,7 @@ class Schema(Serializable):
                                 raise FemtocodeError("Expected \"possibilities\" for \"type\": \"{0}\" to be [...] at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["possibilities"])))
                         else:
                             raise FemtocodeError("Expected \"possibilities\" for \"type\": \"{0}\" at JSON{1}\n\n    found keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, obj.keys()))))
-                        unexpected = set(obj.keys()).difference(set(["type", "alias", "possibilities"]))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "possibilities"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         try:

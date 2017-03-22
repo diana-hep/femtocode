@@ -136,7 +136,7 @@ class CompiledLoopFunction(LoopFunction):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["class", "name", "code"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code"])
         assert isinstance(obj["class"], string_types)
         assert "." in obj["class"]
 

@@ -14,12 +14,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
 from pymongo import MongoClient
 
-from femtocode.util import *
-from femtocode.server.communication import *
 from femtocode.dataset import Dataset
 from femtocode.dataset import MetadataFromJson
+from femtocode.workflow import Query
+from femtocode.server.communication import *
+from femtocode.util import *
+import femtocode.asts.statementlist as statementlist
+
+class GroupTally(Serializable):
+    def __init__(self, groupid, tally):
+        self.groupid = groupid
+        self.tally = tally
+
+    def toJson(self):
+        return {"groupid": self.groupid, "tally": self.tally.toJson()}
+
+    @staticmethod
+    def fromJson(obj, action):
+        assert isinstance(obj, dict)
+        assert "groupid" in obj and "tally" in obj
+        return GroupTally(obj["groupid"], action.tallyFromJson(obj["tally"]))
+
+class WholeTally(Serializable):
+    def __init__(self, query, groups, lastAccess, mongoid):
+        self.query = query
+        self.groups = groups
+        self.lastAccess = lastAccess
+        self.mongoid = mongoid
+
+    def toJson(self):
+        return {"queryid": self.query.id,
+                "query": self.query.stripToName().toJson(),
+                "groups": [x.toJson() for x in self.groups],
+                "lastAccess": lastAccess}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["queryid", "query", "groups", "lastAccess"])
+        query = Query.fromJson(obj["query"])
+        assert query.id == obj["queryid"]
+
+        action = query.actions[-1]
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+
+        groups = {}
+        for group in obj["groups"]:
+            groupTally = GroupTally.fromJson(group, action)
+            groups[group["groupid"]] = groupTally
+
+        return WholeTally(query, list(groups.values()), obj["lastAccess"], obj.get("_id"))
+
+class ResultStore(object):
+    def __init__(self, mongourl, database, collection, timeout):
+        self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
+        self.client.server_info()
+        self.collection = self.client[database][collection]
+        self.timeout = timeout
+
+    def get(self, query):
+        for obj in self.collection.find({"queryid": query.id}):
+            wholeTally = WholeTally.fromJson(obj)
+            if wholeTally.query == query:
+                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}})
+                return wholeTally
+        return None
+
+    def put(self, query):
+        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson())
+
+    def add(self, mongoid, groupid, tally):
+        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}})
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):
@@ -82,7 +150,7 @@ class MetadataFromMongoDB(object):
 
         return self._cache[key]
 
-def populateMongo(dataset, mongourl, database, collection):
+def populateMongoDBMetadata(dataset, mongourl, database, collection):
     client = MongoClient(mongourl)
     client[database][collection].insert_one(dataset.toJson())
 

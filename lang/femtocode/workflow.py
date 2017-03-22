@@ -52,9 +52,27 @@ class Query(Serializable):
             self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
         return self._hash
 
+    class DatasetName(Serializable):
+        def __init__(self, name):
+            self.name = name
+
+        def toJson(self):
+            return {"name": self.name}
+
+        @staticmethod
+        def fromJson(obj):
+            assert isinstance(obj, dict)
+            assert "name" in obj
+            return Query.DatasetName(obj["name"])
+
+    def strip(self):
+        return Query(self.dataset.strip(), self.statements, self.actions, self.cancelled)
+
+    def stripToName(self):
+        return Query(Query.DatasetName(self.dataset.name), self.statements, self.actions, False)
+
     def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "dataset": self.dataset.toJson(),
+        return {"dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions],
                 "cancelled": self.cancelled}
@@ -62,10 +80,13 @@ class Query(Serializable):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()) == set(["class", "dataset", "statements", "actions", "cancelled"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "statements", "actions", "cancelled"])
 
-        dataset = Dataset.fromJson(obj["dataset"])
-
+        if set(obj.keys()).difference(set(["_id"])) == set(["name"]):
+            dataset = Query.DatasetName.fromJson(obj["dataset"])
+        else:
+            dataset = Dataset.fromJson(obj["dataset"])
+        
         statements = statementlist.Statement.fromJson(obj["statements"])
         assert isinstance(statements, statementlist.Statements)
 

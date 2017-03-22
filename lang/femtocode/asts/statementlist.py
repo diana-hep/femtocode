@@ -46,7 +46,7 @@ class Statement(Serializable):
                 return Statements(*[build(x, path + "[{0}]".format(i)) for i, x in enumerate(obj)])
 
             elif isinstance(obj, dict):
-                keys = set(obj.keys())   # possibly .difference(["_id"])
+                keys = set(obj.keys()).difference(set(["_id"]))
 
                 if keys == set(["type", "targets", "structure"]):
                     if not isinstance(obj["type"], string_types):
