@@ -76,18 +76,18 @@ class ResultStore(object):
         self.timeout = timeout
 
     def get(self, query):
-        for obj in self.collection.find({"queryid": query.id}):
+        for obj in self.collection.find({"queryid": query.id}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)}):
             wholeTally = WholeTally.fromJson(obj)
             if wholeTally.query == query:
-                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}})
+                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
                 return wholeTally
         return None
 
     def put(self, query):
-        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson())
+        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson(), modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
 
     def add(self, mongoid, groupid, tally):
-        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}})
+        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):
