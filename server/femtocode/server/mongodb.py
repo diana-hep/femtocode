@@ -73,28 +73,29 @@ class ResultStore(object):
         self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
-        self.timeout = timeout
+        self.modifiers = {"$maxTimeMS": roundup(timeout * 1000)}
 
     def get(self, query):
-        for obj in self.collection.find({"queryid": query.id}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)}):
+        for obj in self.collection.find({"queryid": query.id}, modifiers=self.modifiers):
             wholeTally = WholeTally.fromJson(obj)
             if wholeTally.query == query:
-                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
+                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}}, modifiers=self.modifiers)
                 return wholeTally
         return None
 
     def put(self, query):
-        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson(), modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
+        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson(), modifiers=self.modifiers)
 
     def add(self, mongoid, groupid, tally):
-        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}}, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)})
+        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}}, modifiers=self.modifiers)
+        self.collection.update({"_id": mongoid, {"$set": {"lastAccess": datetime.utcnow()}}}, modifiers=self.modifiers)
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):
         self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
-        self.timeout = timeout
+        self.modifiers = {"$maxTimeMS": roundup(timeout * 1000)}
         self._cache = {}
 
     def dataset(self, name, groups=(), columns=None, schema=True):
@@ -121,7 +122,7 @@ class MetadataFromMongoDB(object):
                     project["groups.segments." + column] = True
                     project["groups.segments." + column + ".files"] = True
 
-            results = list(self.collection.find(select, project, modifiers={"$maxTimeMS": roundup(self.timeout * 1000)}))
+            results = list(self.collection.find(select, project, modifiers=self.modifiers))
 
             if len(results) == 0:
                 raise IOError("dataset/groups not found: {0}".format(key))
