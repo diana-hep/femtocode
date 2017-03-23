@@ -115,6 +115,10 @@ class ResultStore(object):
         now = datetime.utcnow()
         self.collection.update({"_id": uniqueid}, {"$push": {"computeResults": computeResult.toJson()}, "$set": {"lastAccess": now, "lastUpdate": now}})
 
+    def setfailure(self, uniqueid, failure):
+        now = datetime.utcnow()
+        self.collection.update({"_id": uniqueid, "failure": None}, {"$set": {"failure": failure.toJson(), "lastAccess": now, "lastUpdate": now}})
+
     def removeold(self, cutoffdate):
         self.collection.remove({"lastAccess": {"$lt": cutoffdate}})
 

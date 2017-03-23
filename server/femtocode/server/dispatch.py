@@ -185,7 +185,7 @@ if __name__ == "__main__":
     metadb = MetadataFromJson("/home/pivarski/diana/femtocode/tests/")
     # metadb = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
     store = ResultStore("mongodb://localhost:27017", "store", "results", 1.0)
-    watchman = Watchman(["http://localhost:8081/bob"], 1.0, 0.1)
+    watchman = Watchman(["http://localhost:8081"], 1.0, 0.1)
 
     server = Dispatch(metadb, store, watchman)
     server.start("", 8080)

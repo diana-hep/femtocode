@@ -87,9 +87,9 @@ class WorkItem(object):
             occupant.decrementNeed()
 
 class Minion(threading.Thread):
-    def __init__(self, minionIncoming):
+    def __init__(self, incoming):
         super(Minion, self).__init__()
-        self.incoming = minionIncoming
+        self.incoming = incoming
         self.daemon = True
 
     def __repr__(self):
