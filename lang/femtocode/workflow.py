@@ -62,7 +62,7 @@ class Query(Serializable):
         @staticmethod
         def fromJson(obj):
             assert isinstance(obj, dict)
-            assert "name" in obj
+            assert set(obj.keys()).difference(set(["_id"])) == set(["name"])
             return Query.DatasetName(obj["name"])
 
     def strip(self):

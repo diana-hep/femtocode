@@ -35,7 +35,21 @@ from femtocode.py23 import *
 from femtocode.util import *
 from femtocode.execution import ExecutionFailure
 
-#################################################################### HTTP for public-facing APIs
+#################################################################### HTTP for public APIs and internal
+
+class AssignExecutor(object):
+    def __init__(self, executor, uniqueid, groupids):
+        self.executor = executor
+        self.uniqueid = uniqueid
+        self.groupids = groupids
+
+class CancelQuery(object):
+    def __init__(self, query):
+        self.query = query
+
+def sendpickle(address, obj, timeout):
+    serialized = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    return pickle.loads(urlopen(address, serialized, timeout).read())
 
 class HTTPServer(object):
     # assumes you have a and __call__ handles HTTP requests

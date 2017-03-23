@@ -32,30 +32,30 @@ from femtocode.execution import ExecutionFailure
 from femtocode.util import *
 
 class Result(Serializable):
-    def __init__(self, loadsDone, computesDone, done, wallTime, computeTime, lastUpdate, data):
+    def __init__(self, loadsDone, computesDone, done, computeTime, lastUpdate, data):
         self.loadsDone = loadsDone
         self.computesDone = computesDone
         self.done = done
-        self.wallTime = wallTime
         self.computeTime = computeTime
         self.lastUpdate = lastUpdate
         self.data = data
 
     def __repr__(self):
-        return "Result({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(self.loadsDone, self.computesDone, self.done, self.wallTime, self.computeTime, self.lastUpdate, self.data)
+        return "Result({0}, {1}, {2}, {3}, {4}, {5})".format(self.loadsDone, self.computesDone, self.done, self.computeTime, self.lastUpdate, self.data)
 
     def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "loadsDone": self.loadsDone,
+        return {"loadsDone": self.loadsDone,
                 "computesDone": self.computesDone,
                 "done": self.done,
-                "wallTime": self.wallTime,
                 "computeTime": self.computeTime,
                 "lastUpdate": self.lastUpdate,
                 "data": self.data.toJson()}
 
     @staticmethod
     def fromJson(obj, action):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["loadsDone", "computesDone", "done", "computeTime", "lastUpdate", "data"])
+
         if ExecutionFailure.failureJson(obj["data"]):
             data = ExecutionFailure.fromJson(obj["data"])
         else:
@@ -64,7 +64,6 @@ class Result(Serializable):
         return Result(obj["loadsDone"],
                       obj["computesDone"],
                       obj["done"],
-                      obj["wallTime"],
                       obj["computeTime"],
                       obj["lastUpdate"],
                       data)
@@ -99,11 +98,15 @@ class FutureQueryResult(object):
 
             else:
                 result = Result.fromJson(json.loads(obj), self.action)
+
+                if not done:
+                    self.lastTime = time.time()
+
                 with self.future._lock:
                     self.future.loaded = result.loadsDone
                     self.future.computed = result.computesDone
                     self.future.done = result.done
-                    self.future.wallTime = result.wallTime
+                    self.future.wallTime = self.lastTime - self.startTime
                     self.future.computeTime = result.computeTime
                     self.future.lastUpdate = result.lastUpdate
                     self.future.data = result.data
@@ -111,8 +114,10 @@ class FutureQueryResult(object):
                 return result.done
 
         def run(self):
-            polldelay = self.minpolldelay
+            self.startTime = time.time()
+            self.lastTime = self.startTime
 
+            polldelay = self.minpolldelay
             try:
                 while True:
                     if self.update(): break

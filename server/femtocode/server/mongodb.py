@@ -24,48 +24,61 @@ from femtocode.server.communication import *
 from femtocode.util import *
 import femtocode.asts.statementlist as statementlist
 
-class GroupTally(Serializable):
-    def __init__(self, groupid, tally):
+class ComputeResult(Serializable):
+    def __init__(self, groupid, computeTime, subtally):
         self.groupid = groupid
-        self.tally = tally
+        self.computeTime = computeTime
+        self.subtally = subtally
 
     def toJson(self):
-        return {"groupid": self.groupid, "tally": self.tally.toJson()}
+        return {"groupid": self.groupid,
+                "computeTime": self.computeTime,
+                "subtally": self.subtally.toJson()}
 
     @staticmethod
     def fromJson(obj, action):
         assert isinstance(obj, dict)
-        assert "groupid" in obj and "tally" in obj
-        return GroupTally(obj["groupid"], action.tallyFromJson(obj["tally"]))
+        assert set(obj.keys()).difference(set(["_id"])) == set(["groupid", "computeTime", "subtally"])
+        return ComputeResult(obj["groupid"],
+                             obj["computeTime"],
+                             action.dataFromJson(obj["subtally"]))
 
-class WholeTally(Serializable):
-    def __init__(self, query, groups, lastAccess):
+class WholeData(Serializable):
+    @staticmethod
+    def empty():
+        return WholeData(query, [], [], None, datetime.utcnow(), datetime.utcnow())
+
+    def __init__(self, query, loaded, computeResults, failure, lastAccess, lastUpdate):
         self.query = query
-        self.groups = groups
+        self.loaded = loaded
+        self.computeResults = computeResults
+        self.failure = None
         self.lastAccess = lastAccess
+        self.lastUpdate = lastUpdate
 
     def toJson(self):
         return {"queryid": self.query.id,
                 "query": self.query.stripToName().toJson(),
-                "groups": [x.toJson() for x in self.groups],
-                "lastAccess": self.lastAccess}
+                "loaded": self.loaded,
+                "computeResults": [x.toJson() for x in self.computeResults],
+                "failure": None if self.failure is None else self.failure.toJson(),
+                "lastAccess": self.lastAccess,
+                "lastUpdate": self.lastUpdate}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["queryid", "query", "groups", "lastAccess"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["queryid", "query", "loaded", "computeResults", "failure", "lastAccess", "lastUpdate"])
         query = Query.fromJson(obj["query"])
         assert query.id == obj["queryid"]
 
         action = query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
-        groups = {}
-        for group in obj["groups"]:
-            groupTally = GroupTally.fromJson(group, action)
-            groups[group["groupid"]] = groupTally
+        computeResults = [ComputeResult.fromJson(x, action) for x in obj["computeResults"]]
+        failure = None if obj["failure"] is None else ExecutionFailure.fromJson(obj["failure"])
 
-        return WholeTally(query, list(groups.values()), obj["lastAccess"], obj.get("_id"))
+        return WholeData(query, obj["loaded"], computeResults, failure, obj["lastAccess"], obj["lastUpdate"])
 
 class ResultStore(object):
     def __init__(self, mongourl, database, collection, timeout):
@@ -75,19 +88,29 @@ class ResultStore(object):
         self.modifiers = {"$maxTimeMS": roundup(timeout * 1000)}
 
     def get(self, query):
+        # returns a WholeData and a uniqueid (or None, None)
         for obj in self.collection.find({"queryid": query.id}, modifiers=self.modifiers):
-            wholeTally = WholeTally.fromJson(obj)
-            if wholeTally.query == query:
+            wholeData = WholeData.fromJson(obj)
+            if wholeData.query == query:
                 self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}}, modifiers=self.modifiers)
-                return wholeTally
-        return None
+                return wholeData, obj["_id"]
+        return None, None
 
-    def put(self, query):
+    def create(self, wholeData):
         # returns the uniqueid
-        return self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson())
+        return self.collection.insert(wholeData.toJson())
 
-    def add(self, uniqueid, groupid, tally):
-        self.collection.update({"_id": uniqueid}, {"$push": {"groups": GroupTally(groupid, tally).toJson()}, "$set": {"lastAccess": datetime.utcnow()}})
+    def clearload(self, uniqueid):
+        now = datetime.utcnow()
+        self.collection.update({"_id": uniqueid}, {"$set": {"loaded": [], "lastAccess": now, "lastUpdate": now}})
+
+    def pushload(self, uniqueid, groupid):
+        now = datetime.utcnow()
+        self.collection.update({"_id": uniqueid}, {"$push": {"loaded": groupid}, "$set": {"lastAccess": now, "lastUpdate": now}})
+
+    def pushcompute(self, uniqueid, computeResult):
+        now = datetime.utcnow()
+        self.collection.update({"_id": uniqueid}, {"$push": {"computeResults": computeResult.toJson()}, "$set": {"lastAccess": now, "lastUpdate": now}})
 
     def removeold(self, cutoffdate):
         self.collection.remove({"lastAccess": {"$lt": cutoffdate}})
