@@ -99,7 +99,7 @@ class FutureQueryResult(object):
             else:
                 result = Result.fromJson(json.loads(obj), self.action)
 
-                if not done:
+                if not result.done:
                     self.lastTime = time.time()
 
                 with self.future._lock:

@@ -19,6 +19,7 @@ try:
 except ImportError:
     import queue
 
+from femtocode.run.compute import Minion
 from femtocode.run.cache import CacheMaster
 from femtocode.run.cache import NeedWantCache
 from femtocode.execution import ExecutionFailure
@@ -33,12 +34,17 @@ class InProgress(object):
         self.queryToGroupids = {}
         self.lock = threading.Lock()
 
+    def _queryref(self, query):
+        return [x for x in self.queryToGroupids if x == query][0]
+
+    def cleanup(self):
+        pass  # FIXME (remove cancelled queries)
+
     def add(self, executor, groupids):
         with self.lock:
             newgroupids = set(groupids)
-            old = self.queryToGroupids.get(executor.query)
 
-            if old is None or self.queryToGroupids[executor.query].cancelled:
+            if executor.query not in self.queryToGroupids or self._queryref(executor.query).cancelled:
                 self.queryToGroupids[executor.query] = newgroupids
 
                 # upgrade the dataset on this query to include group-level information
@@ -50,7 +56,7 @@ class InProgress(object):
                 self.queryToGroupids[executor.query].update(newgroupids)
 
                 # make this executor share a reference with the established query so that .cancel affects both
-                executor.query = [x for x in self.queryToGroupids if x == executor.query][0]
+                executor.query = self._queryref(executor.query)
 
                 # get the additional group-level information you don't currently have and add it to the dataset
                 if len(newgroupids) > 0:
@@ -68,7 +74,7 @@ class InProgress(object):
     def cancel(self, query):
         with self.lock:
             if query in self.queryToGroupids:
-                [x for x in self.queryToGroupids if x == executor.query][0].cancelled = True
+                self._queryref(query).cancelled = True
 
 class NativeDistribExecutor(NativeExecutor):
     @staticmethod
@@ -108,11 +114,12 @@ class Compute(HTTPServer):
 
             if message is None:
                 # just a heartbeat; be sure to respond with None (below)
-                pass
+                self.inprogress.cleanup()
 
             elif isinstance(message, AssignExecutor):
                 # turn the NativeExecutor into a NativeDistribExecutor (in place)
                 NativeDistribExecutor.convert(message.executor, message.uniqueid, self.inprogress, self.store)
+                message.executor.query.lock = threading.Lock()
 
                 # either start a new executor or add the new groups to an already-running one
                 newgroupids = self.inprogress.add(message.executor, message.groupids)
@@ -128,7 +135,7 @@ class Compute(HTTPServer):
             else:
                 assert False, "unrecognized message: {0}".format(message)
 
-            self.sendpickle(None, start_response)
+            return self.sendpickle(None, start_response)
 
         except Exception as err:
             return self.senderror("500 Internal Server Error", start_response)
@@ -140,7 +147,11 @@ if __name__ == "__main__":
     # metadb = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
 
     minion = Minion(queue.Queue())
+    minion.start()
+
     cacheMaster = CacheMaster(NeedWantCache(1024**3), [minion])
+    cacheMaster.start()
+
     store = ResultStore("mongodb://localhost:27017", "store", "results", 1.0)
 
     server = Compute(metadb, cacheMaster, store)

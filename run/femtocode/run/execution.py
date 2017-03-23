@@ -214,7 +214,6 @@ class NativeAsyncExecutor(NativeExecutor):
 
         # all associated data are transient: they're lost if you serialize/deserialize
         self.future = future
-        self.lock = threading.Lock()
         if self.future is not None:
             self.loadsDone = dict((group.id, False) for group in query.dataset.groups)
             self.computesDone = dict((group.id, False) for group in query.dataset.groups)
@@ -235,7 +234,7 @@ class NativeAsyncExecutor(NativeExecutor):
 
     def oneLoadDone(self, groupid):
         if self.future is not None:
-            with self.lock:
+            with self.query.lock:
                 if not self.query.cancelled:
                     self.loadsDone[groupid] = True
                     futureargs = self.futureargs()
@@ -248,15 +247,12 @@ class NativeAsyncExecutor(NativeExecutor):
 
     def oneComputeDone(self, groupid, computeTime, subtally):
         if self.future is not None:
-            with self.lock:
+            with self.query.lock:
                 if not self.query.cancelled:
                     self.computesDone[groupid] = True
                     self.computeTime += computeTime
 
                     self.tally = self.action.update(self.tally, subtally)
-
-                    if all(self.computesDone.values()):
-                        self.tally = self.action.finalize(self.tally)
 
                     futureargs = self.futureargs()
 
@@ -267,7 +263,7 @@ class NativeAsyncExecutor(NativeExecutor):
                 self.future._update(*futureargs)
 
     def oneFailure(self, failure):
-        with self.lock:
+        with self.query.lock:
             self.query.cancelled = True
             self.tally = failure
             futureargs = self.futureargs()
@@ -278,6 +274,5 @@ class NativeAsyncExecutor(NativeExecutor):
     def fromJson(obj):
         out = NativeExecutor.fromJson(obj)
         out.__class__ = NativeAsyncExecutor
-        out.lock = threading.Lock()
         out.future = None
         return out

@@ -270,7 +270,7 @@ class CacheMaster(threading.Thread):
             for i, workItem in enumerate(self.waiting):
                 if workItem.executor.query.cancelled:
                     workItem.executor.oneFailure(ExecutionFailure("User cancelled query.", None))
-                with workItem.executor.lock:
+                with workItem.executor.query.lock:
                     cancelled = workItem.executor.query.cancelled
                 if cancelled:
                     todrop.append(i)

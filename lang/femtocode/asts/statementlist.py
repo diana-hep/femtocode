@@ -594,9 +594,6 @@ class Aggregation(Action):
     def update(self, tally, subtally):
         raise NotImplementedError
 
-    def finalize(self, tally):
-        return tally
-
 class ReturnPythonDataset(Aggregation):
     class Pre(object):
         def __init__(self, datasetName, namesToTypedTrees):
@@ -609,9 +606,24 @@ class ReturnPythonDataset(Aggregation):
         def finalize(self, refs):
             return ReturnPythonDataset(self.datasetName, [(n, ref) for ref, (n, tt) in zip(refs, self.namesToTypedTrees)])
 
+    class Segments(Serializable):
+        def __init__(self, segs):
+            self.segs = segs
+
+        def toJson(self):
+            return {"segs": dict((k, v.toJson()) for k, v in self.segs.items())}
+
+        @staticmethod
+        def fromJson(obj):
+            from femtocode.testdataset import TestSegment
+            return ReturnPythonDataset.Segments((k, TestSegment.fromJson(v)) for k, v in obj["segs"].items())
+
     def tallyFromJson(self, obj):
         from femtocode.testdataset import TestDataset
-        return TestDataset.fromJson(obj)
+        if "segs" in obj:
+            return ReturnPythonDataset.Segments.fromJson(obj)
+        else:
+            return TestDataset.fromJson(obj)
 
     @staticmethod
     def fromJson(targets, structure):
@@ -645,7 +657,7 @@ class ReturnPythonDataset(Aggregation):
 
     def update(self, tally, subtally):
         numEntries = None
-        for segment in subtally.values():
+        for segment in subtally.segs.values():
             if numEntries is None:
                 numEntries = segment.numEntries
             else:
@@ -653,7 +665,7 @@ class ReturnPythonDataset(Aggregation):
         assert numEntries is not None
 
         tally.newGroup()
-        tally.groups[-1].segments = subtally
+        tally.groups[-1].segments = subtally.segs
         tally.groups[-1].numEntries = numEntries
 
         tally.numEntries = sum(group.numEntries for group in tally.groups)
@@ -669,4 +681,4 @@ class ReturnPythonDataset(Aggregation):
             data = arrays[ref.data]
             size = None if ref.size is None else arrays[ref.size]
             segments[n] = TestSegment(numEntries, dataLength, sizeLength, data, size)
-        return segments
+        return ReturnPythonDataset.Segments(segments)

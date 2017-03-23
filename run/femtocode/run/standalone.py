@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import multiprocessing
+import threading
 try:
     import Queue as queue
 except ImportError:
@@ -117,6 +118,7 @@ class StandaloneSession(object):
         query.dataset = self.metadata.dataset(query.dataset.name, list(xrange(query.dataset.numGroups)), query.statements.columnNames(), False)
 
         # create an executor with a reference to the FutureQueryResult we will return to the user
+        query.lock = threading.Lock()
         executor = NativeAsyncExecutor(query, FutureQueryResult(query, ondone, onupdate))
 
         # queue it up

@@ -41,7 +41,7 @@ class ComputeResult(Serializable):
         assert set(obj.keys()).difference(set(["_id"])) == set(["groupid", "computeTime", "subtally"])
         return ComputeResult(obj["groupid"],
                              obj["computeTime"],
-                             action.dataFromJson(obj["subtally"]))
+                             action.tallyFromJson(obj["subtally"]))
 
 class WholeData(Serializable):
     @staticmethod
