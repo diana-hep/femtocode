@@ -616,7 +616,7 @@ class ReturnPythonDataset(Aggregation):
         @staticmethod
         def fromJson(obj):
             from femtocode.testdataset import TestSegment
-            return ReturnPythonDataset.Segments((k, TestSegment.fromJson(v)) for k, v in obj["segs"].items())
+            return ReturnPythonDataset.Segments(dict((k, TestSegment.fromJson(v)) for k, v in obj["segs"].items()))
 
     def tallyFromJson(self, obj):
         from femtocode.testdataset import TestDataset
@@ -680,5 +680,12 @@ class ReturnPythonDataset(Aggregation):
             sizeLength = None if ref.size is None else lengths[ref.size]
             data = arrays[ref.data]
             size = None if ref.size is None else arrays[ref.size]
+
+            if not isinstance(data, list):
+                data = data.tolist()   # because it's Numpy
+            if size is not None and not isinstance(size, list):
+                size = size.tolist()   # because it's Numpy
+
             segments[n] = TestSegment(numEntries, dataLength, sizeLength, data, size)
+
         return ReturnPythonDataset.Segments(segments)

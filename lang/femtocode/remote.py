@@ -229,4 +229,5 @@ class RemoteSession(object):
 if __name__ == "__main__":
     session = RemoteSession("http://localhost:8080")
     result = session.source("xy").define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
-    print result.await()
+    for x in result.await():
+        print x

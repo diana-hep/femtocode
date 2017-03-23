@@ -33,8 +33,8 @@ class TestSegment(Segment):
 
     def toJson(self):
         out = super(TestSegment, self).toJson()
-        out["data"] = {"dtype": str(self.data.dtype), "values": self.data.tolist()}
-        out["size"] = None if self.size is None else {"dtype": str(self.size.dtype), "values": self.size.tolist()}
+        out["data"] = self.data
+        out["size"] = self.size
         return out
 
     @staticmethod
@@ -43,8 +43,8 @@ class TestSegment(Segment):
             segment["numEntries"],
             segment["dataLength"],
             segment["sizeLength"],
-            numpy.array(segment["data"]["values"], dtype=segment["data"]["dtype"]),
-            None if segment["size"] is None else numpy.array(segment["size"]["values"], dtype=segment["size"]["dtype"]))
+            segment["data"],
+            segment["size"])
 
     def __eq__(self, other):
         return other.__class__ == TestSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength and self.data == other.data

@@ -106,7 +106,7 @@ class Tallyman(object):
 
         done = len(computeResults) == numGroups
 
-        computeTime = sum(x.computeTime for x in computeResults)
+        computeTime = sum(x.computeTime for x in computeResults.values())
 
         lastUpdate = wholeData.lastUpdate.isoformat(" ") + " UTC"
 
