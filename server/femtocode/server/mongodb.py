@@ -45,7 +45,7 @@ class ComputeResult(Serializable):
 
 class WholeData(Serializable):
     @staticmethod
-    def empty():
+    def empty(query):
         return WholeData(query, [], [], None, datetime.utcnow(), datetime.utcnow())
 
     def __init__(self, query, loaded, computeResults, failure, lastAccess, lastUpdate):
@@ -82,17 +82,16 @@ class WholeData(Serializable):
 
 class ResultStore(object):
     def __init__(self, mongourl, database, collection, timeout):
-        self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
+        self.client = MongoClient(mongourl, socketTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
-        self.modifiers = {"$maxTimeMS": roundup(timeout * 1000)}
 
     def get(self, query):
         # returns a WholeData and a uniqueid (or None, None)
-        for obj in self.collection.find({"queryid": query.id}, modifiers=self.modifiers):
+        for obj in self.collection.find({"queryid": query.id}):
             wholeData = WholeData.fromJson(obj)
             if wholeData.query == query:
-                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}}, modifiers=self.modifiers)
+                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}})
                 return wholeData, obj["_id"]
         return None, None
 
@@ -121,10 +120,9 @@ class ResultStore(object):
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):
-        self.client = MongoClient(mongourl, serverSelectionTimeoutMS=roundup(timeout * 1000))
+        self.client = MongoClient(mongourl, socketTimeoutMS=roundup(timeout * 1000))
         self.client.server_info()
         self.collection = self.client[database][collection]
-        self.modifiers = {"$maxTimeMS": roundup(timeout * 1000)}
         self._cache = {}
 
     def dataset(self, name, groups=(), columns=None, schema=True):
@@ -151,7 +149,7 @@ class MetadataFromMongoDB(object):
                     project["groups.segments." + column] = True
                     project["groups.segments." + column + ".files"] = True
 
-            results = list(self.collection.find(select, project, modifiers=self.modifiers))
+            results = list(self.collection.find(select, project))
 
             if len(results) == 0:
                 raise IOError("dataset/groups not found: {0}".format(key))

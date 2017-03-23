@@ -20,6 +20,7 @@ import threading
 import femtocode.asts.statementlist as statementlist
 from femtocode.py23 import *
 from femtocode.execution import ExecutionFailure
+from femtocode.remote import Result
 from femtocode.run.execution import NativeExecutor
 from femtocode.server.assignment import assign
 from femtocode.server.communication import *
@@ -37,13 +38,11 @@ class Watchman(threading.Thread):
         self.daemon = True
 
     def declaredead(self, minion):
-        with self.lock:
-            self.survivors.discard(minion)
+        self.survivors.discard(minion)
 
     def declarelive(self, minion):
-        with self.lock:
-            if minion in self.minions:
-                self.survivors.add(minion)
+        if minion in self.minions:
+            self.survivors.add(minion)
 
     def run(self):
         while True:
@@ -62,17 +61,18 @@ class Watchman(threading.Thread):
         numGroups = executor.query.dataset.numGroups
         unassigned = []
         with self.lock:
+            dead = []
             assert len(self.survivors) > 0, "no compute nodes available"
-
             for minion in self.survivors:
                 subset = assign(offset, groupids, numGroups, minion, self.minions, self.survivors)
                 try:
                     sendpickle(minion, AssignExecutor(executor, uniqueid, subset), self.deadthreshold)
                 except:
-                    self.declaredead(minion)
+                    dead.append(minion)
                     unassigned.extend(subset)
-                else:
-                    self.declarelive(minion)
+
+            for x in dead:
+                self.declaredead(x)
 
         if len(unassigned) > 0:
             self.assign(executor, unassigned, numGroups)
@@ -89,11 +89,9 @@ class Watchman(threading.Thread):
 
 class Tallyman(object):
     @staticmethod
-    def tallyme(wholeData):
+    def tallyme(wholeData, numGroups):
         action = wholeData.query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
-
-        numGroups = wholeData.query.dataset.numGroups
 
         loadsDone = float(len(set(wholeData.loaded))) / numGroups
 
@@ -156,16 +154,15 @@ class Dispatch(HTTPServer):
 
                     if wholeData is None:
                         # we've never seen this query before
-                        wholeData = WholeData.empty()
+                        wholeData = WholeData.empty(query)
                         uniqueid = self.store.create(wholeData)
                         executor = NativeExecutor(query)
                         self.watchman.assign(executor, uniqueid, list(range(query.dataset.numGroups)))
-                        
-                        result, missing = Tallyman.tallyme(wholeData)
+                        result, missing = Tallyman.tallyme(wholeData, query.dataset.numGroups)
 
                     else:
                         # this is a query we've been asked about before
-                        result, missing = Tallyman.tallyme(wholeData)
+                        result, missing = Tallyman.tallyme(wholeData, query.dataset.numGroups)
 
                         if isinstance(result.data, ExecutionFailure):
                             self.watchman.cancel(query)
