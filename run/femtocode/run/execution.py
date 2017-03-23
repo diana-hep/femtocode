@@ -85,38 +85,36 @@ class NativeCompiler(Compiler):
 
     @staticmethod
     def deserialize(llvmname, compiledobj):
+        # 2 ms, which is dominant, but more importantly it needs to persist
+        target = llvmlite.binding.Target.from_default_triple()
+        target_machine = target.create_target_machine()
+        backing_mod = llvmlite.binding.parse_assembly("")
+        llvmengine = llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
+
         # insignificant compared with 2 ms
         def object_compiled_hook(ll_module, buf):
             pass
         def object_getbuffer_hook(ll_module):
             return compiledobj
-        NativeCompiler.llvmengine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
+        llvmengine.set_object_cache(object_compiled_hook, object_getbuffer_hook)
 
         # actually loads compiled code
-        NativeCompiler.llvmengine.finalize_object()
+        llvmengine.finalize_object()
 
         # find the function within the compiled code
-        fcnptr = NativeCompiler.llvmengine.get_function_address(llvmname)
+        fcnptr = llvmengine.get_function_address(llvmname)
 
         # interpret it as a Python function
         cpythonfcn = ctypes.CFUNCTYPE(PyObjectPtr, PyObjectPtr, PyObjectPtr, PyObjectPtr)(fcnptr)
 
+        # make sure this engine gets persisted
+        cpythonfcn.llvmengine = llvmengine
+
         # the cpython.* function takes Python pointers to closure, args, kwds and unpacks them
         return cpythonfcn
 
-    @staticmethod
-    def newengine():
-        # 2 ms, which is dominant, but more importantly it needs to persist
-        target = llvmlite.binding.Target.from_default_triple()
-        target_machine = target.create_target_machine()
-        backing_mod = llvmlite.binding.parse_assembly("")
-        return llvmlite.binding.create_mcjit_compiler(backing_mod, target_machine)
-
 # initialize all the parts of LLVM that Numba needs
 numba.jit([(numba.float64[:],)], nopython=True)(lambda x: x[0])
-
-# you should *probably* make sure that access to this is from a single thread...
-NativeCompiler.llvmengine = NativeCompiler.newengine()
 
 class CompiledLoopFunction(LoopFunction):
     def __getstate__(self):

@@ -127,7 +127,6 @@ class Compute(HTTPServer):
                 # if any of the groups are new, queue them up to get serviced
                 if len(newgroupids) > 0:
                     self.cacheMaster.incoming.put(message.executor)
-                    print "REALLY WORK"
                         
             elif isinstance(message, CancelQuery):
                 # ensure that all instances of this query have .cancelled = True
