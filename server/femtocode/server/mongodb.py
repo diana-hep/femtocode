@@ -104,6 +104,10 @@ class ResultStore(object):
         now = datetime.utcnow()
         self.collection.update({"_id": uniqueid}, {"$set": {"loaded": [], "lastAccess": now, "lastUpdate": now}})
 
+    def clearfailure(self, uniqueid):
+        now = datetime.utcnow()
+        self.collection.update({"_id": uniqueid}, {"$set": {"failure": None, "lastAccess": now, "lastUpdate": now}})
+        
     def pushload(self, uniqueid, groupid):
         now = datetime.utcnow()
         self.collection.update({"_id": uniqueid}, {"$push": {"loaded": groupid}, "$set": {"lastAccess": now, "lastUpdate": now}})

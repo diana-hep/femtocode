@@ -20,8 +20,10 @@ import threading
 import femtocode.asts.statementlist as statementlist
 from femtocode.py23 import *
 from femtocode.execution import ExecutionFailure
+from femtocode.run.execution import NativeExecutor
 from femtocode.server.assignment import assign
 from femtocode.server.communication import *
+from femtocode.server.mongodb import *
 
 class Watchman(threading.Thread):
     def __init__(self, minions, checkperiod, deadthreshold):
@@ -55,10 +57,13 @@ class Watchman(threading.Thread):
 
             time.sleep(self.checkperiod)
 
-    def assign(self, executor, uniqueid, groupids, numGroups):
+    def assign(self, executor, uniqueid, groupids):
         offset = abs(hash(executor.query))
+        numGroups = executor.query.dataset.numGroups
         unassigned = []
         with self.lock:
+            assert len(self.survivors) > 0, "no compute nodes available"
+
             for minion in self.survivors:
                 subset = assign(offset, groupids, numGroups, minion, self.minions, self.survivors)
                 try:
@@ -84,11 +89,11 @@ class Watchman(threading.Thread):
 
 class Tallyman(object):
     @staticmethod
-    def tallyme(executor, wholeData):
-        action = executor.query.actions[-1]
+    def tallyme(wholeData):
+        action = wholeData.query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
-        numGroups = executor.query.dataset.numGroups
+        numGroups = wholeData.query.dataset.numGroups
 
         loadsDone = float(len(set(wholeData.loaded))) / numGroups
 
@@ -118,4 +123,72 @@ class Tallyman(object):
             if done:
                 tally = action.finalize(tally)
 
-            return Result(loadsDone, computesDone, done, computeTime, lastUpdate, tally), missing
+            return Result(loadsDone, computesDone, done, computeTime, lastUpdate, tally), sorted(missing)
+
+class Dispatch(HTTPServer):
+    def __init__(self, metadb, store, watchman):
+        self.metadb = metadb
+        self.store = store
+        self.watchman = watchman
+
+    def __call__(self, environ, start_response):
+        path = self.getpath(environ)
+
+        try:
+            if path == "metadata":
+                try:
+                    obj = self.getjson(environ)
+                    name = obj["name"]
+                    assert isinstance(name, string_types)
+                except:
+                    return self.senderror("400 Bad Request", start_response)
+                else:
+                    dataset = self.metadb.dataset(name, (), None, True)
+                    return self.sendjson(dataset.toJson(), start_response)
+
+            elif path == "submit":
+                try:
+                    query = Query.fromJson(self.getjson(environ))
+                except:
+                    return self.senderror("400 Bad Request", start_response)
+                else:
+                    wholeData, uniqueid = self.store.get(query)
+
+                    if wholeData is None:
+                        # we've never seen this query before
+                        wholeData = WholeData.empty()
+                        uniqueid = self.store.create(wholeData)
+                        executor = NativeExecutor(query)
+                        self.watchman.assign(executor, uniqueid, list(range(query.dataset.numGroups)))
+                        
+                        result, missing = Tallyman.tallyme(wholeData)
+
+                    else:
+                        # this is a query we've been asked about before
+                        result, missing = Tallyman.tallyme(wholeData)
+
+                        if isinstance(result.data, ExecutionFailure):
+                            self.watchman.cancel(query)
+
+                        elif len(missing) > 0:
+                            executor = NativeExecutor(query)
+                            self.watchman.assign(executor, uniqueid, missing)
+
+                    return self.sendjson(result.toJson(), start_response)
+
+            else:
+                return self.senderror("400 Bad Request", start_response)
+
+        except Exception as err:
+            return self.senderror("500 Internal Server Error", start_response)
+
+if __name__ == "__main__":
+    from femtocode.dataset import MetadataFromJson
+
+    metadb = MetadataFromJson("/home/pivarski/diana/femtocode/tests/")
+    # metadb = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
+    store = ResultStore("mongodb://localhost:27017", "store", "results", 1.0)
+    watchman = Watchman(["http://localhost:8081/bob"], 1.0, 0.1)
+
+    server = Dispatch(metadb, store, watchman)
+    server.start("", 8080)
