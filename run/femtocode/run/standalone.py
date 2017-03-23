@@ -136,7 +136,7 @@ if __name__ == "__main__":
     def callback(outputdataset):
         print outputdataset, len(list(outputdataset))
 
-    result = session.source("xy").toPython("Test", a = "x + y").submit()
+    result = session.source("xy").define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
 
     for event in result.await():
         print event
