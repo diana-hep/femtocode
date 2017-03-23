@@ -39,17 +39,16 @@ class GroupTally(Serializable):
         return GroupTally(obj["groupid"], action.tallyFromJson(obj["tally"]))
 
 class WholeTally(Serializable):
-    def __init__(self, query, groups, lastAccess, mongoid):
+    def __init__(self, query, groups, lastAccess):
         self.query = query
         self.groups = groups
         self.lastAccess = lastAccess
-        self.mongoid = mongoid
 
     def toJson(self):
         return {"queryid": self.query.id,
                 "query": self.query.stripToName().toJson(),
                 "groups": [x.toJson() for x in self.groups],
-                "lastAccess": lastAccess}
+                "lastAccess": self.lastAccess}
 
     @staticmethod
     def fromJson(obj):
@@ -84,11 +83,14 @@ class ResultStore(object):
         return None
 
     def put(self, query):
-        self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson(), modifiers=self.modifiers)
+        # returns the uniqueid
+        return self.collection.insert(WholeTally(query, [], datetime.utcnow()).toJson())
 
-    def add(self, mongoid, groupid, tally):
-        self.collection.update({"_id": mongoid, {"$push": {"groups": GroupTally(groupid, tally)}}}, modifiers=self.modifiers)
-        self.collection.update({"_id": mongoid, {"$set": {"lastAccess": datetime.utcnow()}}}, modifiers=self.modifiers)
+    def add(self, uniqueid, groupid, tally):
+        self.collection.update({"_id": uniqueid}, {"$push": {"groups": GroupTally(groupid, tally).toJson()}, "$set": {"lastAccess": datetime.utcnow()}})
+
+    def removeold(self, cutoffdate):
+        self.collection.remove({"lastAccess": {"$lt": cutoffdate}})
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):

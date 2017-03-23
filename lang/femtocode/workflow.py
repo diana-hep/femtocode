@@ -82,7 +82,7 @@ class Query(Serializable):
         assert isinstance(obj, dict)
         assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "statements", "actions", "cancelled"])
 
-        if set(obj.keys()).difference(set(["_id"])) == set(["name"]):
+        if set(obj["dataset"].keys()).difference(set(["_id"])) == set(["name"]):
             dataset = Query.DatasetName.fromJson(obj["dataset"])
         else:
             dataset = Dataset.fromJson(obj["dataset"])
