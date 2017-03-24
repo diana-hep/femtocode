@@ -249,3 +249,15 @@ union(null, real)
 ## Query server
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
+
+
+
+
+<img src="docs/parallelism-1.png" width="400px" alt="Execution of one partition.">
+
+<img src="docs/parallelism-2.png" width="400px" alt="Execution .">
+
+<img src="docs/parallelism-3.png" width="400px" alt="Execution of one partition.">
+
+<img src="docs/parallelism-4.png" width="400px" alt="Execution of one partition.">
+
