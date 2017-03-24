@@ -18,6 +18,15 @@ Don’t bother yet. See above.
 
 ## Query language
 
+Femtocode was inspired by fast SQL services that translate the user’s request into operations with the same meaning as the user’s query, but highly optimized. This flexibility is aided by the fact that SQL commands do not constrain the order of operations or complicate the translation with mutable state: the language is fast _because_ it is high-level, rather than in spite of it.
+
+
+
+
+
+
+
+
 <img src="docs/explode.png" width="300px" alt="Explode function">
 
 <img src="docs/flat.png" width="300px" alt="Flat function">
