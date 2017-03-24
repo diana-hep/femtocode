@@ -246,6 +246,8 @@ This breakdown improves modularity: steps 1–3 do not require external librarie
 
 On distributed servers (discussed in detail below), there is an additional step: native bytecode is compiled once on a machine that sees the whole query and then is transmitted to worker nodes that each perform a subtask. Deserializing a function (2 ms) is considerably faster than compiling one (at least 96 ms, depending on complexity).
 
+### Loop generation
+
 Step 4, building loops, requires special attention. This is an optimization that compilers normally wouldn’t be allowed to make: different choices lead to considerably different memory usage and side-effects. However, these concepts are not visible to the user in Femtocode, and so they can be tuned for performance.
 
 To illustrate this choice, consider the following expression, which has a reasonably complex dependency graph.
