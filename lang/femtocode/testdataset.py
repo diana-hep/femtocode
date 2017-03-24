@@ -359,7 +359,6 @@ class TestSession(object):
             if onupdate is not None:
                 onupdate(tally)
 
-        result = action.finalize(tally)
         if ondone is not None:
-            ondone(result)
-        return result
+            ondone(tally)
+        return tally

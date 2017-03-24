@@ -153,12 +153,29 @@ _Why linear, and not a full directed acyclic graph (DAG)?_ DAGs are good for two
 
 _What about skims for unbinned fits or machine learning?_ The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. They must be treated specially— for instance, the returned result would be a pointer to a remote disk on which the full skim is located.
 
-Although we still envision the necessity of making private subsets of the data for these purposes, the user’s behavior could be turned from skim-first, plot-later to plot-first, skim-later, reducing the chance of mistakes that would require re-skims.
+Although we still envision the necessity of making private skims of the data for these purposes, the user’s behavior could be turned from skim-first, plot-later to plot-first, skim-later, reducing the chance of mistakes that would require re-skims.
 
 ## Eliminating runtime errors
 
+```python
+source = session.source("Test", x=integer, y=real)
 
+source.type("x / y")
+```
 
+```
+FemtocodeError: Function "/" does not accept arguments with the given types:
+
+    /(integer,
+      real)
+
+    Indeterminate form (0 / 0) is possible; constrain with if-else.
+
+Check line:col 1:0 (pos 0):
+
+    x / y
+----^
+```
 
 
 
