@@ -253,11 +253,5 @@ union(null, real)
 
 
 
-<img src="docs/parallelism-1.png" width="600px" alt="Execution in one partition.">
-
-<img src="docs/parallelism-2.png" width="600px" alt="Optimal execution.">
-
-<img src="docs/parallelism-3.png" width="600px" alt="Too many partitions.">
-
-<img src="docs/parallelism-4.png" width="600px" alt="Way too many partitions.">
+<img src="docs/parallelism-1.png" width="33%" alt="Execution in one partition."><img src="docs/parallelism-2.png" width="33%" alt="Optimal execution."><img src="docs/parallelism-3.png" width="33%" alt="Too many partitions.">
 
