@@ -157,9 +157,17 @@ Although we still envision the necessity of making private skims of the data for
 
 ## Eliminating runtime errors
 
+One of the bullet points describing Femtocode claimed that runtime errors would be eliminated. This is desirable because it would eliminate error checking code, a speed bump for calculations, it would reduce a waste of shared resources (query server isn’t preoccupied by faulty code), and it would provide quicker feedback to the data analyst about unhandled special cases.
+
+It is possible because the set of allowed program structures is limited and Femtocode has a “fine grained” type system, capable of expressing both basic differences like string versus number and also differences in numerical intervals, array sizes, etc.
+
+
+
+
+
+
 ```python
 source = session.source("Test", x=integer, y=real)
-
 source.type("x / y")
 ```
 
@@ -177,6 +185,13 @@ Check line:col 1:0 (pos 0):
 ----^
 ```
 
+```python
+source.type("if y != 0: x / y else: None")
+```
+
+```
+union(null, real)
+```
 
 
 total functional language
