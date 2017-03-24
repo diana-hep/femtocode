@@ -252,7 +252,8 @@ Step 4, building loops, requires special attention. This is an optimization that
 
 
 ```
-((((((a + b) - (c + d)) + (e + f)) - ((c + d) - ((a + b) - (c + d)))) + (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
+((((((a + b) - (c + d)) + (e + f)) - ((c + d) - ((a + b) - (c + d)))) +
+  (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
 
