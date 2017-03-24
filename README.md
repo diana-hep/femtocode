@@ -117,16 +117,17 @@ workflow = session.source("b-physics")                   # pull from a named dat
            py = mu1.py + mu2.py;
            pz = mu1.pz + mu2.pz;
 
-           rec(mass = sqrt(energy**2 - px**2 - py**2 - pz**2),      # construct a record
+           rec(mass = sqrt(energy**2 - px**2 - py**2 - pz**2),
                pt = sqrt(px**2 + py**2),
                phi = atan2(py, px),
-               eta = ln((energy + pz)/(energy - pz))/2)
+               eta = ln((energy + pz)/(energy - pz))/2)  # construct a record as output
            """)
        .bundle(                                          # make a bundle of plots
            bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
            bin(100, 0, 100, "dimuon.pt"),
            bin(100, -5, 5, "dimuon.eta"),
-           bin(314, -pi, pi, "dimuon.phi"))
+           bin(314, -pi, pi, "dimuon.phi")
+       )
 
 pending = workflow.submit()                              # submit the query
 
