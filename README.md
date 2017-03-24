@@ -157,7 +157,7 @@ Although we still envision the necessity of making private skims of the data for
 
 ## Eliminating runtime errors
 
-One of the bullet points describing Femtocode claimed that runtime errors would be eliminated. This is desirable because it allows us to drop error checking code at runtime (a speed bump for calculations), because it reduces wasted resources (query server isn’t preoccupied by faulty code), and because it provides quicker feedback to the data analyst about unhandled special cases.
+One of the bullet points describing Femtocode (above) claims that runtime errors will be eliminated. This is desirable because it allows us to drop error-checking code at runtime (a speed bump to numerical math), because it wastes fewer resources (shared query server isn’t preoccupied by faulty code), and because it provides quicker feedback to the data analyst about unhandled special cases.
 
 Eliminating runtime errors is possible because mutable state and unbounded loops are excluded (Femtocode is a [“total functional language”](http://lambda-the-ultimate.org/node/2003)) and because Femtocode has a “fine grained” type system. Beyond the basic types— boolean, integer, real, string, array, record, and union (for nullable types and sum types)— Femtocode’s type system specifies numerical ranges on its number types and array sizes.
 
