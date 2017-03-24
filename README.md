@@ -26,10 +26,18 @@ Femtocode generalizes the SELECT and WHERE statements of SQL by adding explode-o
 
     jets.map(j => j.tracks.filter(t => t.pt > 5).sum).max
 
-would find the jet with the largest sum-of-pt for pt > 5 tracks within the jet. There would be no more than one result per event (zero if the event had no jets to start with).
+would find the jet with the largest sum-of-pt for pt > 5 tracks within the jet. There would be no more than one result per event (zero if the event had no jets to start with). To do this in SQL would require assigning indexes, exploding, and then expensive joins to get one result per event. And yet it is typical of a physicist’s search through petabytes of data.
 
+To suit this application, Femtocode is
 
+   * **declarative:** order of expressions written is not necessarily the order evaluated,
+   * **functional:** functions are objects, no side-effect generating loops, and variables are immutable,
+   * **statically typed:** types must be understood before execution, though they are inferred from the input data types, rather than denoted explicitly,
+   * **non-recursive:** no unbounded loops or infinite data types,
+   * **vectorizable:** the above is sufficient to allow code translations that can pipeline and vectorize similar operations,
+   * **no runtime errors:** and therefore no runtime error checking; all possible errors are caught by static analysis.
 
+Furthermore, Femtocode’s syntax is as similar as possible to Python. Python expressions (not statements) are syntactically valid Femtocode, and Femtocode adds a more convenient lambda syntax (shown above).
 
 ### Explode functions
 
