@@ -3,6 +3,4 @@
 
 
 
-
-
-![System diagram](docs/distributed-system-simplified.png)
+<img src="docs/distributed-system-simplified.png">
