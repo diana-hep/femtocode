@@ -101,7 +101,6 @@ pending = session.source("xy-dataset")
                  .submit()
 
 result = result.await()
-
 for x in result:
     print x
 ```
@@ -128,7 +127,7 @@ workflow = session.source("b-physics")                   # pull from a named dat
            bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
            bin(100, 0, 100, "dimuon.pt"),                # (note: this is Histogrammar)
            bin(100, -5, 5, "dimuon.eta"),
-           bin(314, -pi, pi, "dimuon.phi")
+           bin(314, 0, 2*pi, "dimuon.phi + pi")
        )
 
 pending = workflow.submit()                              # submit the query
