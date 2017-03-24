@@ -41,7 +41,7 @@ Furthermore, Femtocode’s syntax is as similar as possible to Python. Python ex
 
 Within this playground, any single-pass algorithm can be written that does not include unbounded loops: less powerful than Turing completeness but more powerful than strict SQL SELECT-WHERE. These algorithms can then be translated into sequences of operations on “shredded” data, data structures that have been flattened into featureless arrays. Rather than operating on data whose layout in memory resembles the conceptual task (e.g. all attributes of a jet together), the layout is organized for speed of access (e.g. all jet attribute `x` in one array, jet attribute `y` in another).
 
-(See [this blog post](https://blog.twitter.com/2013/dremel-made-simple-with-parquet) for a description of shredding in Parquet. Femtocode has a slightly different shredding algorithm and performs all calculations in the shredded form, rather than just using it for efficient storage.)
+(See [this blog post](http://blog.twitter.com/2013/dremel-made-simple-with-parquet) for a description of shredding in Parquet. Femtocode has a slightly different shredding algorithm and performs all calculations in the shredded form, rather than just using it for efficient storage.)
 
 Within Femtocode’s restrictions, there are only three kinds of operations: explode, flat, and combine.
 
@@ -57,7 +57,7 @@ This can be accomplished by copying values from the first array or by moving two
 
 <img src="docs/flat.png" width="300px" alt="Flat operation">
 
-Two or more arrays have the same level of structure, and can therefore be operated upon element-by-element. This case corresponds to [Numpy’s “universal functions”](https://docs.scipy.org/doc/numpy/reference/ufuncs.html) or ufuncs.
+Two or more arrays have the same level of structure, and can therefore be operated upon element-by-element. This case corresponds to [Numpy’s “universal functions”](http://docs.scipy.org/doc/numpy/reference/ufuncs.html) or ufuncs.
 
 Splitting loops appropriately would allow for automatic vectorization in this case, and any function adhering to the Numpy ufunc specification could be included in the language.
 
@@ -224,7 +224,7 @@ Now the type is meaningful.
 union(null, real)
 ```
 
-(This is a nullable real, a value that could be real or missing. It is a type-safe replacement for `NaN` because it would not be accepted by functions that take a pure number as input, such as `sin` and `sqrt`, similar to the [type-safe null](https://www.lucidchart.com/techblog/2015/08/31/the-worst-mistake-of-computer-science/) of Haskell and Scala.)
+(This is a nullable real, a value that could be real or missing. It is a type-safe replacement for `NaN` because it would not be accepted by functions that take a pure number as input, such as `sin` and `sqrt`, similar to the [type-safe null](http://www.lucidchart.com/techblog/2015/08/31/the-worst-mistake-of-computer-science/) of Haskell and Scala.)
 
 ## Fast execution
 
@@ -248,7 +248,7 @@ On distributed servers (discussed in detail below), there is an additional step:
 
 ### Loop generation
 
-Step 4, building loops, requires special attention. This is an optimization that compilers normally wouldn’t be allowed to make: different choices lead to considerably different memory usage and side-effects. However, these concepts are not visible to the user in Femtocode, and so they can be tuned for performance.
+Step 4, building loops, requires special attention. This is an optimization that compilers normally wouldn’t be allowed to make: different choices lead to considerably different memory usage and side-effects. However, these concepts are not visible in Femtocode, so they can be tuned for performance.
 
 To illustrate this choice, consider the following expression, which has a reasonably complex dependency graph.
 
@@ -257,7 +257,7 @@ To illustrate this choice, consider the following expression, which has a reason
   (((a + b) – (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
-Each of these variables, `a`, `b`, `c`, `d`, `e`, `f`, are large (equal-length) arrays, and the goal is to compute the above expression for each element `i`.
+Each of the variables, `a`, `b`, `c`, `d`, `e`, `f`, are represented by large (equal-length) arrays, and the goal is to compute the above expression for each element `i`.
 
 The simplest way to generate code would be to put all operations into a single array, like this:
 
@@ -273,7 +273,7 @@ However, the ideal case may be somewhere between the two. In this _purely illust
 
 These examples differ greatly in the memory footprint: the first introduces 1 temporary array, the second introduces 10 temporary arrays, and the third introduces 4 temporary arrays. Each array is as large as the input (megabytes, at least).
 
-Perhaps more importantly, they differ in the memory bandwidth required. The first example requires 1 pass over 7 memory regions simultaneously, the second requires 10 passes over 2 memory regions, and the third requires 4 passes over as few as 4 and as many as 7 memory regions. The bottleneck for simple calculations is memory bandwidth, so fewer passes is better. But if one of the passes must touch so many memory regions that the CPU cache swaps, the benefit of removing passes is lost.
+Perhaps more importantly, they differ in the memory bandwidth required. The first example requires 1 pass over 7 memory regions simultaneously, the second requires 10 passes over 2 memory regions each, and the third requires 4 passes over as few as 4 and as many as 7 memory regions. The bottleneck for simple calculations is memory bandwidth, so fewer passes is better. But if one of the passes must touch so many memory regions that the CPU cache swaps, the benefit of removing passes is lost.
 
 Vectorization and pipelining of CPU instructions are another consideration. Compilers like LLVM can do this automatically, but only if the structure of the loop is sufficiently homogeneous.
 
@@ -283,7 +283,23 @@ For now, we are setting a policy of making the loop as large as possible (fewest
 
 ## Modular data sources
 
+Since calculations are performed on Numpy arrays, Numpy is a natural choice for data storage. Data in `.npy` files can be lifted directly from disk into memory, and `.npz` files additionally provide compression.
+
+However, a variety of columnar data formats are available, including [Parquet](http://parquet.apache.org), [Feather](http://wesmckinney.com/blog/feather-its-the-metadata/), [HDF5](http://support.hdfgroup.org/HDF5/), and [ROOT](http://root.cern.ch). ROOT is a particularly good choice because the majority of high-energy physics data are already stored in this form. However, ROOT’s “splitting” (shredding) algorithm does not store variable length lists within variable length lists in a columnar way, so only a subset of Femtocode’s type system can be encoded within it.
+
+Also, we wish to consider the possibility of storing data in a database, rather than files, so we are experimenting with BLOB storage in [CouchBase](http://www.couchbase.com/).
+
+To support these backends, we have implemented a neutral API that allows optimized reads from each of them.
+
+**Currently implemented:**
+
+   * Numpy files (`.npz`, with or without compression)
+   * ROOT files
+   * CouchBase database
+
 ## Query server
+
+HERE
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
 
