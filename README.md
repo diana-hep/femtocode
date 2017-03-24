@@ -65,13 +65,13 @@ Splitting loops appropriately would allow for automatic vectorization in this ca
 
 <img src="docs/reduce.png" width="300px" alt="Combine operation">
 
-An single array at one level of structure is reduced to a lower level of structure by computing a sum, maximum, minimum, etc.
+An array at one level of structure is reduced to a lower level of structure by computing the sum, maximum, minimum, etc. per group.
 
 Thus, the Femtocode example
 
     jets.map(j => j.tracks.filter(t => t.pt > cut).sum).max
 
-would be translated into
+translates into
 
    1. Take a `cut` variable (one per event) and associate each `t.pt` value to the appropriate one (explode).
    2. Mask `t.pt` values that are greater than `cut` (flat).
