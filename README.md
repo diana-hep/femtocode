@@ -92,48 +92,51 @@ Femtocode is not and will not be a complete language in the same sense as Python
 
 The intended use of Femtocode is similar to that of SQL snippets within an application, regular expressions, or ROOT’s `TTree::Draw` (familiar to physicists). It appears in quoted blocks like this (from current unit tests):
 
-    session = RemoteSession("http://testserver:8080")
+```python
+session = RemoteSession("http://testserver:8080")
 
-    result = session.source("xy-dataset")
-                    .define(z = "x + y")
-                    .toPython("Result", a = "z - 3", b = "z - 0.5")
-                    .submit()
+result = session.source("xy-dataset")
+                .define(z = "x + y")
+                .toPython("Result", a = "z - 3", b = "z - 0.5")
+                .submit()
 
-    for x in result.await():
-        print x
+for x in result.await():
+    print x
+```
 
 or this (someday):
 
-    workflow = session.source("b-physics")                   # pull from a named dataset
-           .define(goodmuons = "muons.filter($1.pt > 5)")    # muons with pt > 5 are good
-           .filter("goodmuons.size >= 2")                    # keep events with at least two
-           .define(dimuon = """
-               mu1, mu2 = goodmuons.maxby($1.pt, 2);         # pick the top two by pt
-               energy = mu1.E + mu2.E;                       # compute combined energy/momentum
-               px = mu1.px + mu2.px;
-               py = mu1.py + mu2.py;
-               pz = mu1.pz + mu2.pz;
+```python
+workflow = session.source("b-physics")                   # pull from a named dataset
+       .define(goodmuons = "muons.filter($1.pt > 5)")    # muons with pt > 5 are good
+       .filter("goodmuons.size >= 2")                    # keep events with at least two
+       .define(dimuon = """
+           mu1, mu2 = goodmuons.maxby($1.pt, 2);         # pick the top two by pt
+           energy = mu1.E + mu2.E;                       # compute combined energy/momentum
+           px = mu1.px + mu2.px;
+           py = mu1.py + mu2.py;
+           pz = mu1.pz + mu2.pz;
 
-               rec(mass = sqrt(energy**2 - px**2 - py**2 - pz**2),      # construct a record
-                   pt = sqrt(px**2 + py**2),
-                   phi = atan2(py, px),
-                   eta = ln((energy + pz)/(energy - pz))/2)
-               """)
-           .bundle(                                          # make a bundle of plots
-               bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
-               bin(100, 0, 100, "dimuon.pt"),
-               bin(100, -5, 5, "dimuon.eta"),
-               bin(314, -pi, pi, "dimuon.phi"))
+           rec(mass = sqrt(energy**2 - px**2 - py**2 - pz**2),      # construct a record
+               pt = sqrt(px**2 + py**2),
+               phi = atan2(py, px),
+               eta = ln((energy + pz)/(energy - pz))/2)
+           """)
+       .bundle(                                          # make a bundle of plots
+           bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
+           bin(100, 0, 100, "dimuon.pt"),
+           bin(100, -5, 5, "dimuon.eta"),
+           bin(314, -pi, pi, "dimuon.phi"))
 
-    pending = workflow.submit()                              # submit the query
+pending = workflow.submit()                              # submit the query
 
-    pending.plot()                                           # plot results while they accumulate
+pending.plot()                                           # plot results while they accumulate
 
-    blocking = pending.await()                               # stop the code until the result is in
+blocking = pending.await()                               # stop the code until the result is in
 
-    massplot = blocking.plot.root("mass")                    # convert to a familiar format
-    massplot.Fit("gaus")                                     # and use the external package’s tools
-
+massplot = blocking.plot.root("mass")                    # convert to a familiar format
+massplot.Fit("gaus")                                     # and use the external package’s tools
+```
 
 
 ### Eliminating runtime errors
