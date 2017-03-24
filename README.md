@@ -228,11 +228,11 @@ union(null, real)
 
 ## Fast execution
 
-<img src="docs/dependencygraph_2.png" width="800px" alt="Dependency graph computed as one loop.">
+<img src="docs/dependencygraph_2.png" width="400px" alt="Dependency graph computed as one loop.">
 
-<img src="docs/dependencygraph_1.png" width="800px" alt="Dependency graph computed as many loops.">
+<img src="docs/dependencygraph_1.png" width="400px" alt="Dependency graph computed as many loops.">
 
-<img src="docs/dependencygraph_3.png" width="800px" alt="Dependency graph computed as another combination of loops.">
+<img src="docs/dependencygraph_3.png" width="400px" alt="Dependency graph computed as another combination of loops.">
 
 
 
