@@ -228,12 +228,19 @@ union(null, real)
 
 ## Fast execution
 
+<img src="docs/dependencygraph_2.png" width="800px" alt="Dependency graph computed as one loop.">
+
+<img src="docs/dependencygraph_1.png" width="800px" alt="Dependency graph computed as many loops.">
+
+<img src="docs/dependencygraph_3.png" width="800px" alt="Dependency graph computed as another combination of loops.">
 
 
 
 
-## Modular backends
 
-## Query Server
+
+## Modular data sources
+
+## Query server
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
