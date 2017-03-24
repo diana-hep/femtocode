@@ -39,21 +39,33 @@ To suit this application, Femtocode is
 
 Furthermore, Femtocode’s syntax is as similar as possible to Python. Python expressions (not statements) are syntactically valid Femtocode, and Femtocode adds a more convenient lambda syntax (shown above).
 
-### Explode functions
+Within this playground, any single-pass algorithm can be written that does not include unbounded loops: less powerful than Turing completeness but more powerful than strict SQL SELECT-WHERE. These algorithms can then be translated into sequences of operations on “shredded” data, data structures that have been flattened into featureless arrays. Rather than operating on data whose layout in memory resembles the conceptual task (e.g. all attributes of a jet together), the layout is organized for speed of access (e.g. all jet variable x in one array, jet variable y in another).
 
-<img src="docs/explode.png" width="300px" alt="Explode function">
+(See [this blog post](https://blog.twitter.com/2013/dremel-made-simple-with-parquet) for a description of shredding in Parquet. Femtocode uses a slightly different algorithm and applies all calculations to shredded data, not just storage.)
 
-### Flat functions
+Femtocode translates into sequences of three basic kinds of operations: explode, flat, and combine.
 
-<img src="docs/flat.png" width="300px" alt="Flat function">
+### Explode operations
 
-### Recombine functions
+<img src="docs/explode.png" width="300px" alt="Explode operation">
 
-<img src="docs/reduce.png" width="300px" alt="Reduce function">
+An array representing an attribute at one level of structure, such as one value per event, is brought in line with another array representing a different level of structure, such as one value per jet.
 
+This can be accomplished by copying values from the first array or by moving two indexes at different rates.
 
+### Flat operations
 
+<img src="docs/flat.png" width="300px" alt="Flat operation">
 
+Two or more arrays have the same level of structure, and can therefore be operated upon element-by-element. This case corresponds to [Numpy’s “universal functions”](https://docs.scipy.org/doc/numpy/reference/ufuncs.html) or ufuncs.
+
+Splitting loops appropriately would allow for automatic vectorization in this case, and any function adhering to the Numpy ufunc specification could be included in the language.
+
+### Combine operations
+
+<img src="docs/reduce.png" width="300px" alt="Combine operation">
+
+An single array at one level of structure is reduced to a lower level of structure by computing a sum, maximum, minimum, etc.
 
 ## Fast execution
 
