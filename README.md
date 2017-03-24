@@ -84,6 +84,8 @@ In our tests, columnar operations can be performed at a rate of billions per sec
 
 <img src="docs/event_rate_knl.png" width="600px" alt="Event rate on various platforms">
 
+Amusingly, this is approximately the rate at which high-energy physics events are collected from modern colliders. These events are, however, filtered by many orders of magnitude during acquisition, so a query system that can analyze a billion events per second would be able to produce plots of years of data “instantly.”
+
 ### Workflows
 
 
