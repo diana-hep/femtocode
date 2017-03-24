@@ -18,11 +18,11 @@ Don’t bother yet. See above.
 
 ## Query language
 
-<img src="docs/explode.png" width="400" alt="Explode function">
+<img src="docs/explode.png" width="200" alt="Explode function">
 
-<img src="docs/flat.png" width="400" alt="Flat function">
+<img src="docs/flat.png" width="200" alt="Flat function">
 
-<img src="docs/reduce.png" width="400" alt="Reduce function">
+<img src="docs/reduce.png" width="200" alt="Reduce function">
 
 
 
