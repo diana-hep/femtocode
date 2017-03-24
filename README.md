@@ -20,16 +20,26 @@ Don’t bother yet. See above.
 
 Femtocode was inspired by fast SQL services that translate users’ requests into operations with the same meaning as the their queries, yet are much faster than naive interpretations of them. The ability to perform these translations is helped by the fact that SQL minimally constrains the computation: there are no “for” loops to specify an order of iteration, no mutable variables, etc. The language is fast _because_ it is high-level, rather than in spite of it.
 
-At first, it would seem that SQL would be ideal for the first phase in every high-energy physics analysis: reducing huge sets of data points into distributions (histograms). But in their original form, those “data points” are structured collections of events containing jets containing tracks containing hits, all arbitrary-length lists of multi-field records. SQL, as a language, does not express these manipulations easily and most SQL implementations cannot evaluate them without expensive joins.
+At first, it would seem that SQL would be ideal for the first phase in every high-energy physics analysis: reducing huge sets of data points into distributions (histograms). But in their original form, these “data points” are structured collections of events containing jets containing tracks containing hits, all arbitrary-length lists of multi-field records. As a language, SQL does not express explode-operate-recombine tasks easily and most SQL implementations cannot evaluate them without expensive joins.
+
+Femtocode generalizes the SELECT and WHERE statements of SQL by adding explode-operate-recombine semantics with a functional syntax. For instance,
+
+    jets.map(j => j.tracks.filter(t => t.pt > 5).sum).max
+
+would find the jet with the largest sum-of-pt for pt > 5 tracks within the jet. There would be no more than one result per event (zero if the event had no jets to start with).
 
 
 
 
-
+### Explode functions
 
 <img src="docs/explode.png" width="300px" alt="Explode function">
 
+### Flat functions
+
 <img src="docs/flat.png" width="300px" alt="Flat function">
+
+### Recombine functions
 
 <img src="docs/reduce.png" width="300px" alt="Reduce function">
 
