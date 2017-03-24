@@ -1,5 +1,7 @@
 # Femtocode
 
+## Introduction
+
 Femtocode is a language and a system to support fast queries on structured data, such as high-energy physics data.
 
 The goal of this project is to replace the practice of copying and reducing a centrally produced dataset with direct queries on that dataset. Currently, high-energy physicists write programs to extract the attributes and data records of interest— personally managing the storage and versioning of that private copy— just to make plots from the subset in real time. Femtocode will allow users to make plots from the original dataset in real time, which may be as large as petabytes.
@@ -12,9 +14,7 @@ This project is at an early stage of its development, though it is past the feas
 
 Don’t bother yet. See above.
 
-# Project details
-
-## Query language
+## Query language motivation
 
 Femtocode was inspired by fast SQL services that translate users’ requests into operations with the same meaning as the their queries, yet are much faster than naive interpretations of them. The ability to perform these translations is helped by the fact that SQL minimally constrains the computation: there are no “for” loops to specify an order of iteration, no mutable variables, etc. The language is fast _because_ it is high-level, rather than in spite of being high-level.
 
@@ -26,7 +26,7 @@ Femtocode generalizes the SELECT and WHERE parts of SQL by adding explode-operat
 
 would find the jet with the largest sum-of-pt for pt > 5 tracks within the jet. There would be no more than one result per event (zero if the event had no jets to start with). To do this in SQL would require assigning indexes, exploding, and then expensive joins to get one result per event. And yet it is typical of a physicist’s search through petabytes of data.
 
-### Language details
+## Query Language details
 
 To suit this application and others like it, Femtocode is
 
@@ -45,7 +45,7 @@ Within this playground, any single-pass algorithm can be written that does not i
 
 Within Femtocode’s restrictions, there are only three kinds of operations: explode, flat, and combine.
 
-### Explode operations
+#### Explode operations
 
 <img src="docs/explode.png" width="300px" alt="Explode operation">
 
@@ -53,7 +53,7 @@ An array representing an attribute at one level of structure, such as one value 
 
 This can be accomplished by copying values from the first array or by moving two indexes at different rates.
 
-### Flat operations
+#### Flat operations
 
 <img src="docs/flat.png" width="300px" alt="Flat operation">
 
@@ -61,7 +61,7 @@ Two or more arrays have the same level of structure, and can therefore be operat
 
 Splitting loops appropriately would allow for automatic vectorization in this case, and any function adhering to the Numpy ufunc specification could be included in the language.
 
-### Combine operations
+#### Combine operations
 
 <img src="docs/reduce.png" width="300px" alt="Combine operation">
 
@@ -86,7 +86,7 @@ In our tests, columnar operations can be performed at a rate of billions per sec
 
 Amusingly, this is about the rate at which high-energy physics collisions occur in modern colliders. These events are, however, filtered by many orders of magnitude during data acquisition, so a query system that can analyze a billion events per second would be able to plot several year’s worth of data “instantly.”
 
-### Workflows
+## Workflow structure
 
 Femtocode is not and will not be a complete language in the same sense as Python or C++. The restriction on recursion and other forms of unbounded looping limit its applicability for general programming.
 
@@ -147,13 +147,18 @@ massplot.Fit("gaus")                                     # and use that package�
 
 A workflow describes a chain of operations to perform on the source data, ending with some sort of aggregation. The chain is strictly linear up to the aggregation step, which then branches into a tree. The aggregation step uses concepts and code from the [Histogrammar project](http://github.com/histogrammar/histogrammar-python).
 
-Each workflow can be submitted as a query to a query engine (single process or distributed server), which immediately returns a “future” object. This object monitors the progress of the query, even plotting partial results (histograms fill up with entries) so that the user can decide to cancel early.
+Each workflow is submitted as a query to a query engine (single process or distributed server), which immediately returns a “future” object. This object monitors the progress of the query, even plotting partial results (histograms fill up with entries) so that the user can decide to cancel early.
 
 Why linear, and not a full directed acyclic graph (DAG)? DAGs are good for two things: splitting the output and explicitly short-circuting some processes to avoid unnecessary work. The aggregation step can be a general tree, providing multiple outputs, and the Femtocode compilation process recognizes identical expressions and avoids unnecessary work automatically (because the language has perfect referential transparency). Full DAGs aren’t necessary.
 
 What about skims for unbinned fits or machine learning? The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. They will need to be treated specially— for instance, the returned result would be a pointer to a remote disk from which the full skim can be downloaded. Unlike today’s analyses, which skim first and plot later, the most effective behavior with these tools would be to plot first, optimizing event selection, and skim later. Visualizing the data early helps to prevent mistakes.
 
-### Eliminating runtime errors
+## Eliminating runtime errors
+
+
+
+
+
 
 total functional language
 
