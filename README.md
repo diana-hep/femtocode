@@ -95,18 +95,20 @@ The intended use of Femtocode is similar to that of SQL snippets within an appli
 ```python
 session = RemoteSession("http://testserver:8080")
 
-result = session.source("xy-dataset")
-                .define(z = "x + y")
-                .toPython("Result", a = "z - 3", b = "z - 0.5")
-                .submit()
+pending = session.source("xy-dataset")
+                 .define(z = "x + y")
+                 .toPython("Result", a = "z - 3", b = "z - 0.5")
+                 .submit()
 
-for x in result.await():
+result = result.await()
+
+for x in result:
     print x
 ```
 
 or this (someday):
 
-```python
+```python2
 workflow = session.source("b-physics")                   # pull from a named dataset
        .define(goodmuons = "muons.filter($1.pt > 5)")    # muons with pt > 5 are good
        .filter("goodmuons.size >= 2")                    # keep events with at least two
