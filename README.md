@@ -157,19 +157,46 @@ Although we still envision the necessity of making private skims of the data for
 
 ## Eliminating runtime errors
 
-One of the bullet points describing Femtocode claimed that runtime errors would be eliminated. This is desirable because it would eliminate error checking code, a speed bump for calculations, it would reduce a waste of shared resources (query server isn’t preoccupied by faulty code), and it would provide quicker feedback to the data analyst about unhandled special cases.
+One of the bullet points describing Femtocode claimed that runtime errors would be eliminated. This is desirable because it would eliminate error checking code (a speed bump for calculations) it would reduce a waste of shared resources (query server isn’t preoccupied by faulty code), and it would provide quicker feedback to the data analyst about unhandled special cases.
 
-It is possible because the set of allowed program structures is limited and Femtocode has a “fine grained” type system, capable of expressing both basic differences like string versus number and also differences in numerical intervals, array sizes, etc.
+This is possible because the set of allowed program structures is limited and Femtocode has a “fine grained” type system. Beyond the basic types— boolean, integer, real, string, array, record, and union (for nullable types and sum types)— Femtocode’s type system specifies numerical ranges on its number types and array sizes.
 
+Thus, one attribute describing angles might be typed as
 
+```
+real(min=-pi, max=pi)
+```
 
+and another might be typed as
 
+```
+real(min=0, max=2*pi)
+```
 
+which is information the data analyst can use. Similarly, our dimuon example above is valid only because
+
+```
+mu1, mu2 = goodmuons.maxby($1.pt, 2)
+```
+
+comes after
+
+```
+.filter("goodmuons.size >= 2")
+```
+
+which ensures that the type of `goodmuons` is an array with at least two elements. In Python, the assignment would raise an exception on some rare event, rather than immediately (or at all).
+
+In general, data types should be thought of as spaces that can be sliced up in various ways, and type-checking should be thought of as a special case of theorem proving.
+
+Here is working code that demonstrates the use of fine-grained types. Unrestrained division is not allowed
 
 ```python
-source = session.source("Test", x=integer, y=real)
+source = session.source("Test", x=real, y=real)
 source.type("x / y")
 ```
+
+because this sometimes leads to indeterminate forms. (Floating point infinities are allowed, but we have chosen to exclude `NaN` values because they propagate in non-intuitive ways.)
 
 ```
 FemtocodeError: Function "/" does not accept arguments with the given types:
@@ -185,21 +212,25 @@ Check line:col 1:0 (pos 0):
 ----^
 ```
 
+This error message tells the user about the special case and suggests the following replacement:
+
 ```python
 source.type("if y != 0: x / y else: None")
 ```
+
+Now the type is meaningful.
 
 ```
 union(null, real)
 ```
 
-
-total functional language
-
-
-
+(This is a nullable real, a value that could be real or missing. It is a type-safe replacement for `NaN` because it would not be accepted by functions that take a pure number as input, such as `sin` and `sqrt`.)
 
 ## Fast execution
+
+
+
+
 
 ## Modular backends
 
