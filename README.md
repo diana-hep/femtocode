@@ -28,14 +28,14 @@ would find the jet with the largest sum-of-pt for pt > 5 tracks within the jet. 
 
 ### Language details
 
-To suit this application, Femtocode is
+To suit this application and others like it, Femtocode is
 
-   * **declarative:** order of expressions written is not necessarily the order evaluated,
-   * **functional:** functions are objects, no side-effect generating loops, and variables are immutable,
+   * **declarative:** the written order of expressions is not necessarily the order evaluated,
+   * **functional:** functions are objects with no side-effect generating loops or mutable variables,
    * **statically typed:** types must be understood before execution, though they are inferred from the input data types, rather than denoted explicitly,
-   * **non-recursive:** no unbounded loops or infinite data types,
-   * **vectorizable:** the above is sufficient to allow code translations that can pipeline and vectorize similar operations,
-   * **no runtime errors:** and therefore no runtime error checking; all possible errors are caught by static analysis.
+   * **non-recursive:** no unbounded loops or infinite data are allowed,
+   * **vectorizable:** the above is sufficient to allow code translations that can pipeline and vectorize similar operations, and
+   * **without runtime errors:** all possible errors are caught by static analysis.
 
 Furthermore, Femtocode’s syntax is as similar as possible to Python. Python expressions (not statements) are syntactically valid Femtocode, and Femtocode adds a more convenient lambda syntax (shown above).
 
@@ -85,6 +85,10 @@ In our tests, columnar operations can be performed at a rate of billions per sec
 <img src="docs/event_rate_knl.png" width="600px" alt="Event rate on various platforms">
 
 ### Workflows
+
+
+
+### Eliminating runtime errors
 
 
 
