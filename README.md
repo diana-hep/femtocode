@@ -18,9 +18,9 @@ Don’t bother yet. See above.
 
 ## Query language
 
-Femtocode was inspired by fast SQL services that translate the user’s request into operations with the same meaning as the user’s query, but highly optimized. This flexibility is aided by the fact that SQL commands do not constrain the order of operations or complicate the translation with mutable state: the language is fast _because_ it is high-level, rather than in spite of it.
+Femtocode was inspired by fast SQL services that translate users’ requests into operations with the same meaning as the their queries, yet are much faster than naive interpretations of them. The ability to perform these translations is helped by the fact that SQL minimally constrains the computation: there are no “for” loops to specify an order of iteration, no mutable variables, etc. The language is fast _because_ it is high-level, rather than in spite of it.
 
-
+At first, it would seem that SQL would be ideal for the first phase in every high-energy physics analysis: reducing huge sets of data points into distributions (histograms). But in their original form, those “data points” are structured collections of events containing jets containing tracks containing hits, all arbitrary-length lists of multi-field records. SQL, as a language, does not express these manipulations easily and most SQL implementations cannot evaluate them without expensive joins.
 
 
 
