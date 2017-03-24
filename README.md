@@ -125,9 +125,14 @@ workflow = session.source("b-physics")                   # pull from a named dat
            """)
        .bundle(                                          # make a bundle of plots
            bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
-           bin(100, 0, 100, "dimuon.pt"),                # (note: this is Histogrammar)
+           bin(100, 0, 100, "dimuon.pt"),
            bin(100, -5, 5, "dimuon.eta"),
-           bin(314, 0, 2*pi, "dimuon.phi + pi")
+           bin(314, 0, 2*pi, "dimuon.phi + pi"),
+           foreach("goodmuons", "mu", bundle(            # also make plots with one muon per entry
+               bin(100, 0, 100, "mu.pt"),
+               bin(100, -5, 5, "mu.eta"),
+               bin(314, -pi, pi, "mu.phi")
+           ))
        )
 
 pending = workflow.submit()                              # submit the query
@@ -139,8 +144,14 @@ massplot = blocking.plot.root("mass")                    # convert to a familiar
 massplot.Fit("gaus")                                     # and use that package’s tools
 ```
 
+A workflow describes a chain of operations to perform on the source data, ending with some sort of aggregation. The chain is strictly linear up to the aggregation step, which branches into a tree. The aggregation step will use concepts and code from the [Histogrammar project](http://github.com/histogrammar/histogrammar-python).
+
+Why linear, and not a full directed acyclic graph (DAG)? DAGs are good for two things: splitting the output and explicitly short-circuting some processes to avoid unnecessary work. The aggregation step can be a general tree, providing multiple outputs, and the Femtocode compilation process recognizes identical expressions and avoids unnecessary work automatically (because the language has perfect referential transparency). DAGs aren’t needed.
 
 ### Eliminating runtime errors
+
+total functional language
+
 
 
 
