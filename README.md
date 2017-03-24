@@ -246,27 +246,38 @@ This breakdown improves modularity: steps 1–3 do not require external librarie
 
 On distributed servers (discussed in detail below), there is an additional step: native bytecode is compiled once on a machine that sees the whole query and then is transmitted to worker nodes that each perform a subtask. Deserializing a function (2 ms) is considerably faster than compiling one (at least 96 ms, depending on complexity).
 
-Step 4, building loops, requires special attention. This is an optimization that normal compilers can’t be expected to perform. 
+Step 4, building loops, requires special attention. This is an optimization that compilers normally wouldn’t be allowed to make: different choices lead to considerably different memory usage and side-effects. However, these concepts are not visible to the user in Femtocode, and so they can be tuned for performance.
 
-
-
+To illustrate this choice, consider the following expression, which has a reasonably complex dependency graph.
 
 ```
 ((((((a + b) – (c + d)) + (e + f)) – ((c + d) – ((a + b) – (c + d)))) +
   (((a + b) – (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
+Each of these variables, `a`, `b`, `c`, `d`, `e`, `f`, are large (equal-length) arrays, and the goal is to compute the above expression for each element `i`.
+
+The simplest way to generate code would be to put all operations into a single array, like this:
 
 <img src="docs/dependencygraph_2.png" width="600px" alt="Dependency graph computed as one loop.">
 
+The “Numpy way” is to put each operation into its own array (because Numpy does not have a just-in-time compiler), like this:
+
 <img src="docs/dependencygraph_1.png" width="600px" alt="Dependency graph computed as many loops.">
+
+However, the ideal case may be somewhere between the two. In this _purely illustrative example,_ we wrote an algorithm to isolate subractions (or the end goal) at the end of each loop:
 
 <img src="docs/dependencygraph_3.png" width="600px" alt="Dependency graph computed as another combination of loops.">
 
+These examples differ greatly in the memory footprint: the first introduces 1 temporary array, the second introduces 10 temporary arrays, and the third introduces 4 temporary arrays. Each array is as large as the input (megabytes, at least).
 
+Perhaps more importantly, they differ in the memory bandwidth required. The first example requires 1 pass over 7 memory regions simultaneously, the second requires 10 passes over 2 memory regions, and the third requires 4 passes over as few as 4 and as many as 7 memory regions. The bottleneck for simple calculations is memory bandwidth, so fewer passes is better. But if one of the passes must touch so many memory regions that the CPU cache swaps, the benefit of removing passes is lost.
 
+Vectorization and pipelining of CPU instructions are another consideration. Compilers like LLVM can do this automatically, but only if the structure of the loop is sufficiently homogeneous.
 
+Finally, the structure of the user’s query applies some hard constraints: if a user wants to perform a calculation over two nested collections, say muons and jets, these _cannot_ be in the same loop because they have different lengths.
 
+For now, we are setting a policy of making the loop as large as possible (fewest passes), given the query constraints. However, we foresee this to be an area of future research.
 
 ## Modular data sources
 
