@@ -124,19 +124,18 @@ workflow = session.source("b-physics")                   # pull from a named dat
            """)
        .bundle(                                          # make a bundle of plots
            bin(120, 0, 12, "dimuon.mass"),               # using the variables we’ve made
-           bin(100, 0, 100, "dimuon.pt"),
+           bin(100, 0, 100, "dimuon.pt"),                # (note: this is Histogrammar)
            bin(100, -5, 5, "dimuon.eta"),
            bin(314, -pi, pi, "dimuon.phi")
        )
 
 pending = workflow.submit()                              # submit the query
-
-pending.plot()                                           # plot results while they accumulate
+pending.plot()                                           # and plot results while they accumulate
 
 blocking = pending.await()                               # stop the code until the result is in
 
-massplot = blocking.plot.root("mass")                    # convert to a familiar format
-massplot.Fit("gaus")                                     # and use the external package’s tools
+massplot = blocking.plot.root("mass")                    # convert to a familiar format, like ROOT
+massplot.Fit("gaus")                                     # and use that package’s tools
 ```
 
 
