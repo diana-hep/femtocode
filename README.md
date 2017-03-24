@@ -236,17 +236,23 @@ Femtocode is compiled in the following steps:
 
    1. Femtocode snippets in a workflow are parsed, analyzed, and type-checked.
    2. Code is translated into a sequence of explode, flat, and combine statements.
-   3. These statements are bound into a query and sent as JSON to the query server.
+   3. These statements are bound into a query object that is sent to the server as JSON.
    4. The query server builds dependency graphs among the statements to decide which to combine into loops.
    5. Loops are compiled into Python bytecode.
-   6. Numba translates Python bytecode into LLVM intermediate representation and compiles it to native bytecode.
+   6. Numba translates Python bytecode into LLVM intermediate representation and compiles that to native bytecode.
    7. Native bytecode is executed on Numpy arrays.
+
+This breakdown improves modularity: steps 1–3 do not require external libraries, so the end-user’s software can be free of dependencies. Step 4 is an optimization that may require tweaking, so it is performed on the server that we control. (Old client versions do not limit the system’s performance.) Step 5 sounds extraneous— converting to Python bytecode before converting to LLVM/native bytecode— however, it is the language Numba understands and the Python bytecode allows us to run unit tests without LLVM compilation.
+
+On distributed servers (discussed in detail below), there is an additional step: native bytecode is compiled once on a machine that sees the whole query and then is transmitted to worker nodes that each perform a subtask. Deserializing a function (2 ms) is considerably faster than compiling one (at least 96 ms, depending on complexity).
+
+Step 4, building loops, requires special attention. This is an optimization that normal compilers can’t be expected to perform.
 
 
 
 
 ```
-((((((a + b) - (c + d)) + (e + f)) - t6) + (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
+((((((a + b) - (c + d)) + (e + f)) - ((c + d) - ((a + b) - (c + d)))) + (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
 
