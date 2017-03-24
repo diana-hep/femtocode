@@ -228,6 +228,23 @@ union(null, real)
 
 ## Fast execution
 
+The entirety of the Femtocode compiler is written in pure Python for maximum portability (only the standard libraries; works in Jython). However, a pure Python runtime engine would seriously compromise execution speed.
+
+Fast execution is based on two external libraries: [Numpy](http://www.numpy.org/) and [Numba](http://numba.pydata.org/). Numpy is a well-known array toolkit, allowing us to place data contiguously in memory, and Numba is a just-in-time compiler that relies on the [LLVM toolkit](http://llvm.org/). Both can be installed with [Conda](http://conda.io/docs/).
+
+Femtocode is compiled in the following steps:
+
+   1. Femtocode snippets in a workflow are parsed, analyzed, and type-checked.
+   2. Code is translated into a sequence of explode, flat, and combine statements.
+   3. These statements are bound into a query and sent as JSON to the query server.
+   4. The query server builds dependency graphs among the statements to decide which to combine into loops.
+   5. Loops are compiled into Python bytecode.
+   6. Numba translates Python bytecode into LLVM intermediate representation and compiles it to native bytecode.
+   7. Native bytecode is executed on Numpy arrays.
+
+
+
+
 ```
 ((((((a + b) - (c + d)) + (e + f)) - t6) + (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
