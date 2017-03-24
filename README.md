@@ -147,11 +147,11 @@ massplot.Fit("gaus")                                     # and use that package�
 
 A workflow describes a chain of operations to perform on the source data, ending with some sort of aggregation. The chain is strictly linear up to the aggregation step, which branches into a tree. The aggregation step will use concepts and code from the [Histogrammar project](http://github.com/histogrammar/histogrammar-python).
 
-Why linear, and not a full directed acyclic graph (DAG)? DAGs are good for two things: splitting the output and explicitly short-circuting some processes to avoid unnecessary work. The aggregation step can be a general tree, providing multiple outputs, and the Femtocode compilation process recognizes identical expressions and avoids unnecessary work automatically (because the language has perfect referential transparency). DAGs aren’t needed.
-
 Each workflow can be submitted as a query to a query engine (single process or distributed server), which immediately returns a “future” object. This object monitors the progress of the query, even plotting partial results (histograms fill up with entries) so that the user can decide to cancel early.
 
-What about skims for unbinned fits or machine learning? The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. These will need to be treated specially (the returned result is a pointer to some disk where the full skim can be downloaded). Unlike today’s analyses, which skim first and plot later, the most effective behavior with these tools would be to plot first, optimizing event selection, and skim later, with fewer mistakes.
+Why linear, and not a full directed acyclic graph (DAG)? DAGs are good for two things: splitting the output and explicitly short-circuting some processes to avoid unnecessary work. The aggregation step can be a general tree, providing multiple outputs, and the Femtocode compilation process recognizes identical expressions and avoids unnecessary work automatically (because the language has perfect referential transparency). DAGs aren’t needed.
+
+What about skims for unbinned fits or machine learning? The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. These will need to be treated specially— for instance, the returned result would be a pointer to some disk where the full skim can be downloaded. Unlike today’s analyses, which skim first and plot later, the most effective behavior with these tools would be to plot first, optimizing event selection, and skim later, with fewer mistakes.
 
 ### Eliminating runtime errors
 
