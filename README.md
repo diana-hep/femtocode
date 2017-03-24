@@ -229,9 +229,7 @@ union(null, real)
 ## Fast execution
 
 ```
-((((((a + b) - (c + d)) + (e + f)) - t6) +
-  (((a + b) - (c + d)) + (e + f))) +
- ((c + d) + (e + f)))
+((((((a + b) - (c + d)) + (e + f)) - t6) + (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
 
