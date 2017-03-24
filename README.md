@@ -108,7 +108,7 @@ for x in result:
 
 or this (someday):
 
-```python2
+```python
 workflow = session.source("b-physics")                   # pull from a named dataset
        .define(goodmuons = "muons.filter($1.pt > 5)")    # muons with pt > 5 are good
        .filter("goodmuons.size >= 2")                    # keep events with at least two
