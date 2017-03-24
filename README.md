@@ -246,14 +246,14 @@ This breakdown improves modularity: steps 1–3 do not require external librarie
 
 On distributed servers (discussed in detail below), there is an additional step: native bytecode is compiled once on a machine that sees the whole query and then is transmitted to worker nodes that each perform a subtask. Deserializing a function (2 ms) is considerably faster than compiling one (at least 96 ms, depending on complexity).
 
-Step 4, building loops, requires special attention. This is an optimization that normal compilers can’t be expected to perform.
+Step 4, building loops, requires special attention. This is an optimization that normal compilers can’t be expected to perform. 
 
 
 
 
 ```
-((((((a + b) - (c + d)) + (e + f)) - ((c + d) - ((a + b) - (c + d)))) +
-  (((a + b) - (c + d)) + (e + f))) + ((c + d) + (e + f)))
+((((((a + b) – (c + d)) + (e + f)) – ((c + d) – ((a + b) – (c + d)))) +
+  (((a + b) – (c + d)) + (e + f))) + ((c + d) + (e + f)))
 ```
 
 
