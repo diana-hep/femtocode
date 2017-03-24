@@ -151,7 +151,9 @@ Each workflow is submitted as a query to a query engine (single process or distr
 
 _Why linear, and not a full directed acyclic graph (DAG)?_ DAGs are good for two things: splitting the output and explicitly short-circuting some processes to avoid unnecessary work. In our case, the aggregation step is a general tree, providing multiple outputs, so this capability is covered. As for avoiding unnecessary work, the columnar nature of the calculation undermines our ability to make per-event choices about work, and the Femtocode compilation process uses the language’s perfect referential transparency to automatically avoid calculating repeated subexpressions. Thus, full DAGs aren’t necessary.
 
-_What about skims for unbinned fits or machine learning?_ The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. They will need to be treated specially— for instance, the returned result would be a pointer to a remote disk from which the full skim can be downloaded. Unlike today’s analyses, which skim first and plot later, the most effective behavior with these tools would be to plot first, optimizing event selection, and skim later. Visualizing the data early helps to prevent mistakes.
+_What about skims for unbinned fits or machine learning?_ The feasibility of the above depends on the returned results being much smaller than the input datasets, as a histogram of dimuon mass is much smaller than a collection of muon records. However, some analysis techniques need unaggregated data. They must be treated specially— for instance, the returned result would be a pointer to a remote disk on which the full skim is located.
+
+Although we still envision the necessity of making private subsets of the data for these purposes, the user’s behavior could be turned from skim-first, plot-later to plot-first, skim-later, reducing the chance of mistakes that would require re-skims.
 
 ## Eliminating runtime errors
 
@@ -169,6 +171,6 @@ total functional language
 
 ## Modular backends
 
-## Server
+## Query Server
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
