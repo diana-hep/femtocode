@@ -228,6 +228,13 @@ union(null, real)
 
 ## Fast execution
 
+```
+((((((a + b) - (c + d)) + (e + f)) - t6) +
+  (((a + b) - (c + d)) + (e + f))) +
+ ((c + d) + (e + f)))
+```
+
+
 <img src="docs/dependencygraph_2.png" width="600px" alt="Dependency graph computed as one loop.">
 
 <img src="docs/dependencygraph_1.png" width="600px" alt="Dependency graph computed as many loops.">
