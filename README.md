@@ -299,10 +299,19 @@ To support these backends, we have implemented a neutral API that allows optimiz
 
 ## Query server
 
-Although memory bandwidth is the bottleneck for GHz-scale computation (see KNL plot, above), reading files or a database from disk or the network is a MHz-scale bottleneck. A query server would need a large in-memory cache to be effective: this would allow frequently used data to be accessed quickly, while rarely used data would be slower.
+So far, we have discussed the Femtocode language, execution engine, and data sources, but most users would interact with it as a service. This query server is not intended to be an open-ended toolkit, but more like a vending machine: queries go in and aggregated data comes out.
 
-Terabyte-scale caches can be built by combining the resources of a computer cluster (e.g. 20 machines with 50 GB of memory each). A terabyte can hold 140 floating point variables for a billion-event dataset. (These are all conservative numbers.) So while caching data for a typical analysis might not be feasible on a laptop, it’s easily possible for a cluster, and most users of that cluster would share cache because they’re analyzing the same input data.
+The server is the third of three available execution modes.
 
+   1. **Test engine:** exclusively for unit tests (pure Python).
+   2. **Standalone engine:** multithreaded, maximizing the resources of a single computer.
+   3. **Distributed server:** horizontally scalable and robust.
+
+While the standalone engine is more convenient to launch and use (client and execution share a single process), it would be difficult to find a computer that can hold all of the user’s input data in memory. Cache misses, whether they defer to disk or the network, reduce processing from GHz rates to MHz rates.
+
+A horizontally scalable server is capable of much more because (a) input data for a single analysis would easily fit in a cluster’s memory and (b) a community’s analyses significantly overlap in input data. Since the users’ needs are non-exclusive, sharing resources increases the total benefit.
+
+To give a sense of scale, a physics analysis might use about 140 quantities, measured over a billion events (combining all real and simulated samples). For 8-byte floating point numbers, this is a terabyte. Most laptops don’t have a terabyte of memory, but it is easy to achieve for a cluster: e.g. 20 machines with 50 GB of memory each. If every user needed a different terabyte of input data, one would need 20 machines per user, but they don’t. Nearly all analyses need particle kinematics, most need isolation variables, some need particles remeasured with different algorithms, and a rare few need physical details, such as charge collected on hits (heavy charged particle searches). Popularity of variables follows some steeply falling distribution, like Zipf’s law. The exact distribution is unknown because data analyses are performed in isolation of each other, but popular skimming tools shared among physics groups keep 5–10 kB per event. Within the limitations these groups are already imposing on themselves, a billion events would fill 10 TB (200 machines with 50 GB each).
 
 
 
