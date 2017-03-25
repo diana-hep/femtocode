@@ -307,7 +307,7 @@ To give a sense of scale, a physics analysis might use about 140 quantities, mea
 
 If every user needed a _different_ terabyte of input data, that would be 20 machines per user. Fortunately, they don’t. Nearly all analyses need particle kinematics, most need isolation variables, some need particles remeasured with different algorithms, and a rare few need physical details, such as charge collected on hits (heavy charged particle searches). Popularity of input variables follows some steeply falling distribution, like Zipf’s law. Popularity of the samples themselves follows a similar pattern: everyone needs huge Standard Model simulations; but very few need a particular (tiny) signal sample.
 
-The exact distribution of particle physics data popularity is unknown because analyses are performed in isolation of each other (_currently_). However, popular skimming tools, shared among physics groups, keep 5–10 kB per event. Within the limitations these groups are already imposing on themselves to share skims, a billion events would fill 10 TB (200 machines with 50 GB each).
+The exact distribution of particle physics data popularity is unknown because analyses are performed in relative isolation (_currently_). However, popular skimming tools, shared among physics groups, keep 5–10 kB per event. Within the limitations these groups are already imposing on themselves to share skims, a billion events would fill 10 TB (200 machines with 50 GB each).
 
 ### Server architecture
 
