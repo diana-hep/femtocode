@@ -261,15 +261,15 @@ Each of the variables, `a`, `b`, `c`, `d`, `e`, `f`, are represented by large (e
 
 The simplest way to generate code would be to put all operations into a single array, like this:
 
-<img src="docs/dependencygraph_2.png" width="600px" alt="Dependency graph computed as one loop.">
+<img src="docs/dependencygraph_2.png" width="600px" alt="Dependency graph computed as one loop">
 
 The “Numpy way” is to put each operation into its own array (because Numpy does not have a just-in-time compiler), like this:
 
-<img src="docs/dependencygraph_1.png" width="600px" alt="Dependency graph computed as many loops.">
+<img src="docs/dependencygraph_1.png" width="600px" alt="Dependency graph computed as many loops">
 
 However, the ideal case may be somewhere between the two. In this _purely illustrative example,_ we wrote an algorithm to isolate subractions (or the end goal) at the end of each loop:
 
-<img src="docs/dependencygraph_3.png" width="600px" alt="Dependency graph computed as another combination of loops.">
+<img src="docs/dependencygraph_3.png" width="600px" alt="Dependency graph computed as another combination of loops">
 
 These examples differ greatly in the memory footprint: the first introduces 1 temporary array, the second introduces 10 temporary arrays, and the third introduces 4 temporary arrays. Each array is as large as the input (megabytes, at least).
 
@@ -293,20 +293,37 @@ To support these backends, we have implemented a neutral API that allows optimiz
 
 **Currently implemented:**
 
-   * Numpy files (`.npz`, with or without compression)
-   * ROOT files
-   * CouchBase database
+   * Numpy files (`.npz`, with or without compression), locally or through XRootD
+   * ROOT files, using any method available to ROOT, including XRootD
+   * CouchBase database, via HTTP
 
 ## Query server
 
-HERE
+Although memory bandwidth is the bottleneck for GHz-scale computation (see KNL plot, above), reading files or a database from disk or the network is a MHz-scale bottleneck. A query server would need a large in-memory cache to be effective: this would allow frequently used data to be accessed quickly, while rarely used data would be slower.
+
+
+
+
+
+
+
+
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
 
 
 
 
-<img src="docs/parallelism-1.png" width="50%" alt="Execution in one partition."><img src="docs/parallelism-2.png" width="50%" alt="Optimal execution.">
+<img src="docs/parallelism-1.png" width="50%" alt="Execution in one partition"><img src="docs/parallelism-2.png" width="50%" alt="Optimal execution">
 
-<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions."><img src="docs/parallelism-3.png" width="50%" alt="Too many partitions.">
+<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-3.png" width="50%" alt="Too many partitions">
+
+
+
+<img src="docs/assignments-1.png" width="50%" alt="Group ids distributed among living servers">
+
+<img src="docs/assignments-2.png" width="50%" alt="Group ids distributed with one dead server">
+
+<img src="docs/assignments-3.png" width="50%" alt="Group ids distributed with two dead servers">
+
 
