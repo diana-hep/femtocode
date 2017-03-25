@@ -14,6 +14,16 @@ This project is at an early stage of its development, though it is past the feas
 
 Don’t bother yet. See above.
 
+But... if you want to try it anyway, note that this repository contains five Python packages with `setup.py` files:
+
+   * **lang:** the base package and client (no dependencies),
+   * **numpyio:** back-end for reading Numpy files as a data source (depends on base femtocode, ruamel.yaml, and Numpy),
+   * **rootio:** back-end for reading ROOT files as a data source (depends on base femtocode, ruamel.yaml, Numpy, and ROOT),
+   * **run:** compiles Femtocode to native bytecode and manages computation; the Standalone Engine (described below) is contained in this package (depends on base femtocode, femtocode-numpyio, Numba, and Numpy),
+   * **server:** performs distributed calculations as a production query server (depends on base femtocode, femtocode-run, and pymongo).
+
+(There might be local file paths in the unit tests, making them inoperable on your computer.)
+
 ## Query language motivation
 
 Femtocode was inspired by fast SQL services that translate users’ requests into operations with the same meaning as the their queries, yet are much faster than naive interpretations of them. The ability to perform these translations is helped by the fact that SQL minimally constrains the computation: there are no “for” loops to specify an order of iteration, no mutable variables, etc. The language is fast _because_ it is high-level, rather than in spite of being high-level.
