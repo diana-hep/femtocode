@@ -128,10 +128,10 @@ workflow = session.source("b-physics")                   # pull from a named dat
            pt = bin(100, 0, 100, "dimuon.pt"),
            eta = bin(100, -5, 5, "dimuon.eta"),
            phi = bin(314, 0, 2*pi, "dimuon.phi + pi"),
-           muons = foreach("goodmuons", "mu", bundle(    # also make plots with one muon per entry
-               pt = bin(100, 0, 100, "mu.pt"),
-               eta = bin(100, -5, 5, "mu.eta"),
-               phi = bin(314, -pi, pi, "mu.phi")
+           muons = foreach("goodmuons", bundle(          # also make plots with one muon per entry
+               pt = bin(100, 0, 100, "$1.pt"),
+               eta = bin(100, -5, 5, "$1.eta"),
+               phi = bin(314, -pi, pi, "$1.phi")
            ))
        )
 
