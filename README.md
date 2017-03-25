@@ -354,13 +354,13 @@ All internal and external communication is over HTTP. We use WSGI, so that any w
    * **metadb** and **store** are MongoDB instances. **metadb** is sharded by dataset name and **store** is sharded by query id, both with appropriate replication. Additionally, **store** has a ranged index for last access time, so that old results can be periodically deleted.
    * **datadb** may be a service like EOS.
 
-The diagrams below illustrate how work (27 units) is partitioned among three **compute** nodes (blue, yellow, and red). When all compute nodes are available, 1–9 are assigned to blue, 10–18 are assigned to yellow, and 19–27 are assigned to red.
+The diagrams below illustrate how work (27 units) is partitioned among three **compute** nodes (blue, yellow, and red). When all **compute** nodes are available, 1–9 are assigned to blue, 10–18 are assigned to yellow, and 19–27 are assigned to red.
 
 “Second assignment,” “third assignment,” etc. are ignored.
 
 <img src="docs/assignments-1.png" width="100%" alt="Group ids distributed among living servers">
 
-If the red **compute** node becomes unavailable for some reason, its share of the work gets reassigned among blue and yellow. The “second assignment” consists of partitioning its range into blue, yellow, and red, and the “third assignment” subdivides that in the same way. For each group number, work is reassigned to the first non-red option in the sequence.
+If the red **compute** node becomes unavailable for some reason, its share of the work gets reassigned among blue and yellow. The “second assignment” consists of subdividing its range into three groups; “third assignment,” “fourth assignment,” etc. continue the pattern recursively. For each group number, work is reassigned to the first non-red option in the sequence.
 
 <img src="docs/assignments-2.png" width="100%" alt="Group ids distributed with one dead server">
 
@@ -368,12 +368,18 @@ If both red and yellow **compute** nodes are unavailable, the same pattern is fo
 
 <img src="docs/assignments-3.png" width="100%" alt="Group ids distributed with two dead servers">
 
+### Group size
 
+A collection of events could be split into a large number of small groups or a small number of large groups when assigned to **compute** nodes by **dispatch**. The choice of this size is in principle arbitrary, but different choices have different effects on performance.
 
+The body of the compiled “fast math” loop scales almost perfectly (apart from memory bandwidth contention: see KNL plot above). However, the “slow setup” in Python is roughly a fixed cost for each group. It consists of deserializing functions, moving metadata between threads through synchronized queues, managing cache, etc., and it adds up to several milliseconds per group.
 
+Dividing the load reduces latency only up to a point, as illustrated by the diagrams below. Optimizing this balance, with at least 90% of the time spent in “fast math” rather than “slow setup,” implies that input data should be partitioned in groups of at least 2 MB per data array.
 
 <img src="docs/parallelism-1.png" width="50%" alt="Execution in one partition"><img src="docs/parallelism-2.png" width="50%" alt="Optimal execution">
 
-<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-3.png" width="50%" alt="Too many partitions">
+<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-4.png" width="50%" alt="Too many partitions">
 
+## Conclusion
 
+Watch this space.
