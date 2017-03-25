@@ -22,6 +22,8 @@ But... if you want to try it anyway, note that this repository contains five Pyt
    * **run:** compiles Femtocode to native bytecode and manages computation; the Standalone Engine (described below) is contained in this package (depends on base femtocode, femtocode-numpyio, Numba, and Numpy),
    * **server:** performs distributed calculations as a production query server (depends on base femtocode, femtocode-run, and pymongo).
 
+Installing all of them (`python setup.py install --user`) from top to bottom in this list would satisfy the dependency order.
+
 (There might be local file paths in the unit tests, making them inoperable on your computer.)
 
 ## Query language motivation
