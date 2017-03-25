@@ -326,18 +326,29 @@ The distributed service (client included) is designed to tolerate outages with n
    * **client:** the user’s computer, which submits a query and expects an aggregated result,
    * **dispatch:** a stateless entry point that either combines previously computed results or forwards the request to the **compute** nodes,
    * **compute:** computation engines that maintain an in-memory cache, perform computations, and send results to **store**,
-   * **store:** a database that hold partial query results for a long time (days or weeks),
+   * **store:** a database that holds partial query results for a long time (days or weeks),
    * **metadb:** source of information about datasets, schemas, and locations of physics data,
    * **datadb:** source of physics data for cache-misses in **compute**.
 
+All internal and external communication is over HTTP. We use WSGI, so that any web server can be used interchangeably.
+
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
 
+### Timeline for a typical query
+
+   1. As a first step in interpreting Femtocode, **client** asks for a dataset schema. The request is forwarded through **dispatch** to **metadb**.
+   2. The **client** interprets the Femtocode and prepares a query, which it sends to a random **dispatch** server.
+   3. The **dispatch** splits the problem into its groups (partitions) and asks **store** for all available partial results. Suppose the **store** has half of them: **dispatch** assigns the rest to **compute** and combines what it has, returning that as an in-progress result to **client**.
+   4. The **client** sends the same query at regular intervals. Each time, it comes back more complete, so the **client** can animate the filling of histograms. (Resending the same query is equivalent to a status update: it does _not_ cause duplicated work!)
+   5. When **compute** receives a request to compute several groups, it ignores the ones it’s already working on and queues the ones that are new.
+   6. If **compute** needs input data (cache miss), it requests such data from **datadb**.
+   7. Work is performed when the input data have been downloaded, which is not necessarily first-come, first-serve. However, only one thread performs computations, so a distinct **compute** process should run on every core.
+   8. When a group is done, **compute** writes the partial result to **store**.
+   9. The **client** keeps requesting the same query, and eventually, **dispatch** finds all of the partial results in **store** so the aggregation is complete. When **client** gets a complete answer, it stops asking for updates.
+   10. A week later, the same analyst or a like-minded individual sends the same query. If the partial results are still all in **store**, the response returns immediately, without touching **compute**.
 
 
 
-<img src="docs/parallelism-1.png" width="50%" alt="Execution in one partition"><img src="docs/parallelism-2.png" width="50%" alt="Optimal execution">
-
-<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-3.png" width="50%" alt="Too many partitions">
 
 
 
@@ -346,5 +357,13 @@ The distributed service (client included) is designed to tolerate outages with n
 <img src="docs/assignments-2.png" width="600px" alt="Group ids distributed with one dead server">
 
 <img src="docs/assignments-3.png" width="600px" alt="Group ids distributed with two dead servers">
+
+
+
+
+
+<img src="docs/parallelism-1.png" width="50%" alt="Execution in one partition"><img src="docs/parallelism-2.png" width="50%" alt="Optimal execution">
+
+<img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-3.png" width="50%" alt="Too many partitions">
 
 
