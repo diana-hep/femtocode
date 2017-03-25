@@ -162,18 +162,18 @@ One of the bullet points describing Femtocode (above) claims that runtime errors
 Eliminating runtime errors is possible because mutable state and unbounded loops are excluded (Femtocode is a [“total functional language”](http://lambda-the-ultimate.org/node/2003)) and because Femtocode has a “fine grained” type system. Beyond the basic types— boolean, integer, real, string, array, record, and union (for nullable types and sum types)— Femtocode’s type system specifies numerical ranges on its number types and array sizes.
 
 Thus, one variable describing angles might be typed as
-`real(min=-pi, max=pi)` while another is typed as `real(min=0, max=2*pi)` and it is useful for the data analyst to know the difference.
+`real(min=-pi, max=pi)` while another is typed as `real(min=0, max=2*pi)`. It is useful for the data analyst to know the difference.
 
 Our dimuon example (above) is valid only because
 
+```python
+filter("goodmuons.size >= 2")
+```
+
+comes before
+
 ```
 mu1, mu2 = goodmuons.maxby($1.pt, 2)
-```
-
-comes after
-
-```
-.filter("goodmuons.size >= 2")
 ```
 
 This ensures that the type of `goodmuons` is an array with at least two elements. In Python, the assignment would raise an exception on some rare event, rather than immediately (or at all).
