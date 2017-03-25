@@ -301,6 +301,9 @@ To support these backends, we have implemented a neutral API that allows optimiz
 
 Although memory bandwidth is the bottleneck for GHz-scale computation (see KNL plot, above), reading files or a database from disk or the network is a MHz-scale bottleneck. A query server would need a large in-memory cache to be effective: this would allow frequently used data to be accessed quickly, while rarely used data would be slower.
 
+Terabyte-scale caches can be built by combining the resources of a computer cluster (e.g. 20 machines with 50 GB of memory each). A terabyte can hold 140 floating point variables for a billion-event dataset. (These are all conservative numbers.) So while caching data for a typical analysis might not be feasible on a laptop, it’s easily possible for a cluster, and most users of that cluster would share cache because they’re analyzing the same input data.
+
+
 
 
 
@@ -320,10 +323,10 @@ Although memory bandwidth is the bottleneck for GHz-scale computation (see KNL p
 
 
 
-<img src="docs/assignments-1.png" width="50%" alt="Group ids distributed among living servers">
+<img src="docs/assignments-1.png" width="600px" alt="Group ids distributed among living servers">
 
-<img src="docs/assignments-2.png" width="50%" alt="Group ids distributed with one dead server">
+<img src="docs/assignments-2.png" width="600px" alt="Group ids distributed with one dead server">
 
-<img src="docs/assignments-3.png" width="50%" alt="Group ids distributed with two dead servers">
+<img src="docs/assignments-3.png" width="600px" alt="Group ids distributed with two dead servers">
 
 
