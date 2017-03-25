@@ -352,11 +352,11 @@ All internal and external communication is over HTTP. We use WSGI, so that any w
 
 
 
-<img src="docs/assignments-1.png" width="600px" alt="Group ids distributed among living servers">
+<img src="docs/assignments-1.png" width="800px" alt="Group ids distributed among living servers">
 
-<img src="docs/assignments-2.png" width="600px" alt="Group ids distributed with one dead server">
+<img src="docs/assignments-2.png" width="800px" alt="Group ids distributed with one dead server">
 
-<img src="docs/assignments-3.png" width="600px" alt="Group ids distributed with two dead servers">
+<img src="docs/assignments-3.png" width="800px" alt="Group ids distributed with two dead servers">
 
 
 
