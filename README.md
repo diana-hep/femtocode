@@ -370,6 +370,60 @@ Dividing the load reduces latency only up to a point, as illustrated by the diag
 
 <img src="docs/parallelism-3.png" width="50%" alt="Too many partitions"><img src="docs/parallelism-4.png" width="50%" alt="Too many partitions">
 
-## Conclusion
+## Bytecode serialization/deserialization
 
-Watch this space.
+Each incoming request touches one **dispatch** node but many, if not all, **compute** nodes. The Femtocode only needs to be compiled once, and LLVM compilation takes 96 ms for the simplest functions. If this cost were repeated for every group on the **compute** nodes, it would easily dwarf the useful work done in “fast math.”
+
+We therefore perform the compilation once on **dispatch**, serialize it as an ELF binary, and deserialize it for execution on **compute**. This unpacking operation takes about 2 ms, which is on the same order as the rest of the Python “slow setup.”
+
+This operation has only been tested on Linux, and it likely constrains the server to only work on Linux. Moreover, the **dispatch** and **compute** nodes must be running on the same hardware, to accept the same kinds of bytecode (though LLVM can be directed to compile for different targets than the one it’s running on).
+
+## Status and projections
+
+**Done:**
+
+   * Core of language parsing, type checking, type inference and logical inference. However, only two functions have been fully implemented (`+` and `.map`).
+   * Explode and flat function compilation, not combine.
+   * Workflow generation, query generation, futures and result handling.
+   * Modular dataset metadata: JSON files and MongoDB.
+   * Modular backends: Numpy, ROOT, CouchBase.
+   * Native compilation and bytecode serialization/deserialization.
+   * Test engine (for unit tests).
+   * Standalone engine (for adventurous users).
+   * Distributed engine (for production).
+
+**In 1 month:**
+
+   * Test of the full, distributed server on KNL (as opposed to feasibility tests).
+   * Implementation of at least one combine function.
+   * Enough functions to compute invariant mass for demo.
+   * Importing flat functions from Numpy ufuncs.
+   * End-to-end demo.
+   * Submit abstracts to ACAT and StrangeLoop.
+
+**In 3 months:**
+
+   * Adding ufunc interface to the ROOT codebase.
+   * Updating Histogrammar with Femtocode-friendly features (such as `foreach`).
+   * Adding aggregation actions to workflows.
+   * Adding `filter` to workflows.
+   * Focus group with physicists.
+   * Working prototype for adventurous users.
+
+**In 12 months:**
+
+   * Write paper for IEEE Big Data.
+   * Handle “skipped” types: union types and recursively defined types.
+   * Handle large constants for machine learning (e.g. ship a BDT with a query and a function to use it).
+   * Export skims for unbinned likelihood fits or machine learning from the server.
+   * User-defined tables on the server.
+   * Propose as a new `TTree::Draw` syntax in ROOT 7 (through TPython).
+   * Expand developer base.
+   * More capable demos, broader publicity.
+
+**Not scheduled, but nice ideas:**
+
+   * Query on Spark DataFrames, making full use of Janino for just-in-time compilation and direct bytebuffers for contiguous memory access. Shouldn’t be too much slower than native bytecode.
+   * Back-ends for Parquet, Feather, and HDF5.
+   * Object store database, ZFS, and/or JBoD array for faster handling of cache-misses.
+   * Caching frequently used intermediate expressions.
