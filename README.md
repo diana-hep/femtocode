@@ -320,7 +320,7 @@ The distributed service (client included) is designed to tolerate outages with n
    * **metadb:** source of information about datasets, schemas, and locations of physics data,
    * **datadb:** source of physics data for cache-misses in **compute**.
 
-All internal and external communication is over HTTP. We use WSGI, so that any web server can be used interchangeably.
+All internal and external communication is over HTTP (through Python’s portable WSGI protocol).
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
 
