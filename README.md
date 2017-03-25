@@ -12,7 +12,7 @@ This project is at an early stage of its development, though it is past the feas
 
 ## Installation
 
-Don’t bother yet. See above.
+**Don’t bother yet. See above.**
 
 But... if you want to try it anyway, note that this repository contains five Python packages with `setup.py` files:
 
