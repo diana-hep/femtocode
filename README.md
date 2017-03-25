@@ -315,11 +315,20 @@ A horizontally scalable server is capable of much more because (a) input data fo
 
 To give a sense of scale, a physics analysis might use about 140 quantities, measured over a billion events (combining all real and simulated samples). For 8-byte floating point numbers, this is a terabyte. Most laptops don’t have a terabyte of memory, but it is easy to achieve for a cluster: e.g. 20 machines with 50 GB of memory each.
 
-If every user needed a _different_ terabyte of input data, that would be 20 machines per user. Fortunately, they don’t. Nearly all analyses need particle kinematics, most need isolation variables, some need particles remeasured with different algorithms, and a rare few need physical details, such as charge collected on hits (heavy charged particle searches). Popularity of input variables follows some steeply falling distribution, like Zipf’s law. Popularity of samples follows a similar pattern: everyone needs huge Standard Model simulations; the most variation comes in tiny signal samples.
+If every user needed a _different_ terabyte of input data, that would be 20 machines per user. Fortunately, they don’t. Nearly all analyses need particle kinematics, most need isolation variables, some need particles remeasured with different algorithms, and a rare few need physical details, such as charge collected on hits (heavy charged particle searches). Popularity of input variables follows some steeply falling distribution, like Zipf’s law. Popularity of the samples themselves follows a similar pattern: everyone needs huge Standard Model simulations; but very few need a particular (tiny) signal sample.
 
 The exact distribution of particle physics data popularity is unknown because analyses are performed in isolation of each other. However, popular skimming tools, shared among physics groups, keep 5–10 kB per event. Within the limitations these groups are already imposing on themselves to share skims, a billion events would fill 10 TB (200 machines with 50 GB each).
 
 ### Server architecture
+
+The distributed service (client included) is designed to tolerate outages with no single point of failure. It consists of six different types of machines:
+
+   * **client:** the user’s computer, which submits a query and expects an aggregated result,
+   * **dispatch:** a stateless entry point that either combines previously computed results or forwards the request to the **compute** nodes,
+   * **compute:** computation engines that maintain an in-memory cache, perform computations, and send results to **store**,
+   * **store:** a database that hold partial query results for a long time (days or weeks),
+   * **metadb:** source of information about datasets, schemas, and locations of physics data,
+   * **datadb:** source of physics data for cache-misses in **compute**.
 
 <img src="docs/distributed-system-simplified.png" width="100%" alt="Schematic of query processing">
 
