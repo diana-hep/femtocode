@@ -342,19 +342,29 @@ All internal and external communication is over HTTP. We use WSGI, so that any w
    4. The **client** sends the same query at regular intervals. Each time, it comes back more complete, so the **client** can animate the filling of histograms. (Resending the same query is equivalent to a status update: it does _not_ cause duplicated work!)
    5. When **compute** receives a request to compute several groups, it ignores the ones it’s already working on and queues the ones that are new.
    6. If **compute** needs input data (cache miss), it requests such data from **datadb**.
-   7. Work is performed when the input data have been downloaded, which is not necessarily first-come, first-serve. However, only one thread performs computations, so a distinct **compute** process should run on every core.
+   7. Work is performed when the input data have been downloaded, which is not necessarily first-come, first-serve. However, only one thread performs computations, so a distinct **compute** process should run on every CPU core (possibly pinned to that core).
    8. When a group is done, **compute** writes the partial result to **store**.
    9. The **client** keeps requesting the same query, and eventually, **dispatch** finds all of the partial results in **store** so the aggregation is complete. When **client** gets a complete answer, it stops asking for updates.
    10. A week later, the same analyst or a like-minded individual sends the same query. If the partial results are still all in **store**, the response returns immediately, without touching **compute**.
 
+### Robustness features
 
+   * **dispatch** servers are stateless and interchangeable. A load-balancer may sit upstream of them, and if one fails, the others take up the slack while it restarts.
+   * **compute** servers are not interchangeable because they maintain an in-memory cache. Work assignments must be a deterministic function of the required input data, so that work is never sent to one node while the required data is on another node, which would be an _unnecessary_ cache miss. However, the assignment algorithm has contingencies for missing compute nodes.
+   * **metadb** and **store** are MongoDB instances. **metadb** is sharded by dataset name and **store** is sharded by query id, both with appropriate replication. Additionally, **store** has a ranged index for last access time, so that old results can be periodically deleted.
+   * **datadb** may be a service like EOS.
 
+The diagrams below illustrate how work (27 units) is partitioned among three **compute** nodes (blue, yellow, and red). When all compute nodes are available, 1–9 are assigned to blue, 10–18 are assigned to yellow, and 19–27 are assigned to red.
 
-
+“Second assignment,” “third assignment,” etc. are ignored.
 
 <img src="docs/assignments-1.png" width="100%" alt="Group ids distributed among living servers">
 
+If the red **compute** node becomes unavailable for some reason, its share of the work gets reassigned among blue and yellow. The “second assignment” consists of partitioning its range into blue, yellow, and red, and the “third assignment” subdivides that in the same way. For each group number, work is reassigned to the first non-red option in the sequence.
+
 <img src="docs/assignments-2.png" width="100%" alt="Group ids distributed with one dead server">
+
+If both red and yellow **compute** nodes are unavailable, the same pattern is followed, leading to the intuitive conclusion that all groups would be assigned to blue (the only survivor).
 
 <img src="docs/assignments-3.png" width="100%" alt="Group ids distributed with two dead servers">
 
