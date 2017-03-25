@@ -176,7 +176,7 @@ comes before
 mu1, mu2 = goodmuons.maxby($1.pt, 2)
 ```
 
-This ensures that the type of `goodmuons` is an array with at least two elements. In Python, the assignment would raise an exception on some rare event, rather than immediately (or at all).
+This ensures that the type of `goodmuons` is an array with at least two elements. In Python, a faulty assignment would raise an exception on some rare event, rather than immediately (or at all).
 
 In general, data types should be thought of as spaces that can be sliced up in various ways, and type-checking should be thought of as a special case of theorem proving.
 
@@ -186,9 +186,6 @@ Here is working code that demonstrates the use of fine-grained types. Unrestrain
 source = session.source("Test", x=real, y=real)
 source.type("x / y")
 ```
-
-because it sometimes leads to indeterminate forms. (Floating point infinities are allowed, but we have chosen to exclude `NaN` values because they propagate in non-intuitive ways.)
-
 ```
 FemtocodeError: Function "/" does not accept arguments with the given types:
 
@@ -202,6 +199,8 @@ Check line:col 1:0 (pos 0):
     x / y
 ----^
 ```
+
+because it sometimes leads to indeterminate forms. (Floating point infinities are allowed, but we have chosen to exclude `NaN` values because they propagate in non-intuitive ways.)
 
 This error message tells the user about the special case and suggests the following replacement:
 
