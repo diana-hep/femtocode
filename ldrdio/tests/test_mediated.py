@@ -27,4 +27,4 @@ class TestMediated(unittest.TestCase):
 
     def test_printout(self):
         metadb = MetadataFromLDRD("http://dbdata0vm.fnal.gov:9091/striped/app")
-        print(metadb.dataset("ZZ_13TeV_pythia8").toJsonString())
+        metadb.dataset("ZZ_13TeV_pythia8")
