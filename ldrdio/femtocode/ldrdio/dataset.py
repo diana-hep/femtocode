@@ -27,8 +27,32 @@ from client.StripedClient import StripedClient
 
 
 
+class LDRDColumn(Column):
+    def __init__(self, data, size, dataType, apidata, apisize):
+        super(LDRDColumn, self).__init__(data, size, dataType)
+        self.apidata = apidata
+        self.apisize = apisize
 
+    def toJson(self):
+        out = super(LDRDColumn, self).toJson()
+        out["apidata"] = self.apidata
+        out["apisize"] = self.apisize
+        return out
 
+    @staticmethod
+    def fromJson(column):
+        data = ColumnName.parse(column["data"])
+        size = None if column["size"] is None else ColumnName.parse(column["size"])
+        dataType = column["dataType"]
+        apidata = column["apidata"]
+        apisize = column["apisize"]
+        return LDRDColumn(data, size, dataType, apidata, apisize)
+
+    def __eq__(self, other):
+        return other.__class__ == LDRDColumn and self.data == other.data and self.size == other.size and self.dataType == other.dataType and self.apidata == other.apidata and self.apisize == other.apisize
+
+    def __hash__(self):
+        return hash(("LDRDColumn", self.data, self.size, self.dataType, self.apidata, self.apisize))
 
 class LDRDDataset(Dataset):
     fetcher = LDRDFetcher
@@ -62,32 +86,34 @@ class MetadataFromLDRD(object):
 
         schemaFromDB = dict((k, Schema.fromJson(v)) for k, v in apiDataset.schema["fields"].items())
 
-        columnNames, apiNames = [], []
-        def getnames(name, apiname, tpe):
+        columns = {}
+        def get(name, apiname, tpe, hasSize):
             if isinstance(tpe, Collection):
-                getnames(name.coll(), apiname, tpe.items)
+                get(name.coll(), apiname, tpe.items, True)
 
             elif isinstance(tpe, Record):
                 for fn, ft in tpe.fields.items():
-                    getnames(name.rec(fn), apiname + "." + fn, ft)
+                    get(name.rec(fn), apiname + "." + fn, ft, hasSize)
 
             elif isinstance(tpe, Union):
                 raise NotImplementedError
 
             else:
-                columnNames.append(name)
-                apiNames.append(apiname)
+                columns[name] = LDRDColumn(name,
+                                           name.size() if hasSize else None,
+                                           None,                 # fill in later
+                                           apiname,
+                                           None)                 # fill in later
 
         for n, t in schemaFromDB.items():
-            getnames(ColumnName(n), n, t)
+            get(ColumnName(n), n, t, False)
 
-        for c, a in zip(columnNames, apiNames):
-            print c, a
+        for c in columns.values():
+            print c.data, c.size, apiDataset.column(c.apidata).descriptor.size_column
         
-        apiColumns = [apiDataset.column(n) for n in apiNames]
-
-        for c in apiColumns:
-            print c
+        # apiColumns = [apiDataset.column(c2) for c1, c2 in columnNames]
+        # for n, a, c in zip(columnNames, apiNames, apiColumns):
+        #     print n, a, c.descriptor
 
 
 
