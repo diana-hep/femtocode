@@ -58,7 +58,9 @@ class MetadataFromLDRD(object):
         self.client = StripedClient(urlhead)
 
     def dataset(self, name, groups=(), columns=None, schema=True):
-        schemaFromDB = dict((k, Schema.fromJson(v)) for k, v in self.client.dataset(name).schema["fields"].items())
+        apiDataset = self.client.dataset(name)
+
+        schemaFromDB = dict((k, Schema.fromJson(v)) for k, v in apiDataset.schema["fields"].items())
 
         columnNames, apiNames = [], []
         def getnames(name, apiname, tpe):
@@ -81,6 +83,11 @@ class MetadataFromLDRD(object):
 
         for c, a in zip(columnNames, apiNames):
             print c, a
+        
+        apiColumns = [apiDataset.column(n) for n in apiNames]
+
+        for c in apiColumns:
+            print c
 
 
 
