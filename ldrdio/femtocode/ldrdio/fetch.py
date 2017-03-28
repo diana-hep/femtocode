@@ -22,12 +22,14 @@ from femtocode.run.cache import CacheOccupant
 
 class LDRDFetcher(threading.Thread):
     def __init__(self, occupants, workItem):
+        super(LDRDFetcher, self).__init__()
+
         self.occupants = occupants
         self.workItem = workItem
         self.daemon = True
 
     def run(self):
-        dataset = workItem.executor.query.dataset
+        dataset = self.workItem.executor.query.dataset
         apiDataset = dataset.apiDataset
 
         for occupant in self.occupants:
@@ -41,7 +43,7 @@ class LDRDFetcher(threading.Thread):
                 assert apiname is not None
 
             else:
-                apiname = dataset.columns[occupant.address.column]
+                apiname = dataset.columns[occupant.address.column].apidata
 
             array = apiDataset.column(apiname).stripe(occupant.address.group)
 

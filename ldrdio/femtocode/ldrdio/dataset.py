@@ -118,6 +118,10 @@ class MetadataFromLDRD(object):
         self.urlhead = urlhead
 
     def dataset(self, name, groups=(), columns=None, schema=True):
+        # FIXME
+        columns = ["Muon[]-pt"]
+
+
         client = StripedClient(self.urlhead)
         apiDataset = client.dataset(name)
 
@@ -136,43 +140,42 @@ class MetadataFromLDRD(object):
                 raise NotImplementedError
 
             else:
-                if columns is not None and name in columns:
+                if columns is None or name in columns:
                     ldrdcolumns[name] = LDRDColumn(name,
                                                    name.size() if hasSize else None,
                                                    None,                 # fill in later
                                                    apiname,
                                                    None)                 # fill in later
 
-        if columns is not None:
-            for n, t in schemaFromDB.items():
-                get(ColumnName(n), n, t, False)
+        rgids = apiDataset.rgids
+        assert set(rgids) == set(range(len(rgids)))
+        rginfos = apiDataset.rginfo(rgids)
 
-            striped_columns = []
+        for n, t in schemaFromDB.items():
+            get(ColumnName(n), n, t, False)
+
+        striped_columns = []
+        for c in ldrdcolumns.values():
+            striped_columns.append(apiDataset.column(c.apidata))
+            desc = striped_columns[-1].descriptor
+            c.dataType = str(numpy.dtype(desc.ConvertToNPType))
+            c.apisize = desc.SizeColumn
+
+        relevant = dict((x["RGID"], x) for x in rginfos if x["RGID"] in groups)
+
+        if len(striped_columns) > 0:
+            stripe_sizes = apiDataset.stripeSizes(striped_columns, rgids)
+        else:
+            stripe_sizes = []
+
+        ldrdgroups = []
+        for groupid in groups:
+            rginfo = relevant[groupid]
+            segments = {}
             for c in ldrdcolumns.values():
-                striped_columns.append(apiDataset.column(c.apidata))
-                desc = striped_columns[-1].descriptor
-                c.dataType = str(numpy.dtype(desc.ConvertToNPType))
-                c.apisize = desc.SizeColumn
+                segments[c.data] = LDRDSegment(rginfo["NEvents"], stripe_sizes[c.apidata][groupid] / numpy.dtype(ldrdcolumns[c.data].dataType).itemsize, rginfo["NEvents"])
 
-            rgids = apiDataset.rgids
-            assert set(rgids) == set(range(len(rgids)))
-            
-            rginfos = apiDataset.rginfo(rgids)
-            relevant = dict((x["RGID"], x) for x in rginfos if x["RGID"] in groups)
-
-            if len(striped_columns) > 0:
-                stripe_sizes = apiDataset.stripeSizes(striped_columns, rgids)
-            else:
-                stripe_sizes = []
-
-            ldrdgroups = []
-            for groupid in groups:
-                rginfo = relevant[groupid]
-                segments = {}
-                for c in ldrdcolumns.values():
-                    segments[c.data] = LDRDSegment(rginfo["NEvents"], stripe_sizes[c.apidata][groupid], rginfo["NEvents"])
-                    
-                ldrdgroups.append(LDRDGroup(groupid, segments, rginfo["NEvents"]))
+            ldrdgroups.append(LDRDGroup(groupid, segments, rginfo["NEvents"]))
 
         return LDRDDataset(name,
                            schemaFromDB if schema else None,
