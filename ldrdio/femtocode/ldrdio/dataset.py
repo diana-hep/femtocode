@@ -118,10 +118,6 @@ class MetadataFromLDRD(object):
         self.urlhead = urlhead
 
     def dataset(self, name, groups=(), columns=None, schema=True):
-        # FIXME
-        columns = ["Muon[]-pt"]
-
-
         client = StripedClient(self.urlhead)
         apiDataset = client.dataset(name)
 
