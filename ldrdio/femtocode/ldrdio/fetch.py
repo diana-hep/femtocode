@@ -45,4 +45,4 @@ class LDRDFetcher(threading.Thread):
 
             array = apiDataset.column(apiname).stripe(occupant.address.group)
 
-            occupant.rawarray = array.view(CacheOccupant.untyped)
+            occupant.rawarray[:] = array.view(CacheOccupant.untyped)[:]
