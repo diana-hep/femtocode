@@ -18,10 +18,6 @@ import threading
 
 import numpy
 
-from femtocode.py23 import *
-from femtocode.dataset import ColumnName
-from femtocode.dataset import sizeType
-from femtocode.run.compute import DataAddress
 from femtocode.run.cache import CacheOccupant
 
 class LDRDFetcher(threading.Thread):
@@ -31,9 +27,22 @@ class LDRDFetcher(threading.Thread):
         self.daemon = True
 
     def run(self):
-        workItem.executor.query.dataset
+        dataset = workItem.executor.query.dataset
+        apiDataset = dataset.apiDataset
 
+        for occupant in self.occupants:
+            apiname = None
 
+            if occupant.address.column.issize():
+                for c in dataset.columns.values():
+                    if c.size == occupant.address.column:
+                        apiname = c.apisize
+                        break
+                assert apiname is not None
 
-        workItem.group.apiDataset.column().stripe()
+            else:
+                apiname = dataset.columns[occupant.address.column]
 
+            array = apiDataset.column(apiname).stripe(occupant.address.group)
+
+            occupant.rawarray = array.view(CacheOccupant.untyped)
