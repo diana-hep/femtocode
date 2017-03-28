@@ -25,4 +25,15 @@ from femtocode.run.compute import DataAddress
 from femtocode.run.cache import CacheOccupant
 
 class LDRDFetcher(threading.Thread):
-    pass
+    def __init__(self, occupants, workItem):
+        self.occupants = occupants
+        self.workItem = workItem
+        self.daemon = True
+
+    def run(self):
+        workItem.executor.query.dataset
+
+
+
+        workItem.group.apiDataset.column().stripe()
+

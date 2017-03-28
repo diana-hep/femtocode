@@ -44,29 +44,18 @@ class LDRDSegment(Segment):
         return hash(("LDRDSegment", self.numEntries, self.dataLength, self.sizeLength))
 
 class LDRDGroup(Group):
-    def __init__(self, id, segments, numEntries, apiDataset):
-        super(LDRDGroup, self).__init__(id, segments, numEntries)
-        self.apiDataset = apiDataset
-
-    def toJson(self):
-        out = super(LDRDGroup, self).toJson()
-        out["urlhead"] = self.apiDataset.Client.URLHead
-        out["dataset"] = self.apiDataset.Name
-        return out
-
     @staticmethod
     def fromJson(group):
         return LDRDGroup(
             group["id"],
             dict((ColumnName.parse(k), LDRDSegment.fromJson(v)) for k, v in group["segments"].items()),
-            group["numEntries"],
-            StripedClient(group["urlhead"]).dataset(group["dataset"]))
+            group["numEntries"])
 
     def __eq__(self, other):
-        return other.__class__ == LDRDGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.apiDataset.Client.URLHead == other.apiDataset.Client.URLHead and self.apiDataset.Name == other.apiDataset.Name
+        return other.__class__ == LDRDGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries
 
     def __hash__(self):
-        return hash(("LDRDGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries, self.apiDataset.Client.URLHead, self.apiDataset.Name))
+        return hash(("LDRDGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries))
         
 class LDRDColumn(Column):
     def __init__(self, data, size, dataType, apidata, apisize):
@@ -98,8 +87,14 @@ class LDRDColumn(Column):
 class LDRDDataset(Dataset):
     fetcher = LDRDFetcher
 
-    def __init__(self, name, schema, columns, groups, numEntries, numGroups):
+    def __init__(self, name, schema, columns, groups, numEntries, numGroups, apiDataset):
         super(LDRDDataset, self).__init__(name, schema, columns, groups, numEntries, numGroups)
+        self.apiDataset = apiDataset
+
+    def toJson(self):
+        out = super(LDRDDataset, self).toJson()
+        out["urlhead"] = self.apiDataset.Client.URLHead
+        return out
 
     @staticmethod
     def fromJson(dataset):
@@ -109,13 +104,14 @@ class LDRDDataset(Dataset):
             dict((ColumnName.parse(k), LDRDColumn.fromJson(v)) for k, v in dataset["columns"].items()),
             [LDRDGroup.fromJson(x) for x in dataset["groups"]],
             dataset["numEntries"],
-            dataset["numGroups"])
+            dataset["numGroups"],
+            StripedClient(dataset["urlhead"]).dataset(dataset["name"]))
 
     def __eq__(self, other):
-        return other.__class__ == LDRDDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups
+        return other.__class__ == LDRDDataset and self.name == other.name and self.schema == other.schema and self.columns == other.columns, self.groups == other.groups and self.numEntries == other.numEntries and self.numGroups == other.numGroups and self.apiDataset.Client.URLHead == other.apiDataset.Client.URLHead
 
     def __hash__(self):
-        return hash(("LDRDDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
+        return hash(("LDRDDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups, self.apiDataset.Client.URLHead))
 
 class MetadataFromLDRD(object):
     def __init__(self, urlhead):
@@ -176,11 +172,12 @@ class MetadataFromLDRD(object):
                 for c in ldrdcolumns.values():
                     segments[c.data] = LDRDSegment(rginfo["NEvents"], stripe_sizes[c.apidata][groupid], rginfo["NEvents"])
                     
-                ldrdgroups.append(LDRDGroup(groupid, segments, rginfo["NEvents"], apiDataset))
+                ldrdgroups.append(LDRDGroup(groupid, segments, rginfo["NEvents"]))
 
         return LDRDDataset(name,
                            schemaFromDB if schema else None,
                            ldrdcolumns,
                            ldrdgroups,
                            sum(x["NEvents"] for x in rginfos),
-                           len(rgids))
+                           len(rgids),
+                           apiDataset)
