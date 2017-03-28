@@ -260,7 +260,7 @@ class Dataset(Metadata):
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
                 "name": self.name,
-                "schema": dict((k, v.toJson()) for k, v in self.schema.items()),
+                "schema": None if self.schema is None else dict((k, v.toJson()) for k, v in self.schema.items()),
                 "columns": dict((str(k), v.toJson()) for k, v in self.columns.items()),
                 "groups": [x.toJson() for x in self.groups],
                 "numEntries": self.numEntries,
@@ -277,7 +277,7 @@ class Dataset(Metadata):
         if ignoreclass or (mod == Dataset.__module__ and cls == Dataset.__name__):
             return Dataset(
                 dataset["name"],
-                dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
+                None if dataset["schema"] is None else dict((k, Schema.fromJson(v)) for k, v in dataset["schema"].items()),
                 dict((ColumnName.parse(k), Column.fromJson(v)) for k, v in dataset["columns"].items()),
                 [Group.fromJson(x) for x in dataset["groups"]],
                 dataset["numEntries"],

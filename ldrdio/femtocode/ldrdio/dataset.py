@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy
+
 from femtocode.dataset import ColumnName
 from femtocode.dataset import Segment
 from femtocode.dataset import Group
@@ -24,9 +26,50 @@ from femtocode.ldrdio.fetch import LDRDFetcher
 
 from client.StripedClient import StripedClient
 
+class LDRDSegment(Segment):
+    def __init__(self, numEntries, dataLength, sizeLength):
+        super(LDRDSegment, self).__init__(numEntries, dataLength, sizeLength)
 
+    @staticmethod
+    def fromJson(segment):
+        return LDRDSegment(
+            segment["numEntries"],
+            segment["dataLength"],
+            segment["sizeLength"])
 
+    def __eq__(self, other):
+        return other.__class__ == LDRDSegment and self.numEntries == other.numEntries and self.dataLength == other.dataLength and self.sizeLength == other.sizeLength
 
+    def __hash__(self):
+        return hash(("LDRDSegment", self.numEntries, self.dataLength, self.sizeLength))
+
+class LDRDGroup(Group):
+    def __init__(self, id, segments, numEntries, urlhead, dataset):
+        super(LDRDGroup, self).__init__(id, segments, numEntries)
+        self.urlhead = urlhead
+        self.dataset = dataset
+
+    def toJson(self):
+        out = super(LDRDGroup, self).toJson()
+        out["urlhead"] = self.urlhead
+        out["dataset"] = self.dataset
+        return out
+
+    @staticmethod
+    def fromJson(group):
+        return LDRDGroup(
+            group["id"],
+            dict((ColumnName.parse(k), LDRDSegment.fromJson(v)) for k, v in group["segments"].items()),
+            group["numEntries"],
+            group["urlhead"],
+            group["dataset"])
+
+    def __eq__(self, other):
+        return other.__class__ == LDRDGroup and self.id == other.id and self.segments == other.segments and self.numEntries == other.numEntries and self.urlhead == other.urlhead and self.dataset == other.dataset
+
+    def __hash__(self):
+        return hash(("LDRDGroup", self.id, tuple(sorted(self.segments.items())), self.numEntries, self.urlhead, self.dataset))
+        
 class LDRDColumn(Column):
     def __init__(self, data, size, dataType, apidata, apisize):
         super(LDRDColumn, self).__init__(data, size, dataType)
@@ -79,14 +122,14 @@ class LDRDDataset(Dataset):
 class MetadataFromLDRD(object):
     def __init__(self, urlhead):
         self.urlhead = urlhead
-        self.client = StripedClient(urlhead)
 
     def dataset(self, name, groups=(), columns=None, schema=True):
-        apiDataset = self.client.dataset(name)
+        client = StripedClient(self.urlhead)
+        apiDataset = client.dataset(name)
 
         schemaFromDB = dict((k, Schema.fromJson(v)) for k, v in apiDataset.schema["fields"].items())
 
-        columns = {}
+        ldrdcolumns = {}
         def get(name, apiname, tpe, hasSize):
             if isinstance(tpe, Collection):
                 get(name.coll(), apiname, tpe.items, True)
@@ -99,75 +142,47 @@ class MetadataFromLDRD(object):
                 raise NotImplementedError
 
             else:
-                columns[name] = LDRDColumn(name,
-                                           name.size() if hasSize else None,
-                                           None,                 # fill in later
-                                           apiname,
-                                           None)                 # fill in later
+                if columns is not None and name in columns:
+                    ldrdcolumns[name] = LDRDColumn(name,
+                                                   name.size() if hasSize else None,
+                                                   None,                 # fill in later
+                                                   apiname,
+                                                   None)                 # fill in later
 
-        for n, t in schemaFromDB.items():
-            get(ColumnName(n), n, t, False)
+        if columns is not None:
+            for n, t in schemaFromDB.items():
+                get(ColumnName(n), n, t, False)
 
-        for c in columns.values():
-            print c.data, c.size, apiDataset.column(c.apidata).descriptor.size_column
-        
-        # apiColumns = [apiDataset.column(c2) for c1, c2 in columnNames]
-        # for n, a, c in zip(columnNames, apiNames, apiColumns):
-        #     print n, a, c.descriptor
+            striped_columns = []
+            for c in ldrdcolumns.values():
+                striped_columns.append(apiDataset.column(c.apidata))
+                desc = striped_columns[-1].descriptor
+                c.dataType = str(numpy.dtype(desc.ConvertToNPType))
+                c.apisize = desc.SizeColumn
 
+            rgids = apiDataset.rgids
+            assert set(rgids) == set(range(len(rgids)))
+            
+            rginfos = apiDataset.rginfo(rgids)
+            relevant = dict((x["RGID"], x) for x in rginfos if x["RGID"] in groups)
 
+            if len(striped_columns) > 0:
+                stripe_sizes = apiDataset.stripeSizes(striped_columns, rgids)
+            else:
+                stripe_sizes = []
+
+            ldrdgroups = []
+            for groupid in groups:
+                rginfo = relevant[groupid]
+                segments = {}
+                for c in ldrdcolumns.values():
+                    segments[c.data] = LDRDSegment(rginfo["NEvents"], stripe_sizes[c.apidata][groupid], rginfo["NEvents"])
+                    
+                ldrdgroups.append(LDRDGroup(groupid, segments, rginfo["NEvents"], self.urlhead, name))
 
         return LDRDDataset(name,
                            schemaFromDB if schema else None,
-                           {},
-                           [],
-                           0,
-                           0)
-
-# def toStripedColumnName(cname):
-#     return str(cname).replace(cname.colltag,"").replace(cname.sizetag, ".@size")
-
-# def fromStripedColumnName(cname, parent):
-#     assert parent is None or cname == parent or cname.startswith(parent + ".")
-#     path = cname.split(".")
-#     if parent:
-#         parent_path = parent.split(".")
-#         l = len(parent_path)
-#         path = path[:l] + [self.colltag] + path[l:]
-#     if path[-1] == "@size":
-#         path[-1] = self.sizetag
-#     return Column(path)
-
-# def getMetadata(client, dataset, canonic_column_names, rgids):
-#     #
-#     # client - StripedClient object
-#     # dataset - dataset name, string
-#     # canonic_column_names - list of ColumnName objects - assumes only data columns are here
-#     # rgids - list of integer rgid's
-#     #
-#     # returns Dataset object
-#     #
-#     assert not any((c.issize() for c in canonic_column_names)), "Only data columns accepted"
-#     column_name_map = dict((toStripedColumnName(x), x) for x in canonic_column_names)
-#     column_names = column_name_map.keys()
-#     ds = StripedDataset(client, dataset)
-#     striped_columns = [ds.column(cn) for cn in column_names]
-#     stripe_sizes = ds.stripeSizes(striped_columns, rgids)
-#     columns = {}
-#     for c in striped_columns:
-#         desc = c.descriptor
-#         ccn = column_name_map[cn]
-#         columns[ccn] = Column(ccn, ccn+ColumnName.sizetag, np.dtype(desc.ConvertToNPType)) 
-#     gropus = []
-#     rginfo_lst = ds.rginfo(rgids)
-#     total_events = 0
-#     for rginfo in rginfo_lst:
-#         segments = {}
-#         rgid = rginfo["RGID"]
-#         for cn in column_names:
-#             ccn = column_name_map[cn]
-#             segments[ccn] = Segment(rginfo["NEvents"], stripe_sizes[cn][rgid], rginfo["NEvents"]) # or None for sizeLength for depth=0
-#         groups.append(Group(rgid, segments, rginfo["NEvents"]))
-#         total_events += rginfo["NEvents"]
-#     return Dataset(dataset, client.datasetSchema(dataset), columns, groups, total_events, len(rgids))
-
+                           ldrdcolumns,
+                           ldrdgroups,
+                           sum(x["NEvents"] for x in rginfos),
+                           len(rgids))
