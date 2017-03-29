@@ -611,12 +611,12 @@ class ReturnPythonDataset(Aggregation):
             self.segs = segs
 
         def toJson(self):
-            return {"segs": dict((k, v.toJson()) for k, v in self.segs.items())}
+            return {"segs": dict((str(k), v.toJson()) for k, v in self.segs.items())}
 
         @staticmethod
         def fromJson(obj):
             from femtocode.testdataset import TestSegment
-            return ReturnPythonDataset.Segments(dict((k, TestSegment.fromJson(v)) for k, v in obj["segs"].items()))
+            return ReturnPythonDataset.Segments(dict((ColumnName.parse(k), TestSegment.fromJson(v)) for k, v in obj["segs"].items()))
 
     def tallyFromJson(self, obj):
         from femtocode.testdataset import TestDataset
