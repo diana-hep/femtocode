@@ -158,8 +158,8 @@ class NotLast(object):
     def define(self, **namesToCode):
         return Define(self, **namesToCode)
 
-    def toPython(self, datasetName, **namesToCode):
-        return ToPython(self, datasetName, **namesToCode)
+    def toPython(self, **namesToCode):
+        return ToPython(self, **namesToCode)
 
 ############### Source, Intermediate, and Goal are the three types of Workflow transformation
 
@@ -219,9 +219,8 @@ class Define(Intermediate):
 ############### Goals
 
 class ToPython(Goal):
-    def __init__(self, source, datasetName, **namesToExprs):
+    def __init__(self, source, **namesToExprs):
         super(ToPython, self).__init__(source)
-        self.datasetName = datasetName
         self.namesToExprs = namesToExprs
 
     def propagate(self, symbolTable, typeTable, preactions):
@@ -230,5 +229,5 @@ class ToPython(Goal):
             lt, tt = self._compileInScope(self.namesToExprs[name], symbolTable, typeTable)
             namesToTypedTrees.append((name, tt))
 
-        preactions = preactions + (statementlist.ReturnPythonDataset.Pre(self.datasetName, namesToTypedTrees),)
+        preactions = preactions + (statementlist.ReturnPythonDataset.Pre("Entry", namesToTypedTrees),)
         return symbolTable, typeTable, preactions
