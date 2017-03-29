@@ -58,12 +58,15 @@ class WorkItem(object):
             column = ColumnName.parse(column)
 
         if column.issize():
-            return self.group.numEvents * numpy.dtype(sizeType).itemsize
+            return self.group.numEntries * numpy.dtype(sizeType).itemsize
         else:
             return self.group.segments[column].dataLength * self.columnDtype(column).itemsize
 
     def columnDtype(self, column):
-        return numpy.dtype(self.executor.query.dataset.columns[column].dataType)
+        if column.issize():
+            return numpy.dtype(sizeType)
+        else:
+            return numpy.dtype(self.executor.query.dataset.columns[column].dataType)
 
     def attachOccupant(self, occupant):
         self.occupants.append(occupant)

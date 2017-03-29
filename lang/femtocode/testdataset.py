@@ -138,6 +138,39 @@ class TestDataset(Dataset):
         return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
 
     @staticmethod
+    def makeColumns(name, schema, hasSize=False):
+        if isinstance(schema, Null):
+            raise NotImplementedError
+
+        elif isinstance(schema, (Boolean, Number)):
+            if isinstance(schema, Boolean):
+                dataType = "bool"
+            elif schema.whole:
+                dataType = "int"
+            else:
+                dataType = "float"
+
+            return {name: TestColumn(name, name.size() if hasSize else None, dataType)}
+
+        elif isinstance(schema, String):
+            raise NotImplementedError
+
+        elif isinstance(schema, Collection):
+            return TestDataset.makeColumns(name.coll(), schema.items, True)
+
+        elif isinstance(schema, Record):
+            out = {}
+            for fn, ft in schema.fields.items():
+                out.update(TestDataset.makeColumns(name.rec(fn), ft, hasSize))
+            return out
+
+        elif isinstance(schema, Union):
+            raise NotImplementedError
+
+        else:
+            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
+        
+    @staticmethod
     def fromSchema(name, asdict=None, **askwds):
         if asdict is None:
             schema = {}
@@ -146,38 +179,8 @@ class TestDataset(Dataset):
         schema.update(askwds)
 
         columns = {}
-        def getcolumns(n, t, hasSize):
-            if isinstance(t, Null):
-                raise NotImplementedError
-
-            elif isinstance(t, (Boolean, Number)):
-                if isinstance(t, Boolean):
-                    dataType = "bool"
-                elif t.whole:
-                    dataType = "int"
-                else:
-                    dataType = "float"
-
-                columns[n] = TestColumn(n, n.size() if hasSize else None, dataType)
-
-            elif isinstance(t, String):
-                raise NotImplementedError
-
-            elif isinstance(t, Collection):
-                getcolumns(n.coll(), t.items, True)
-
-            elif isinstance(t, Record):
-                for fn, ft in t.fields.items():
-                    getcolumns(n.rec(fn), ft, hasSize)
-
-            elif isinstance(t, Union):
-                raise NotImplementedError
-
-            else:
-                assert False, "unexpected type: {0} {1}".format(type(t), t)
-
         for n, t in schema.items():
-            getcolumns(ColumnName(n), t, False)
+            columns.update(TestDataset.makeColumns(ColumnName(n), t, False))
 
         out = TestDataset(name, schema, columns, [], 0, 0)
         for n, c in out.columns.items():

@@ -73,6 +73,18 @@ class CacheOccupant(object):
             self.filledBytes += numBytes
         return numBytes
 
+    def setfilled(self, value, absolute=True):
+        with self.lock:
+            if not absolute:
+                value = roundup(value * self.totalBytes)
+            self.filledBytes = max(0, min(self.totalBytes, value))
+
+    def addtofilled(self, value, absolute=True):
+        with self.lock:
+            if not absolute:
+                value = roundup(value * self.totalBytes)
+            self.filledBytes = max(0, min(self.totalBytes, self.filledBytes + value))
+
     def ready(self):
         with self.lock:
             return self.filledBytes == self.totalBytes

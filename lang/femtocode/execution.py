@@ -140,7 +140,12 @@ class DependencyGraph(object):
         targetsToEndpoints = {}
         for action in query.actions:
             for target in action.columns():
-                targetsToEndpoints[target] = DependencyGraph(target, query, lookup, required)
+                if target.issize() and target.dropsize() in query.dataset.columns:
+                    required.add(target)
+                elif target in query.dataset.columns:
+                    required.add(target)
+                else:
+                    targetsToEndpoints[target] = DependencyGraph(target, query, lookup, required)
         return targetsToEndpoints, lookup, required
 
     @staticmethod
@@ -357,11 +362,11 @@ class ExecutionFailure(Serializable):
 
     def reraise(self):
         if isinstance(self.exception, string_types):
-            out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(self.exception, self.traceback)
+            out = "Server raised: {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(self.exception, self.traceback)
             raise RuntimeError(out)
 
         elif isinstance(self.traceback, string_types):
-            out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(self.exception), self.traceback)
+            out = "Server raised: {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(self.exception), self.traceback)
             raise RuntimeError(out)
 
         else:
@@ -470,7 +475,15 @@ class Executor(Serializable):
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
-                imax = self.imax([group.numEntries if loop.size is None else lengths[loop.size]])
+
+                if loop.size is None:
+                    imax = [group.numEntries]
+                elif loop.size.dropsize() in group.segments:
+                    imax = [group.segments[loop.size.dropsize()].dataLength]
+                else:
+                    imax = [lengths[loop.size.dropsize()]]
+                imax = self.imax(imax)  # format it properly
+
                 args = [arrays[x] for x in loop.params() + loop.targets]
                 loop.run(*([imax] + args))
 
@@ -483,7 +496,7 @@ class Executor(Serializable):
     def run(self, inarrays, group):
         lengths = {}
         for data, size in self.temporaries:
-            if size is not None:
+            if size is not None and size not in inarrays:
                 lengths[size] = self.length(size, None, group, None)
 
         sizearrays = self.sizearrays(group, inarrays)

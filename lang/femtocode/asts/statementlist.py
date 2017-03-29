@@ -676,8 +676,19 @@ class ReturnPythonDataset(Aggregation):
         segments = {}
         for n, ref in self.namesToRefs:
             numEntries = group.numEntries
-            dataLength = lengths[ref.data]
-            sizeLength = None if ref.size is None else lengths[ref.size]
+
+            if ref.data in group.segments:
+                dataLength = group.segments[ref.data].dataLength
+            else:
+                dataLength = lengths[ref.data]
+            
+            if ref.size is None:
+                sizeLength = None
+            elif ref.size.dropsize() in group.segments:
+                sizeLength = group.segments[ref.size.dropsize()].sizeLength
+            else:
+                sizeLength = lengths[ref.size]
+
             data = arrays[ref.data]
             size = None if ref.size is None else arrays[ref.size]
 
@@ -686,6 +697,6 @@ class ReturnPythonDataset(Aggregation):
             if size is not None and not isinstance(size, list):
                 size = size.tolist()   # because it's Numpy
 
-            segments[n] = TestSegment(numEntries, dataLength, sizeLength, data, size)
+            segments[ColumnName.parse(n)] = TestSegment(numEntries, dataLength, sizeLength, data, size)
 
         return ReturnPythonDataset.Segments(segments)

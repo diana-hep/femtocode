@@ -129,24 +129,24 @@ class StandaloneSession(object):
 
 ########################################### TODO: temporary!
 
-# if __name__ == "__main__":
-#     session = StandaloneSession()
-#     session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
-
-#     def callback(outputdataset):
-#         print outputdataset, len(list(outputdataset))
-
-#     result = session.source("xy").define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
-
-#     for event in result.await():
-#         print event
-
 if __name__ == "__main__":
-    from femtocode.ldrdio.dataset import MetadataFromLDRD
+    session = StandaloneSession()
+    session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
-    session = StandaloneSession(metadata = MetadataFromLDRD("http://dbdata0vm.fnal.gov:9091/striped/app"))
+    def callback(outputdataset):
+        print outputdataset, len(list(outputdataset))
 
-    result = session.source("ZZ_13TeV_pythia8").toPython("Test", silly = "Muon.map(m => m.pt + 3.14)").submit()
+    result = session.source("xy").define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit()
 
     for event in result.await():
         print event
+
+# if __name__ == "__main__":
+#     from femtocode.ldrdio.dataset import MetadataFromLDRD
+
+#     session = StandaloneSession(numMinions = 1, metadata = MetadataFromLDRD("http://dbdata0vm.fnal.gov:9091/striped/app"))
+
+#     result = session.source("ZZ_13TeV_pythia8").toPython("Test", silly = "Muon.map(m => m.pt + 3.14)").submit()
+
+#     for event in result.await():
+#         print event
