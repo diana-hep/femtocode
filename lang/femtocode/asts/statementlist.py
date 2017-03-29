@@ -259,7 +259,7 @@ class Ref(Statement):
         return hash(("statementlist.Ref", self.name, self.schema, self.data, self.size))
 
     def columnNames(self):
-        return [self.name, self.data] + [] if self.size is None else [self.size]
+        return [self.name, self.data] + ([] if self.size is None else [self.size])
 
 class Literal(Statement):
     def __init__(self, value, schema):
@@ -337,7 +337,7 @@ class Call(Statement):
         return hash(("statementlist.Call", self.column, self.schema, self.tosize, self.fcnname, self.args))
 
     def columnNames(self):
-        return [self.column] + list(self.args) + [] if self.tosize is None else [self.tosize]
+        return [self.column] + list(self.args) + ([] if self.tosize is None else [self.tosize])
 
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
