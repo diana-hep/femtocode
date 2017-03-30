@@ -38,9 +38,9 @@ from femtocode.execution import ExecutionFailure
 #################################################################### HTTP for public APIs and internal
 
 class AssignExecutor(object):
-    def __init__(self, executor, uniqueid, groupids):
+    def __init__(self, executor, groupidToUniqueid, groupids):
         self.executor = executor
-        self.uniqueid = uniqueid
+        self.groupidToUniqueid = groupidToUniqueid
         self.groupids = groupids
 
 class CancelQuery(object):

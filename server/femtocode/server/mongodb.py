@@ -26,23 +26,24 @@ import femtocode.asts.statementlist as statementlist
 
 class ComputationStatus(Serializable):
     @staticmethod
-    def empty(query, groupid):
+    def empty(uniqueQuery, groupid):
         now = datetime.utcnow()
-        return ComputationStatus(query, groupid, False, None, now, now)
+        return ComputationStatus(uniqueQuery, groupid, False, 0.0, None, now, now)
 
-    def __init__(self, query, groupid, loaded, result, lastAccess, lastUpdate):
-        self.query = query
+    def __init__(self, uniqueQuery, groupid, loaded, computeTime, result, lastAccess, lastUpdate):
+        self.uniqueQuery = uniqueQuery
         self.groupid = groupid
         self.loaded = loaded
+        self.computeTime = computeTime
         self.result = result
         self.lastAccess = lastAccess
         self.lastUpdate = lastUpdate
 
     def toJson(self):
-        return {"queryid": self.query.id,
-                "query": self.query.stripToName().toJson(),
+        return {"uniqueQuery": self.uniqueQuery,
                 "groupid": self.groupid,
                 "loaded": self.loaded,
+                "computeTime": self.computeTime,
                 "result": None if self.result is None else self.result.toJson(),
                 "lastAccess": self.lastAccess,
                 "lastUpdate": self.lastUpdate}
@@ -50,13 +51,7 @@ class ComputationStatus(Serializable):
     @staticmethod
     def fromJson(obj, action):
         assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["queryid", "query", "groupid", "loaded", "result", "lastAccess", "lastUpdate"])
-
-        query = Query.fromJson(obj["query"])
-        assert query.id == obj["queryid"]
-
-        action = query.actions[-1]
-        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
+        assert set(obj.keys()).difference(set(["_id"])) == set(["uniqueQuery", "groupid", "loaded", "computeTime", "result", "lastAccess", "lastUpdate"])
 
         if obj["result"] is None:
             result = None
@@ -65,164 +60,105 @@ class ComputationStatus(Serializable):
         else:
             result = action.tallyFromJson(obj["result"])
 
-        return ComputationStatus(query, obj["groupid"], obj["loaded"], result, obj["lastAccess"], obj["lastUpdate"])
+        return ComputationStatus(obj["uniqueQuery"], obj["groupid"], obj["loaded"], obj["computeTime"], result, obj["lastAccess"], obj["lastUpdate"])
 
 class ComputationStatuses(object):
-    def __init__(self, statuses):
-        self.statuses = statuses
+    def __init__(self, uniqueidToStatus):
+        self.uniqueidToStatus = uniqueidToStatus
 
     def groupidToUniqueid(self):
-        return dict((status.groupid, uniqueid) for uniqueid, status in self.statuses.items())
+        return dict((status.groupid, uniqueid) for uniqueid, status in self.uniqueidToStatus.items())
 
-    def uniqueidToGroupid(self):
-        return dict((uniqueid, status.groupid) for uniqueid, status in self.statuses.items())
+    def missingGroupids(self):
+        return sorted(x.groupid for x in self.uniqueidToStatus.values() if x.result is None)
 
     def loaded(self):
-        return dict((x.groupid, x.loaded) for x in self.statuses.values())
+        return sum(1 for x in self.uniqueidToStatus.values() if x.loaded)
 
-    def result(self):
-        return dict((x.groupid, x.result) for x in self.statuses.values())
+    def computed(self):
+        return sum(1 for x in self.uniqueidToStatus.values() if x.result is not None and not isinstance(x.result, ExecutionFailure))
+
+    def computeTime(self):
+        return sum(x.computeTime for x in self.uniqueidToStatus.values())
+
+    def results(self):
+        return [x.result for x in self.uniqueidToStatus.values() if x.result is not None and not isinstance(x.result, ExecutionFailure)]
 
     def failure(self):
-        for status in self.statuses.values():
+        for status in self.uniqueidToStatus.values():
             if isinstance(status.result, ExecutionFailure):
                 return status.result
         return None
 
     def lastAccess(self):
-        return max(x.lastAccess for x in self.statuses.values())
+        return max(x.lastAccess for x in self.uniqueidToStatus.values())
 
     def lastUpdate(self):
-        return max(x.lastUpdate for x in self.statuses.values())
+        return max(x.lastUpdate for x in self.uniqueidToStatus.values())
 
 class ResultStore(object):
-    def __init__(self, mongourl, database, collection, timeout):
+    def __init__(self, mongourl, database, queries, groups, timeout):
         self.client = MongoClient(mongourl, socketTImeoutMS=roundup(timeout * 1000))
         self.client.server_info()
-        self.collection = self.client[database][collection]
-
-    def get(self, query, numGroups):
-        now = datetime.utcnow()
-
-        out = {}
-        for obj in self.collection.find({"queryid": query.id}):
-            if obj["query"] == query:
-                out[obj["_id"]] = ComputationStatus.fromJson(obj)
-                self.collection.update({"_id": obj["_id"], {"$set": {"lastAccess": now}}})
-
-        groupids = set(x.groupid for x in out.values())
-
-        # make sure there's a ComputationStatus for every groupid
-        for groupid in range(numGroups):
-            if groupid not in groupids:
-                empty = ComputationStatus.empty(query, groupid)
-                uniqueid = self.collection.insert({empty.toJson()})
-                out[uniqueid] = empty
-
-        return ComputationStatuses(out)
-
-
-
-
-
-
-# class ComputeResult(Serializable):
-#     def __init__(self, groupid, computeTime, subtally):
-#         self.groupid = groupid
-#         self.computeTime = computeTime
-#         self.subtally = subtally
-
-#     def toJson(self):
-#         return {"groupid": self.groupid,
-#                 "computeTime": self.computeTime,
-#                 "subtally": self.subtally.toJson()}
-
-#     @staticmethod
-#     def fromJson(obj, action):
-#         assert isinstance(obj, dict)
-#         assert set(obj.keys()).difference(set(["_id"])) == set(["groupid", "computeTime", "subtally"])
-#         return ComputeResult(obj["groupid"],
-#                              obj["computeTime"],
-#                              action.tallyFromJson(obj["subtally"]))
-
-# class WholeData(Serializable):
-#     @staticmethod
-#     def empty(query):
-#         return WholeData(query, [], [], None, datetime.utcnow(), datetime.utcnow())
-
-#     def __init__(self, query, loaded, computeResults, failure, lastAccess, lastUpdate):
-#         self.query = query
-#         self.loaded = loaded
-#         self.computeResults = computeResults
-#         self.failure = None
-#         self.lastAccess = lastAccess
-#         self.lastUpdate = lastUpdate
-
-#     def toJson(self):
-#         return {"queryid": self.query.id,
-#                 "query": self.query.stripToName().toJson(),
-#                 "loaded": self.loaded,
-#                 "computeResults": [x.toJson() for x in self.computeResults],
-#                 "failure": None if self.failure is None else self.failure.toJson(),
-#                 "lastAccess": self.lastAccess,
-#                 "lastUpdate": self.lastUpdate}
-
-#     @staticmethod
-#     def fromJson(obj):
-#         assert isinstance(obj, dict)
-#         assert set(obj.keys()).difference(set(["_id"])) == set(["queryid", "query", "loaded", "computeResults", "failure", "lastAccess", "lastUpdate"])
-#         query = Query.fromJson(obj["query"])
-#         assert query.id == obj["queryid"]
-
-#         action = query.actions[-1]
-#         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
-
-#         computeResults = [ComputeResult.fromJson(x, action) for x in obj["computeResults"]]
-#         failure = None if obj["failure"] is None else ExecutionFailure.fromJson(obj["failure"])
-
-#         return WholeData(query, obj["loaded"], computeResults, failure, obj["lastAccess"], obj["lastUpdate"])
-
-class ResultStore(object):
-    def __init__(self, mongourl, database, collection, timeout):
-        self.client = MongoClient(mongourl, socketTimeoutMS=roundup(timeout * 1000))
-        self.client.server_info()
-        self.collection = self.client[database][collection]
+        self.queries = self.client[database][queries]
+        self.groups = self.client[database][groups]
 
     def get(self, query):
-        # returns a WholeData and a uniqueid (or None, None)
-        for obj in self.collection.find({"queryid": query.id}):
-            wholeData = WholeData.fromJson(obj)
-            if wholeData.query == query:
-                self.collection.update({"_id": obj["_id"]}, {"$set": {"lastAccess": datetime.utcnow()}})
-                return wholeData, obj["_id"]
-        return None, None
+        # see if this query exists in the queries collection
+        stripped = query.stripToName()
+        uniqueQuery = None
+        for obj in self.queries.find({"queryid": query.id}):
+            if Query.fromJson(obj["query"]) == stripped:
+                uniqueQuery = obj["_id"]
 
-    def create(self, wholeData):
-        # returns the uniqueid
-        return self.collection.insert(wholeData.toJson())
-
-    def clearload(self, uniqueid):
+        # if it doesn't, add it; if it does, update its lastAccess
         now = datetime.utcnow()
-        self.collection.update({"_id": uniqueid}, {"$set": {"loaded": [], "lastAccess": now, "lastUpdate": now}})
+        if uniqueQuery is None:
+            uniqueQuery = self.queries.insert({"queryid": query.id, "query": stripped.toJson(), "created": now, "lastAccess": now})
+        else:
+            self.queries.update({"_id": uniqueQuery}, {"$set": {"lastAccess": now}})
 
-    def clearfailure(self, uniqueid):
-        now = datetime.utcnow()
-        self.collection.update({"_id": uniqueid}, {"$set": {"failure": None, "lastAccess": now, "lastUpdate": now}})
-        
-    def pushload(self, uniqueid, groupid):
-        now = datetime.utcnow()
-        self.collection.update({"_id": uniqueid}, {"$push": {"loaded": groupid}, "$set": {"lastAccess": now, "lastUpdate": now}})
+        # we'll need the action to interpret the ComputationStatus JSON
+        action = query.actions[-1]
+        assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
-    def pushcompute(self, uniqueid, computeResult):
-        now = datetime.utcnow()
-        self.collection.update({"_id": uniqueid}, {"$push": {"computeResults": computeResult.toJson()}, "$set": {"lastAccess": now, "lastUpdate": now}})
+        # read in all the ComputationStatuses that already exist
+        uniqueidToStatus = {}
+        for obj in self.groups.find({"uniqueQuery": uniqueQuery}):
+            uniqueidToStatus[obj["_id"]] = ComputationStatus.fromJson(obj, action)
 
-    def setfailure(self, uniqueid, failure):
-        now = datetime.utcnow()
-        self.collection.update({"_id": uniqueid, "failure": None}, {"$set": {"failure": failure.toJson(), "lastAccess": now, "lastUpdate": now}})
+        # update their lastAccess en masse
+        self.groups.update({"uniqueQuery": uniqueQuery}, {"$set": {"lastAccess": datetime.utcnow()}})
 
-    def removeold(self, cutoffdate):
-        self.collection.remove({"lastAccess": {"$lt": cutoffdate}})
+        # identify which groups have ComputationStatuses
+        found = set(x.groupid for x in uniqueidToStatus.values())
+
+        # for the ones that don't (usually everything or nothing), create them
+        for groupid in range(query.dataset.numGroups):
+            if groupid not in found:
+                empty = ComputationStatus.empty(uniqueQuery, groupid)
+                uniqueid = self.groups.insert(empty.toJson())
+                uniqueidToStatus[uniqueid] = empty
+
+        return ComputationStatuses(uniqueidToStatus)
+
+    def setload(self, uniqueid):
+        # set loaded to True and update lastAccess/lastUpdate
+        now = datetime.utcnow()
+        self.groups.update({"_id": uniqueid}, {"$set": {"loaded": True, "lastAccess": now, "lastUpdate": now}})
+
+    def setresult(self, uniqueid, computeTime, result):
+        # set the computeTime and result and update lastAccess/lastUpdate
+        now = datetime.utcnow()
+        self.groups.update({"_id": uniqueid}, {"$set": {"computeTime": computeTime, "result": result.toJson(), "lastAccess": now, "lastUpdate": now}})
+
+    def removeOldQueries(self, threshold):
+        # clear documents from the queries collection if they are strictly older than threshold
+        self.queries.remove({"lastAccess": {"$lt": threshold}})
+
+    def removeOldGroups(self, threshold):
+        # clear documents from the groups (ComputationStatuses) collection if they are strictly older than threshold
+        self.groups.remove({"lastAccess": {"$lt": threshold}})
 
 class MetadataFromMongoDB(object):
     def __init__(self, mongourl, database, collection, timeout):

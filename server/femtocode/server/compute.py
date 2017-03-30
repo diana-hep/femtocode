@@ -78,29 +78,29 @@ class InProgress(object):
 
 class NativeDistribExecutor(NativeExecutor):
     @staticmethod
-    def convert(executor, uniqueid, inprogress, store):
+    def convert(executor, groupidToUniqueid, inprogress, store):
         executor.__class__ = NativeDistribExecutor
-        executor.uniqueid = uniqueid
+        executor.groupidToUniqueid = groupidToUniqueid
         executor.inprogress = inprogress
         executor.store = store
         
-    def __init__(self, query, uniqueid, inprogress, store):
+    def __init__(self, query, groupidToUniqueid, inprogress, store):
         super(NativeDistribExecutor, self).__init__(query)
-        self.uniqueid = uniqueid
+        self.groupidToUniqueid = groupidToUniqueid
         self.inprogress = inprogress
         self.store = store
 
     def oneLoadDone(self, groupid):
-        self.store.pushload(self.uniqueid, groupid)
+        self.store.setload(self.groupidToUniqueid[groupid])
 
     def oneComputeDone(self, groupid, computeTime, subtally):
         self.inprogress.remove(self, groupid)
-        self.store.pushcompute(self.uniqueid, ComputeResult(groupid, computeTime, subtally))
+        self.store.setresult(self.groupidToUniqueid[groupid], computeTime, subtally)
 
     def oneFailure(self, failure):
         self.query.cancelled = True
         self.inprogress.remove(self, groupid)
-        self.store.setfailure(self.uniqueid, failure)
+        self.store.setresult(self.groupidToUniqueid[groupid], 0.0, failure)
 
 class Compute(HTTPServer):
     def __init__(self, metadb, cacheMaster, store):
@@ -118,7 +118,7 @@ class Compute(HTTPServer):
 
             elif isinstance(message, AssignExecutor):
                 # turn the NativeExecutor into a NativeDistribExecutor (in place)
-                NativeDistribExecutor.convert(message.executor, message.uniqueid, self.inprogress, self.store)
+                NativeDistribExecutor.convert(message.executor, message.groupidToUniqueid, self.inprogress, self.store)
                 message.executor.query.lock = threading.Lock()
 
                 # either start a new executor or add the new groups to an already-running one
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     cacheMaster = CacheMaster(NeedWantCache(1024**3), [minion])
     cacheMaster.start()
 
-    store = ResultStore("mongodb://localhost:27017", "store", "results", 1.0)
+    store = ResultStore("mongodb://localhost:27017", "store", "queries", "groups", 1.0)
 
     server = Compute(metadb, cacheMaster, store)
     server.start("", 8081)
