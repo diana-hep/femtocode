@@ -36,14 +36,17 @@ class Watchman(threading.Thread):
 
         self.lock = threading.Lock()
         self.survivors = set(minions)
+        self.lastErrorByMinion = {}
         self.lastError = None
         self.daemon = True
 
-    def seterror(self, err):
+    def seterror(self, err, minion):
         if isinstance(err, HTTPError):
             self.lastError = ExecutionFailure(err, err.read())
         else:
-            self.lastError = ExecutionFailure(err, sys.exc_info()[2])
+            self.lastError = ExecutionFailure(err, "".join(traceback.format_exception(err.__class__, err, sys.exc_info()[2])))
+
+        self.lastErrorByMinion[minion] = self.lastError
 
     def declaredead(self, minion):
         self.survivors.discard(minion)
@@ -59,7 +62,7 @@ class Watchman(threading.Thread):
                 try:
                     sendpickle(minion, None, self.deadthreshold)
                 except Exception as err:
-                    self.seterror(err)
+                    self.seterror(err, minion)
                     self.declaredead(minion)
                 else:
                     self.declarelive(minion)
@@ -91,7 +94,7 @@ class Watchman(threading.Thread):
                     sendpickle(minion, AssignExecutor(executor, subg2u, subset), self.deadthreshold)
 
                 except Exception as err:
-                    self.seterror(err)
+                    self.seterror(err, minion)
                     dead.append(minion)
                     unassigned.extend(subset)
                 
@@ -112,7 +115,7 @@ class Watchman(threading.Thread):
                 try:
                     sendpickle(minion, CancelQuery(query), self.deadthreshold)
                 except Exception as err:
-                    self.seterror(err)
+                    self.seterror(err, minion)
                     self.declaredead(minion)
                 else:
                     self.declarelive(minion)
