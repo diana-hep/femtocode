@@ -19,14 +19,14 @@ import re
 import sys
 import unittest
 
+from femtocode.asts import lispytree
+from femtocode.asts import statementlist
+from femtocode.asts import typedtree
 from femtocode.dataset import *
 from femtocode.defs import SymbolTable
 from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.typesystem import *
-import femtocode.asts.lispytree as lispytree
-import femtocode.asts.statementlist as statementlist
-import femtocode.asts.typedtree as typedtree
 
 # dataset = MetadataFromJson(Dataset, "/home/pivarski/diana/femtocode/tests").dataset("MuOnia")
 

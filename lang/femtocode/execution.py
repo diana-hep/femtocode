@@ -16,19 +16,19 @@
 
 import ast
 import base64
+import importlib
 import marshal
 import sys
-import types
-import importlib
 import traceback
+import types
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.lib.standard import table
 from femtocode.py23 import *
-from femtocode.util import *
 from femtocode.typesystem import *
+from femtocode.util import *
 from femtocode.workflow import Query
 
 class Loop(Serializable):

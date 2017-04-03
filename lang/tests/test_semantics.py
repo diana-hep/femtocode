@@ -19,20 +19,15 @@ import re
 import sys
 import unittest
 
-import femtocode.asts.lispytree as lispytree
-import femtocode.asts.typedtree as typedtree
-import femtocode.asts.statementlist as statementlist
+from femtocode.asts import lispytree
+from femtocode.asts import statementlist
+from femtocode.asts import typedtree
 from femtocode.defs import SymbolTable
+from femtocode.inference import *
 from femtocode.lib.standard import table
 from femtocode.parser import parse
+from femtocode.py23 import *
 from femtocode.typesystem import *
-from femtocode.inference import *
-
-import sys
-
-if sys.version_info.major >= 3:
-    long = int
-    basestring = str
 
 class TestSemantics(unittest.TestCase):
     def runTest(self):

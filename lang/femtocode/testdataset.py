@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import threading
 from collections import namedtuple
+import threading
 
-import femtocode.asts.statementlist as statementlist
+from femtocode.asts import statementlist
 from femtocode.dataset import *
 from femtocode.defs import *
+from femtocode.execution import Executor
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.workflow import Source
-from femtocode.execution import Executor
 
 class TestSegment(Segment):
     def __init__(self, numEntries, dataLength, sizeLength, data, size):

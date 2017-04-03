@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from collections import namedtuple
+import unittest
 
-from femtocode.typesystem import *
 from femtocode.inference import *
+from femtocode.typesystem import *
 
 class TestInference(unittest.TestCase):
     def runTest(self):

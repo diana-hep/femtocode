@@ -18,13 +18,13 @@ import ast
 import json
 import sys
 
-from femtocode import inference
 from femtocode.asts import lispytree
-from femtocode.asts import typedtree
 from femtocode.asts import statementlist
+from femtocode.asts import typedtree
 from femtocode.defs import *
-from femtocode.util import *
+from femtocode import inference
 from femtocode.typesystem import *
+from femtocode.util import *
 
 table = SymbolTable()
 

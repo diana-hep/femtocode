@@ -20,6 +20,9 @@ import re
 import sys
 import unittest
 
+from femtocode.asts import lispytree
+from femtocode.asts import statementlist
+from femtocode.asts import typedtree
 from femtocode.defs import SymbolTable
 from femtocode.execution import Executor
 from femtocode.lib.standard import table
@@ -28,9 +31,6 @@ from femtocode.testdataset import TestDataset
 from femtocode.testdataset import TestSession
 from femtocode.typesystem import *
 from femtocode.workflow import *
-import femtocode.asts.lispytree as lispytree
-import femtocode.asts.statementlist as statementlist
-import femtocode.asts.typedtree as typedtree
 
 session = TestSession()
 

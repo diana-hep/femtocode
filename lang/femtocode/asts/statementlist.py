@@ -15,15 +15,15 @@
 # limitations under the License.
 
 import ast
-import re
 import json
+import re
 import sys
 
-import femtocode.asts.typedtree as typedtree
+from femtocode.asts import typedtree
+from femtocode.dataset import *
 from femtocode.defs import *
 from femtocode.py23 import *
 from femtocode.typesystem import *
-from femtocode.dataset import *
 from femtocode.util import *
 
 class Statement(Serializable):

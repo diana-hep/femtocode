@@ -16,8 +16,8 @@
 
 import json
 import socket
-import time
 import threading
+import time
 try:
     from urllib2 import urlparse, urlopen, HTTPError
 except ImportError:
@@ -25,11 +25,11 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 
-import femtocode.asts.statementlist as statementlist
+from femtocode.asts import statementlist
 from femtocode.dataset import Dataset
-from femtocode.workflow import Source
 from femtocode.execution import ExecutionFailure
 from femtocode.util import *
+from femtocode.workflow import Source
 
 class Result(Serializable):
     def __init__(self, loadsDone, computesDone, done, computeTime, lastUpdate, data):

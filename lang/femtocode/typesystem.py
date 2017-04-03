@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import json
 import math
 import re
+import sys
 
-from femtocode.parser import t_NAME
 from femtocode.defs import FemtocodeError
+from femtocode.parser import t_NAME
 from femtocode.py23 import *
 from femtocode.util import *
 

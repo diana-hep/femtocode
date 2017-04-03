@@ -19,14 +19,9 @@ import re
 import sys
 import unittest
 
-from femtocode.parser import parse
 from femtocode.asts.parsingtree import *
-
-import sys
-
-if sys.version_info.major >= 3:
-    long = int
-    basestring = str
+from femtocode.parser import parse
+from femtocode.py23 import *
 
 class TestSyntax(unittest.TestCase):
     def runTest(self):

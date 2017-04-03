@@ -18,17 +18,17 @@ import importlib
 import json
 import threading
 
+from femtocode.asts import lispytree
+from femtocode.asts import statementlist
+from femtocode.asts import typedtree
 from femtocode.dataset import Dataset
 from femtocode.defs import *
+from femtocode import parser
+from femtocode.lib import standard
 from femtocode.py23 import *
 from femtocode.typesystem import *
-from femtocode.version import version
 from femtocode.util import *
-import femtocode.asts.lispytree as lispytree
-import femtocode.asts.statementlist as statementlist
-import femtocode.asts.typedtree as typedtree
-import femtocode.lib.standard as standard
-import femtocode.parser as parser
+from femtocode.version import version
 
 class Query(Serializable):
     def __init__(self, dataset, statements, actions, cancelled):
