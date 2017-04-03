@@ -113,13 +113,13 @@ class StandaloneSession(object):
     def source(self, name):
         return Source(self, self.metadata.dataset(name).strip())
 
-    def submit(self, query, ondone=None, onupdate=None):
+    def submit(self, query, ondone=None, onupdate=None, debug=False):
         # attach a more detailed Dataset to the query (same content, but with runtime details)
         query.dataset = self.metadata.dataset(query.dataset.name, list(xrange(query.dataset.numGroups)), query.statements.columnNames(), False)
 
         # create an executor with a reference to the FutureQueryResult we will return to the user
         query.lock = threading.Lock()
-        executor = NativeAsyncExecutor(query, FutureQueryResult(query, ondone, onupdate))
+        executor = NativeAsyncExecutor(query, FutureQueryResult(query, ondone, onupdate), debug)
 
         # queue it up
         self.cacheMaster.incoming.put(executor)

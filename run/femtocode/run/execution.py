@@ -42,8 +42,8 @@ PyObjectPtr = ctypes.POINTER(PyObject)
 
 class NativeCompiler(Compiler):
     @staticmethod
-    def compileToNative(fcnname, loop, columns):
-        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop)
+    def compileToNative(fcnname, loop, columns, columnTypes):
+        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop, columnTypes, True)
         pythonfcn = pythonfcn.fcn
 
         sig = (numba.int64[:],)
@@ -167,8 +167,8 @@ class DeserializedLoopFunction(CompiledLoopFunction):
         return self.fcn(ctypes.cast(id(closure), PyObjectPtr), ctypes.cast(id(args), PyObjectPtr), ctypes.cast(id(kwds), PyObjectPtr))
 
 class NativeExecutor(Executor):
-    def __init__(self, query):
-        super(NativeExecutor, self).__init__(query)
+    def __init__(self, query, debug):
+        super(NativeExecutor, self).__init__(query, debug)
 
     def toJson(self):
         out = super(NativeExecutor, self).toJson()
@@ -187,11 +187,12 @@ class NativeExecutor(Executor):
         return out
 
     def compileLoops(self):
+        columnTypes = self.columnTypes()
         self.tmptypes = {}
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns)
+                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns, columnTypes)
                 self.tmptypes.update(tmptypes)
 
     def imax(self, imax):
@@ -207,8 +208,8 @@ class NativeExecutor(Executor):
         return dict((data, numpy.empty(lengths[data], dtype=self.tmptypes[data])) for data, size in self.temporaries)
 
 class NativeAsyncExecutor(NativeExecutor):
-    def __init__(self, query, future):
-        super(NativeAsyncExecutor, self).__init__(query)
+    def __init__(self, query, future, debug):
+        super(NativeAsyncExecutor, self).__init__(query, debug)
 
         # all associated data are transient: they're lost if you serialize/deserialize
         self.future = future
