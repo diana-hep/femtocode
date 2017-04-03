@@ -143,10 +143,10 @@ class TestStatementlist(unittest.TestCase):
     def test_arrayrecord(self):
         result, statements = self.compile("xs.map($1.b + y)", self.mockDataset(xs=collection(record(a=real, b=real)), y=real))
         self.check(statements, [
-            {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-a@size", "schema": "real"},
-            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "tosize": "xs[]-a@size"}
+            {"to": "#0", "fcn": "$explode", "data": "y", "tosize": "xs[]-b@size", "schema": "real"},
+            {"to": "#1", "fcn": "+", "args": ["xs[]-b", "#0"], "schema": "real", "tosize": "xs[]-b@size"}
             ])
-        self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "xs[]-a@size"})
+        self.check(result, {"name": "#1", "schema": {"type": "collection", "items": "real"}, "data": "#1", "size": "xs[]-b@size"})
 
     def test_arrayrecord2(self):
         result, statements = self.compile("xs.map($1.b + y)", self.mockDataset(xs=collection(record(a=collection(real), b=real)), y=real))

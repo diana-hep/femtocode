@@ -46,7 +46,7 @@ class TestExecution(unittest.TestCase):
         def callback(x):
             self.assertEqual(source.dataset.numEntries, x.numEntries)
 
-        result = source.define(z = "x + y").toPython("Test", a = "z - 3", b = "z - 0.5").submit(callback)
+        result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
 
         # TestDataset is synchronous, so both callback and assuming it's blocking work
 

@@ -16,11 +16,12 @@
 
 import json
 import math
-
 try:
     import Queue as queue
 except ImportError:
     import queue
+
+import femtocode.thirdparty.meta as meta
 
 def roundup(x):
     return int(math.ceil(x))
