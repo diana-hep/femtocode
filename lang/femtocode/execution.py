@@ -224,19 +224,7 @@ class DependencyGraph(object):
         
 class Compiler(object):
     @staticmethod
-    def _fakeLineNumbers(node):
-        if isinstance(node, ast.AST):
-            node.lineno = 1
-            node.col_offset = 0
-            for field in node._fields:
-                Compiler._fakeLineNumbers(getattr(node, field))
-
-        elif isinstance(node, (list, tuple)):
-            for x in node:
-                Compiler._fakeLineNumbers(x)
-
-    @staticmethod
-    def _compileToPython(name, statements, params):
+    def _compileToPython(name, statements, params, references):
         if sys.version_info[0] <= 2:
             args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
             fcn = ast.FunctionDef(name, args, statements, [])
@@ -245,10 +233,10 @@ class Compiler(object):
             fcn = ast.FunctionDef(name, args, statements, [], None)
 
         moduleast = ast.Module([fcn])
-        Compiler._fakeLineNumbers(moduleast)
+        fakeLineNumbers(moduleast)
 
         modulecomp = compile(moduleast, "Femtocode", "exec")
-        out = {}
+        out = dict(references)
         exec(modulecomp, out)
         return LoopFunction(out[name])
 
@@ -259,6 +247,12 @@ class Compiler(object):
             if n not in validNames:
                 validNames[n] = "v" + repr(len(validNames))
             return validNames[n]
+        def newname():
+            n = len(validNames)  # an integer can't collide with any incoming names
+            validNames[n] = "_" + repr(n)
+            return validNames[n]
+        
+        references = {}
 
         # i0 = 0; i0max = imax[0]
         imax = [loop.size]
@@ -269,6 +263,13 @@ class Compiler(object):
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
 
         for statement in loop.statements:
+            if statement.column in loop.targets:
+                # col[i0]
+                target = ast.Subscript(ast.Name(valid(statement.column), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())
+            else:
+                # col
+                target = ast.Name(valid(statement.column), ast.Store())
+
             if isinstance(statement, statementlist.Explode):
                 raise NotImplementedError
 
@@ -289,24 +290,17 @@ class Compiler(object):
                     else:
                         astargs.append(arg.buildexec())
 
-                expr = table[statement.fcnname].buildexec(astargs)
+                assignment = table[statement.fcnname].buildexec(target, statement.schema, astargs, newname, references)
 
             else:
                 assert False, "unrecognized statement: {0}".format(statement)
-
-            if statement.column in loop.targets:
-                # col[i0] = f...
-                assignment = ast.Assign([ast.Subscript(ast.Name(valid(statement.column), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())], expr)
-            else:
-                # col = f...
-                assignment = ast.Assign([ast.Name(valid(statement.column), ast.Store())], expr)
 
             whileloop.body.append(assignment)
 
         # i0 += 1
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
-        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets])
+        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets], references)
         return fcn, imax
 
 class LoopFunction(Serializable):

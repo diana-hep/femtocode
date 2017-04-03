@@ -16,20 +16,24 @@
 
 import ast
 import json
+import sys
 
 from femtocode import inference
 from femtocode.asts import lispytree
 from femtocode.asts import typedtree
 from femtocode.asts import statementlist
 from femtocode.defs import *
+from femtocode.util import *
 from femtocode.typesystem import *
 
 table = SymbolTable()
-    
+
 class Is(lispytree.BuiltinFunction):
+    ## FIXME: this will be a tricky one; maybe shouldn't be a library function
+
     name = "is"
 
-    def literaleval(self, args):
+    def pythoneval(self, args):
         return True
 
     def buildtyped(self, args, frame):
@@ -49,8 +53,8 @@ class Is(lispytree.BuiltinFunction):
 
         return boolean, typedargs, frame.fork({args[0]: out})
 
-    def generate(self, args):
-        return "({0} is {1})".format(args[0].generate(), repr(args[1].value))
+    def tosrc(self, args):
+        return "(" + astToSource(args[0]) + " is " + astToSource(args[1]) + ")"
 
 table[Is.name] = Is()
 
@@ -63,51 +67,54 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def associative(self):
         return True
 
-    def literaleval(self, args):
-        return sum(args)
+    def pythonast(self, args):
+        return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
         
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.add(*[x.schema for x in typedargs]), typedargs, frame
-
-    def buildexec(self, args):
-        return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
-
-    def generate(self, args):
-        return "({0})".format(" + ".join(arg.generate() for arg in args))
 
 table[Add.name] = Add()
 
 class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
 
-    def literaleval(self, args):
-        return args[0] - args[1]
+    def pythonast(self, args):
+        return ast.BinOp(args[0], ast.Sub(), args[1])
         
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
 
-    def buildexec(self, args):
-        return reduce(lambda x, y: ast.BinOp(x, ast.Sub(), y), args)
-
-    def generate(self, args):
-        return "({0} - {1})".format(args[0].generate(), args[1].generate())
-
 table[Subtract.name] = Subtract()
+
+class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "*"
+
+    def commutative(self):
+        return True
+
+    def associative(self):
+        return True
+
+    def pythonast(self, args):
+        return reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), args)
+        
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.multiply(*[x.schema for x in typedargs]), typedargs, frame
+
+table[Mult.name] = Mult()
 
 class Divide(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
 
-    def literaleval(self, args):
-        return float(args[0]) / float(args[1])
-        
+    def pythonast(self, args):
+        return ast.BinOp(args[0], ast.Div(), ast.Call(ast.Name("float", ast.Load()), [args[1]], [], None, None))
+
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
-
-    def generate(self, args):
-        return "({0} / {1})".format(args[0].generate(), args[1].generate())
 
 table[Divide.name] = Divide()
 
@@ -117,19 +124,16 @@ class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def commutative(self):
         return True
 
-    def literaleval(self, args):
-        return args[0] == args[1]
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.Eq()], [args[1]])
 
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         out = intersection(typedargs[0].schema, typedargs[1].schema)
         if isinstance(out, Impossible):
-            return impossible("The argument types have no overlap (values can never be equal)."), typedargs, frame
+            return impossible("The argument types have no intersection (their values can never be equal)."), typedargs, frame
         else:
             return boolean, typedargs, frame.fork({args[0]: out, args[1]: out})
-
-    def generate(self, args):
-        return "({0} == {1})".format(args[0].generate(), args[1].generate())
 
 table[Eq.name] = Eq()
 
@@ -139,8 +143,8 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def commutative(self):
         return True
 
-    def literaleval(self, args):
-        return args[0] != args[1]
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.NotEq()], [args[1]])
 
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
@@ -159,14 +163,11 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         if expr is not None:
             subframe = frame.fork({expr: restriction})
             if isinstance(subframe[expr], Impossible):
-                return impossible("Expression {0} has only one value at {1} (can never be unequal).".format(expr.generate(), const)), typedargs, frame
+                return subframe[expr], typedargs, frame
         else:
             subframe = frame.fork()
 
         return boolean, typedargs, subframe
-
-    def generate(self, args):
-        return "({0} == {1})".format(args[0].generate(), args[1].generate())
 
 table[NotEq.name] = NotEq()
 
@@ -179,8 +180,8 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def associative(self):
         return True
 
-    def literaleval(self, args):
-        return all(args)
+    def pythonast(self, args):
+        return ast.BoolOp(ast.And(), args)
         
     def buildtyped(self, args, frame):
         subframe = frame.fork()
@@ -223,9 +224,6 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
         return boolean, typedargs, subframe
 
-    def generate(self, args):
-        return "(" + " and ".join(x.generate() for x in args) + ")"
-
 table[And.name] = And()
 
 class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
@@ -237,8 +235,8 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def associative(self):
         return True
 
-    def literaleval(self, args):
-        return any(args)
+    def pythonast(self, args):
+        return ast.BoolOp(ast.Or(), args)
 
     def buildtyped(self, args, frame):
         subframe = frame.fork()
@@ -267,16 +265,13 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
                     
         return boolean, typedargs, subframe
 
-    def generate(self, args):
-        return "(" + " or ".join(x.generate() for x in args) + ")"
-
 table[Or.name] = Or()
 
 class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "not"
 
-    def literaleval(self, args):
-        return not args
+    def pythonast(self, args):
+        return ast.UnaryOp(ast.Not(), args[0])
 
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
@@ -334,19 +329,22 @@ class If(lispytree.BuiltinFunction):
 
         return union(*outschemas), typedargs, topframe
 
-    def generate(self, args):
+    # def buildexec(self, target, schema, args, newname, references):
+    ## FIXME: need to think about this one
+
+    def tosrc(self, args):
         predicates = args[0::3]
         consequents = args[2::3]
         alternate = args[-1]
-        return " el".join("if ({0}) {{{1}}}".format(p.generate(), c.generate()) for p, c in zip(predicates, consequents)) + " else {" + alternate.generate() + "}"
+        return " el".join("if ({0}) {{{1}}}".format(astToSource(p), astToSource(c)) for p, c in zip(predicates, consequents)) + " else {" + astToSource(alternate) + "}"
             
 table[If.name] = If()
 
 class Dot(lispytree.BuiltinFunction):
     name = "."
 
-    def literaleval(self, args):
-        return getattr(args[0].value, args[1].value)
+    def pythonast(self, args):
+        return ast.Attribute(args[0], args[1])
 
     def buildtyped(self, args, frame):
         assert len(args) == 2 and isinstance(args[1].value, string_types), "dot (.) dereference operator got the wrong kinds of objects: {0}".format(", ".join(repr, args[0]))
@@ -372,9 +370,6 @@ class Dot(lispytree.BuiltinFunction):
         replacements[(typedtree.TypedTree, call)] = reref
 
         return reref, statements, refnumber
-        
-    def generate(self, args):
-        return args[0].generate() + "." + args[1].value
 
 table[Dot.name] = Dot()
 
@@ -424,8 +419,8 @@ class Map(lispytree.BuiltinFunction):
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]
         return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, refnumber
 
-    def generate(self, args):
-        return args[0].generate() + ".map(" + args[1].generate() + ")"
+    def tosrc(self, args):
+        return astToSource(args[0]) + ".map(" + astToSource(args[1]) + ")"
 
     def sortargs(self, positional, named, original):
         return Function.sortargsWithNames(positional, named, ["fcn"], [None], original)

@@ -45,14 +45,39 @@ class BuiltinFunction(Function):
     def __hash__(self):
         return hash(("lispytree." + self.__class__.__name__,))
 
+    def pythonast(self, args):
+        assert False, "missing implementation: {0}".format(self)
+
+    def pythoneval(self, args):
+        refs = [ast.Name("x{0}".format(i), ast.Load()) for i in xrange(len(args))]
+        if sys.version_info[0] <= 2:
+            params = ast.arguments([ast.Name("x{0}".format(i), ast.Param()) for i in xrange(len(args))], None, None, [])
+            fcn = ast.FunctionDef("tmp", params, [ast.Return(self.pythonast(refs))], [])
+        else:
+            params = ast.arguments([ast.arg("x{0}".format(i), None) for i in xrange(len(args))], None, [], [], None, [])
+            fcn = ast.FunctionDef("tmp", params, [ast.Return(self.pythonast(refs))], None)
+
+        moduleast = ast.Module([fcn])
+        fakeLineNumbers(moduleast)
+
+        modulecomp = compile(moduleast, "Femtocode", "exec")
+        out = {}
+        exec(modulecomp, out)
+
+        return out["tmp"](*args)
+
     def buildtyped(self, args, typeframe):
         assert False, "missing implementation: {0}".format(self)
 
     def buildstatements(self, call, columns, replacements, refnumber):
         assert False, "missing implementation: {0}".format(self)
 
-    def generate(self, args):
-        assert False, "missing implementation: {0}".format(self)
+    def buildexec(self, target, schema, args, newname, references):
+        # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
+        return ast.Assign([target], self.pythonast(args))
+
+    def tosrc(self, args):
+        return astToSource(self.pythonast(args))
 
 class UserFunction(Function):
     order = 1
@@ -134,7 +159,7 @@ class Ref(LispyTree):
     def __hash__(self):
         return hash(("lispytree.Ref", self.name, self.framenumber))
 
-    def generate(self):
+    def tosrc(self):
         if isinstance(self.name, int):
             return "$" + repr(self.name)
         else:
@@ -182,7 +207,7 @@ class Literal(LispyTree):
     def __hash__(self):
         return hash(("lispytree.Literal", self.value))
 
-    def generate(self):
+    def tosrc(self):
         return repr(self.value)
 
 class Call(LispyTree):
@@ -190,7 +215,7 @@ class Call(LispyTree):
 
     @staticmethod
     def build(fcn, args, original=None):
-        if hasattr(fcn, "literaleval") and all(isinstance(x, Literal) for x in args):
+        if all(isinstance(x, Literal) for x in args):
             empty = SymbolTable()
             schema, typedargs, subempty = fcn.buildtyped(args, empty)
             if isinstance(schema, Impossible):
@@ -200,7 +225,7 @@ class Call(LispyTree):
                     reason = ""
                 complain("Function \"{0}\" does not accept arguments with the given literal types:\n\n    {0}({1}){2}".format(fcn.name, ",\n    {0} ".format(" " * len(fcn.name)).join(pretty(x.schema, prefix="     " + " " * len(fcn.name)).lstrip() for x in typedargs), reason), original)
             else:
-                return Literal(fcn.literaleval([x.value for x in args]), original)
+                return Literal(fcn.pythoneval([x.value for x in args]), original)
 
         else:
             if fcn.associative():
@@ -247,15 +272,15 @@ class Call(LispyTree):
     def __hash__(self):
         return hash(("lispytree.Call", self.fcn, self.commuteargs()))
 
-    def generate(self):
+    def tosrc(self):
         if isinstance(self.fcn, UserFunction) and all(isinstance(x, int) for x in self.fcn.names):
-            return self.fcn.body.generate()
+            return self.fcn.body.tosrc()
 
         elif isinstance(self.fcn, UserFunction):
-            return "{{{0} => {1}}}".format(", ".join(self.fcn.names, self.fcn.body.generate()))
+            return "{{{0} => {1}}}".format(", ".join(self.fcn.names, self.fcn.body.tosrc()))
 
         else:
-            return self.fcn.generate(self.args)
+            return self.fcn.tosrc(self.args)
 
 def expandUserFunction(tree, frame):
     if isinstance(tree, BuiltinFunction):
@@ -547,7 +572,7 @@ def build(tree, frame):
         else:
             fcn = build(tree.function, frame)[0]
             if not isinstance(fcn, Function):
-                complain("Expression {0} is a value, not a function; it cannot be called.".format(fcn.generate()), tree)
+                complain("Expression {0} is a value, not a function; it cannot be called.".format(fcn.tosrc()), tree)
 
             args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)), tree)
             builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i))[0] for i, x in enumerate(args)]
