@@ -106,7 +106,7 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[Mult.name] = Mult()
 
-class Divide(statementlist.FlatFunction, lispytree.BuiltinFunction):
+class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
 
     def pythonast(self, args):
@@ -116,7 +116,18 @@ class Divide(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
-table[Divide.name] = Divide()
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
+        if tonative:
+            return super(Div, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
+        else:
+            return statementsToAst("""
+                try:
+                    OUT = ARG0 / ARG1
+                except ZeroDivisionError:
+                    OUT = float("inf") * (1 if ARG0 > 0 else -1)
+                """, OUT = target, ARG0 = args[0], ARG1 = args[1])
+
+table[Div.name] = Div()
 
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
@@ -329,7 +340,7 @@ class If(lispytree.BuiltinFunction):
 
         return union(*outschemas), typedargs, topframe
 
-    # def buildexec(self, target, schema, args, newname, references):
+    # def buildexec(self, target, schema, args, argschemas, newname, references):
     ## FIXME: need to think about this one
 
     def tosrc(self, args):

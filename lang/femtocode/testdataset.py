@@ -349,8 +349,8 @@ class TestSession(object):
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
-    def submit(self, query, ondone=None, onupdate=None):
-        executor = Executor(query)
+    def submit(self, query, ondone=None, onupdate=None, debug=False):
+        executor = Executor(query, debug)
         action = query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 

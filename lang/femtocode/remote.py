@@ -221,7 +221,9 @@ class RemoteSession(object):
     def source(self, name):
         return Source(self, self.metadata.dataset(name))
 
-    def submit(self, query, ondone=None, onupdate=None, minpolldelay=0.5, maxpolldelay=60.0):
+    def submit(self, query, ondone=None, onupdate=None, debug=False, minpolldelay=0.5, maxpolldelay=60.0):
+        if debug:
+            raise NotImplementedError
         return FutureQueryResult(query, ondone, onupdate, self.submit_url, minpolldelay, maxpolldelay)
 
 ###############################################################

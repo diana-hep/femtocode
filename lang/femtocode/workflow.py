@@ -196,8 +196,8 @@ class Goal(NotFirst, Workflow):
 
         return Query(source.dataset, statements, actions, False)
 
-    def submit(self, callback=None, libs=()):
-        return self.source().session.submit(self.compile(libs), callback)
+    def submit(self, ondone=None, onupdate=None, libs=(), debug=False):
+        return self.source().session.submit(self.compile(libs), ondone, onupdate, debug)
 
 ############### Intermediates
 

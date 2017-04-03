@@ -224,13 +224,17 @@ class DependencyGraph(object):
         
 class Compiler(object):
     @staticmethod
-    def _compileToPython(name, statements, params, references):
+    def _compileToPython(name, statements, params, references, debug):
         if sys.version_info[0] <= 2:
             args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
             fcn = ast.FunctionDef(name, args, statements, [])
         else:
             args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
             fcn = ast.FunctionDef(name, args, statements, [], None)
+
+        if debug:
+            print("\n")
+            print(astToSource(fcn))
 
         moduleast = ast.Module([fcn])
         fakeLineNumbers(moduleast)
@@ -241,7 +245,7 @@ class Compiler(object):
         return LoopFunction(out[name])
 
     @staticmethod
-    def compileToPython(fcnname, loop):
+    def compileToPython(fcnname, loop, columnTypes, tonative, debug):
         validNames = {}
         def valid(n):
             if n not in validNames:
@@ -262,6 +266,7 @@ class Compiler(object):
         # while i0 < imax:
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
 
+        schemalookup = dict(columnTypes)
         for statement in loop.statements:
             if statement.column in loop.targets:
                 # col[i0]
@@ -282,25 +287,32 @@ class Compiler(object):
             elif isinstance(statement, statementlist.Call):
                 # f(x[i0], y[i0], 3.14, ...)
                 astargs = []
+                schemas = []
                 for arg in statement.args:
                     if isinstance(arg, ColumnName) and (arg in loop.targets or arg in loop.params()):
                         astargs.append(ast.Subscript(ast.Name(valid(arg), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()))
+                        schemas.append(schemalookup[arg])
+
                     elif isinstance(arg, ColumnName):
                         astargs.append(ast.Name(valid(arg), ast.Load()))
+                        schemas.append(schemalookup[arg])
+
                     else:
                         astargs.append(arg.buildexec())
+                        schemas.append(arg.schema)
 
-                assignment = table[statement.fcnname].buildexec(target, statement.schema, astargs, newname, references)
+                assignment = table[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
+                schemalookup[statement.column] = statement.schema
 
             else:
                 assert False, "unrecognized statement: {0}".format(statement)
 
-            whileloop.body.append(assignment)
+            whileloop.body.extend(assignment)
 
         # i0 += 1
         whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
 
-        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets], references)
+        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets], references, debug)
         return fcn, imax
 
 class LoopFunction(Serializable):
@@ -394,14 +406,14 @@ class ExecutionFailure(Serializable):
         return isinstance(obj, dict) and set(obj.keys()).difference(set(["_id"])) == set(["class", "message", "traceback"])
 
 class Executor(Serializable):
-    def __init__(self, query):
+    def __init__(self, query, debug):
         self.query = query
         targetsToEndpoints, lookup, self.required = DependencyGraph.wholedag(self.query)
         self.temporaries = sorted((target, graph.size) for target, graph in targetsToEndpoints.items() if not target.issize())
 
         loops = DependencyGraph.loops(targetsToEndpoints.values())
         self.order = DependencyGraph.order(loops, self.query.actions, self.required)
-        self.compileLoops()
+        self.compileLoops(debug)
 
     def toJson(self):
         return {"query": self.query.toJson(),
@@ -427,11 +439,28 @@ class Executor(Serializable):
         out.order = [Loop.fromJson(x.values()[0]) if x.keys()[0] == "loop" else statementlist.Statement.fromJson(x.values()[0]) for x in obj["order"]]
         return out
 
-    def compileLoops(self):
+    def columnTypes(self):
+        def extract(path, tpe):
+            if isinstance(tpe, Collection):
+                return extract(path[1:], tpe.items)
+            elif isinstance(tpe, Record):
+                return extract(path[1:], tpe.fields[path[0]])
+            elif isinstance(tpe, Union):
+                raise NotImplementedError("to do")
+            else:
+                return tpe
+
+        out = {}
+        for name in self.required:
+            out[name] = extract(name.path[1:], self.query.dataset.schema[name.path[0]])
+        return out
+
+    def compileLoops(self, debug):
+        columnTypes = self.columnTypes()
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop)
+                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, columnTypes, False, debug)
 
     def inarraysFromTest(self, group):
         out = {}

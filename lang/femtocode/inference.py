@@ -403,6 +403,11 @@ def _expandMinusPlus(interval, intermediate=False):
     else:
         intervalPlus = ()  # interval.max == almost(0.0) goes here
 
+    if intervalMinus == (0.0,):
+        intervalMinus = ()
+    if intervalPlus == (0.0,):
+        intervalPlus = ()
+
     return intervalMinus, intervalPlus
 
 def multiply(*args):
@@ -578,7 +583,7 @@ def divide(*args):
         elif isinstance(one, Number) and isinstance(two, Number):
             oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one, True)
             twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two, True)
-            
+
             cases = []
             for a in oneIntervalMinus:
                 for b in twoIntervalMinus:

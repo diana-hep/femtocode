@@ -17,6 +17,7 @@
 import ast
 import json
 import math
+import textwrap
 try:
     import Queue as queue
 except ImportError:
@@ -31,7 +32,7 @@ def astToSource(pythonast):
     return meta.dump_python_source(pythonast).strip()
 
 def statementsToAst(source, *orderedReplacements, **namedReplacements):
-    result = ast.parse(source).body
+    result = ast.parse(textwrap.dedent(source)).body
 
     def replace(x, index):
         if isinstance(x, ast.AST):
@@ -40,19 +41,23 @@ def statementsToAst(source, *orderedReplacements, **namedReplacements):
 
                 if isinstance(old, ast.Name) and old.id in namedReplacements:
                     replacement = namedReplacements[old.id]
-
                 elif isinstance(old, ast.Name) and index < len(orderedReplacements):
                     replacement = orderedReplacements[index]
                     index += 1
-
                 else:
                     replacement, index = replace(old, index)
 
                 setattr(x, fieldName, replacement)
             
         elif isinstance(x, list):
-            for i, xi in enumerate(x):
-                x[i], index = replace(xi, index)
+            for i, old in enumerate(x):
+                if isinstance(old, ast.Name) and old.id in namedReplacements:
+                    x[i] = namedReplacements[old.id]
+                elif isinstance(old, ast.Name) and index < len(orderedReplacements):
+                    x[i] = orderedReplacements[index]
+                    index += 1
+                else:
+                    x[i], index = replace(old, index)
 
         return x, index
 

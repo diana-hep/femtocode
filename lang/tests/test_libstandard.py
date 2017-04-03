@@ -34,14 +34,83 @@ from femtocode.workflow import *
 
 session = TestSession()
 
-numerical = session.source("Test", x=integer, y=real)
+numerical = session.source("Test", x=integer, xlim=integer(0, almost(10)), y=real, ylim=real(0, almost(10)), ylim2=real(almost(0), almost(10)))
 for i in xrange(100):
-    numerical.dataset.fill({"x": i, "y": 0.2})
+    numerical.dataset.fill({"x": i, "xlim": i % 10, "y": i + 0.2, "ylim": (i + 0.2) % 10.0, "ylim2": (i + 0.2) % 10.0})
 
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
 
     def test_add_literal(self):
+        self.assertEqual(numerical.type("x + 3"), integer)
+        self.assertEqual(numerical.type("x + 3.14"), real)
+        self.assertEqual(numerical.type("xlim + 3"), integer(3, almost(10 + 3)))
+        self.assertEqual(numerical.type("xlim + 3.14"), real(3.14, 9 + 3.14))
+        self.assertEqual(numerical.type("ylim + 3"), real(3, almost(10 + 3)))
+        self.assertEqual(numerical.type("ylim + 3.14"), real(3.14, almost(10 + 3.14)))
         for entry in numerical.toPython(x = "x", a = "x + 3.14").submit():
             self.assertAlmostEqual(entry.x + 3.14, entry.a)
+
+    def test_add(self):
+        self.assertEqual(numerical.type("x + y"), real)
+        self.assertEqual(numerical.type("x + ylim"), real)
+        self.assertEqual(numerical.type("xlim + ylim"), real(0, almost(9 + 10)))
+        for entry in numerical.toPython(x = "x", y = "y", a = "x + y").submit():
+            self.assertAlmostEqual(entry.x + entry.y, entry.a)
+
+    def test_subtract_literal(self):
+        self.assertEqual(numerical.type("x - 3"), integer)
+        self.assertEqual(numerical.type("x - 3.14"), real)
+        self.assertEqual(numerical.type("xlim - 3"), integer(-3, almost(10 - 3)))
+        self.assertEqual(numerical.type("xlim - 3.14"), real(-3.14, 9 - 3.14))
+        self.assertEqual(numerical.type("ylim - 3"), real(-3, almost(10 - 3)))
+        self.assertEqual(numerical.type("ylim - 3.14"), real(-3.14, almost(10 - 3.14)))
+        for entry in numerical.toPython(x = "x", a = "x - 3.14").submit():
+            self.assertAlmostEqual(entry.x - 3.14, entry.a)
+
+    def test_subtract_literal2(self):
+        self.assertEqual(numerical.type("3 - x"), integer)
+        self.assertEqual(numerical.type("3.14 - x"), real)
+        self.assertEqual(numerical.type("3 - xlim"), integer(almost(3 - 10), 3))
+        self.assertEqual(numerical.type("3.14 - xlim"), real(3.14 - 9, 3.14))
+        self.assertEqual(numerical.type("3 - ylim"), real(almost(3 - 10), 3))
+        self.assertEqual(numerical.type("3.14 - ylim"), real(almost(3.14 - 10), 3.14))
+        for entry in numerical.toPython(x = "x", a = "3.14 - x").submit():
+            self.assertAlmostEqual(3.14 - entry.x, entry.a)
+
+    def test_subtract(self):
+        self.assertEqual(numerical.type("x - y"), real)
+        self.assertEqual(numerical.type("x - ylim"), real)
+        self.assertEqual(numerical.type("xlim - ylim"), real(almost(-10), 9))
+        for entry in numerical.toPython(x = "x", y = "y", a = "x - y").submit():
+            self.assertAlmostEqual(entry.x - entry.y, entry.a)
+
+    def test_multiply_literal(self):
+        self.assertEqual(numerical.type("x * 3"), integer)
+        self.assertEqual(numerical.type("x * 3.14"), real)
+        self.assertEqual(numerical.type("xlim * 3"), integer(0, 9 * 3))
+        self.assertEqual(numerical.type("xlim * 3.14"), real(0, 9 * 3.14))
+        self.assertEqual(numerical.type("ylim * 3"), real(0, almost(10 * 3)))
+        self.assertEqual(numerical.type("ylim * 3.14"), real(0, almost(10 * 3.14)))
+        for entry in numerical.toPython(x = "x", a = "x * 3.14").submit():
+            self.assertAlmostEqual(entry.x * 3.14, entry.a)
+
+    def test_multiply(self):
+        self.assertEqual(numerical.type("x * y"), real)
+        self.assertEqual(numerical.type("x * ylim"), real)
+        self.assertEqual(numerical.type("xlim * ylim"), real(0, almost(9 * 10)))
+        for entry in numerical.toPython(x = "x", y = "y", a = "x * y").submit():
+            self.assertAlmostEqual(entry.x * entry.y, entry.a)
+
+    def test_divide_literal(self):
+        self.assertEqual(numerical.type("3 / x"), extended)
+        self.assertEqual(numerical.type("3.14 / x"), extended)
+        self.assertEqual(numerical.type("3 / xlim"), extended(3 / 9.0, inf))
+        self.assertEqual(numerical.type("3.14 / xlim"), extended(3.14 / 9, inf))
+        self.assertEqual(numerical.type("3 / ylim"), extended(almost(3 / 10.0), inf))
+        self.assertEqual(numerical.type("3.14 / ylim"), extended(almost(3.14 / 10), inf))
+        self.assertEqual(numerical.type("3 / ylim2"), real(almost(3 / 10.0), almost(inf)))
+        self.assertEqual(numerical.type("3.14 / ylim2"), real(almost(3.14 / 10), almost(inf)))
+        for entry in numerical.toPython(x = "x", a = "3.14 / x").submit():
+            self.assertAlmostEqual(3.14 / entry.x if entry.x != 0 else float("inf"), entry.a)
