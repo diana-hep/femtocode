@@ -114,3 +114,23 @@ class TestLibStandard(unittest.TestCase):
         self.assertEqual(numerical.type("3.14 / ylim2"), real(almost(3.14 / 10), almost(inf)))
         for entry in numerical.toPython(x = "x", a = "3.14 / x").submit():
             self.assertAlmostEqual(3.14 / entry.x if entry.x != 0 else float("inf"), entry.a)
+
+    def test_divide_literal2(self):
+        self.assertEqual(numerical.type("x / 3"), real)
+        self.assertEqual(numerical.type("x / 3.14"), real)
+        self.assertEqual(numerical.type("xlim / 3"), real(0, 9/3.0))
+        self.assertEqual(numerical.type("xlim / 3.14"), real(0, 9/3.14))
+        self.assertEqual(numerical.type("ylim / 3"), real(0, almost(10/3.0)))
+        self.assertEqual(numerical.type("ylim / 3.14"), real(0, almost(10/3.14)))
+        self.assertEqual(numerical.type("ylim2 / 3"), real(almost(0), almost(10/3.0)))
+        self.assertEqual(numerical.type("ylim2 / 3.14"), real(almost(0), almost(10/3.14)))
+        for entry in numerical.toPython(x = "x", a = "x / 3.14").submit():
+            self.assertAlmostEqual(entry.x / 3.14, entry.a)
+
+    def test_divide(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x / y"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x / ylim"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("xlim / ylim"))
+        self.assertEqual(numerical.type("xlim / ylim2"), real(0, almost(inf)))
+        for entry in numerical.toPython(x = "x", ylim2 = "ylim2", a = "x / ylim2").submit():
+            self.assertAlmostEqual(entry.x / entry.ylim2, entry.a)
