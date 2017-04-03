@@ -27,7 +27,6 @@ class TestTypesystem(unittest.TestCase):
         def compare(obj):
             x = obj.toJsonString()
             y = Schema.fromJsonString(x)
-            print("{0} -> {1}".format(x, y))
             self.assertEqual(obj, y)
 
         compare(null)
