@@ -439,3 +439,4 @@ This operation has only been tested on Linux, and it likely constrains the serve
    * Back-ends for Parquet, Feather, and HDF5.
    * Object store database, ZFS, and/or JBoD array for faster handling of cache-misses.
    * Caching frequently used intermediate expressions.
+   * GPU back-end for groups of “flat” functions.
