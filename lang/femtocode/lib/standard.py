@@ -372,7 +372,7 @@ class Dot(lispytree.BuiltinFunction):
         return schema, [typedarg, args[1]], frame
 
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
-        argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
+        argref, statements, inputs, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
         field = call.args[1].value
 
         rename = argref.name.rec(field)
@@ -380,7 +380,7 @@ class Dot(lispytree.BuiltinFunction):
 
         replacements[(typedtree.TypedTree, call)] = reref
 
-        return reref, statements, refnumber
+        return reref, statements, inputs, refnumber
 
 table[Dot.name] = Dot()
 
@@ -417,18 +417,19 @@ class Map(lispytree.BuiltinFunction):
         return collection(typedarg1.schema, c.fewest, c.most, c.ordered), [typedarg0, typedarg1], frame
 
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
-        argref, statements, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
+        argref, statements, inputs, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
 
         # the argument of the UserFunction is the values of the collection
         rename = argref.name.coll()
         reref = statementlist.Ref(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename))
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = reref
 
-        result, ss, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (reref,))
+        result, ss, ins, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (reref,))
         statements.extend(ss)
+        inputs.update(ins)
 
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]
-        return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, refnumber
+        return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, inputs, refnumber
 
     def tosrc(self, args):
         return astToSource(args[0]) + ".map(" + astToSource(args[1]) + ")"

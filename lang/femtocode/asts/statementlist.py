@@ -303,9 +303,15 @@ class Literal(Statement):
 
         elif isinstance(self.schema, Boolean):
             if sys.version_info[0] <= 2:
-                return ast.Name("True", ast.Load())
+                if self.value:
+                    return ast.Name("True", ast.Load())
+                else:
+                    return ast.Name("False", ast.Load())
             else:
-                return ast.NameConstant(True)
+                if self.value:
+                    return ast.NameConstant(True)
+                else:
+                    return ast.NameConstant(False)
 
         elif isinstance(self.schema, Number):
             return ast.Num(self.value)
@@ -480,18 +486,23 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
         replacements = {}
 
     if (typedtree.TypedTree, tree) in replacements:
-        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
+        return replacements[(typedtree.TypedTree, tree)], Statements(), {}, refnumber
 
     elif isinstance(tree, typedtree.Ref):
         assert tree.framenumber is None, "should not encounter any deep references here"
 
         ref = Ref(tree.name, tree.schema, dataset.dataColumn(tree.name), dataset.sizeColumn(tree.name))
         replacements[(typedtree.TypedTree, tree)] = ref
-        return ref, Statements(), refnumber
+        if ref.data in dataset.columns:
+            inputs = {ref.data: tree.schema}
+        else:
+            inputs = {}
+
+        return ref, Statements(), inputs, refnumber
 
     elif isinstance(tree, typedtree.Literal):
         replacements[(typedtree.TypedTree, tree)] = Literal(tree.value, tree.schema)
-        return replacements[(typedtree.TypedTree, tree)], Statements(), refnumber
+        return replacements[(typedtree.TypedTree, tree)], Statements(), {}, refnumber
 
     elif isinstance(tree, typedtree.Call):
         return tree.fcn.buildstatements(tree, dataset, replacements, refnumber, explosions)
@@ -502,11 +513,13 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
 class FlatFunction(object):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         statements = Statements()
+        inputs = {}
         argrefs = []
         for arg in call.args:
-            argref, ss, refnumber = build(arg, dataset, replacements, refnumber, explosions)
-            statements.extend(ss)
+            argref, ss, ins, refnumber = build(arg, dataset, replacements, refnumber, explosions)
             argrefs.append(argref)
+            statements.extend(ss)
+            inputs.update(ins)
 
         sizes = []
         for explosion in explosions:
@@ -548,7 +561,7 @@ class FlatFunction(object):
         replacements[(typedtree.TypedTree, call)] = ref
         statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
 
-        return ref, statements, refnumber
+        return ref, statements, inputs, refnumber
 
 class Action(Statement):
     @property

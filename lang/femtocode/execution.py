@@ -245,7 +245,7 @@ class Compiler(object):
         return LoopFunction(out[name])
 
     @staticmethod
-    def compileToPython(fcnname, loop, columnTypes, tonative, debug):
+    def compileToPython(fcnname, loop, inputs, tonative, debug):
         validNames = {}
         def valid(n):
             if n not in validNames:
@@ -266,7 +266,7 @@ class Compiler(object):
         # while i0 < imax:
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
 
-        schemalookup = dict(columnTypes)
+        schemalookup = dict(inputs)
         for statement in loop.statements:
             if statement.column in loop.targets:
                 # col[i0]
@@ -439,28 +439,11 @@ class Executor(Serializable):
         out.order = [Loop.fromJson(x.values()[0]) if x.keys()[0] == "loop" else statementlist.Statement.fromJson(x.values()[0]) for x in obj["order"]]
         return out
 
-    def columnTypes(self):
-        def extract(path, tpe):
-            if isinstance(tpe, Collection):
-                return extract(path[1:], tpe.items)
-            elif isinstance(tpe, Record):
-                return extract(path[1:], tpe.fields[path[0]])
-            elif isinstance(tpe, Union):
-                raise NotImplementedError("to do")
-            else:
-                return tpe
-
-        out = {}
-        for name in self.required:
-            out[name] = extract(name.path[1:], self.query.dataset.schema[name.path[0]])
-        return out
-
     def compileLoops(self, debug):
-        columnTypes = self.columnTypes()
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, columnTypes, False, debug)
+                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, self.query.inputs, False, debug)
 
     def inarraysFromTest(self, group):
         out = {}

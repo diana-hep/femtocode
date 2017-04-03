@@ -42,8 +42,8 @@ PyObjectPtr = ctypes.POINTER(PyObject)
 
 class NativeCompiler(Compiler):
     @staticmethod
-    def compileToNative(fcnname, loop, columns, columnTypes):
-        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop, columnTypes, True)
+    def compileToNative(fcnname, loop, columns, inputs, debug):
+        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop, inputs, True, debug)
         pythonfcn = pythonfcn.fcn
 
         sig = (numba.int64[:],)
@@ -186,13 +186,12 @@ class NativeExecutor(Executor):
         out.tmptypes = dict((ColumnName.parse(k), numpy.dtype(v)) for k, v in obj["tmptypes"].items())
         return out
 
-    def compileLoops(self):
-        columnTypes = self.columnTypes()
+    def compileLoops(self, debug):
         self.tmptypes = {}
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns, columnTypes)
+                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns, self.query.inputs, debug)
                 self.tmptypes.update(tmptypes)
 
     def imax(self, imax):

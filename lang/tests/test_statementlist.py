@@ -61,7 +61,7 @@ class TestStatementlist(unittest.TestCase):
     def compile(self, code, dataset):
         lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in dataset.schema)))
         tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in dataset.schema.items())))
-        result, statements, refnumber = statementlist.build(tt, dataset)
+        result, statements, inputs, refnumber = statementlist.build(tt, dataset)
         return result, statements
 
     def check(self, observed, expectedjson):
