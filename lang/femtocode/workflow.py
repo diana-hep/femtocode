@@ -31,11 +31,12 @@ from femtocode.util import *
 from femtocode.version import version
 
 class Query(Serializable):
-    def __init__(self, dataset, statements, actions, cancelled):
+    def __init__(self, dataset, statements, actions, cancelled, crosscheck):
         self.dataset = dataset
         self.statements = statements
         self.actions = actions
         self.cancelled = cancelled
+        self.crosscheck = crosscheck
 
     def __repr__(self):
         return "Query.fromJson({0})".format(self.toJson())
@@ -45,9 +46,11 @@ class Query(Serializable):
         return "{0:016x}".format(hash(self) + 2**63)
 
     def __eq__(self, other):
+        # doesn't include any part of the dataset other than the name, cancelled, or crosscheck
         return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
+        # doesn't include any part of the dataset other than the name, cancelled, or crosscheck
         if not hasattr(self, "_hash"):
             self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
         return self._hash
@@ -66,21 +69,22 @@ class Query(Serializable):
             return Query.DatasetName(obj["name"])
 
     def strip(self):
-        return Query(self.dataset.strip(), self.statements, self.actions, self.cancelled)
+        return Query(self.dataset.strip(), self.statements, self.actions, self.cancelled, self.crosscheck)
 
     def stripToName(self):
-        return Query(Query.DatasetName(self.dataset.name), self.statements, self.actions, False)
+        return Query(Query.DatasetName(self.dataset.name), self.statements, self.actions, False, self.crosscheck)
 
     def toJson(self):
         return {"dataset": self.dataset.toJson(),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions],
-                "cancelled": self.cancelled}
+                "cancelled": self.cancelled,
+                "crosscheck": self.crosscheck.toJson()}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "statements", "actions", "cancelled"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "statements", "actions", "cancelled", "crosscheck"])
 
         if set(obj["dataset"].keys()).difference(set(["_id"])) == set(["name"]):
             dataset = Query.DatasetName.fromJson(obj["dataset"])
@@ -94,9 +98,12 @@ class Query(Serializable):
         for action in actions:
             assert isinstance(action, statementlist.Action)
         
-        return Query(dataset, statements, actions, obj["cancelled"])
+        return Query(dataset, statements, actions, obj["cancelled"], Workflow.fromJson(obj["crosscheck"]))
 
-class Workflow(object):
+class Workflow(Serializable):
+    def __init__(self):
+        assert False, "{0} is not a concrete class".format(self.__class__.__name__)
+
     def _compileInScope(self, code, symbolTable, typeTable):
         lt, _ = lispytree.build(parser.parse(code), symbolTable.fork())
         tt, _ = typedtree.build(lt, typeTable.fork())
@@ -136,7 +143,17 @@ class Workflow(object):
 
     def typeCompareString(self, expr1, expr2, libs=None, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
         return compare(self.type(expr1, libs), self.type(expr2, libs), header, between, indent, prefix, width)
-    
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert "class" in obj
+
+        mod = obj["class"][:obj["class"].rindex(".")]
+        cls = obj["class"][obj["class"].rindex(".") + 1:]
+
+        return getattr(importlib.import_module(mod), cls).fromJson(obj)
+
 ############### NotFirst and NotLast are mixins for all but the Source and all but the Goal
         
 class NotFirst(object):
@@ -174,6 +191,15 @@ class Source(NotLast, Workflow):
     def steps(self):
         return []
 
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class"])
+        return Source(None, None)
+
 class Intermediate(NotFirst, NotLast, Workflow): pass
 
 class Goal(NotFirst, Workflow):
@@ -194,7 +220,7 @@ class Goal(NotFirst, Workflow):
 
             actions.append(preaction.finalize(refs))
 
-        return Query(source.dataset, statements, actions, False)
+        return Query(source.dataset, statements, actions, False, self)
 
     def submit(self, ondone=None, onupdate=None, libs=(), debug=False):
         return self.source().session.submit(self.compile(libs), ondone, onupdate, debug)
@@ -216,6 +242,17 @@ class Define(Intermediate):
 
         return symbolTable.fork(newSymbols), typeTable.fork(newTypes), preactions
 
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "source": self.source.toJson(),
+                "namesToExprs": self.namesToExprs}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "source", "namesToExprs"])
+        return Define(Workflow.fromJson(obj["source"]), **obj["namesToExprs"])
+
 ############### Goals
 
 class ToPython(Goal):
@@ -231,3 +268,14 @@ class ToPython(Goal):
 
         preactions = preactions + (statementlist.ReturnPythonDataset.Pre("Entry", namesToTypedTrees),)
         return symbolTable, typeTable, preactions
+
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "source": self.source.toJson(),
+                "namesToExprs": self.namesToExprs}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "source", "namesToExprs"])
+        return ToPython(Workflow.fromJson(obj["source"]), **obj["namesToExprs"])
