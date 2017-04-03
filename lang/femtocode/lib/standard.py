@@ -88,6 +88,21 @@ class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[Subtract.name] = Subtract()
 
+class UnaryMinus(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "u-"
+
+    def pythonast(self, args):
+        return ast.UnaryOp(ast.USub(), args[0])
+
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        if len(typedargs) != 1 or not isinstance(typedargs[0].schema, Number):
+            return impossible("Unary minus (-) can only be used with a number."), typedargs, frame
+        else:
+            return Number(-typedargs[0].schema.max, -typedargs[0].schema.min, typedargs[0].schema.whole), typedargs, frame
+
+table[UnaryMinus.name] = UnaryMinus()
+
 class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "*"
 

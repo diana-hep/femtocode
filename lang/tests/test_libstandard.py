@@ -86,6 +86,20 @@ class TestLibStandard(unittest.TestCase):
         for entry in numerical.toPython(x = "x", y = "y", a = "x - y").submit():
             self.assertAlmostEqual(entry.x - entry.y, entry.a)
 
+    def test_minus_literal(self):
+        self.assertEqual(numerical.type("-2"), integer(-2, -2))
+        for entry in numerical.toPython(x = "x", a = "-2 + x").submit():
+            self.assertAlmostEqual(-2 + entry.x, entry.a)
+
+    def test_minus(self):
+        self.assertEqual(numerical.type("-xlim"), integer(-9, 0))
+        self.assertEqual(numerical.type("-ylim"), real(almost(-10), 0))
+        self.assertEqual(numerical.type("-ylim2"), real(almost(-10), almost(0)))
+        for entry in numerical.toPython(x = "x", a = "-x").submit():
+            self.assertAlmostEqual(-entry.x, entry.a)
+        for entry in numerical.toPython(y = "y", a = "-y").submit():
+            self.assertAlmostEqual(-entry.y, entry.a)
+
     def test_multiply_literal(self):
         self.assertEqual(numerical.type("x * 3"), integer)
         self.assertEqual(numerical.type("x * 3.14"), real)
