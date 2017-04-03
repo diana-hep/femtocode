@@ -155,5 +155,22 @@ class TestLibStandard(unittest.TestCase):
     def test_floordivide(self):
         self.assertRaises(FemtocodeError, lambda: numerical.type("x // xlim"))
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim // xlim"))
-        for entry in numerical.toPython(xlim = "xlim", a = "xlim // (xlim + 1)").submit():
-            self.assertAlmostEqual(entry.xlim // (entry.xlim + 1), entry.a)
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x // (xlim + 1)").submit():
+            self.assertAlmostEqual(entry.x // (entry.xlim + 1), entry.a)
+
+    def test_power_literal(self):
+        for entry in numerical.toPython(x = "x", a = "x**5").submit():
+            self.assertAlmostEqual(entry.x**5, entry.a)
+
+    def test_power_literal2(self):
+        for entry in numerical.toPython(x = "x", a = "2**x").submit():
+            self.assertAlmostEqual(2**entry.x, entry.a)
+
+    def test_power_literal3(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x**(1/2)"))
+        for entry in numerical.toPython(xlim = "xlim", a = "xlim**(1/2)").submit():
+            self.assertAlmostEqual(math.sqrt(entry.xlim), entry.a)
+
+    def test_power(self):
+        for entry in numerical.toPython(x = "x", y = "y", a = "x**y").submit():
+            self.assertAlmostEqual(entry.x ** entry.y, entry.a)

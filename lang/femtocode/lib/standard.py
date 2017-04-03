@@ -141,6 +141,97 @@ class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[FloorDiv.name] = FloorDiv()
 
+class Power(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "**"
+
+    def pythonast(self, args):
+        return ast.BinOp(args[0], ast.Pow(), args[1])
+
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.power(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
+        if isinstance(args[1], ast.Num) and args[1].n == 0:
+            if schema.whole:
+                return statementsToAst("""OUT = 1""", OUT = target)
+            else:
+                return statementsToAst("""OUT = 1.0""", OUT = target)
+                
+        elif isinstance(args[1], ast.Num) and args[1].n == 0.5:
+            return statementsToAst("""OUT = math.sqrt(ARG0)""", OUT = target, ARG0 = args[0])
+
+        elif isinstance(args[1], ast.Num) and round(args[1].n) == args[1].n and args[1].n < 10:
+            # TODO: this is an example of how ** can be optimized, but it is not proven to be optimal
+            # another interesting implementation would be to create temporary variables and do the work in log_2(N) steps, rather than N
+            x = newname()
+            return statementsToAst("""
+                X = ARG0
+                OUT = xpow
+                """, OUT = target, ARG0 = args[0],
+                                   xpow = reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), [ast.Name(x, ast.Load()) for i in xrange(int(args[1].n))]),
+                                   X = ast.Name(x, ast.Store()))
+
+        elif tonative:
+            return super(Power, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
+
+        else:
+            # make Python behave like low-level exponentiation
+            x, y = newname(), newname()
+            return statementsToAst("""
+                X, Y = ARG0, ARG1
+              
+                if math.isnan(x) and y == 0:
+                    OUT = 1.0
+                elif math.isnan(x) or math.isnan(y):
+                    OUT = float("nan")
+                elif x == 0 and y < 0:
+                    OUT = float("inf")
+                elif math.isinf(y):
+                    if x == 1 or x == -1:
+                        OUT = float("nan")
+                    elif abs(x) < 1:
+                        if y > 0:
+                            OUT = 0.0
+                        else:
+                            OUT = float("inf")
+                    else:
+                        if y > 0:
+                            OUT = float("inf")
+                        else:
+                            OUT = 0.0
+                elif math.isinf(x):
+                    if y == 0:
+                        OUT = 1.0
+                    elif y < 0:
+                        OUT = 0.0
+                    else:
+                        if x < 0 and round(y) == y and y % 2 == 1:
+                            OUT = float("-inf")
+                        else:
+                            OUT = float("inf")
+                elif x < 0 and round(y) != y:
+                    OUT = float("nan")
+                else:
+                    try:
+                        OUT = math.pow(x, y)
+                    except OverflowError:
+                        if abs(y) < 1:
+                            if x < 0:
+                                OUT = float("nan")
+                            else:
+                                OUT = 1.0
+                        else:
+                            if (abs(x) > 1 and y < 0) or (abs(x) < 1 and y > 0):
+                                OUT = 0.0
+                            else:
+                                OUT = float("inf")
+                """, OUT = target, ARG0 = args[0], ARG1 = args[1],
+                                   x = ast.Name(x, ast.Load()), y = ast.Name(y, ast.Load()),
+                                   X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()))
+
+table[Power.name] = Power()
+
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
 

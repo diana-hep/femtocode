@@ -18,6 +18,7 @@ import ast
 import base64
 import importlib
 import marshal
+import math
 import sys
 import traceback
 import types
@@ -241,6 +242,7 @@ class Compiler(object):
 
         modulecomp = compile(moduleast, "Femtocode", "exec")
         out = dict(references)
+        out["math"] = math
         exec(modulecomp, out)
         return LoopFunction(out[name])
 
