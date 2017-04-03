@@ -129,6 +129,18 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[Div.name] = Div()
 
+class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "//"
+
+    def pythonast(self, args):
+        return ast.BinOp(args[0], ast.FloorDiv(), args[1])
+
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.floordivide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+
+table[FloorDiv.name] = FloorDiv()
+
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
 

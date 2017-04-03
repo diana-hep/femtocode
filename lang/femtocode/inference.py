@@ -594,7 +594,7 @@ def divide(*args):
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
+                        return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(inf)
@@ -623,7 +623,7 @@ def divide(*args):
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
+                        return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(-inf)
@@ -653,7 +653,7 @@ def divide(*args):
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
+                        return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(-inf)
@@ -682,7 +682,7 @@ def divide(*args):
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
 
                     elif a == 0.0 and b == 0.0:
-                        return impossible("Indeterminate form (0 / 0) is possible; constrain with if-else.")
+                        return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(inf)
@@ -706,6 +706,158 @@ def divide(*args):
             assert not any(math.isnan(x) for x in cases), "nan encountered in divide cases: {0}".format(cases)
 
             return Number(almost.min(*cases), almost.max(*cases), False)
+
+        else:
+            assert False, "unhandled schemas: {0} {1}".format(one, two)
+
+def floordivide(*args):
+    assert len(args) > 0, "inference.floordivide called with 0 arguments"
+    if len(args) == 1:
+        return args[0]
+    elif len(args) > 2:
+        return floordivide(floordivide(args[0], args[1]), *args[2:])
+    else:
+        one, two = args
+
+        if isinstance(one, Union) and isinstance(two, Union):
+            return _combineTwoUnions(one, two, divide)
+
+        elif isinstance(one, Union):
+            return _combineFirstUnion(one, two, divide)
+
+        elif isinstance(two, Union):
+            return _combineSecondUnion(one, two, divide)
+
+        elif isinstance(one, Number) and isinstance(two, Number):
+            if isinstance(one, Number) and one.whole and isinstance(two, Number) and two.whole:
+                oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one, True)
+                twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two, True)
+
+                cases = []
+                for a in oneIntervalMinus:
+                    for b in twoIntervalMinus:
+                        if a == almost(-inf) and b == almost(-inf):
+                            cases.append(almost(inf))
+                            cases.append(0)
+
+                        elif a == almost(-inf) and b.real == 0:
+                            cases.append(almost(inf))
+
+                        elif a == almost(-inf):
+                            cases.append(almost(inf))
+
+                        elif a.real == 0 and b == almost(-inf):
+                            cases.append(0)
+
+                        elif a.real == 0 and b.real == 0:
+                            return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
+
+                        elif a.real == 0:
+                            cases.append(0)
+
+                        elif b == almost(-inf):
+                            cases.append(0)
+
+                        elif b.real == 0:
+                            return impossible("Infinite value (inf) is not allowed in floor-division; constrain with if-else.")
+
+                        else:
+                            cases.append(a // b)
+
+                    for b in twoIntervalPlus:
+                        if a == almost(-inf) and b == almost(inf):
+                            cases.append(almost(-inf))
+                            cases.append(0)
+
+                        elif a == almost(-inf) and b.real == 0:
+                            cases.append(almost(-inf))
+
+                        elif a == almost(-inf):
+                            cases.append(almost(-inf))
+
+                        elif a.real == 0 and b == almost(inf):
+                            cases.append(0)
+
+                        elif a.real == 0 and b.real == 0:
+                            return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
+
+                        elif a.real == 0:
+                            cases.append(0)
+
+                        elif b == almost(inf):
+                            cases.append(0)
+
+                        elif b.real == 0:
+                            return impossible("Infinite value (-inf) is not allowed in floor-division; constrain with if-else.")
+
+                        else:
+                            cases.append(a // b)
+
+                for a in oneIntervalPlus:
+                    for b in twoIntervalMinus:
+                        if a == almost(inf) and b == almost(-inf):
+                            cases.append(almost(-inf))
+                            cases.append(0)
+
+                        elif a == almost(inf) and b.real == 0:
+                            cases.append(almost(-inf))
+
+                        elif a == almost(inf):
+                            cases.append(almost(-inf))
+
+                        elif a.real == 0 and b == almost(-inf):
+                            cases.append(0)
+
+                        elif a.real == 0 and b.real == 0:
+                            return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
+
+                        elif a.real == 0:
+                            cases.append(0)
+
+                        elif b == almost(-inf):
+                            cases.append(0)
+
+                        elif b.real == 0:
+                            return impossible("Infinite value (-inf) is not allowed in floor-division; constrain with if-else.")
+
+                        else:
+                            cases.append(a // b)
+
+                    for b in twoIntervalPlus:
+                        if a == almost(inf) and b == almost(inf):
+                            cases.append(almost(inf))
+                            cases.append(0)
+
+                        elif a == almost(inf) and b.real == 0:
+                            cases.append(almost(inf))
+
+                        elif a == almost(inf):
+                            cases.append(almost(inf))
+
+                        elif a.real == 0 and b == almost(inf):
+                            cases.append(0)
+
+                        elif a.real == 0 and b.real == 0:
+                            return impossible("Indeterminate form (0 / 0) is not allowed; constrain with if-else.")
+
+                        elif a.real == 0:
+                            cases.append(0)
+
+                        elif b == almost(inf):
+                            cases.append(0)
+
+                        elif b.real == 0:
+                            return impossible("Infinite value (inf) is not allowed in floor-division; constrain with if-else.")
+
+                        else:
+                            cases.append(a // b)
+
+                assert not any(math.isnan(x) for x in cases), "nan encountered in divide cases: {0}".format(cases)
+
+                return Number(almost.min(*cases), almost.max(*cases), True)
+
+            else:
+                return impossible("Arguments of floor-division must be integers.")
 
         else:
             assert False, "unhandled schemas: {0} {1}".format(one, two)

@@ -34,9 +34,9 @@ from femtocode.workflow import *
 
 session = TestSession()
 
-numerical = session.source("Test", x=integer, xlim=integer(0, almost(10)), y=real, ylim=real(0, almost(10)), ylim2=real(almost(0), almost(10)))
+numerical = session.source("Test", x=integer, xlim=integer(0, almost(10)), xlim2=integer(1, almost(11)), y=real, ylim=real(0, almost(10)), ylim2=real(almost(0), almost(10)))
 for i in xrange(100):
-    numerical.dataset.fill({"x": i, "xlim": i % 10, "y": i + 0.2, "ylim": (i + 0.2) % 10.0, "ylim2": (i + 0.2) % 10.0})
+    numerical.dataset.fill({"x": i, "xlim": i % 10, "xlim2": (i % 10) + 1, "y": i + 0.2, "ylim": (i + 0.2) % 10.0, "ylim2": (i + 0.2) % 10.0})
 
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
@@ -118,12 +118,12 @@ class TestLibStandard(unittest.TestCase):
     def test_divide_literal2(self):
         self.assertEqual(numerical.type("x / 3"), real)
         self.assertEqual(numerical.type("x / 3.14"), real)
-        self.assertEqual(numerical.type("xlim / 3"), real(0, 9/3.0))
-        self.assertEqual(numerical.type("xlim / 3.14"), real(0, 9/3.14))
-        self.assertEqual(numerical.type("ylim / 3"), real(0, almost(10/3.0)))
-        self.assertEqual(numerical.type("ylim / 3.14"), real(0, almost(10/3.14)))
-        self.assertEqual(numerical.type("ylim2 / 3"), real(almost(0), almost(10/3.0)))
-        self.assertEqual(numerical.type("ylim2 / 3.14"), real(almost(0), almost(10/3.14)))
+        self.assertEqual(numerical.type("xlim / 3"), real(0, 9 / 3.0))
+        self.assertEqual(numerical.type("xlim / 3.14"), real(0, 9 / 3.14))
+        self.assertEqual(numerical.type("ylim / 3"), real(0, almost(10 / 3.0)))
+        self.assertEqual(numerical.type("ylim / 3.14"), real(0, almost(10 / 3.14)))
+        self.assertEqual(numerical.type("ylim2 / 3"), real(almost(0), almost(10 / 3.0)))
+        self.assertEqual(numerical.type("ylim2 / 3.14"), real(almost(0), almost(10 / 3.14)))
         for entry in numerical.toPython(x = "x", a = "x / 3.14").submit():
             self.assertAlmostEqual(entry.x / 3.14, entry.a)
 
@@ -134,3 +134,26 @@ class TestLibStandard(unittest.TestCase):
         self.assertEqual(numerical.type("xlim / ylim2"), real(0, almost(inf)))
         for entry in numerical.toPython(x = "x", ylim2 = "ylim2", a = "x / ylim2").submit():
             self.assertAlmostEqual(entry.x / entry.ylim2, entry.a)
+
+    def test_floordivide_literal(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("3 // x"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("3.14 // x"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("3 // xlim"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("3 // ylim"))
+        self.assertEqual(numerical.type("3 // xlim2"), integer(0, 3))
+        for entry in numerical.toPython(xlim2 = "xlim2", a = "3 // xlim2").submit():
+            self.assertAlmostEqual(3 // entry.xlim2, entry.a)
+
+    def test_floordivide_literal2(self):
+        self.assertEqual(numerical.type("x // 3"), integer)
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x // 3.14"))
+        self.assertEqual(numerical.type("xlim // 3"), integer(0, 9 // 3))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("ylim // 3"))
+        for entry in numerical.toPython(x = "x", a = "x // 3").submit():
+            self.assertAlmostEqual(entry.x // 3, entry.a)
+
+    def test_floordivide(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x // xlim"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("xlim // xlim"))
+        for entry in numerical.toPython(xlim = "xlim", a = "xlim // (xlim + 1)").submit():
+            self.assertAlmostEqual(entry.xlim // (entry.xlim + 1), entry.a)
