@@ -118,7 +118,7 @@ class Workflow(Serializable):
     def _propagated(self, libs=()):
         symbolTable = SymbolTable(StandardLibrary.table.asdict())
         for lib in libs:
-            symbolTable = symbolTable.fork(lib.asdict())
+            symbolTable = symbolTable.fork(lib.table.asdict())
 
         symbolTable = symbolTable.fork()
         typeTable = SymbolTable()

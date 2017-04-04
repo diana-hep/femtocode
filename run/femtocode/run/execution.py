@@ -25,11 +25,13 @@ import numpy
 
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
+from femtocode.defs import *
+from femtocode.execution import Compiler
+from femtocode.execution import DependencyGraph
+from femtocode.execution import Executor
 from femtocode.execution import Loop
 from femtocode.execution import LoopFunction
-from femtocode.execution import DependencyGraph
-from femtocode.execution import Compiler
-from femtocode.execution import Executor
+from femtocode.lib.standard import StandardLibrary
 from femtocode.typesystem import *
 
 class PyTypeObject(ctypes.Structure):
@@ -42,8 +44,8 @@ PyObjectPtr = ctypes.POINTER(PyObject)
 
 class NativeCompiler(Compiler):
     @staticmethod
-    def compileToNative(fcnname, loop, columns, inputs, debug):
-        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop, inputs, True, debug)
+    def compileToNative(fcnname, loop, columns, inputs, fcntable, debug):
+        pythonfcn, imax = NativeCompiler.compileToPython(fcnname, loop, inputs, fcntable, True, debug)
         pythonfcn = pythonfcn.fcn
 
         sig = (numba.int64[:],)
@@ -187,11 +189,15 @@ class NativeExecutor(Executor):
         return out
 
     def compileLoops(self, debug):
+        fcntable = SymbolTable(StandardLibrary.table.asdict())
+        for lib in self.query.libs:
+            fcntable = fcntable.fork(lib.table.asdict())
+
         self.tmptypes = {}
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns, self.query.inputs, debug)
+                loop.run, loop.imax, tmptypes = NativeCompiler.compileToNative(fcnname, loop, self.query.dataset.columns, self.query.inputs, fcntable, debug)
                 self.tmptypes.update(tmptypes)
 
     def imax(self, imax):

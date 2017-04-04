@@ -26,6 +26,7 @@ import types
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
+from femtocode.defs import *
 from femtocode.lib.standard import StandardLibrary
 from femtocode.py23 import *
 from femtocode.typesystem import *
@@ -247,7 +248,7 @@ class Compiler(object):
         return LoopFunction(out[name])
 
     @staticmethod
-    def compileToPython(fcnname, loop, inputs, tonative, debug):
+    def compileToPython(fcnname, loop, inputs, fcntable, tonative, debug):
         validNames = {}
         def valid(n):
             if n not in validNames:
@@ -303,7 +304,7 @@ class Compiler(object):
                         astargs.append(arg.buildexec())
                         schemas.append(arg.schema)
 
-                assignment = StandardLibrary.table[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
+                assignment = fcntable[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
                 schemalookup[statement.column] = statement.schema
 
                 # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
@@ -445,10 +446,14 @@ class Executor(Serializable):
         return out
 
     def compileLoops(self, debug):
+        fcntable = SymbolTable(StandardLibrary.table.asdict())
+        for lib in self.query.libs:
+            fcntable = fcntable.fork(lib.table.asdict())
+
         for i, loop in enumerate(self.order):
             if isinstance(loop, Loop):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, self.query.inputs, False, debug)
+                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, self.query.inputs, fcntable, False, debug)
 
     def inarraysFromTest(self, group):
         out = {}
