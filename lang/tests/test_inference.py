@@ -602,3 +602,69 @@ class TestInference(unittest.TestCase):
                                                 if y in right:
                                                     if x <= y:
                                                         self.assertTrue(x in leftconstraint and y in rightconstraint)
+
+    def test_greaterthan(self):
+        values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
+        edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
+        for leftmin in edges:
+            for leftmax in edges:
+                try:
+                    left = real(leftmin, leftmax)
+                except FemtocodeError:
+                    pass
+                else:
+                    for rightmin in edges:
+                        for rightmax in edges:
+                            try:
+                                right = real(rightmin, rightmax)
+                            except FemtocodeError:
+                                pass
+                            else:
+                                boo, leftconstraint, rightconstraint = inequality(">", left, right)
+                                if isinstance(boo, Impossible):
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    self.assertFalse(x > y)
+
+                                else:
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    if x > y:
+                                                        self.assertTrue(x in leftconstraint and y in rightconstraint)
+
+    def test_greaterequal(self):
+        values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
+        edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
+        for leftmin in edges:
+            for leftmax in edges:
+                try:
+                    left = real(leftmin, leftmax)
+                except FemtocodeError:
+                    pass
+                else:
+                    for rightmin in edges:
+                        for rightmax in edges:
+                            try:
+                                right = real(rightmin, rightmax)
+                            except FemtocodeError:
+                                pass
+                            else:
+                                boo, leftconstraint, rightconstraint = inequality(">=", left, right)
+                                if isinstance(boo, Impossible):
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    self.assertFalse(x >= y)
+
+                                else:
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    if x >= y:
+                                                        self.assertTrue(x in leftconstraint and y in rightconstraint)

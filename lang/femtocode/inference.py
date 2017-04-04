@@ -1242,7 +1242,7 @@ def inequality(operator, left, right):
             try:
                 return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
-                return impossible("First argument is never less than right argument."), None, None
+                return impossible("First argument is never less than second argument."), None, None
 
         elif operator == "<=":
             if almost.max(left.max, right.max) == left.max:
@@ -1254,16 +1254,36 @@ def inequality(operator, left, right):
             try:
                 return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
-                return impossible("First argument is never less than or equal to right argument."), None, None
+                return impossible("First argument is never less than or equal to second argument."), None, None
 
 
         elif operator == ">":
-            pass
+            if not isinstance(left.min, almost) and left.min == right.min:
+                leftmin = almost(left.min)
+            elif almost.min(left.min, right.min) == left.min:
+                leftmin = right.min
 
-            
+            if not isinstance(right.max, almost) and left.max == almost(right.max):
+                rightmax = almost(right.max)
+            elif almost.max(left.max, right.max) == right.max:
+                rightmax = left.max
+
+            try:
+                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+            except FemtocodeError:
+                return impossible("First argument is never greater than second argument."), None, None
+
         elif operator == ">=":
-            pass
+            if almost.min(left.min, right.min) == left.min:
+                leftmin = right.min
 
+            if almost.max(left.max, right.max) == right.max:
+                rightmax = left.max
+
+            try:
+                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+            except FemtocodeError:
+                return impossible("First argument is never greater than or equal to second argument."), None, None
 
         else:
             assert False, "unexpected operator: {0}".format(operator)
