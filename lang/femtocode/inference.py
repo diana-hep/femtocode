@@ -63,20 +63,78 @@ def literal(schema, operator, value):
             else:
                 assert False, "unhandled operator: {0}".format(operator)
 
-    elif isinstance(schema, Boolean):
-        if isinstance(value, bool):
+    elif isinstance(schema, Boolean) and schema.just is True:
+        if value is True:
             if operator == "==":
-                return boolean
+                return schema   # not constrained any more than it already is
             elif operator == "!=":
-                return boolean       # if value is True, variable could be False and vice-versa
+                return impossible("Values in the set {True} can never be != True.")
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+        elif value is False:
+            if operator == "==":
+                return impossible("Values in the set {True} can never be == False.")
+            elif operator == "!=":
+                return schema   # not constrained any more than it already is
             else:
                 assert False, "unhandled operator: {0}".format(operator)
 
         else:
             if operator == "==":
-                return impossible("Instances of the boolean type can never be equal to {0}.".format(value))
+                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
             elif operator == "!=":
-                return boolean
+                return schema   # not constrained any more than it already is
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+    elif isinstance(schema, Boolean) and schema.just is False:
+        if value is True:
+            if operator == "==":
+                return impossible("Values in the set {False} can never be == True.")
+            elif operator == "!=":
+                return schema   # not constrained any more than it already is
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+        elif value is False:
+            if operator == "==":
+                return schema   # not constrained any more than it already is
+            elif operator == "!=":
+                return impossible("Values in the set {False} can never be != False.")
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+        else:
+            if operator == "==":
+                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
+            elif operator == "!=":
+                return schema   # not constrained any more than it already is
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+    elif isinstance(schema, Boolean):
+        if value is True:
+            if operator == "==":
+                return boolean(True)
+            elif operator == "!=":
+                return boolean(False)
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+        elif value is False:
+            if operator == "==":
+                return boolean(False)
+            elif operator == "!=":
+                return boolean(True)
+            else:
+                assert False, "unhandled operator: {0}".format(operator)
+
+        else:
+            if operator == "==":
+                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
+            elif operator == "!=":
+                return schema   # not constrained any more than it already is
             else:
                 assert False, "unhandled operator: {0}".format(operator)
 
