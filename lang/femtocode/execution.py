@@ -237,7 +237,8 @@ class Compiler(object):
         if debug:
             print("")
             print(astToSource(fcn))
-            print("\n{0}".format(references))
+            if len(references) > 0:
+                print("\n{0}".format(references))
             print("")
 
         moduleast = ast.Module([fcn])

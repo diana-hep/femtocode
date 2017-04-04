@@ -109,7 +109,8 @@ class TestDataset(Dataset):
                     gettypes(n.rec(fn), ft)
 
             elif isinstance(t, Union):
-                raise NotImplementedError
+                if not t.unionNullInt() and not t.unionNullFloat():
+                    raise NotImplementedError
 
         for n, t in self.schema.items():
             gettypes(ColumnName(n), t)
@@ -151,6 +152,12 @@ class TestDataset(Dataset):
                 dataType = "float"
 
             return {name: TestColumn(name, name.size() if hasSize else None, dataType)}
+
+        elif isinstance(schema, Union) and schema.unionNullInt():
+            return {name: TestColumn(name, name.size() if hasSize else None, "int")}
+
+        elif isinstance(schema, Union) and schema.unionNullFloat():
+            return {name: TestColumn(name, name.size() if hasSize else None, "float")}
 
         elif isinstance(schema, String):
             raise NotImplementedError
@@ -214,6 +221,22 @@ class TestDataset(Dataset):
                 d = float(datum)
 
             segment.data.append(d)
+            segment.dataLength += 1
+
+        elif isinstance(schema, Union) and schema.unionNullInt():
+            segment = group.segments[name]
+            if datum is None:
+                segment.data.append(Number._intNaN)
+            else:
+                segment.data.append(int(datum))
+            segment.dataLength += 1
+
+        elif isinstance(schema, Union) and schema.unionNullFloat():
+            segment = group.segments[name]
+            if datum is None:
+                segment.data.append(Number._floatNaN)
+            else:
+                segment.data.append(int(datum))
             segment.dataLength += 1
 
         elif isinstance(schema, String):
@@ -288,6 +311,24 @@ class TestDataset(Dataset):
                 i = self.dataIndex[name]
                 self.dataIndex[name] += 1
                 return group.segments[name].data[i]
+
+            elif isinstance(schema, Union) and schema.unionNullInt():
+                i = self.dataIndex[name]
+                self.dataIndex[name] += 1
+                out = group.segments[name].data[i]
+                if out == Number._intNaN:
+                    return None
+                else:
+                    return out
+
+            elif isinstance(schema, Union) and schema.unionNullFloat():
+                i = self.dataIndex[name]
+                self.dataIndex[name] += 1
+                out = group.segments[name].data[i]
+                if math.isnan(out):
+                    return None
+                else:
+                    return out
 
             elif isinstance(schema, String):
                 raise NotImplementedError

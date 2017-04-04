@@ -515,9 +515,33 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
         consequents = args[:-1][2::3]
         alternate = args[-1]
 
+        def isNone(expression):
+            if sys.version_info[0] <= 2:
+                return isinstance(expression, ast.Name) and expression.id == "None" and isinstance(expression.ctx, ast.Load)
+            else:
+                return isinstance(expression, ast.NameConstant) and expression.value is None
+            
+        def replaceNone(expression):
+            return expression
+
+        if isinstance(schema, Union):
+            if schema.unionNullInt():
+                def replaceNone(expression):
+                    if isNone(expression):
+                        return ast.Num(Number._intNaN)
+                    else:
+                        return expression
+
+            elif schema.unionNullFloat():
+                def replaceNone(expression):
+                    if isNone(expression):
+                        return ast.Num(Number._floatNaN)
+                    else:
+                        return expression
+
         chain = statementsToAst("""
             OUT = ALT
-            """, OUT = target, ALT = alternate)
+            """, OUT = target, ALT = replaceNone(alternate))
 
         for predicate, consequent in reversed(list(zip(predicates, consequents))):
             next = statementsToAst("""
@@ -525,7 +549,7 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
                     OUT = CONS
                 else:
                     REPLACEME
-                """, OUT = target, PRED = predicate, CONS = consequent)
+                """, OUT = target, PRED = predicate, CONS = replaceNone(consequent))
             next[0].orelse = [chain[0]]
             chain = next
 

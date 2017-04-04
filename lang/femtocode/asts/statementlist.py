@@ -299,7 +299,10 @@ class Literal(Statement):
 
     def buildexec(self):
         if isinstance(self.schema, Null):
-            raise NotImplementedError   # have to think about this when the case comes up
+            if sys.version_info[0] <= 2:
+                return ast.Name("None", ast.Load())
+            else:
+                return ast.NameConstant(None)
 
         elif isinstance(self.schema, Boolean):
             if sys.version_info[0] <= 2:

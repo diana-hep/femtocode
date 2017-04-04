@@ -625,6 +625,9 @@ class Boolean(Primitive):
 class Number(Primitive):
     order = 3
 
+    _floatNaN = float("nan")
+    _intNaN = -9223372036854775808
+
     def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):
         if not isinstance(min, (int, long, float)):
             raise FemtocodeError("Number min ({0}) must be a number (or an almost(number))".format(min))
@@ -1290,6 +1293,31 @@ class Union(Schema):
 
     def _json_memo(self, memo):
         return {"type": "union", "possibilities": [x._json_memo(memo) for x in self.possibilities]}
+
+    def _unionNullNumber(self):
+        hasNull = False
+        hasNumber = False
+        hasAnythingElse = False
+        whole = True
+        for p in self.possibilities:
+            if isinstance(p, Null):
+                hasNull = True
+            elif isinstance(p, Number):
+                hasNumber = True
+                if not p.whole:
+                    whole = False
+            else:
+                hasAnythingElse = True
+
+        return hasNull and hasNumber, whole
+
+    def unionNullInt(self):
+        hasNullAndNumber, whole = self._unionNullNumber()
+        return hasNullAndNumber and whole
+
+    def unionNullFloat(self):
+        hasNullAndNumber, whole = self._unionNullNumber()
+        return hasNullAndNumber and not whole
 
 def _collectAliases(schema, aliases):
     for n, t in schema._aliases:

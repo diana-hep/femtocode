@@ -342,3 +342,15 @@ class TestLibStandard(unittest.TestCase):
         for entry in numerical.toPython(x = "x", y = "y", a = "if x == 5: x elif x == 6: x - 1 else: y").submit():
             self.assertEqual(entry.x if entry.x == 5 else (entry.x - 1 if entry.x == 6 else entry.y), entry.a)
         
+    def test_if_nullable(self):
+        for entry in numerical.toPython(xlim = "xlim", a = "if xlim < 5: xlim else: None").submit():
+            if entry.xlim < 5:
+                self.assertEqual(entry.a, entry.xlim)
+            else:
+                self.assertEqual(entry.a, None)
+
+        for entry in numerical.toPython(ylim = "ylim", a = "if ylim < 5: ylim else: None").submit():
+            if entry.ylim < 5:
+                self.assertEqual(entry.a, entry.ylim)
+            else:
+                self.assertEqual(entry.a, None)
