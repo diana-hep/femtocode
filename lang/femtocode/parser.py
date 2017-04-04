@@ -617,8 +617,8 @@ def p_or_test_2(p):
     '''or_test : and_test or_test_star'''
     #                   1            2
     theor = Or()
-    inherit_lineno(theor, p[2][0])
     p[0] = BoolOp(theor, [p[1]] + p[2])
+    inherit_lineno(theor, p[1])
     inherit_lineno(p[0], p[1])
 
 def p_or_test_star_1(p):
@@ -639,8 +639,8 @@ def p_and_test_2(p):
     '''and_test : not_test and_test_star'''
     #                    1             2
     theand = And()
-    inherit_lineno(theand, p[2][0])
     p[0] = BoolOp(theand, [p[1]] + p[2])
+    inherit_lineno(theand, p[1])
     inherit_lineno(p[0], p[1])
 
 def p_and_test_star_1(p):

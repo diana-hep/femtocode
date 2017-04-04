@@ -4,15 +4,15 @@
 actions = {}
 actions['''or_test : and_test'''] = '''    p[0] = p[1]'''
 actions['''or_test : and_test or_test_star'''] = '''    theor = Or()
-    inherit_lineno(theor, p[2][0])
     p[0] = BoolOp(theor, [p[1]] + p[2])
+    inherit_lineno(theor, p[1])
     inherit_lineno(p[0], p[1])'''
 actions['''or_test_star : OR and_test'''] = '''    p[0] = [p[2]]'''
 actions['''or_test_star : or_test_star OR and_test'''] = '''    p[0] = p[1] + [p[3]]'''
 actions['''and_test : not_test'''] = '''    p[0] = p[1]'''
 actions['''and_test : not_test and_test_star'''] = '''    theand = And()
-    inherit_lineno(theand, p[2][0])
     p[0] = BoolOp(theand, [p[1]] + p[2])
+    inherit_lineno(theand, p[1])
     inherit_lineno(p[0], p[1])'''
 actions['''and_test_star : AND not_test'''] = '''    p[0] = [p[2]]'''
 actions['''and_test_star : and_test_star AND not_test'''] = '''    p[0] = p[1] + [p[3]]'''

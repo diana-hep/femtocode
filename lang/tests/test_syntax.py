@@ -27,7 +27,7 @@ class TestSyntax(unittest.TestCase):
     def runTest(self):
         pass
 
-    def check(self, source, theirs=None, linenumbers=True):
+    def check(self, source, theirs=None, linenumbers=False):
         if theirs is None:
             theirs = ast.parse(source).body[0].value
             mine = parse(source).expression

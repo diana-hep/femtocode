@@ -277,21 +277,41 @@ class Schema(Serializable):
                     return obj["alias"]   # this is a placeholder, to be replaced in resolve (below)
 
                 elif "type" in obj:
-                    if obj["type"] in ("impossible", "null", "boolean", "empty"):
+                    if obj["type"] in ("impossible", "null", "empty"):
                         kwds = {}
                         if "alias" in obj:
                             if isinstance(obj["alias"], string_types):
                                 kwds["alias"] = obj["alias"]
                             else:
                                 raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
                         if obj["type"] == "impossible":
                             return impossible(**kwds)
                         elif obj["type"] == "null":
                             return null(**kwds)
-                        elif obj["type"] == "boolean":
-                            return boolean(**kwds)
                         elif obj["type"] == "empty":
                             return empty(**kwds)
+
+                    elif obj["type"] == "boolean":
+                        kwds = {}
+                        if "alias" in obj:
+                            if isinstance(obj["alias"], string_types):
+                                kwds["alias"] = obj["alias"]
+                            else:
+                                raise FemtocodeError("Expected \"alias\" for \"type\": \"{0}\" to be string at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["alias"])))
+                        if "just" in obj:
+                            if obj["just"] is True or obj["just"] is False:
+                                kwds["just"] = obj["just"]
+                            elif obj["just"] is None:
+                                pass
+                            else:
+                                raise FemtocodeError("Expected \"just\" for \"type\": \"{0}\" to be true, false, or null at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["just"])))
+                        unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "just"]))
+                        if len(unexpected) > 0:
+                            raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
+                        return boolean(**kwds)
 
                     elif obj["type"] in ("integer", "real", "extended"):
                         kwds = {}
@@ -360,7 +380,7 @@ class Schema(Serializable):
                             if isinstance(obj["ordered"], bool):
                                 kwds["ordered"] = obj["ordered"]
                             else:
-                                raise FemtocodeError("Expected \"ordered\" for \"type\": \"{0}\" to be boolean at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["ordered"])))
+                                raise FemtocodeError("Expected \"ordered\" for \"type\": \"{0}\" to be bool at JSON{1}\n\n    found {2}".format(obj["type"], path, json.dumps(obj["ordered"])))
                         unexpected = set(obj.keys()).difference(set(["_id", "type", "alias", "items", "fewest", "most", "ordered"]))
                         if len(unexpected) > 0:
                             raise FemtocodeError("Unexpected keys for \"type\": \"{0}\" at JSON{1}\n\n    found unexpected keys {2}".format(obj["type"], path, ", ".join(map(json.dumps, unexpected))))
@@ -524,7 +544,8 @@ class Null(Primitive):
 class Boolean(Primitive):
     order = 2
 
-    def __init__(self, alias=None):
+    def __init__(self, just=None, alias=None):
+        self.just = just
         super(Boolean, self).__init__(alias)
 
     def _repr_memo(self, memo):
@@ -532,21 +553,72 @@ class Boolean(Primitive):
         if out is not None:
             return json.dumps(out)
 
+        args = []
+        if self.just is not None:
+            args.append("just={0}".format(repr(self.just)))
         if self.alias is not None:
-            return "boolean(alias={0})".format(json.dumps(self.alias))
+            args.append("alias={0}".format(json.dumps(self.alias)))
+
+        if len(args) > 0:
+            return "boolean({0})".format(", ".join(args))
         else:
             return "boolean"
 
     def __contains__(self, other):
-        return isinstance(other, Boolean) or other is True or other is False
+        if isinstance(other, Boolean):
+            if other.just is True:
+                return self.just is None or self.just is True
+            elif other.just is False:
+                return self.just is None or self.just is False
+            else:
+                return self.just is None
+
+        else:
+            if other is True:
+                return self.just is None or self.just is True
+            elif other is False:
+                return self.just is None or self.just is False
+            else:
+                return False
+
+    def __lt__(self, other):
+        if isinstance(other, string_types):
+            return True
+
+        elif isinstance(other, Schema):
+            if self.order == other.order:
+                return self.just < other.just
+            else:
+                return self.order < other.order
+
+        else:
+            raise TypeError("unorderable types: {0}() < {1}()".format(self.__class__.__name__, type(other).__name__))
+
+    def __eq__(self, other):
+        if not isinstance(other, Schema):
+            return False
+        return self.__class__ == other.__class__ and self.just == other.just
+
+    def __hash__(self):
+        return hash((self.order, self.just))
+
+    def __call__(self, just=(), alias=None):
+        return self.__class__(self.just if just == () else just, alias)
 
     def _json_memo(self, memo):
         out = self._update_memo(memo)
         if out is not None:
             return {"alias": out}
 
+        args = {}
+        if self.just is not None:
+            args["just"] = self.just
         if self.alias is not None:
-            return {"type": "boolean", "alias": self.alias}
+            args["alias"] = self.alias
+
+        if len(args) > 0:
+            args["type"] = "boolean"
+            return args
         else:
             return "boolean"
 
@@ -559,7 +631,7 @@ class Number(Primitive):
         if not isinstance(max, (int, long, float)):
             raise FemtocodeError("Number max ({0}) must be a number (or an almost(number))".format(max))
         if not isinstance(whole, bool):
-            raise FemtocodeError("Number whole ({0}) must be boolean".format(whole))
+            raise FemtocodeError("Number whole ({0}) must be bool".format(whole))
 
         if not isinstance(min, almost) and not isinstance(max, almost) and min == max and not math.isinf(min) and round(min) == min:
             whole = True
@@ -846,7 +918,7 @@ class Collection(Schema):
         if fewest > most:
             raise FemtocodeError("Collection fewest ({0}) must not be greater than most ({1})".format(fewest, most))
         if not isinstance(ordered, bool):
-            raise FemtocodeError("Collection ordered ({0}) must be boolean".format(ordered))
+            raise FemtocodeError("Collection ordered ({0}) must be bool".format(ordered))
 
         if most == 0:
             self.items = null
@@ -1543,7 +1615,27 @@ def union(*types):
             out = null()
 
         elif isinstance(one, Boolean) and isinstance(two, Boolean):
-            out = boolean()
+            if one.just is True:
+                oneposs = set([True])
+            elif one.just is False:
+                oneposs = set([False])
+            else:
+                oneposs = set([True, False])
+
+            if two.just is True:
+                twoposs = set([True])
+            elif two.just is False:
+                twoposs = set([False])
+            else:
+                twoposs = set([True, False])
+
+            possibilities = oneposs.union(twoposs)
+            if possibilities == set([True]):
+                out = boolean(True)
+            elif possibilities == set([False]):
+                out = boolean(False)
+            else:
+                out = boolean()
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if one in two:
@@ -1709,7 +1801,27 @@ def intersection(*types):
             out = null()
 
         elif isinstance(one, Boolean) and isinstance(two, Boolean):
-            out = boolean()
+            if one.just is True:
+                oneposs = set([True])
+            elif one.just is False:
+                oneposs = set([False])
+            else:
+                oneposs = set([True, False])
+
+            if two.just is True:
+                twoposs = set([True])
+            elif two.just is False:
+                twoposs = set([False])
+            else:
+                twoposs = set([True, False])
+
+            possibilities = oneposs.intersection(twoposs)
+            if possibilities == set([True]):
+                out = boolean(True)
+            elif possibilities == set([False]):
+                out = boolean(False)
+            else:
+                out = boolean()
 
         elif isinstance(one, Number) and isinstance(two, Number):
             if one in two:
@@ -1824,7 +1936,27 @@ def difference(universal, excluded):
         out = impossible("null type is completely covered by null type.")
 
     elif isinstance(universal, Boolean) and isinstance(excluded, Boolean):
-        out = impossible("boolean type is completely covered by boolean type.")
+        if universal.just is True:
+            universalposs = set([True])
+        elif universal.just is False:
+            universalposs = set([False])
+        else:
+            universalposs = set([True, False])
+
+        if excluded.just is True:
+            excludedposs = set([True])
+        elif excluded.just is False:
+            excludedposs = set([False])
+        else:
+            excludedposs = set([True, False])
+
+        possibilities = universalposs.difference(excludedposs)
+        if possibilities == set([True]):
+            out = boolean(True)
+        elif possibilities == set([False]):
+            out = boolean(False)
+        else:
+            out = impossible("Removing {True, False} from the set {True, False} yields no possibilities.")
 
     elif isinstance(universal, Number) and isinstance(excluded, Number):
         if not universal.whole and excluded.whole and excluded.min != excluded.max:
