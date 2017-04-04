@@ -220,7 +220,7 @@ class TestLibStandard(unittest.TestCase):
 
     def test_equal_literal(self):
         self.assertEqual(numerical.type("x == 5"), boolean)
-        self.assertRaises(FemtocodeError, numerical.type("xlim == -5"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("xlim == -5"))
         for entry in numerical.toPython(x = "x", a = "x == 5").submit():
             self.assertEqual(entry.x == 5, entry.a)
 

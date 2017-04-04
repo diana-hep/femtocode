@@ -306,6 +306,9 @@ class Compiler(object):
                 assignment = table[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
                 schemalookup[statement.column] = statement.schema
 
+                # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
+                # So append a few more statements onto that assignment to make sure they stay within range (if applicable)!
+
             else:
                 assert False, "unrecognized statement: {0}".format(statement)
 

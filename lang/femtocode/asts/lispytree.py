@@ -73,7 +73,6 @@ class BuiltinFunction(Function):
         assert False, "missing implementation: {0}".format(self)
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
-        # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
         return [ast.Assign([target], self.pythonast(args))]
 
     def tosrc(self, args):

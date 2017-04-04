@@ -27,6 +27,9 @@ from femtocode import inference
 from femtocode.typesystem import *
 from femtocode.util import *
 
+def _buildargs(args, frame):
+    return [typedtree.build(arg, frame)[0] for arg in args]
+
 table = SymbolTable()
 
 class Is(lispytree.BuiltinFunction):
@@ -38,7 +41,7 @@ class Is(lispytree.BuiltinFunction):
         return True
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
 
         fromtype = typedargs[0].schema
         totype = typedargs[1].value   # literal type expression
@@ -74,7 +77,7 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
         
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
 table[Add.name] = Add()
@@ -86,7 +89,7 @@ class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.BinOp(args[0], ast.Sub(), args[1])
         
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
 
 table[Sub.name] = Sub()
@@ -98,7 +101,7 @@ class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.UnaryOp(ast.USub(), args[0])
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         if len(typedargs) != 1 or not isinstance(typedargs[0].schema, Number):
             return impossible("Unary minus (-) can only be used with a number."), typedargs, frame
         else:
@@ -119,7 +122,7 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), args)
         
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.multiply(*[x.schema for x in typedargs]), typedargs, frame
 
 table[Mult.name] = Mult()
@@ -131,7 +134,7 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.BinOp(args[0], ast.Div(), ast.Call(ast.Name("float", ast.Load()), [args[1]], [], None, None))
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
@@ -155,7 +158,7 @@ class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.BinOp(args[0], ast.FloorDiv(), args[1])
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.floordivide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
 table[FloorDiv.name] = FloorDiv()
@@ -167,7 +170,7 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.BinOp(args[0], ast.Pow(), args[1])
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.power(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
@@ -259,7 +262,7 @@ class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.BinOp(args[0], ast.Mod(), args[1])
         
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         return inference.modulo(*[x.schema for x in typedargs]), typedargs, frame
 
 table[Mod.name] = Mod()
@@ -276,7 +279,7 @@ class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.Compare(args[0], [ast.Eq()], [args[1]])
         
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         out = intersection(typedargs[0].schema, typedargs[1].schema)
         if isinstance(out, Impossible):
             return impossible("The argument types have no intersection (their values can never be equal)."), typedargs, frame
@@ -295,7 +298,7 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.Compare(args[0], [ast.NotEq()], [args[1]])
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
 
         const = None
         expr = None
@@ -318,6 +321,33 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return boolean, typedargs, subframe
 
 table[NotEq.name] = NotEq()
+
+# class Lt(statementlist.FlatFunction, lispytree.BuiltinFunction):
+#     name = "<"
+
+#     def pythonast(self, args):
+#         return ast.Compare(args[0], [ast.Lt()], [args[1]])
+        
+#     def buildtyped(self, args, frame):
+#         typedargs = _buildargs(args, frame)
+
+
+
+
+
+#         out = intersection(typedargs[0].schema, typedargs[1].schema)
+#         if isinstance(out, Impossible):
+#             return impossible("The argument types have no intersection (their values can never be equal)."), typedargs, frame
+#         else:
+#             return boolean, typedargs, frame.fork({args[0]: out, args[1]: out})
+
+# table[Lt.name] = Lt()
+
+
+
+
+
+
 
 class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
@@ -422,7 +452,7 @@ class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
         return ast.UnaryOp(ast.Not(), args[0])
 
     def buildtyped(self, args, frame):
-        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        typedargs = _buildargs(args, frame)
         if not isinstance(typedargs[0].schema, Boolean):
             return impossible("Argument must be boolean."), typedargs, frame
         else:

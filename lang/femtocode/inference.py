@@ -183,7 +183,7 @@ def literal(schema, operator, value):
             if all(hasattr(value, n) for n in schema.fields):
                 return intersection(schema, Record(dict((n, literal(t, operator, getattr(value, n))) for n, t in schema.fields.items())))
             else:
-                return impossible("Value {0} does not have enough fields to be equal to\n{1}".format(value, pretty(schema)))
+                return impossible("Value {0} does not have all of the necessary fields to be equal to\n{1}".format(value, pretty(schema)))
 
         elif operator == "!=":
             return schema
@@ -273,7 +273,7 @@ def add(*args):
                (one.min == inf and two.max == -inf) or \
                (one.max == inf and two.min == -inf) or \
                (one.max == inf and two.max == -inf):
-                return impossible("Extended real type allows for indeterminate form (inf + -inf).")
+                return impossible("Indeterminate form (inf + -inf, from extended real type) is not allowed; constrain with if-else.")
 
             else:
                 if one.min == -inf or two.min == -inf:
@@ -326,7 +326,7 @@ def subtract(*args):
                (one.min == inf and two.max == inf) or \
                (one.max == inf and two.min == inf) or \
                (one.max == inf and two.max == inf):
-                return impossible("Extended real type allows for indeterminate form (inf - inf).")
+                return impossible("Indeterminate form (inf - inf, from extended real type) is not allowed; constrain with if-else.")
 
             else:
                 if one.min == -inf or two.max == inf:
@@ -436,10 +436,10 @@ def multiply(*args):
             for a in oneIntervalMinus:
                 for b in twoIntervalMinus:
                     if a == -inf and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
+                        return impossible("Indeterminate form (-inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     if a == 0.0 and b == -inf:
-                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
+                        return impossible("Indeterminate form (-inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(inf)
@@ -466,10 +466,10 @@ def multiply(*args):
 
                 for b in twoIntervalPlus:
                     if a == -inf and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
+                        return impossible("Indeterminate form (-inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     if a == 0.0 and b == inf:
-                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
+                        return impossible("Indeterminate form (inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == -inf:
                         cases.append(-inf)
@@ -497,10 +497,10 @@ def multiply(*args):
             for a in oneIntervalPlus:
                 for b in twoIntervalMinus:
                     if a == inf and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
+                        return impossible("Indeterminate form (inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     if a == 0.0 and b == -inf:
-                        return impossible("Extended real type allows for indeterminate form (-inf * 0).")
+                        return impossible("Indeterminate form (-inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(-inf)
@@ -527,10 +527,10 @@ def multiply(*args):
 
                 for b in twoIntervalPlus:
                     if a == inf and b == 0.0:
-                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
+                        return impossible("Indeterminate form (inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     if a == 0.0 and b == inf:
-                        return impossible("Extended real type allows for indeterminate form (inf * 0).")
+                        return impossible("Indeterminate form (inf * 0, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == inf:
                         cases.append(inf)
@@ -588,7 +588,7 @@ def divide(*args):
             for a in oneIntervalMinus:
                 for b in twoIntervalMinus:
                     if a == -inf and b == -inf:
-                        return impossible("Extended real type allows for indeterminate form (-inf / -inf).")
+                        return impossible("Indeterminate form (-inf / -inf, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == -inf and b == 0.0:
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
@@ -617,7 +617,7 @@ def divide(*args):
 
                 for b in twoIntervalPlus:
                     if a == -inf and b == inf:
-                        return impossible("Extended real type allows for indeterminate form (-inf / inf).")
+                        return impossible("Indeterminate form (-inf / inf, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == -inf and b == 0.0:
                         cases.append(-inf)    # I agree with Java (not Python) that this is okay
@@ -647,7 +647,7 @@ def divide(*args):
             for a in oneIntervalPlus:
                 for b in twoIntervalMinus:
                     if a == inf and b == -inf:
-                        return impossible("Extended real type allows for indeterminate form (inf / -inf).")
+                        return impossible("Indeterminate form (inf / -inf, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == inf and b == 0.0:
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
@@ -676,7 +676,7 @@ def divide(*args):
 
                 for b in twoIntervalPlus:
                     if a == inf and b == inf:
-                        return impossible("Extended real type allows for indeterminate form (inf / inf).")
+                        return impossible("Indeterminate form (inf / inf, from extended real type) is not allowed; constrain with if-else.")
 
                     elif a == inf and b == 0.0:
                         cases.append(inf)    # I agree with Java (not Python) that this is okay
@@ -759,7 +759,7 @@ def floordivide(*args):
                             cases.append(0)
 
                         elif b.real == 0:
-                            return impossible("Infinite value (inf) is not allowed in floor-division; constrain with if-else.")
+                            return impossible("Infinite value (inf, from extended real type) is not allowed in floor-division; constrain with if-else.")
 
                         else:
                             cases.append(a // b)
@@ -788,7 +788,7 @@ def floordivide(*args):
                             cases.append(0)
 
                         elif b.real == 0:
-                            return impossible("Infinite value (-inf) is not allowed in floor-division; constrain with if-else.")
+                            return impossible("Infinite value (-inf, from extended real type) is not allowed in floor-division; constrain with if-else.")
 
                         else:
                             cases.append(a // b)
@@ -818,7 +818,7 @@ def floordivide(*args):
                             cases.append(0)
 
                         elif b.real == 0:
-                            return impossible("Infinite value (-inf) is not allowed in floor-division; constrain with if-else.")
+                            return impossible("Infinite value (-inf, from extended real type) is not allowed in floor-division; constrain with if-else.")
 
                         else:
                             cases.append(a // b)
@@ -847,7 +847,7 @@ def floordivide(*args):
                             cases.append(0)
 
                         elif b.real == 0:
-                            return impossible("Infinite value (inf) is not allowed in floor-division; constrain with if-else.")
+                            return impossible("Infinite value (inf, from extended real type) is not allowed in floor-division; constrain with if-else.")
 
                         else:
                             cases.append(a // b)
@@ -857,7 +857,7 @@ def floordivide(*args):
                 return Number(almost.min(*cases), almost.max(*cases), True)
 
             else:
-                return impossible("Arguments of floor-division must be integers.")
+                return impossible("Arguments of floor-division must be integers, not floating point numbers.")
 
         else:
             assert False, "unhandled schemas: {0} {1}".format(one, two)
@@ -982,7 +982,7 @@ def power(one, two):
         if inf in two or -inf in two:
             if 1.0 in one or -1.0 in one:
                 # Java returns NaN; Python says it's 1 (math.pow) or -1 (** with negative base) for some reason
-                return impossible("Extended real type allows for indeterminate form (1 ** inf).")
+                return impossible("Indeterminate form (1 ** inf, from extended real type) is not allowed; constrain with if-else.")
             if hasInsideOfOne(one):
                 if inf in two:
                     cases.append(0.0)    # Python and Java
@@ -1008,7 +1008,7 @@ def power(one, two):
 
         if hasFiniteNegative(one) and hasNonInteger(two):
             # Python raises ValueError; Java returns NaN
-            return impossible("Exponentiation of negative base by a non-integer power is not real.")
+            return impossible("Exponentiation of negative base by a non-integer power is not real or extended; constrain with if-else.")
 
         oneIntervalMinus, oneIntervalPlus = _expandMinusPlus(one)
         twoIntervalMinus, twoIntervalPlus = _expandMinusPlus(two)
@@ -1044,10 +1044,10 @@ def modulo(one, two):
 
     elif isinstance(one, Number) and isinstance(two, Number):
         if inf in one or -inf in one:
-            return impossible("Extended real type allows for infinite dividend (inf % something).")
+            return impossible("Infinite dividend (inf % something, from extended real type) is not allowed in modulo; constrain with if-else.")
 
         if 0.0 in two:
-            return impossible("Divisor could be zero (something % 0).")
+            return impossible("Zero divisor (something % 0) is not allowed in modulo; constrain with if-else.")
 
         cases = []
 
@@ -1095,3 +1095,96 @@ def modulo(one, two):
 
     else:
         assert False, "unhandled schemas: {0} {1}".format(one, two)
+
+def inequality(operator, left, right):
+    leftconstraint = None
+    rightconstraint = None
+
+    if isinstance(left, Union) and isinstance(right, Union):
+        reason = None
+        for p1 in left.possibilities:
+            for p2 in right.possibilities:
+                result, leftcons, rightcons = inequality(operator, p1, p2)
+                if not isinstance(result, Impossible):
+                    if leftconstraint is None:
+                        leftconstraint = leftcons
+                    else:
+                        leftconstraint = union(leftconstraint, leftcon)
+                    if rightconstraint is None:
+                        rightconstraint = rightcons
+                    else:
+                        rightconstraint = union(rightconstraint, rightcon)
+                elif reason is None:
+                    reason = result.reason
+
+        if leftconstraint is None or rightconstraint is None:
+            return impossible(reason), None, None
+        else:
+            return boolean, leftconstraint, rightconstraint
+
+    elif isinstance(left, Union):
+        reason = None
+        for p1 in left.possibilities:
+            result = leftcons, rightcons = inequality(operator, p1, right)
+            if not isinstance(result, Impossible):
+                if leftconstraint is None:
+                    leftconstraint = leftcons
+                else:
+                    leftconstraint = union(leftconstraint, leftcon)
+                if rightconstraint is None:
+                    rightconstraint = rightcons
+                else:
+                    rightconstraint = union(rightconstraint, rightcon)
+            elif reason is None:
+                reason = result.reason
+
+        if leftconstraint is None or rightconstraint is None:
+            return impossible(reason), None, None
+        else:
+            return boolean, leftconstraint, rightconstraint
+            
+    elif isinstance(right, Union):
+        reason = None
+        for p2 in right.possibilities:
+            result = leftcons, rightcons = inequality(operator, left, p2)
+            if not isinstance(result, Impossible):
+                if leftconstraint is None:
+                    leftconstraint = leftcons
+                else:
+                    leftconstraint = union(leftconstraint, leftcon)
+                if rightconstraint is None:
+                    rightconstraint = rightcons
+                else:
+                    rightconstraint = union(rightconstraint, rightcon)
+            elif reason is None:
+                reason = result.reason
+
+        if leftconstraint is None or rightconstraint is None:
+            return impossible(reason), None, None
+        else:
+            return boolean, leftconstraint, rightconstraint
+
+    elif isinstance(left, Number) and isinstance(right, Number):
+        if operator == "<":
+            pass
+
+
+        elif operator == "<=":
+            pass
+
+
+        elif operator == ">":
+            pass
+
+            
+        elif operator == ">=":
+            pass
+
+
+        else:
+            assert False, "unexpected operator: {0}".format(operator)
+
+        return boolean, leftconstraint, rightconstraint
+
+    else:
+        assert False, "unhandled schemas: {0} {1}".format(left, right)
