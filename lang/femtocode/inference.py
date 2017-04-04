@@ -1223,12 +1223,38 @@ def inequality(operator, left, right):
             return boolean, leftconstraint, rightconstraint
 
     elif isinstance(left, Number) and isinstance(right, Number):
-        if operator == "<":
-            pass
+        leftmin = left.min
+        leftmax = left.max
+        rightmin = right.min
+        rightmax = right.max
 
+        if operator == "<":
+            if not isinstance(left.max, almost) and left.max == right.max:
+                leftmax = almost(left.max)
+            elif almost.max(left.max, right.max) == left.max:
+                leftmax = right.max
+
+            if not isinstance(right.min, almost) and left.min == almost(right.min):
+                rightmin = almost(right.min)
+            elif almost.min(left.min, right.min) == right.min:
+                rightmin = left.min
+
+            try:
+                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+            except FemtocodeError:
+                return impossible("First argument is never less than right argument."), None, None
 
         elif operator == "<=":
-            pass
+            if almost.max(left.max, right.max) == left.max:
+                leftmax = right.max
+
+            if almost.min(left.min, right.min) == right.min:
+                rightmin = left.min
+
+            try:
+                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+            except FemtocodeError:
+                return impossible("First argument is never less than or equal to right argument."), None, None
 
 
         elif operator == ">":
@@ -1241,8 +1267,6 @@ def inequality(operator, left, right):
 
         else:
             assert False, "unexpected operator: {0}".format(operator)
-
-        return boolean, leftconstraint, rightconstraint
 
     else:
         assert False, "unhandled schemas: {0} {1}".format(left, right)

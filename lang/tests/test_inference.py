@@ -496,3 +496,109 @@ class TestInference(unittest.TestCase):
                                     for y in -inf, 1, 2, 2.9, 3, 3.1, 4, 5, 6, 7, 8, 9, 9.9, 10, 10.1, 11, 12, 13, 14, inf:
                                         if x in a and y in b:
                                             self.assertTrue((x % y) in c)
+
+    def test_lessthan(self):
+        self.assertEqual(inequality("<", real(0, 1), real(2, 3)), (boolean, real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<", real(0, 1.5), real(1.5, 3)), (boolean, real(0, 1.5), real(1.5, 3)))
+        self.assertEqual(inequality("<", real(0, 2), real(1, 3)), (boolean, real(0, 2), real(1, 3)))
+
+        self.assertEqual(inequality("<", real(0, 3), real(2, 3)), (boolean, real(0, almost(3)), real(2, 3)))
+        self.assertEqual(inequality("<", real(0, 3), real(2, almost(3))), (boolean, real(0, almost(3)), real(2, almost(3))))
+        self.assertEqual(inequality("<", real(0, 3), real(1, 2)), (boolean, real(0, 2), real(1, 2)))
+        self.assertEqual(inequality("<", real(0, 3), real(1, almost(2))), (boolean, real(0, almost(2)), real(1, almost(2))))
+
+        self.assertEqual(inequality("<", real(1, 2), real(1, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<", real(1, 2), real(almost(1), 3)), (boolean, real(1, 2), real(almost(1), 3)))
+        self.assertEqual(inequality("<", real(almost(1), 2), real(1, 3)), (boolean, real(almost(1), 2), real(almost(1), 3)))
+        self.assertEqual(inequality("<", real(1, 2), real(0, 3)), (boolean, real(1, 2), real(1, 3)))
+
+        self.assertEqual(inequality("<", real(1, 3), real(0, 2)), (boolean, real(1, 2), real(1, 2)))
+        self.assertEqual(inequality("<", real(almost(1), 3), real(0, 2)), (boolean, real(almost(1), 2), real(almost(1), 2)))
+        self.assertEqual(inequality("<", real(1, 3), real(0, almost(2))), (boolean, real(1, almost(2)), real(1, almost(2))))
+
+        self.assertEqual(inequality("<", real(2, 3), real(0, 1)), (impossible, None, None))
+
+        values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
+        edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
+        for leftmin in edges:
+            for leftmax in edges:
+                try:
+                    left = real(leftmin, leftmax)
+                except FemtocodeError:
+                    pass
+                else:
+                    for rightmin in edges:
+                        for rightmax in edges:
+                            try:
+                                right = real(rightmin, rightmax)
+                            except FemtocodeError:
+                                pass
+                            else:
+                                boo, leftconstraint, rightconstraint = inequality("<", left, right)
+                                if isinstance(boo, Impossible):
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    self.assertFalse(x < y)
+
+                                else:
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    if x < y:
+                                                        self.assertTrue(x in leftconstraint and y in rightconstraint)
+
+    def test_lessequal(self):
+        self.assertEqual(inequality("<=", real(0, 1), real(2, 3)), (boolean, real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<=", real(0, 1.5), real(1.5, 3)), (boolean, real(0, 1.5), real(1.5, 3)))
+        self.assertEqual(inequality("<=", real(0, 2), real(1, 3)), (boolean, real(0, 2), real(1, 3)))
+
+        self.assertEqual(inequality("<=", real(0, 3), real(2, 3)), (boolean, real(0, 3), real(2, 3)))
+        self.assertEqual(inequality("<=", real(0, 3), real(2, almost(3))), (boolean, real(0, almost(3)), real(2, almost(3))))
+        self.assertEqual(inequality("<=", real(0, 3), real(1, 2)), (boolean, real(0, 2), real(1, 2)))
+        self.assertEqual(inequality("<=", real(0, 3), real(1, almost(2))), (boolean, real(0, almost(2)), real(1, almost(2))))
+
+        self.assertEqual(inequality("<=", real(1, 2), real(1, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<=", real(1, 2), real(almost(1), 3)), (boolean, real(1, 2), real(almost(1), 3)))
+        self.assertEqual(inequality("<=", real(almost(1), 2), real(1, 3)), (boolean, real(almost(1), 2), real(almost(1), 3)))
+        self.assertEqual(inequality("<=", real(1, 2), real(0, 3)), (boolean, real(1, 2), real(1, 3)))
+
+        self.assertEqual(inequality("<=", real(1, 3), real(0, 2)), (boolean, real(1, 2), real(1, 2)))
+        self.assertEqual(inequality("<=", real(almost(1), 3), real(0, 2)), (boolean, real(almost(1), 2), real(almost(1), 2)))
+        self.assertEqual(inequality("<=", real(1, 3), real(0, almost(2))), (boolean, real(1, almost(2)), real(1, almost(2))))
+
+        self.assertEqual(inequality("<=", real(2, 3), real(0, 1)), (impossible, None, None))
+
+        values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
+        edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
+        for leftmin in edges:
+            for leftmax in edges:
+                try:
+                    left = real(leftmin, leftmax)
+                except FemtocodeError:
+                    pass
+                else:
+                    for rightmin in edges:
+                        for rightmax in edges:
+                            try:
+                                right = real(rightmin, rightmax)
+                            except FemtocodeError:
+                                pass
+                            else:
+                                boo, leftconstraint, rightconstraint = inequality("<=", left, right)
+                                if isinstance(boo, Impossible):
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    self.assertFalse(x <= y)
+
+                                else:
+                                    for x in values:
+                                        if x in left:
+                                            for y in values:
+                                                if y in right:
+                                                    if x <= y:
+                                                        self.assertTrue(x in leftconstraint and y in rightconstraint)

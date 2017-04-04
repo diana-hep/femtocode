@@ -267,6 +267,11 @@ class TestLibStandard(unittest.TestCase):
         for entry in numerical.toPython(x = "x", xlim = "xlim", a = "not x == xlim").submit():
             self.assertEqual(not entry.x == entry.xlim, entry.a)
 
+    def test_if_literal(self):
+        self.assertEqual(numerical.type("10 == 10"), boolean)
+        self.assertRaises(FemtocodeError, lambda: numerical.type("if 9 == 10: x else: y"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("if 10 == 10: x else: y"))
+
     def test_if(self):
         for entry in numerical.toPython(x = "x", y = "y", a = "if x == 5: x else: y").submit():
             self.assertEqual(entry.x if entry.x == 5 else entry.y, entry.a)
