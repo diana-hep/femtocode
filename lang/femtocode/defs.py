@@ -188,3 +188,8 @@ class Library(Serializable):
             mod = obj[:obj.rindex(".")]
             cls = obj[obj.rindex(".") + 1:]
             return getattr(importlib.import_module(mod), cls)()
+        elif isinstance(obj, dict):
+            from femtocode.lib.custom import CustomLibrary
+            return CustomLibrary.fromJson(obj)
+        else:
+            assert False, "unexpected type: {0}".format(obj)

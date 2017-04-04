@@ -37,6 +37,23 @@ class CustomLibrary(Library):
         else:
             raise TypeError("CustomLibrary should contain only BuiltinFunctions.")
 
+    def toJson(self):
+        return dict((name, fcn.moduleName + "." + fcn.callableName) for name, fcn in self.table.values.items())
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+
+        def assertion(*args):
+            assert False, "Cannot recompute types from a reconstituted CustomLibrary."
+
+        out = CustomLibrary()
+        for name, fcn in obj.items():
+            mod = fcn[:fcn.rindex(".")]
+            cls = fcn[fcn.rindex(".") + 1:]
+            out.add(CustomFlatFunction(name, mod, cls, assertion, False, False))
+        return out
+
 class CustomFlatFunction(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def __init__(self, name, moduleName, callableName, typefcn, commutative=False, associative=False):
         self.name = name
