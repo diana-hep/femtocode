@@ -42,6 +42,8 @@ class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
 
+########################################################## Basic calculator
+
     def test_add_literal(self):
         self.assertEqual(numerical.type("x + 3"), integer)
         self.assertEqual(numerical.type("x + 3.14"), real)
@@ -188,3 +190,80 @@ class TestLibStandard(unittest.TestCase):
     def test_power(self):
         for entry in numerical.toPython(x = "x", y = "y", a = "x**y").submit():
             self.assertAlmostEqual(entry.x ** entry.y, entry.a)
+
+    def test_modulo_literal(self):
+        for entry in numerical.toPython(x = "x", a = "x % 7").submit():
+            self.assertAlmostEqual(entry.x % 7, entry.a)
+        for entry in numerical.toPython(x = "x", a = "x % 5.7").submit():
+            self.assertAlmostEqual(entry.x % 5.7, entry.a)
+        for entry in numerical.toPython(x = "x", a = "x % -7").submit():
+            self.assertAlmostEqual(entry.x % -7, entry.a)
+        for entry in numerical.toPython(x = "x", a = "x % -5.7").submit():
+            self.assertAlmostEqual(entry.x % -5.7, entry.a)
+
+    def test_modulo_literal2(self):
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "7 % ylim2").submit():
+            self.assertAlmostEqual(7 % entry.ylim2, entry.a)
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "5.7 % ylim2").submit():
+            self.assertAlmostEqual(5.7 % entry.ylim2, entry.a)
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "-7 % ylim2").submit():
+            self.assertAlmostEqual(-7 % entry.ylim2, entry.a)
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "-5.7 % ylim2").submit():
+            self.assertAlmostEqual(-5.7 % entry.ylim2, entry.a)
+
+    def test_modulo(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x % y"))
+        for entry in numerical.toPython(x = "x", ylim2 = "ylim2", a = "x % ylim2").submit():
+            self.assertAlmostEqual(entry.x % entry.ylim2, entry.a)
+
+########################################################## Predicates
+
+    def test_equal_literal(self):
+        self.assertEqual(numerical.type("x == 5"), boolean)
+        self.assertRaises(FemtocodeError, numerical.type("xlim == -5"))
+        for entry in numerical.toPython(x = "x", a = "x == 5").submit():
+            self.assertEqual(entry.x == 5, entry.a)
+
+    def test_equal(self):
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x == xlim").submit():
+            self.assertEqual(entry.x == entry.xlim, entry.a)
+
+    def test_notequal_literal(self):
+        self.assertEqual(numerical.type("x != 5"), boolean)
+        self.assertEqual(numerical.type("xlim != -5"), boolean)
+        self.assertRaises(FemtocodeError, lambda: numerical.type("-5 != -5"))
+        for entry in numerical.toPython(x = "x", a = "x != 5").submit():
+            self.assertEqual(entry.x != 5, entry.a)
+
+    def test_notequal(self):
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x != xlim").submit():
+            self.assertEqual(entry.x != entry.xlim, entry.a)
+
+    def test_and_literal(self):
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x == 5 and x == 6"))
+        self.assertRaises(FemtocodeError, lambda: numerical.type("x == 5 and x == 5 + 1"))
+        self.assertEqual(numerical.type("x == 5 and xlim == 6"), boolean)
+
+    def test_and(self):
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x == 5 and x == xlim").submit():
+            self.assertEqual(entry.x == 5 and entry.x == entry.xlim, entry.a)
+
+    def test_or_literal(self):
+        self.assertEqual(numerical.type("x == 5 or x == 6"), boolean)
+        self.assertEqual(numerical.type("x == 5 or x == 5 + 1"), boolean)
+        self.assertEqual(numerical.type("x == 5 or xlim == 6"), boolean)
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x == 5 or xlim == 6").submit():
+            self.assertEqual(entry.x == 5 or entry.xlim == 6, entry.a)
+
+    def test_or(self):
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "x == 5 or x == xlim").submit():
+            self.assertEqual(entry.x == 5 or entry.x == entry.xlim, entry.a)
+
+    def test_not_literal(self):
+        # Note: uses DeMorgan's laws to put this into a form it can check
+        self.assertRaises(FemtocodeError, lambda: numerical.type("not (x != 5 or x != 6)"))
+
+    def test_not(self):
+        for entry in numerical.toPython(x = "x", xlim = "xlim", a = "not x == xlim").submit():
+            self.assertEqual(not entry.x == entry.xlim, entry.a)
+

@@ -17,6 +17,7 @@
 import ast
 import json
 import sys
+from functools import reduce
 
 from femtocode.asts import lispytree
 from femtocode.asts import statementlist
@@ -58,6 +59,8 @@ class Is(lispytree.BuiltinFunction):
 
 table[Is.name] = Is()
 
+########################################################## Basic calculator
+
 class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "+"
 
@@ -76,7 +79,7 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[Add.name] = Add()
 
-class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
+class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
 
     def pythonast(self, args):
@@ -86,9 +89,9 @@ class Subtract(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
 
-table[Subtract.name] = Subtract()
+table[Sub.name] = Sub()
 
-class UnaryMinus(statementlist.FlatFunction, lispytree.BuiltinFunction):
+class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u-"
 
     def pythonast(self, args):
@@ -101,7 +104,7 @@ class UnaryMinus(statementlist.FlatFunction, lispytree.BuiltinFunction):
         else:
             return Number(-typedargs[0].schema.max, -typedargs[0].schema.min, typedargs[0].schema.whole), typedargs, frame
 
-table[UnaryMinus.name] = UnaryMinus()
+table[USub.name] = USub()
 
 class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "*"
@@ -156,7 +159,7 @@ class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[FloorDiv.name] = FloorDiv()
 
-class Power(statementlist.FlatFunction, lispytree.BuiltinFunction):
+class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "**"
 
     def pythonast(self, args):
@@ -188,7 +191,7 @@ class Power(statementlist.FlatFunction, lispytree.BuiltinFunction):
                                    X = ast.Name(x, ast.Store()))
 
         elif tonative:
-            return super(Power, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
+            return super(Pow, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
 
         else:
             # make Python behave like low-level exponentiation
@@ -245,7 +248,22 @@ class Power(statementlist.FlatFunction, lispytree.BuiltinFunction):
                                    x = ast.Name(x, ast.Load()), y = ast.Name(y, ast.Load()),
                                    X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()))
 
-table[Power.name] = Power()
+table[Pow.name] = Pow()
+
+class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "%"
+
+    def pythonast(self, args):
+        # Note: Numba knows that Python's % is modulo and not remainder (unlike C)
+        return ast.BinOp(args[0], ast.Mod(), args[1])
+        
+    def buildtyped(self, args, frame):
+        typedargs = [typedtree.build(arg, frame)[0] for arg in args]
+        return inference.modulo(*[x.schema for x in typedargs]), typedargs, frame
+
+table[Mod.name] = Mod()
+
+########################################################## Predicates
 
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
@@ -255,7 +273,7 @@ class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Eq()], [args[1]])
-
+        
     def buildtyped(self, args, frame):
         typedargs = [typedtree.build(arg, frame)[0] for arg in args]
         out = intersection(typedargs[0].schema, typedargs[1].schema)
@@ -292,7 +310,7 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         if expr is not None:
             subframe = frame.fork({expr: restriction})
             if isinstance(subframe[expr], Impossible):
-                return subframe[expr], typedargs, frame
+                return impossible("The arguments have precisely the same value (they can never not be equal)."), typedargs, frame
         else:
             subframe = frame.fork()
 
@@ -414,6 +432,13 @@ table[Not.name] = Not()
 class If(lispytree.BuiltinFunction):
     name = "if"
 
+    def pythonast(self, args):
+        predicates = args[:-1][0::3]
+        antipredicates = args[:-1][1::3]
+        consequents = args[:-1][2::3]
+        alternate = args[-1]
+        return reduce(lambda x, y: ast.IfExp(y[0], y[1], x), reversed(list(zip(predicates, consequents))), alternate)
+
     def buildtyped(self, args, frame):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
@@ -458,8 +483,20 @@ class If(lispytree.BuiltinFunction):
 
         return union(*outschemas), typedargs, topframe
 
-    # def buildexec(self, target, schema, args, argschemas, newname, references):
-    ## FIXME: need to think about this one
+    def buildexec(self, target, schema, args, argschemas, newname, references):
+        predicates = args[:-1][0::3]
+        antipredicates = args[:-1][1::3]
+        consequents = args[:-1][2::3]
+        alternate = args[-1]
+
+        chain = statementsToAst("""
+            OUT = ALT
+            """, OUT = target, ALT = alternate)
+
+        
+
+
+        return chain
 
     def tosrc(self, args):
         predicates = args[0::3]
