@@ -31,8 +31,9 @@ from femtocode.util import *
 from femtocode.version import version
 
 class Query(Serializable):
-    def __init__(self, dataset, inputs, statements, actions, cancelled, crosscheck):
+    def __init__(self, dataset, libs, inputs, statements, actions, cancelled, crosscheck):
         self.dataset = dataset
+        self.libs = libs
         self.inputs = inputs
         self.statements = statements
         self.actions = actions
@@ -48,12 +49,12 @@ class Query(Serializable):
 
     def __eq__(self, other):
         # doesn't include any part of the dataset other than the name, as well as the inputs, cancelled, or crosscheck
-        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.statements == other.statements and self.actions == other.actions
+        return other.__class__ == Query and self.dataset.name == other.dataset.name and self.libs == other.libs and self.statements == other.statements and self.actions == other.actions
 
     def __hash__(self):
         # doesn't include any part of the dataset other than the name, as well as the inputs, cancelled, or crosscheck
         if not hasattr(self, "_hash"):
-            self._hash = hash(("Query", self.dataset.name, self.statements, tuple(self.actions)))
+            self._hash = hash(("Query", self.dataset.name, self.libs, self.statements, tuple(self.actions)))
         return self._hash
 
     class DatasetName(Serializable):
@@ -70,13 +71,14 @@ class Query(Serializable):
             return Query.DatasetName(obj["name"])
 
     def strip(self):
-        return Query(self.dataset.strip(), self.inputs, self.statements, self.actions, self.cancelled, self.crosscheck)
+        return Query(self.dataset.strip(), self.libs, self.inputs, self.statements, self.actions, self.cancelled, self.crosscheck)
 
     def stripToName(self):
-        return Query(Query.DatasetName(self.dataset.name), self.inputs, self.statements, self.actions, False, self.crosscheck)
+        return Query(Query.DatasetName(self.dataset.name), self.libs, self.inputs, self.statements, self.actions, False, self.crosscheck)
 
     def toJson(self):
         return {"dataset": self.dataset.toJson(),
+                "libs": [lib.toJson() for lib in self.libs],
                 "inputs": self.inputs,
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions],
@@ -92,7 +94,9 @@ class Query(Serializable):
             dataset = Query.DatasetName.fromJson(obj["dataset"])
         else:
             dataset = Dataset.fromJson(obj["dataset"])
-        
+
+        libs = [Library.fromJson(lib) for lib in obj["libs"]]
+
         statements = statementlist.Statement.fromJson(obj["statements"])
         assert isinstance(statements, statementlist.Statements)
 
@@ -100,7 +104,7 @@ class Query(Serializable):
         for action in actions:
             assert isinstance(action, statementlist.Action)
         
-        return Query(dataset, obj["inputs"], statements, actions, obj["cancelled"], Workflow.fromJson(obj["crosscheck"]))
+        return Query(dataset, libs, obj["inputs"], statements, actions, obj["cancelled"], Workflow.fromJson(obj["crosscheck"]))
 
 class Workflow(Serializable):
     def __init__(self):
@@ -143,7 +147,7 @@ class Workflow(Serializable):
     def typeString(self, expression, libs=(), highlight=lambda t: "", indent="  ", prefix=""):
         return pretty(self.type(expression, libs), highlight, indent, prefix)
 
-    def typeCompareString(self, expr1, expr2, libs=None, header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
+    def typeCompareString(self, expr1, expr2, libs=(), header=None, between=lambda t1, t2: " " if t1 == t2 or t1 is None or t2 is None else ">", indent="  ", prefix="", width=None):
         return compare(self.type(expr1, libs), self.type(expr2, libs), header, between, indent, prefix, width)
 
     @staticmethod
@@ -206,6 +210,9 @@ class Intermediate(NotFirst, NotLast, Workflow): pass
 
 class Goal(NotFirst, Workflow):
     def compile(self, libs=()):
+        if isinstance(libs, SymbolTable):
+            libs = (libs,)
+
         source = self.source()
         symbolTable, typeTable, preactions = self._propagated(libs)
 
@@ -224,7 +231,7 @@ class Goal(NotFirst, Workflow):
 
             actions.append(preaction.finalize(refs))
 
-        return Query(source.dataset, inputs, statements, actions, False, self)
+        return Query(source.dataset, libs, inputs, statements, actions, False, self)
 
     def submit(self, ondone=None, onupdate=None, libs=(), debug=False):
         return self.source().session.submit(self.compile(libs), ondone, onupdate, debug)

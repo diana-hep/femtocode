@@ -101,7 +101,7 @@ class Call(lispytree.Call):
         return "typedtree.Call({0}, {1}, {2})".format(self.fcn, self.args, self.schema)
 
     def commuteargs(self):
-        if self.fcn.commutative():
+        if self.fcn.commutative:
             return tuple(sorted(self.args))
         else:
             return self.args

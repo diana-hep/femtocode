@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib
+
 from femtocode.py23 import *
+from femtocode.util import *
 
 class FemtocodeError(Exception):
     """Error in the user's Femtocode, not the system itself.
@@ -172,3 +175,16 @@ class SymbolTable(object):
         out = self.get(x)
         assert out is not None, "symbol \"{0}\" is required but is not in the SymbolTable".format(x)
         return out
+
+class Library(Serializable):
+    table = None  # override in every specific library (which is a subclass of this)
+
+    def toJson(self):
+        return self.__class__.__module__ + "." + self.__class__.__name__
+
+    @staticmethod
+    def fromJson(obj):
+        if isinstance(obj, string_types):
+            mod = obj[:obj.rindex(".")]
+            cls = obj[obj.rindex(".") + 1:]
+            return getattr(importlib.import_module(mod), cls)()

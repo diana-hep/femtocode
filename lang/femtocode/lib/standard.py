@@ -66,12 +66,8 @@ table[Is.name] = Is()
 
 class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "+"
-
-    def commutative(self):
-        return True
-
-    def associative(self):
-        return True
+    commutative = True
+    associative = True
 
     def pythonast(self, args):
         return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
@@ -111,12 +107,8 @@ table[USub.name] = USub()
 
 class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "*"
-
-    def commutative(self):
-        return True
-
-    def associative(self):
-        return True
+    commutative = True
+    associative = True
 
     def pythonast(self, args):
         return reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), args)
@@ -271,9 +263,7 @@ table[Mod.name] = Mod()
 
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
-
-    def commutative(self):
-        return True
+    commutative = True
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Eq()], [args[1]])
@@ -290,9 +280,7 @@ table[Eq.name] = Eq()
 
 class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "!="
-
-    def commutative(self):
-        return True
+    commutative = True
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.NotEq()], [args[1]])
@@ -365,12 +353,8 @@ table[GtE.name] = GtE()
 
 class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
-
-    def commutative(self):
-        return True
-
-    def associative(self):
-        return True
+    commutative = True
+    associative = True
 
     def pythonast(self, args):
         return ast.BoolOp(ast.And(), args)
@@ -420,12 +404,8 @@ table[And.name] = And()
 
 class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "or"
-
-    def commutative(self):
-        return True
-
-    def associative(self):
-        return True
+    commutative = True
+    associative = True
 
     def pythonast(self, args):
         return ast.BoolOp(ast.Or(), args)

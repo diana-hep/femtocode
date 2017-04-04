@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import ast
+import importlib
 import math
 
 from femtocode.asts import parsingtree
@@ -26,6 +27,9 @@ class LispyTree(object): pass
 
 class BuiltinFunction(Function):
     order = 0
+
+    commutative = False
+    associative = False
 
     def __repr__(self):
         return "BuiltinFunction[\"{0}\"]".format(self.name)
@@ -43,12 +47,12 @@ class BuiltinFunction(Function):
         return self.__class__ == other.__class__
 
     def __hash__(self):
-        return hash(("lispytree." + self.__class__.__name__,))
+        return hash(("lispytree." + self.__module__ + "." + self.__class__.__name__,))
 
     def pythonast(self, args):
         assert False, "missing implementation: {0}".format(self)
 
-    def pythoneval(self, args):
+    def pythoneval(self, args, debug=False):
         refs = [ast.Name("x{0}".format(i), ast.Load()) for i in xrange(len(args))]
         if sys.version_info[0] <= 2:
             params = ast.arguments([ast.Name("x{0}".format(i), ast.Param()) for i in xrange(len(args))], None, None, [])
@@ -60,8 +64,11 @@ class BuiltinFunction(Function):
         moduleast = ast.Module([fcn])
         fakeLineNumbers(moduleast)
 
+        if debug:
+            print(astToSource(fcn))
+
         modulecomp = compile(moduleast, "Femtocode", "exec")
-        out = {}
+        out = {"$importlib": importlib}
         exec(modulecomp, out)
 
         return out["tmp"](*args)
@@ -227,7 +234,7 @@ class Call(LispyTree):
                 return Literal(fcn.pythoneval([x.value for x in args]), original)
 
         else:
-            if fcn.associative():
+            if fcn.associative:
                 newargs = []
                 for arg in args:
                     if isinstance(arg, Call) and arg.fcn == fcn:
@@ -248,7 +255,7 @@ class Call(LispyTree):
         return "lispytree.Call({0}, {1})".format(self.fcn, self.args)
 
     def commuteargs(self):
-        if self.fcn.commutative():
+        if self.fcn.commutative:
             return tuple(sorted(self.args))
         else:
             return self.args
