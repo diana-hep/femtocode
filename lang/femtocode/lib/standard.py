@@ -322,32 +322,46 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[NotEq.name] = NotEq()
 
-# class Lt(statementlist.FlatFunction, lispytree.BuiltinFunction):
-#     name = "<"
+class Inequality(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    def buildtyped(self, args, frame):
+        typedargs = _buildargs(args, frame)
+        result, leftconstraint, rightconstraint = inference.inequality(self.name, typedargs[0].schema, typedargs[1].schema)
+        if isinstance(result, Impossible):
+            return result, typedargs, frame
+        else:
+            return result, typedargs, frame.fork({args[0]: leftconstraint, args[1]: rightconstraint})
 
-#     def pythonast(self, args):
-#         return ast.Compare(args[0], [ast.Lt()], [args[1]])
+class Lt(Inequality):
+    name = "<"
+
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.Lt()], [args[1]])
         
-#     def buildtyped(self, args, frame):
-#         typedargs = _buildargs(args, frame)
+table[Lt.name] = Lt()
 
+class LtE(Inequality):
+    name = "<="
 
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.LtE()], [args[1]])
+        
+table[LtE.name] = LtE()
 
+class Gt(Inequality):
+    name = ">"
 
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.Gt()], [args[1]])
+        
+table[Gt.name] = Gt()
 
-#         out = intersection(typedargs[0].schema, typedargs[1].schema)
-#         if isinstance(out, Impossible):
-#             return impossible("The argument types have no intersection (their values can never be equal)."), typedargs, frame
-#         else:
-#             return boolean, typedargs, frame.fork({args[0]: out, args[1]: out})
+class GtE(Inequality):
+    name = ">="
 
-# table[Lt.name] = Lt()
-
-
-
-
-
-
+    def pythonast(self, args):
+        return ast.Compare(args[0], [ast.GtE()], [args[1]])
+        
+table[GtE.name] = GtE()
 
 class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
