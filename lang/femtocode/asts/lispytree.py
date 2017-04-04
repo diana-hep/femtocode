@@ -69,7 +69,7 @@ class BuiltinFunction(Function):
     def buildtyped(self, args, typeframe):
         assert False, "missing implementation: {0}".format(self)
 
-    def buildstatements(self, call, columns, replacements, refnumber):
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         assert False, "missing implementation: {0}".format(self)
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):

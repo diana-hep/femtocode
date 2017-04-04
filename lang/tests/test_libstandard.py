@@ -267,3 +267,10 @@ class TestLibStandard(unittest.TestCase):
         for entry in numerical.toPython(x = "x", xlim = "xlim", a = "not x == xlim").submit():
             self.assertEqual(not entry.x == entry.xlim, entry.a)
 
+    def test_if(self):
+        for entry in numerical.toPython(x = "x", y = "y", a = "if x == 5: x else: y").submit():
+            self.assertEqual(entry.x if entry.x == 5 else entry.y, entry.a)
+
+        for entry in numerical.toPython(x = "x", y = "y", a = "if x == 5: x elif x == 6: x - 1 else: y").submit():
+            self.assertEqual(entry.x if entry.x == 5 else (entry.x - 1 if entry.x == 6 else entry.y), entry.a)
+

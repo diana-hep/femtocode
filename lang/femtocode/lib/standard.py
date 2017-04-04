@@ -136,6 +136,7 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         if tonative:
+            # native arithmetic already returns inf/-inf on division by zero
             return super(Div, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
         else:
             return statementsToAst("""
@@ -429,7 +430,7 @@ class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 table[Not.name] = Not()
 
-class If(lispytree.BuiltinFunction):
+class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "if"
 
     def pythonast(self, args):
@@ -483,7 +484,7 @@ class If(lispytree.BuiltinFunction):
 
         return union(*outschemas), typedargs, topframe
 
-    def buildexec(self, target, schema, args, argschemas, newname, references):
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -493,8 +494,15 @@ class If(lispytree.BuiltinFunction):
             OUT = ALT
             """, OUT = target, ALT = alternate)
 
-        
-
+        for predicate, consequent in reversed(list(zip(predicates, consequents))):
+            next = statementsToAst("""
+                if PRED:
+                    OUT = CONS
+                else:
+                    REPLACEME
+                """, OUT = target, PRED = predicate, CONS = consequent)
+            next[0].orelse = [chain[0]]
+            chain = next
 
         return chain
 
