@@ -498,23 +498,23 @@ class TestInference(unittest.TestCase):
                                             self.assertTrue((x % y) in c)
 
     def test_lessthan(self):
-        self.assertEqual(inequality("<", real(0, 1), real(2, 3)), (boolean, real(0, 1), real(2, 3)))
-        self.assertEqual(inequality("<", real(0, 1.5), real(1.5, 3)), (boolean, real(0, 1.5), real(1.5, 3)))
-        self.assertEqual(inequality("<", real(0, 2), real(1, 3)), (boolean, real(0, 2), real(1, 3)))
+        self.assertEqual(inequality("<", real(0, 1), real(2, 3)),         (boolean, real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<", real(0, 1.5), real(1.5, 3)),     (boolean, real(0, 1.5), real(1.5, 3)))
+        self.assertEqual(inequality("<", real(0, 2), real(1, 3)),         (boolean, real(0, 2), real(1, 3)))
 
-        self.assertEqual(inequality("<", real(0, 3), real(2, 3)), (boolean, real(0, almost(3)), real(2, 3)))
+        self.assertEqual(inequality("<", real(0, 3), real(2, 3)),         (boolean, real(0, almost(3)), real(2, 3)))
         self.assertEqual(inequality("<", real(0, 3), real(2, almost(3))), (boolean, real(0, almost(3)), real(2, almost(3))))
-        self.assertEqual(inequality("<", real(0, 3), real(1, 2)), (boolean, real(0, 2), real(1, 2)))
+        self.assertEqual(inequality("<", real(0, 3), real(1, 2)),         (boolean, real(0, almost(2)), real(1, 2)))
         self.assertEqual(inequality("<", real(0, 3), real(1, almost(2))), (boolean, real(0, almost(2)), real(1, almost(2))))
 
-        self.assertEqual(inequality("<", real(1, 2), real(1, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<", real(1, 2), real(1, 3)),         (boolean, real(1, 2), real(almost(1), 3)))
         self.assertEqual(inequality("<", real(1, 2), real(almost(1), 3)), (boolean, real(1, 2), real(almost(1), 3)))
         self.assertEqual(inequality("<", real(almost(1), 2), real(1, 3)), (boolean, real(almost(1), 2), real(almost(1), 3)))
-        self.assertEqual(inequality("<", real(1, 2), real(0, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<", real(1, 2), real(0, 3)),         (boolean, real(1, 2), real(almost(1), 3)))
 
-        self.assertEqual(inequality("<", real(1, 3), real(0, 2)), (boolean, real(1, 2), real(1, 2)))
-        self.assertEqual(inequality("<", real(almost(1), 3), real(0, 2)), (boolean, real(almost(1), 2), real(almost(1), 2)))
-        self.assertEqual(inequality("<", real(1, 3), real(0, almost(2))), (boolean, real(1, almost(2)), real(1, almost(2))))
+        self.assertEqual(inequality("<", real(1, 3), real(0, 2)),         (boolean, real(1, almost(2)), real(almost(1), 2)))
+        self.assertEqual(inequality("<", real(almost(1), 3), real(0, 2)), (boolean, real(almost(1), almost(2)), real(almost(1), 2)))
+        self.assertEqual(inequality("<", real(1, 3), real(0, almost(2))), (boolean, real(1, almost(2)), real(almost(1), almost(2))))
 
         self.assertEqual(inequality("<", real(2, 3), real(0, 1)), (impossible, None, None))
 
@@ -551,21 +551,21 @@ class TestInference(unittest.TestCase):
                                                         self.assertTrue(x in leftconstraint and y in rightconstraint)
 
     def test_lessequal(self):
-        self.assertEqual(inequality("<=", real(0, 1), real(2, 3)), (boolean, real(0, 1), real(2, 3)))
-        self.assertEqual(inequality("<=", real(0, 1.5), real(1.5, 3)), (boolean, real(0, 1.5), real(1.5, 3)))
-        self.assertEqual(inequality("<=", real(0, 2), real(1, 3)), (boolean, real(0, 2), real(1, 3)))
+        self.assertEqual(inequality("<=", real(0, 1), real(2, 3)),         (boolean, real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<=", real(0, 1.5), real(1.5, 3)),     (boolean, real(0, 1.5), real(1.5, 3)))
+        self.assertEqual(inequality("<=", real(0, 2), real(1, 3)),         (boolean, real(0, 2), real(1, 3)))
 
-        self.assertEqual(inequality("<=", real(0, 3), real(2, 3)), (boolean, real(0, 3), real(2, 3)))
+        self.assertEqual(inequality("<=", real(0, 3), real(2, 3)),         (boolean, real(0, 3), real(2, 3)))
         self.assertEqual(inequality("<=", real(0, 3), real(2, almost(3))), (boolean, real(0, almost(3)), real(2, almost(3))))
-        self.assertEqual(inequality("<=", real(0, 3), real(1, 2)), (boolean, real(0, 2), real(1, 2)))
+        self.assertEqual(inequality("<=", real(0, 3), real(1, 2)),         (boolean, real(0, 2), real(1, 2)))
         self.assertEqual(inequality("<=", real(0, 3), real(1, almost(2))), (boolean, real(0, almost(2)), real(1, almost(2))))
 
-        self.assertEqual(inequality("<=", real(1, 2), real(1, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<=", real(1, 2), real(1, 3)),         (boolean, real(1, 2), real(1, 3)))
         self.assertEqual(inequality("<=", real(1, 2), real(almost(1), 3)), (boolean, real(1, 2), real(almost(1), 3)))
         self.assertEqual(inequality("<=", real(almost(1), 2), real(1, 3)), (boolean, real(almost(1), 2), real(almost(1), 3)))
-        self.assertEqual(inequality("<=", real(1, 2), real(0, 3)), (boolean, real(1, 2), real(1, 3)))
+        self.assertEqual(inequality("<=", real(1, 2), real(0, 3)),         (boolean, real(1, 2), real(1, 3)))
 
-        self.assertEqual(inequality("<=", real(1, 3), real(0, 2)), (boolean, real(1, 2), real(1, 2)))
+        self.assertEqual(inequality("<=", real(1, 3), real(0, 2)),         (boolean, real(1, 2), real(1, 2)))
         self.assertEqual(inequality("<=", real(almost(1), 3), real(0, 2)), (boolean, real(almost(1), 2), real(almost(1), 2)))
         self.assertEqual(inequality("<=", real(1, 3), real(0, almost(2))), (boolean, real(1, almost(2)), real(1, almost(2))))
 

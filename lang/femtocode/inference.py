@@ -1229,15 +1229,11 @@ def inequality(operator, left, right):
         rightmax = right.max
 
         if operator == "<":
-            if not isinstance(left.max, almost) and left.max == right.max:
-                leftmax = almost(left.max)
-            elif almost.max(left.max, right.max) == left.max:
-                leftmax = right.max
+            if almost.max(left.max, right.max) == left.max:
+                leftmax = almost(right.max)   # "almost" because of strict inequality
 
-            if not isinstance(right.min, almost) and left.min == almost(right.min):
-                rightmin = almost(right.min)
-            elif almost.min(left.min, right.min) == right.min:
-                rightmin = left.min
+            if almost.min(left.min, right.min) == right.min:
+                rightmin = almost(left.min)   # "almost" because of strict inequality
 
             try:
                 return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
@@ -1258,15 +1254,11 @@ def inequality(operator, left, right):
 
 
         elif operator == ">":
-            if not isinstance(left.min, almost) and left.min == right.min:
-                leftmin = almost(left.min)
-            elif almost.min(left.min, right.min) == left.min:
-                leftmin = right.min
+            if almost.min(left.min, right.min) == left.min:
+                leftmin = almost(right.min)   # "almost" because of strict inequality
 
-            if not isinstance(right.max, almost) and left.max == almost(right.max):
-                rightmax = almost(right.max)
-            elif almost.max(left.max, right.max) == right.max:
-                rightmax = left.max
+            if almost.max(left.max, right.max) == right.max:
+                rightmax = almost(left.max)   # "almost" because of strict inequality
 
             try:
                 return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
