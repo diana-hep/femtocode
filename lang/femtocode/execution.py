@@ -235,8 +235,10 @@ class Compiler(object):
             fcn = ast.FunctionDef(name, args, statements, [], None)
 
         if debug:
-            print("\n")
+            print("")
             print(astToSource(fcn))
+            print("\n{0}".format(references))
+            print("")
 
         moduleast = ast.Module([fcn])
         fakeLineNumbers(moduleast)

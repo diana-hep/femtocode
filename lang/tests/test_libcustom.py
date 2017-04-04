@@ -45,8 +45,8 @@ class TestLibCustom(unittest.TestCase):
 
     def test_mysin(self):
         custom = CustomLibrary()
-        # custom.add(CustomFlatFunction("mysin", "math", "sin", lambda x: real))
+        custom.add(CustomFlatFunction("mysin", "math", "sin", lambda x: real))
 
-        # for entry in numerical.toPython(x = "x", a = "mysin(x)").submit(libs=[custom], debug=True):
-        #     print entry.x, entry.a
-
+        for entry in numerical.toPython(x = "x", a = "mysin(x)").submit(libs=[custom]):
+            self.assertAlmostEqual(custom.table["mysin"].pythoneval([entry.x]), entry.a)
+            self.assertAlmostEqual(math.sin(entry.x), entry.a)

@@ -136,7 +136,11 @@ if __name__ == "__main__":
     def callback(outputdataset):
         print outputdataset, len(list(outputdataset))
 
-    result = session.source("xy").define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit()
+    from femtocode.lib.custom import *
+    custom = CustomLibrary()
+    custom.add(CustomFlatFunction("mysin", "math", "sin", lambda x: real))
+
+    result = session.source("xy").define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5", c = "mysin(x)").submit(libs=custom)
 
     for event in result.await():
         print event

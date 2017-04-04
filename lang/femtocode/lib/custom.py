@@ -78,4 +78,4 @@ class CustomFlatFunction(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         fcnname = newname()
         references[fcnname] = getattr(importlib.import_module(self.moduleName), self.callableName)
-        return [Assign([target], Call(Name(fcnname, Load()), args, [], None, None))]
+        return [ast.Assign([target], ast.Call(ast.Name(fcnname, ast.Load()), args, [], None, None))]

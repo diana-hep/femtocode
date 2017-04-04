@@ -54,7 +54,7 @@ class Query(Serializable):
     def __hash__(self):
         # doesn't include any part of the dataset other than the name, as well as the inputs, cancelled, or crosscheck
         if not hasattr(self, "_hash"):
-            self._hash = hash(("Query", self.dataset.name, self.libs, self.statements, tuple(self.actions)))
+            self._hash = hash(("Query", self.dataset.name, tuple(self.libs), self.statements, tuple(self.actions)))
         return self._hash
 
     class DatasetName(Serializable):
@@ -210,7 +210,7 @@ class Intermediate(NotFirst, NotLast, Workflow): pass
 
 class Goal(NotFirst, Workflow):
     def compile(self, libs=()):
-        if isinstance(libs, SymbolTable):
+        if isinstance(libs, Library):
             libs = (libs,)
 
         source = self.source()
