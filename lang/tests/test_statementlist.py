@@ -24,7 +24,7 @@ from femtocode.asts import statementlist
 from femtocode.asts import typedtree
 from femtocode.dataset import *
 from femtocode.defs import SymbolTable
-from femtocode.lib.standard import table
+from femtocode.lib.standard import StandardLibrary
 from femtocode.parser import parse
 from femtocode.typesystem import *
 
@@ -59,7 +59,7 @@ class TestStatementlist(unittest.TestCase):
         return Dataset("Dummy", symbolTypes, columns, [], 0, 0)
 
     def compile(self, code, dataset):
-        lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in dataset.schema)))
+        lt, frame = lispytree.build(parse(code), StandardLibrary.table.fork(dict((n, lispytree.Ref(n)) for n in dataset.schema)))
         tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in dataset.schema.items())))
         result, statements, inputs, refnumber = statementlist.build(tt, dataset)
         return result, statements

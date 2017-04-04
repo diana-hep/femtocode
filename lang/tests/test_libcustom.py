@@ -27,7 +27,6 @@ from femtocode.asts import typedtree
 from femtocode.defs import SymbolTable
 from femtocode.execution import Executor
 from femtocode.lib.custom import *
-from femtocode.lib.standard import table
 from femtocode.parser import parse
 from femtocode.testdataset import TestDataset
 from femtocode.testdataset import TestSession

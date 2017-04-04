@@ -26,7 +26,7 @@ import types
 from femtocode.asts import statementlist
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
-from femtocode.lib.standard import table
+from femtocode.lib.standard import StandardLibrary
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.util import *
@@ -303,7 +303,7 @@ class Compiler(object):
                         astargs.append(arg.buildexec())
                         schemas.append(arg.schema)
 
-                assignment = table[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
+                assignment = StandardLibrary.table[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
                 schemalookup[statement.column] = statement.schema
 
                 # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)

@@ -23,7 +23,7 @@ from femtocode.asts import lispytree
 from femtocode.asts import typedtree
 from femtocode.defs import SymbolTable
 from femtocode.inference import *
-from femtocode.lib.standard import table
+from femtocode.lib.standard import StandardLibrary
 from femtocode.parser import parse
 from femtocode.py23 import *
 from femtocode.typesystem import *
@@ -35,7 +35,7 @@ class TestTypeIntegration(unittest.TestCase):
     @staticmethod
     def expecting(result, code, verbose=False, **symbolTypes):
         def doit():
-            lt, frame = lispytree.build(parse(code), table.fork(dict((n, lispytree.Ref(n)) for n in symbolTypes)))
+            lt, frame = lispytree.build(parse(code), StandardLibrary.table.fork(dict((n, lispytree.Ref(n)) for n in symbolTypes)))
             tt, frame = typedtree.build(lt, SymbolTable(dict((lispytree.Ref(n), t) for n, t in symbolTypes.items())))
             return tt.schema
 

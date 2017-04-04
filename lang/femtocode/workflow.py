@@ -24,7 +24,7 @@ from femtocode.asts import typedtree
 from femtocode.dataset import Dataset
 from femtocode.defs import *
 from femtocode import parser
-from femtocode.lib import standard
+from femtocode.lib.standard import StandardLibrary
 from femtocode.py23 import *
 from femtocode.typesystem import *
 from femtocode.util import *
@@ -116,7 +116,7 @@ class Workflow(Serializable):
         return lt, tt
 
     def _propagated(self, libs=()):
-        symbolTable = SymbolTable(standard.table.asdict())
+        symbolTable = SymbolTable(StandardLibrary.table.asdict())
         for lib in libs:
             symbolTable = symbolTable.fork(lib.asdict())
 

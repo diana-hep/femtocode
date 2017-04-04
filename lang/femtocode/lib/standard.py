@@ -30,7 +30,8 @@ from femtocode.util import *
 def _buildargs(args, frame):
     return [typedtree.build(arg, frame)[0] for arg in args]
 
-table = SymbolTable()
+class StandardLibrary(Library):
+    table = SymbolTable()
 
 class Is(lispytree.BuiltinFunction):
     ## FIXME: this will be a tricky one; maybe shouldn't be a library function
@@ -60,7 +61,7 @@ class Is(lispytree.BuiltinFunction):
     def tosrc(self, args):
         return "(" + astToSource(args[0]) + " is " + astToSource(args[1]) + ")"
 
-table[Is.name] = Is()
+StandardLibrary.table[Is.name] = Is()
 
 ########################################################## Basic calculator
 
@@ -76,7 +77,7 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
-table[Add.name] = Add()
+StandardLibrary.table[Add.name] = Add()
 
 class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
@@ -88,7 +89,7 @@ class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
 
-table[Sub.name] = Sub()
+StandardLibrary.table[Sub.name] = Sub()
 
 class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u-"
@@ -103,7 +104,7 @@ class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
         else:
             return Number(-typedargs[0].schema.max, -typedargs[0].schema.min, typedargs[0].schema.whole), typedargs, frame
 
-table[USub.name] = USub()
+StandardLibrary.table[USub.name] = USub()
 
 class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "*"
@@ -117,7 +118,7 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         return inference.multiply(*[x.schema for x in typedargs]), typedargs, frame
 
-table[Mult.name] = Mult()
+StandardLibrary.table[Mult.name] = Mult()
 
 class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
@@ -141,7 +142,7 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
                     OUT = float("inf") * (1 if ARG0 > 0 else -1)
                 """, OUT = target, ARG0 = args[0], ARG1 = args[1])
 
-table[Div.name] = Div()
+StandardLibrary.table[Div.name] = Div()
 
 class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "//"
@@ -153,7 +154,7 @@ class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         return inference.floordivide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
-table[FloorDiv.name] = FloorDiv()
+StandardLibrary.table[FloorDiv.name] = FloorDiv()
 
 class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "**"
@@ -244,7 +245,7 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                                    x = ast.Name(x, ast.Load()), y = ast.Name(y, ast.Load()),
                                    X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()))
 
-table[Pow.name] = Pow()
+StandardLibrary.table[Pow.name] = Pow()
 
 class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "%"
@@ -257,7 +258,7 @@ class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         return inference.modulo(*[x.schema for x in typedargs]), typedargs, frame
 
-table[Mod.name] = Mod()
+StandardLibrary.table[Mod.name] = Mod()
 
 ########################################################## Predicates
 
@@ -276,7 +277,7 @@ class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         else:
             return boolean, typedargs, frame.fork({args[0]: out, args[1]: out})
 
-table[Eq.name] = Eq()
+StandardLibrary.table[Eq.name] = Eq()
 
 class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "!="
@@ -308,7 +309,7 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
         return boolean, typedargs, subframe
 
-table[NotEq.name] = NotEq()
+StandardLibrary.table[NotEq.name] = NotEq()
 
 class Inequality(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
@@ -325,7 +326,7 @@ class Lt(Inequality):
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Lt()], [args[1]])
         
-table[Lt.name] = Lt()
+StandardLibrary.table[Lt.name] = Lt()
 
 class LtE(Inequality):
     name = "<="
@@ -333,7 +334,7 @@ class LtE(Inequality):
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.LtE()], [args[1]])
         
-table[LtE.name] = LtE()
+StandardLibrary.table[LtE.name] = LtE()
 
 class Gt(Inequality):
     name = ">"
@@ -341,7 +342,7 @@ class Gt(Inequality):
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Gt()], [args[1]])
         
-table[Gt.name] = Gt()
+StandardLibrary.table[Gt.name] = Gt()
 
 class GtE(Inequality):
     name = ">="
@@ -349,7 +350,7 @@ class GtE(Inequality):
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.GtE()], [args[1]])
         
-table[GtE.name] = GtE()
+StandardLibrary.table[GtE.name] = GtE()
 
 class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
@@ -400,7 +401,7 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
         return boolean, typedargs, subframe
 
-table[And.name] = And()
+StandardLibrary.table[And.name] = And()
 
 class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "or"
@@ -437,7 +438,7 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
                     
         return boolean, typedargs, subframe
 
-table[Or.name] = Or()
+StandardLibrary.table[Or.name] = Or()
 
 class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "not"
@@ -452,7 +453,7 @@ class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
         else:
             return boolean, typedargs, frame
 
-table[Not.name] = Not()
+StandardLibrary.table[Not.name] = Not()
 
 class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "if"
@@ -536,7 +537,7 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
         alternate = args[-1]
         return " el".join("if ({0}) {{{1}}}".format(astToSource(p), astToSource(c)) for p, c in zip(predicates, consequents)) + " else {" + astToSource(alternate) + "}"
             
-table[If.name] = If()
+StandardLibrary.table[If.name] = If()
 
 class Dot(lispytree.BuiltinFunction):
     name = "."
@@ -569,7 +570,7 @@ class Dot(lispytree.BuiltinFunction):
 
         return reref, statements, inputs, refnumber
 
-table[Dot.name] = Dot()
+StandardLibrary.table[Dot.name] = Dot()
 
 class Map(lispytree.BuiltinFunction):
     name = ".map"
@@ -624,4 +625,4 @@ class Map(lispytree.BuiltinFunction):
     def sortargs(self, positional, named, original):
         return Function.sortargsWithNames(positional, named, ["fcn"], [None], original)
 
-table[Map.name] = Map()
+StandardLibrary.table[Map.name] = Map()
