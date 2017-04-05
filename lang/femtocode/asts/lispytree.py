@@ -315,6 +315,18 @@ def expandUserFunction(tree, frame):
     else:
         assert False, "unrecognized functiontree: " + repr(tree)
 
+def anyFunctionToUserFunction(fcn):
+    if isinstance(fcn, BuiltinFunction):
+        subframe = frame.fork()
+        framenumber = subframe.framenumber()
+        return UserFunction([1], framenumber, [None], Call(fcn, [Ref(1, framenumber)], fcn.original))
+
+    elif isinstance(fcn, UserFunction):
+        return fcn
+
+    else:
+        assert False, "unexpected type: {0} {1}".format(fcn, type(fcn))
+
 def pos(tree):
     return {"lineno": tree.lineno, "col_offset": tree.col_offset}
 

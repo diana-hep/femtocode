@@ -759,15 +759,10 @@ class Map(lispytree.BuiltinFunction):
         if not isinstance(typedarg0.schema, Collection):
             return impossible("First argument must be a collection."), [], frame
 
-        # FIXME: many other functions will need this; put it somewhere upstream (hint: use the number of arguments, [1])
-        if isinstance(args[1], lispytree.BuiltinFunction):
-            subframe = frame.fork()
-            framenumber = subframe.framenumber()
-            fcn = lispytree.UserFunction([1], framenumber, [None], lispytree.Call(args[1], [lispytree.Ref(1, framenumber)], args[1].original))
-        elif isinstance(args[1], lispytree.UserFunction):
-            fcn = args[1]
-        else:
+        if not isinstance(args[1], Function):
             return impossible("Second argument must be a function."), [], frame
+
+        fcn = lispytree.anyFunctionToUserFunction(args[1])
 
         typedarg1 = typedtree.buildUserFunction(fcn, [typedarg0.schema.items], frame)
 
