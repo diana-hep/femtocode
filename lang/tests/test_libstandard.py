@@ -39,7 +39,7 @@ for i in xrange(100):
 
 semiflat = session.source("SemiFlat", muon=record(pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi)), jet=record(mass=real(0, almost(inf)), pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi)))
 for i in xrange(100):
-    semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=(float(i) % 6 - 3)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=(float(i) % 6 - 3))})
+    semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10))})
 
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
@@ -364,8 +364,8 @@ class TestLibStandard(unittest.TestCase):
 
 ########################################################## Structure
 
-    # def test_dot(self):
-    #     self.assertEqual(semiflat.type("muon.phi + jet.mass"), real(-pi, almost(inf)))
+    def test_dot(self):
+        self.assertEqual(semiflat.type("muon.phi + jet.mass"), real(-pi, almost(inf)))
 
-    #     for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit(debug=True):
-    #         print entry
+        for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit(debug=True):
+            self.assertEqual(entry.muonphi + entry.jetmass, entry.a)

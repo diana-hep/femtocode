@@ -316,26 +316,6 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
         else:
             return result, typedargs, frame.fork({args[0]: leftconstraint, args[1]: rightconstraint})
 
-        # const = None
-        # expr = None
-        # if isinstance(args[0], lispytree.Literal):
-        #     const = args[0].value
-        #     expr = args[1]
-        #     restriction = inference.literal(typedargs[1].schema, "!=", const)
-        # elif isinstance(args[1], lispytree.Literal):
-        #     const = args[1].value
-        #     expr = args[0]
-        #     restriction = inference.literal(typedargs[0].schema, "!=", const)
-
-        # if expr is not None:
-        #     subframe = frame.fork({expr: restriction})
-        #     if isinstance(subframe[expr], Impossible):
-        #         return impossible("The arguments have precisely the same value (they can never not be equal)."), typedargs, frame
-        # else:
-        #     subframe = frame.fork()
-
-        # return boolean, typedargs, subframe
-
 StandardLibrary.table[NotEq.name] = NotEq()
 
 class Inequality(statementlist.FlatFunction, lispytree.BuiltinFunction):
@@ -624,6 +604,9 @@ class Dot(lispytree.BuiltinFunction):
         reref = statementlist.Ref(rename, argref.schema.fields[field], dataset.dataColumn(rename), dataset.sizeColumn(rename))
 
         replacements[(typedtree.TypedTree, call)] = reref
+
+        if reref.data in dataset.columns:
+            inputs[reref.data] = reref.schema
 
         return reref, statements, inputs, refnumber
 

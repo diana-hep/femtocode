@@ -231,9 +231,6 @@ class Goal(NotFirst, Workflow):
 
             actions.append(preaction.finalize(refs))
 
-        # print
-        # print "inputs", inputs
-
         return Query(source.dataset, libs, inputs, statements, actions, False, self)
 
     def submit(self, ondone=None, onupdate=None, libs=(), debug=False):
