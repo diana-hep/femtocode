@@ -246,7 +246,7 @@ class Compiler(object):
 
         modulecomp = compile(moduleast, "Femtocode", "exec")
         out = dict(references)
-        out["math"] = math
+        out["$math"] = math
         exec(modulecomp, out)
         return LoopFunction(out[name])
 
@@ -273,6 +273,14 @@ class Compiler(object):
         whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
 
         schemalookup = dict(inputs)
+        def astAndSchema(arg):
+            if isinstance(arg, ColumnName) and (arg in loop.targets or arg in loop.params()):
+                return ast.Subscript(ast.Name(valid(arg), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()), schemalookup[arg]
+            elif isinstance(arg, ColumnName):
+                return ast.Name(valid(arg), ast.Load()), schemalookup[arg]
+            else:
+                return arg.buildexec(), arg.schema
+
         for statement in loop.statements:
             if statement.column in loop.targets:
                 # col[i0]
@@ -281,7 +289,12 @@ class Compiler(object):
                 # col
                 target = ast.Name(valid(statement.column), ast.Store())
 
-            if isinstance(statement, statementlist.Explode):
+            if isinstance(statement, statementlist.IsType):
+                astarg, schema = astAndSchema(statement.arg)
+                assignment = fcntable[statement.fcnname].buildexec(target, statement.schema, [astarg], [schema], newname, references, tonative, statement.fromtype, statement.totype, statement.negate)
+                schemalookup[statement.column] = statement.schema
+
+            elif isinstance(statement, statementlist.Explode):
                 raise NotImplementedError
 
             elif isinstance(statement, statementlist.ExplodeSize):
@@ -295,17 +308,9 @@ class Compiler(object):
                 astargs = []
                 schemas = []
                 for arg in statement.args:
-                    if isinstance(arg, ColumnName) and (arg in loop.targets or arg in loop.params()):
-                        astargs.append(ast.Subscript(ast.Name(valid(arg), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()))
-                        schemas.append(schemalookup[arg])
-
-                    elif isinstance(arg, ColumnName):
-                        astargs.append(ast.Name(valid(arg), ast.Load()))
-                        schemas.append(schemalookup[arg])
-
-                    else:
-                        astargs.append(arg.buildexec())
-                        schemas.append(arg.schema)
+                    astarg, schema = astAndSchema(arg)
+                    astargs.append(astarg)
+                    schemas.append(schema)
 
                 assignment = fcntable[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
                 schemalookup[statement.column] = statement.schema

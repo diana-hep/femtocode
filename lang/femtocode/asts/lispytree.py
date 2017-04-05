@@ -68,7 +68,7 @@ class BuiltinFunction(Function):
             print(astToSource(fcn))
 
         modulecomp = compile(moduleast, "Femtocode", "exec")
-        out = {"$importlib": importlib}
+        out = {"$importlib": importlib, "$math": math}
         exec(modulecomp, out)
 
         return out["tmp"](*args)

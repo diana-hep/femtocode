@@ -22,6 +22,7 @@ from functools import reduce
 from femtocode.asts import lispytree
 from femtocode.asts import statementlist
 from femtocode.asts import typedtree
+from femtocode.dataset import ColumnName
 from femtocode.defs import *
 from femtocode import inference
 from femtocode.typesystem import *
@@ -34,12 +35,13 @@ class StandardLibrary(Library):
     table = SymbolTable()
 
 class Is(lispytree.BuiltinFunction):
-    ## FIXME: this will be a tricky one; maybe shouldn't be a library function
-
     name = "is"
 
     def pythoneval(self, args):
-        return True
+        if args[2]:
+            return args[0] not in args[1]
+        else:
+            return args[0] in args[1]
 
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
@@ -54,10 +56,115 @@ class Is(lispytree.BuiltinFunction):
             out = intersection(fromtype, totype)
 
         if isinstance(out, Impossible):
-            return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "to"), between=lambda t1, t2: "|", prefix="    ")), out.reason), typedargs, frame
+            return impossible("Cannot constrain type:\n\n{0}".format(compare(fromtype, totype, header=("from", "excluding" if negate else "into"), between=lambda t1, t2: "|", prefix="    ")), out.reason), typedargs, frame
 
-        return boolean, typedargs, frame.fork({args[0]: out})
+        return boolean(True) if fromtype == out else boolean, typedargs, frame.fork({args[0]: out})
 
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
+        if call.schema == boolean(True):
+            replacements[(typedtree.TypedTree, call)] = statementlist.Literal(True, boolean(True))
+            return replacements[(typedtree.TypedTree, call)], statementlist.Statements(), {}, refnumber
+
+        else:
+            fromtype = call.args[0].schema
+            totype = call.args[1].value   # literal type expression
+            negate = call.args[2].value   # literal boolean
+
+            args, sizeColumn, statements, inputs, refnumber = statementlist._flatBuildPreamble([call.args[0]], dataset, replacements, refnumber, explosions)
+
+            columnName = ColumnName(refnumber)
+            ref = statementlist.Ref(refnumber, call.schema, columnName, sizeColumn)
+
+            refnumber += 1
+            replacements[(typedtree.TypedTree, call)] = ref
+            statements.append(statementlist.IsType(columnName, sizeColumn, args[0], fromtype, totype, negate))
+
+            return ref, statements, inputs, refnumber
+
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative, fromtype, totype, negate):
+        arg, = args
+
+        if negate:
+            restriction = difference(fromtype, totype)
+        else:
+            restriction = intersection(fromtype, totype)
+
+        def numeric(restrict):
+            if restrict.min == restrict.max:
+                return ast.Compare(arg, [ast.Eq()], [ast.Num(restrict.min.real)])
+
+            else:
+                low = ast.Num(restrict.min.real)
+                high = ast.Num(restrict.max.real)
+
+                if isinstance(restrict.min, almost):
+                    cmp1 = ast.Lt()
+                else:
+                    cmp1 = ast.LtE()
+
+                if isinstance(restrict.max, almost):
+                    cmp2 = ast.Lt()
+                else:
+                    cmp2 = ast.LtE()
+
+                if restrict.whole and not isInt(fromtype) and not isNullInt(fromtype):
+                    ops = [cmp1, ast.Eq(), cmp2]
+                    comparators = [arg, ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "floor", ast.Load()), [arg], [], None, None), high]
+                else:
+                    ops = [cmp1, cmp2]
+                    comparators = [arg, high]
+
+                return ast.Compare(low, ops, comparators)
+
+        expressions = []
+
+        if isinstance(restriction, Number) and isNumber(fromtype):
+            expressions.append(numeric(restriction))
+
+        elif isinstance(restriction, Number) and isNullInt(fromtype):
+            expressions.append(ast.BoolOp(ast.And(), [
+                ast.Compare(arg, [ast.NotEq()], [ast.Num(Number._intNaN)]),
+                numeric(restriction)
+                ]))
+
+        elif isinstance(restriction, Number) and isNullFloat(fromtype):
+            expressions.append(ast.BoolOp(ast.And(), [
+                ast.UnaryOp(ast.Not(), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "isnan", ast.Load()), [arg], [], None, None)),
+                numeric(restriction)
+                ]))
+
+        elif isinstance(restriction, Union) and isNumber(fromtype):
+            for p in restriction.possibilities:
+                expressions.append(numeric(p))
+
+        elif isinstance(restriction, Union) and isNullInt(fromtype):
+            for p in restriction.possibilities:
+                if isinstance(p, Null):
+                    expressions.append(ast.Compare(arg, [ast.Eq()], [ast.Num(Number._intNaN)]))
+                else:
+                    expressions.append(ast.BoolOp(ast.And(), [
+                        ast.Compare(arg, [ast.NotEq()], [ast.Num(Number._intNaN)]),
+                        numeric(restriction)
+                        ]))
+
+        elif isinstance(restriction, Union) and isNullFloat(fromtype):
+            for p in restriction.possibilities:
+                if isinstance(p, Null):
+                    expressions.append(ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "isnan", ast.Load()), [arg], [], None, None))
+                else:
+                    expressions.append(ast.BoolOp(ast.And(), [
+                        ast.UnaryOp(ast.Not(), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "isnan", ast.Load()), [arg], [], None, None)),
+                        numeric(restriction)
+                        ]))
+
+        else:
+            raise NotImplementedException
+        
+        return statementsToAst("""
+                OUT = RESTRICT
+                """, OUT = target,
+                     RESTRICT = expressions[0] if len(expressions) == 1 else ast.BoolOp(ast.Or(), expressions))
+               
     def tosrc(self, args):
         return "(" + astToSource(args[0]) + " is " + astToSource(args[1]) + ")"
 
@@ -207,7 +314,7 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                 return statementsToAst("""OUT = 1.0""", OUT = target)
                 
         elif isinstance(args[1], ast.Num) and args[1].n == 0.5:
-            return statementsToAst("""OUT = math.sqrt(ARG0)""", OUT = target, ARG0 = args[0])
+            return statementsToAst("""OUT = MATH.sqrt(ARG0)""", OUT = target, MATH=ast.Name("$math", ast.Load()), ARG0 = args[0])
 
         elif isinstance(args[1], ast.Num) and round(args[1].n) == args[1].n and args[1].n < 10:
             # TODO: this is an example of how ** can be optimized, but it is not proven to be optimal
@@ -229,13 +336,13 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
             return statementsToAst("""
                 X, Y = ARG0, ARG1
               
-                if math.isnan(x) and y == 0:
+                if MATH.isnan(x) and y == 0:
                     OUT = 1.0
-                elif math.isnan(x) or math.isnan(y):
+                elif MATH.isnan(x) or MATH.isnan(y):
                     OUT = float("nan")
                 elif x == 0 and y < 0:
                     OUT = float("inf")
-                elif math.isinf(y):
+                elif MATH.isinf(y):
                     if x == 1 or x == -1:
                         OUT = float("nan")
                     elif abs(x) < 1:
@@ -248,7 +355,7 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                             OUT = float("inf")
                         else:
                             OUT = 0.0
-                elif math.isinf(x):
+                elif MATH.isinf(x):
                     if y == 0:
                         OUT = 1.0
                     elif y < 0:
@@ -262,7 +369,7 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                     OUT = float("nan")
                 else:
                     try:
-                        OUT = math.pow(x, y)
+                        OUT = MATH.pow(x, y)
                     except OverflowError:
                         if abs(y) < 1:
                             if x < 0:
@@ -274,7 +381,8 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                                 OUT = 0.0
                             else:
                                 OUT = float("inf")
-                """, OUT = target, ARG0 = args[0], ARG1 = args[1],
+                """, OUT = target, MATH=ast.Name("$math", ast.Load()),
+                                   ARG0 = args[0], ARG1 = args[1],
                                    x = ast.Name(x, ast.Load()), y = ast.Name(y, ast.Load()),
                                    X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()))
 
@@ -578,7 +686,8 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
                 else:
                     REPLACEME
                 """, OUT = target, PRED = predicate, CONS = replaceNone(consequent))
-            next[0].orelse = [chain[0]]
+
+            next[0].orelse = [chain[0]]   # replacing REPLACEME
             chain = next
 
         return chain

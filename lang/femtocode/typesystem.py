@@ -627,7 +627,10 @@ class Number(Primitive):
     order = 3
 
     _floatNaN = float("nan")
-    _intNaN = -9223372036854775808
+    _intNaN = 9221120237041090560   # byte-for-byte equivalent of float("nan")
+                                    # numpy.array([float("nan")], dtype=">f8").view(">i8")[0]
+                                    # numpy.array([float("nan")], dtype="<f8").view("<i8")[0]
+                                    # 99.975% of the maximum possible value: 9223372036854775807
 
     def __init__(self, min=almost(-inf), max=almost(inf), whole=False, alias=None):
         if not isinstance(min, (int, long, float)):

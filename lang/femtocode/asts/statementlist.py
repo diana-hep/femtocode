@@ -71,7 +71,19 @@ class Statement(Serializable):
                     return Literal(obj["value"], Schema.fromJson(obj["schema"]))
 
                 elif "fcn" in keys:
-                    if obj["fcn"] == "$explode":
+                    if obj["fcn"] == "is":
+                        if keys == set(["to", "fcn", "tosize", "arg", "fromtype", "totype", "negate"]):
+                            return IsType(ColumnName.parse(obj["to"]),
+                                          ColumnName.parse(obj["tosize"]),
+                                          ColumnName.parse(obj["arg"]),
+                                          Schema.fromJson(obj["fromtype"]),
+                                          Schema.fromJson(obj["totype"]),
+                                          obj["negate"])
+
+                        else:
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"tosize\", \"arg\", \"fromtype\", \"totype\", \"negate\" for function \"is\" at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+
+                    elif obj["fcn"] == "$explode":
                         if keys == set(["to", "fcn", "data", "tosize", "schema"]):
                             return Explode(ColumnName.parse(obj["to"]),
                                            Schema.fromJson(obj["schema"]),
@@ -348,6 +360,45 @@ class Call(Statement):
     def columnNames(self):
         return [self.column] + list(self.args) + ([] if self.tosize is None else [self.tosize])
 
+class IsType(Call):
+    def __init__(self, column, tosize, arg, fromtype, totype, negate):
+        self.column = column
+        self.tosize = tosize
+        self.arg = arg
+        self.fromtype = fromtype
+        self.totype = totype
+        self.negate = negate
+
+    @property
+    def fcnname(self):
+        return "is"
+
+    @property
+    def schema(self):
+        return boolean
+
+    @property
+    def args(self):
+        return (self.arg,)
+
+    def __repr__(self):
+        return "statementlist.TypeCheck({0}, {1}, {2}, {3}, {4}, {5})".format(self.column, self.tosize, self.arg, self.fromtype, self.totype, self.negate)
+
+    def __str__(self):
+        return "{0} := {1}({2}, {3} -> {4}{5}) as {6}".format(str(self.column), self.fcnname, self.arg, self.fromtype, self.totype, " (negated)" if self.negate else "", self.schema)
+
+    def toJson(self):
+        return {"to": str(self.column), "fcn": self.fcnname, "tosize": str(self.tosize), "arg": str(self.arg), "fromtype": self.fromtype.toJson(), "totype": self.totype.toJson(), "negate": self.negate}
+
+    def __eq__(self, other):
+        return other.__class__ == IsType and self.column == other.column and self.tosize == other.tosize and self.arg == other.arg and self.fromtype == other.fromtype and self.totype == other.totype and self.negate == other.negate
+
+    def __hash__(self):
+        return hash(("statementlist.IsType", self.column, self.tosize, self.arg, self.fromtype, self.totype, self.negate))
+
+    def columnNames(self):
+        return [self.column, self.tosize, self.arg]
+
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
         self.column = column
@@ -513,49 +564,54 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
     else:
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
+def _flatBuildPreamble(callargs, dataset, replacements, refnumber, explosions):
+    statements = Statements()
+    inputs = {}
+    argrefs = []
+    for arg in callargs:
+        argref, ss, ins, refnumber = build(arg, dataset, replacements, refnumber, explosions)
+        argrefs.append(argref)
+        statements.extend(ss)
+        inputs.update(ins)
+
+    sizes = []
+    for explosion in explosions:
+        size = None
+        for argref in argrefs:
+            if isinstance(explosion.schema, Record) and explosion.name.samelevel(argref.data):
+                size = dataset.sizeColumn(argref.data)
+                break
+        if size is None:
+            size = dataset.sizeColumn(explosion.name)
+        if size is not None:
+            sizes.append(size)
+    sizes = tuple(sizes)
+
+    args = []
+    sizeColumn = None
+    for i, argref in enumerate(argrefs):
+        if isinstance(argref, Ref):
+            final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
+            statements.extend(ss)
+
+            if i == 0:
+                sizeColumn = final.size
+            else:
+                assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
+
+            args.append(final.data)
+
+        elif isinstance(argref, Literal):
+            args.append(argref)
+
+        else:
+            assert False, "unexpected in argrefs: {0}".format(argref)
+
+    return args, sizeColumn, statements, inputs, refnumber
+
 class FlatFunction(object):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
-        statements = Statements()
-        inputs = {}
-        argrefs = []
-        for arg in call.args:
-            argref, ss, ins, refnumber = build(arg, dataset, replacements, refnumber, explosions)
-            argrefs.append(argref)
-            statements.extend(ss)
-            inputs.update(ins)
-
-        sizes = []
-        for explosion in explosions:
-            size = None
-            for argref in argrefs:
-                if isinstance(explosion.schema, Record) and explosion.name.samelevel(argref.data):
-                    size = dataset.sizeColumn(argref.data)
-                    break
-            if size is None:
-                size = dataset.sizeColumn(explosion.name)
-            if size is not None:
-                sizes.append(size)
-        sizes = tuple(sizes)
-
-        args = []
-        sizeColumn = None
-        for i, argref in enumerate(argrefs):
-            if isinstance(argref, Ref):
-                final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
-                statements.extend(ss)
-
-                if i == 0:
-                    sizeColumn = final.size
-                else:
-                    assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
-
-                args.append(final.data)
-
-            elif isinstance(argref, Literal):
-                args.append(argref)
-
-            else:
-                assert False, "unexpected in argrefs: {0}".format(argref)
+        args, sizeColumn, statements, inputs, refnumber = _flatBuildPreamble(call.args, dataset, replacements, refnumber, explosions)
 
         columnName = ColumnName(refnumber)
         ref = Ref(refnumber, call.schema, columnName, sizeColumn)
@@ -661,7 +717,7 @@ class ReturnPythonDataset(Aggregation):
                 "refsToNames": dict((str(r.name), n) for n, r in self.namesToRefs)}
 
     def columns(self):
-        return [r.size for n, r in self.namesToRefs if r.size is not None] + [r.data for n, r in self.namesToRefs]
+        return [r.size for n, r in self.namesToRefs if isinstance(r, Ref) and r.size is not None] + [r.data for n, r in self.namesToRefs if isinstance(r, Ref)]
 
     def columnNames(self):
         return sum(self.namesToRefs.columnNames(), [])
@@ -693,20 +749,30 @@ class ReturnPythonDataset(Aggregation):
         for n, ref in self.namesToRefs:
             numEntries = group.numEntries
 
-            if ref.data in group.segments:
-                dataLength = group.segments[ref.data].dataLength
-            else:
-                dataLength = lengths[ref.data]
-            
-            if ref.size is None:
-                sizeLength = None
-            elif ref.size.dropsize() in group.segments:
-                sizeLength = group.segments[ref.size.dropsize()].sizeLength
-            else:
-                sizeLength = lengths[ref.size]
+            if isinstance(ref, Ref):
+                if ref.data in group.segments:
+                    dataLength = group.segments[ref.data].dataLength
+                else:
+                    dataLength = lengths[ref.data]
 
-            data = arrays[ref.data]
-            size = None if ref.size is None else arrays[ref.size]
+                if ref.size is None:
+                    sizeLength = None
+                elif ref.size.dropsize() in group.segments:
+                    sizeLength = group.segments[ref.size.dropsize()].sizeLength
+                else:
+                    sizeLength = lengths[ref.size]
+
+                data = arrays[ref.data]
+                size = None if ref.size is None else arrays[ref.size]
+
+            elif isinstance(ref, Literal):
+                dataLength = numEntries
+                sizeLength = None
+                data = [ref.value] * numEntries
+                size = None
+
+            else:
+                assert False, "unexpected object as ref: \"{0}\" {1}".format(n, ref)
 
             if not isinstance(data, list):
                 data = data.tolist()   # because it's Numpy

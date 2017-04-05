@@ -269,6 +269,9 @@ class Define(Intermediate):
 class ToPython(Goal):
     def __init__(self, source, **namesToExprs):
         super(ToPython, self).__init__(source)
+        if len(namesToExprs) == 0:
+            raise ValueError("Cannot create a Python dataset with zero fields.")
+
         self.namesToExprs = namesToExprs
 
     def propagate(self, symbolTable, typeTable, preactions):
@@ -282,7 +285,7 @@ class ToPython(Goal):
 
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "source": self.source.toJson(),
+                "source": self.source().toJson(),
                 "namesToExprs": self.namesToExprs}
 
     @staticmethod

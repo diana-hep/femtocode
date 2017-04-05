@@ -56,6 +56,10 @@ class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
 
+    def test_literal(self):
+        values = [entry.a for entry in numerical.toPython(a = "3.14").submit()]
+        self.assertEqual(values, [3.14] * 100)
+
 ########################################################## Basic calculator
 
     def test_add_literal(self):
@@ -387,12 +391,19 @@ class TestLibStandard(unittest.TestCase):
             else:
                 self.assertEqual(entry.a, None)
 
+    def test_is(self):
+        for entry in numerical.toPython(a = "x is integer").submit():
+            self.assertEqual(entry.a, True)
+
+        for entry in numerical.toPython(x = "x", a = "x is integer(50, 100)").submit(debug = True):
+            self.assertEqual(entry.x in integer(50, 100), entry.a)
+
 ########################################################## Structure
 
     def test_dot(self):
         self.assertEqual(semiflat.type("muon.phi + jet.mass"), real(-pi, almost(inf)))
 
-        for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit(debug=True):
+        for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit():
             self.assertEqual(entry.muonphi + entry.jetmass, entry.a)
 
     # def test_map(self):
