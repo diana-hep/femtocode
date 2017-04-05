@@ -395,8 +395,39 @@ class TestLibStandard(unittest.TestCase):
         for entry in numerical.toPython(a = "x is integer").submit():
             self.assertEqual(entry.a, True)
 
-        for entry in numerical.toPython(x = "x", a = "x is integer(50, 100)").submit(debug = True):
+        for entry in numerical.toPython(x = "x", a = "x is integer(50, 100)").submit():
             self.assertEqual(entry.x in integer(50, 100), entry.a)
+
+        for entry in numerical.toPython(y = "y", a = "y is integer(50, 100)").submit():
+            self.assertEqual(entry.y in integer(50, 100), entry.a)
+
+        for entry in numerical.toPython(y = "y", a = "y is real(50, 100)").submit():
+            self.assertEqual(entry.y in real(50, 100), entry.a)
+
+        self.assertRaises(FemtocodeError, lambda: numerical.type("ylim is real(50, 100)"))
+        for entry in numerical.toPython(ylim = "ylim", a = "ylim is real(5, almost(10))").submit():
+            self.assertEqual(entry.ylim in real(5, almost(10)), entry.a)
+
+        for entry in numerical.toPython(y = "y", a = "y is union(real(0, 25), real(50, 75))").submit():
+            self.assertEqual(entry.y in union(real(0, 25), real(50, 75)), entry.a)
+
+        for entry in numerical.define(z = "if x / 25 == 1: None else: x").toPython(z = "z", a = "z is integer").submit():
+            self.assertEqual(entry.z in integer, entry.a)
+
+        for entry in numerical.define(z = "if x / 25 == 1: None else: x").toPython(z = "z", a = "z is integer(0, 75)").submit():
+            self.assertEqual(entry.z in integer(0, 75), entry.a)
+
+        for entry in numerical.define(z = "if x / 25 == 1: None else: x").toPython(z = "z", a = "z is union(null, integer(0, 75))").submit():
+            self.assertEqual(entry.z in union(null, integer(0, 75)), entry.a)
+
+        for entry in numerical.define(z = "if y / 25 == 1: None else: y").toPython(z = "z", a = "z is real").submit():
+            self.assertEqual(entry.z in real, entry.a)
+
+        for entry in numerical.define(z = "if y / 25 == 1: None else: y").toPython(z = "z", a = "z is real(0, 75)").submit():
+            self.assertEqual(entry.z in real(0, 75), entry.a)
+
+        for entry in numerical.define(z = "if y / 25 == 1: None else: y").toPython(z = "z", a = "z is union(null, real(0, 75))").submit():
+            self.assertEqual(entry.z in union(null, real(0, 75)), entry.a)
 
 ########################################################## Structure
 
