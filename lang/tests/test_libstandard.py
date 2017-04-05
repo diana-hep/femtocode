@@ -33,9 +33,13 @@ from femtocode.workflow import *
 
 session = TestSession()
 
-numerical = session.source("Test", x=integer, xlim=integer(0, almost(10)), xlim2=integer(1, almost(11)), y=real, ylim=real(0, almost(10)), ylim2=real(almost(0), almost(10)))
+numerical = session.source("Numerical", x=integer, xlim=integer(0, almost(10)), xlim2=integer(1, almost(11)), y=real, ylim=real(0, almost(10)), ylim2=real(almost(0), almost(10)))
 for i in xrange(100):
     numerical.dataset.fill({"x": i, "xlim": i % 10, "xlim2": (i % 10) + 1, "y": i + 0.2, "ylim": (i + 0.2) % 10.0, "ylim2": (i + 0.2) % 10.0})
+
+semiflat = session.source("SemiFlat", muon=record(pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi)), jet=record(mass=real(0, almost(inf)), pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi)))
+for i in xrange(100):
+    semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=(float(i) % 6 - 3)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=(float(i) % 6 - 3))})
 
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
@@ -240,7 +244,7 @@ class TestLibStandard(unittest.TestCase):
 
     def test_lessthan_literal(self):
         self.assertEqual(numerical.type("x < 100"), boolean)
-        self.assertEqual(numerical.type("xlim < 100"), boolean)
+        self.assertEqual(numerical.type("xlim < 100"), boolean(True))
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim < -100"))
         self.assertRaises(FemtocodeError, lambda: numerical.type("100 < xlim"))
         for entry in numerical.toPython(x = "x", a = "x < 5").submit():
@@ -249,14 +253,14 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(5 < entry.x, entry.a)
 
     def test_lessthan(self):
-        self.assertEqual(numerical.type("xlim < ylim + 100"), boolean)
+        self.assertEqual(numerical.type("xlim < ylim + 100"), boolean(True))
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim < ylim - 100"))
         for entry in numerical.toPython(x = "x", y = "y", a = "x < y").submit():
             self.assertEqual(entry.x < entry.y, entry.a)
 
     def test_lessequal_literal(self):
         self.assertEqual(numerical.type("x <= 100"), boolean)
-        self.assertEqual(numerical.type("xlim <= 100"), boolean)
+        self.assertEqual(numerical.type("xlim <= 100"), boolean(True))
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim <= -100"))
         self.assertRaises(FemtocodeError, lambda: numerical.type("100 <= xlim"))
         for entry in numerical.toPython(x = "x", a = "x <= 5").submit():
@@ -265,7 +269,7 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(5 <= entry.x, entry.a)
 
     def test_lessequal(self):
-        self.assertEqual(numerical.type("xlim <= ylim + 100"), boolean)
+        self.assertEqual(numerical.type("xlim <= ylim + 100"), boolean(True))
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim <= ylim - 100"))
         for entry in numerical.toPython(x = "x", y = "y", a = "x <= y").submit():
             self.assertEqual(entry.x < entry.y, entry.a)
@@ -273,8 +277,8 @@ class TestLibStandard(unittest.TestCase):
     def test_greaterthan_literal(self):
         self.assertEqual(numerical.type("x > 100"), boolean)
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim > 100"))
-        self.assertEqual(numerical.type("xlim > -100"), boolean)
-        self.assertEqual(numerical.type("100 > xlim"), boolean)
+        self.assertEqual(numerical.type("xlim > -100"), boolean(True))
+        self.assertEqual(numerical.type("100 > xlim"), boolean(True))
         for entry in numerical.toPython(x = "x", a = "x > 5").submit():
             self.assertEqual(entry.x > 5, entry.a)
         for entry in numerical.toPython(x = "x", a = "5 > x").submit():
@@ -282,15 +286,15 @@ class TestLibStandard(unittest.TestCase):
 
     def test_greaterthan(self):
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim > ylim + 100"))
-        self.assertEqual(numerical.type("xlim > ylim - 100"), boolean)
+        self.assertEqual(numerical.type("xlim > ylim - 100"), boolean(True))
         for entry in numerical.toPython(x = "x", y = "y", a = "x > y").submit():
             self.assertEqual(entry.x > entry.y, entry.a)
 
     def test_greaterequal_literal(self):
         self.assertEqual(numerical.type("x >= 100"), boolean)
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim >= 100"))
-        self.assertEqual(numerical.type("xlim >= -100"), boolean)
-        self.assertEqual(numerical.type("100 >= xlim"), boolean)
+        self.assertEqual(numerical.type("xlim >= -100"), boolean(True))
+        self.assertEqual(numerical.type("100 >= xlim"), boolean(True))
         for entry in numerical.toPython(x = "x", a = "x >= 5").submit():
             self.assertEqual(entry.x >= 5, entry.a)
         for entry in numerical.toPython(x = "x", a = "5 >= x").submit():
@@ -298,7 +302,7 @@ class TestLibStandard(unittest.TestCase):
 
     def test_greaterequal(self):
         self.assertRaises(FemtocodeError, lambda: numerical.type("xlim >= ylim + 100"))
-        self.assertEqual(numerical.type("xlim >= ylim - 100"), boolean)
+        self.assertEqual(numerical.type("xlim >= ylim - 100"), boolean(True))
         for entry in numerical.toPython(x = "x", y = "y", a = "x >= y").submit():
             self.assertEqual(entry.x >= entry.y, entry.a)
 
@@ -343,9 +347,8 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(entry.x if entry.x == 5 else (entry.x - 1 if entry.x == 6 else entry.y), entry.a)
         
     def test_if_nullable(self):
-        print numerical.type("z = if x - y != 0: x / (x - y) else: None; z + 1")
-
-
+        self.assertRaises(FemtocodeError, lambda: numerical.type("z = if x - y != 0: x / (x - y) else: None; z + 1"))
+        self.assertEqual(numerical.type("z = if x - y != 0: x / (x - y) else: None; if z != None: z + 1 else: None"), union(null, real))
 
         for entry in numerical.toPython(xlim = "xlim", a = "if xlim < 5: xlim else: None").submit():
             if entry.xlim < 5:
@@ -358,3 +361,11 @@ class TestLibStandard(unittest.TestCase):
                 self.assertEqual(entry.a, entry.ylim)
             else:
                 self.assertEqual(entry.a, None)
+
+########################################################## Structure
+
+    # def test_dot(self):
+    #     self.assertEqual(semiflat.type("muon.phi + jet.mass"), real(-pi, almost(inf)))
+
+    #     for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit(debug=True):
+    #         print entry

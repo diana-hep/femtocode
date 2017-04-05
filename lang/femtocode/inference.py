@@ -18,240 +18,6 @@ import math
 
 from femtocode.typesystem import *
 
-def literal(schema, operator, value):
-    if isinstance(schema, Union):
-        possibilities = []
-        reason = None
-        for p in schema.possibilities:
-            result = literal(p, operator, value)
-            if not isinstance(result, Impossible):
-                possibilities.append(result)
-            elif reason is None:
-                reason = result.reason
-
-        if len(possibilities) == 0:
-            return impossible(reason)
-        elif len(possibilities) == 1:
-            return possibilities[0]
-        else:
-            return union(*possibilities)
-
-    elif isinstance(schema, Impossible):
-        if operator == "==":
-            return schema
-
-        elif operator == "!=":
-            return schema
-
-        else:
-            assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Null):
-        if value is None:
-            if operator == "==":
-                return null
-            elif operator == "!=":
-                return impossible("The null type, excluding its only value (None), leaves no possible values.")
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        else:
-            if operator == "==":
-                return impossible("Instances of the null type can never be equal to {0}.".format(value))
-            elif operator == "!=":
-                return null
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Boolean) and schema.just is True:
-        if value is True:
-            if operator == "==":
-                return schema   # not constrained any more than it already is
-            elif operator == "!=":
-                return impossible("Values in the set {True} can never be != True.")
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        elif value is False:
-            if operator == "==":
-                return impossible("Values in the set {True} can never be == False.")
-            elif operator == "!=":
-                return schema   # not constrained any more than it already is
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        else:
-            if operator == "==":
-                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
-            elif operator == "!=":
-                return schema   # not constrained any more than it already is
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Boolean) and schema.just is False:
-        if value is True:
-            if operator == "==":
-                return impossible("Values in the set {False} can never be == True.")
-            elif operator == "!=":
-                return schema   # not constrained any more than it already is
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        elif value is False:
-            if operator == "==":
-                return schema   # not constrained any more than it already is
-            elif operator == "!=":
-                return impossible("Values in the set {False} can never be != False.")
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        else:
-            if operator == "==":
-                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
-            elif operator == "!=":
-                return schema   # not constrained any more than it already is
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Boolean):
-        if value is True:
-            if operator == "==":
-                return boolean(True)
-            elif operator == "!=":
-                return boolean(False)
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        elif value is False:
-            if operator == "==":
-                return boolean(False)
-            elif operator == "!=":
-                return boolean(True)
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        else:
-            if operator == "==":
-                return impossible("Instances of boolean type can never be equal to {0}.".format(value))
-            elif operator == "!=":
-                return schema   # not constrained any more than it already is
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Number):
-        if isinstance(value, (int, long, float)):
-            if operator == "==":
-                return intersection(schema, Number(value, value, round(value) == value))
-
-            elif operator == "!=":
-                return difference(schema, Number(value, value, False))
-
-            elif operator == ">":
-                return intersection(schema, Number(almost(value), inf, False))
-
-            elif operator == ">=":
-                return intersection(schema, Number(value, inf, False))
-
-            elif operator == "<":
-                return intersection(schema, Number(-inf, almost(value), False))
-
-            elif operator == "<=":
-                return intersection(schema, Number(-inf, value, False))
-
-            else:
-                assert False, "unhandled operator: {0}".format(operator)
-
-        else:
-            return impossible("Numeric types can never be equal to {0}.".format(value))
-
-    elif isinstance(schema, String):
-        if operator == "==":
-            if isinstance(value, string_types):
-                return intersection(schema, String("bytes" if isinstance(value, bytes) else "unicode", len(value), len(value)))
-            else:
-                return impossible("String types can never be equal to {0}.".format(value))
-
-        elif operator == "!=":
-            return schema
-
-        elif operator in ("size==", "size!=", "size>", "size>=", "size<", "size<="):
-            assert isinstance(value, (int, long)), "operator {0} unexpected for value {1}".format(operator, value)
-
-            operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
-            number = literal(Number(schema.fewest, schema.most, True), operator, value)
-            if isinstance(number, Number):
-                return String(schema.charset, number.min, number.max)
-            elif isinstance(number, Union):
-                return Union([String(schema.charset, p.min, p.max) for p in number.possibilities])
-            elif isinstance(number, Impossible):
-                return impossible("Size of {0} can never be {1} {2}.".format(schema, operator, value))
-            else:
-                assert False, "literal(Number, \"{0}\", value) is {1}".format(operator, number)
-                
-        else:
-            assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Collection):
-        if operator == "==":
-            if isinstance(value, (list, tuple, set)):
-                if len(value) == 0:
-                    return intersection(schema, empty)
-                else:
-                    return intersection(schema, Collection(union(*(literal(schema.items, operator, x) for x in value)), len(value), len(value), True))
-            else:
-                return impossible("Collection types can never be equal to {0}.".format(value))
-
-        elif operator == "!=":
-            if isinstance(value, (list, tuple, set)) and len(value) == 0:
-                return difference(schema, empty)
-            else:
-                return schema
-
-        elif operator in ("size==", "size!=", "size>", "size>=", "size<", "size<="):
-            assert isinstance(value, (int, long)), "operator {0} unexpected for value {1}".format(operator, value)
-
-            operator = {"size==": "==", "size!=": "!=", "size>": ">", "size>=": ">=", "size<": "<", "size<=": "<="}[operator]
-            number = literal(Number(schema.fewest, schema.most, True), operator, value)
-            if isinstance(number, Number):
-                return Collection(schema.items, number.min, number.max, schema.ordered)
-            elif isinstance(number, Union):
-                return Union([Collection(schema.items, p.min, p.max, schema.ordered) for p in number.possibilities])
-            elif isinstance(number, Impossible):
-                return impossible("Size of collection can never be {1} {2} for\n".format(operator, value, pretty(schema)))
-            else:
-                assert False, "literal(Number, \"{0}\", value) is {1}".format(operator, number)
-                
-        elif operator == "ordered":
-            if schema.ordered:
-                return schema
-            else:
-                return impossible("Collection is unordered\n{0}".format(pretty(schema)))
-
-        elif operator == "notordered":
-            if schema.ordered:
-                return impossible("Collection is ordered\n{0}".format(pretty(schema)))
-            else:
-                return schema
-
-        else:
-            assert False, "unhandled operator: {0}".format(operator)
-
-    elif isinstance(schema, Record):
-        if operator == "==":
-            if all(hasattr(value, n) for n in schema.fields):
-                return intersection(schema, Record(dict((n, literal(t, operator, getattr(value, n))) for n, t in schema.fields.items())))
-            else:
-                return impossible("Value {0} does not have all of the necessary fields to be equal to\n{1}".format(value, pretty(schema)))
-
-        elif operator == "!=":
-            return schema
-
-        else:
-            assert False, "unhandled operator: {0}".format(operator)
-
-    else:
-        assert False, "unhandled schema: {0}".format(schema)
-
 def _combineTwoUnions(one, two, operation):
     possibilities = []
     reason = None
@@ -1155,72 +921,129 @@ def modulo(one, two):
         assert False, "unhandled schemas: {0} {1}".format(one, two)
 
 def inequality(operator, left, right):
+    out = None
+    reason = None
     leftconstraint = None
     rightconstraint = None
 
+    # helper function to reduce duplicate code
+    def update(triplet, out, reason, leftconstraint, rightconstraint):
+        result, leftcons, rightcons = triplet
+
+        if not isinstance(result, Impossible):
+            if leftconstraint is None:
+                leftconstraint = leftcons
+            else:
+                leftconstraint = union(leftconstraint, leftcons)
+
+            if rightconstraint is None:
+                rightconstraint = rightcons
+            else:
+                rightconstraint = union(rightconstraint, rightcons)
+
+            if out is None:
+                out = result
+            else:
+                out = union(out, result)
+
+        elif reason is None:
+            reason = result.reason
+
+        return out, reason, leftconstraint, rightconstraint
+
     if isinstance(left, Union) and isinstance(right, Union):
-        reason = None
+        # build constraints from the union of all left possibilities with all right possibilities (all combinations)
         for p1 in left.possibilities:
             for p2 in right.possibilities:
-                result, leftcons, rightcons = inequality(operator, p1, p2)
-                if not isinstance(result, Impossible):
-                    if leftconstraint is None:
-                        leftconstraint = leftcons
-                    else:
-                        leftconstraint = union(leftconstraint, leftcon)
-                    if rightconstraint is None:
-                        rightconstraint = rightcons
-                    else:
-                        rightconstraint = union(rightconstraint, rightcon)
-                elif reason is None:
-                    reason = result.reason
+                out, reason, leftconstraint, rightconstraint = update(inequality(operator, p1, p2), out, reason, leftconstraint, rightconstraint)
 
         if leftconstraint is None or rightconstraint is None:
             return impossible(reason), None, None
         else:
-            return boolean, leftconstraint, rightconstraint
+            return out, leftconstraint, rightconstraint
 
     elif isinstance(left, Union):
-        reason = None
+        # build constraints from the union of all left possibilities with the (single) right possibility
         for p1 in left.possibilities:
-            result = leftcons, rightcons = inequality(operator, p1, right)
-            if not isinstance(result, Impossible):
-                if leftconstraint is None:
-                    leftconstraint = leftcons
-                else:
-                    leftconstraint = union(leftconstraint, leftcon)
-                if rightconstraint is None:
-                    rightconstraint = rightcons
-                else:
-                    rightconstraint = union(rightconstraint, rightcon)
-            elif reason is None:
-                reason = result.reason
+            out, reason, leftconstraint, rightconstraint = update(inequality(operator, p1, right), out, reason, leftconstraint, rightconstraint)
 
         if leftconstraint is None or rightconstraint is None:
             return impossible(reason), None, None
         else:
-            return boolean, leftconstraint, rightconstraint
+            return out, leftconstraint, rightconstraint
             
     elif isinstance(right, Union):
+        # build constraints from the union of all right possibilities with the (single) left possibility
         reason = None
         for p2 in right.possibilities:
-            result = leftcons, rightcons = inequality(operator, left, p2)
-            if not isinstance(result, Impossible):
-                if leftconstraint is None:
-                    leftconstraint = leftcons
-                else:
-                    leftconstraint = union(leftconstraint, leftcon)
-                if rightconstraint is None:
-                    rightconstraint = rightcons
-                else:
-                    rightconstraint = union(rightconstraint, rightcon)
-            elif reason is None:
-                reason = result.reason
+            out, reason, leftconstraint, rightconstraint = update(inequality(operator, left, p2), out, reason, leftconstraint, rightconstraint)
 
         if leftconstraint is None or rightconstraint is None:
             return impossible(reason), None, None
         else:
-            return boolean, leftconstraint, rightconstraint
+            return out, leftconstraint, rightconstraint
+
+    elif operator == "!=":
+        if isinstance(left, Null) and isinstance(right, Null):
+            return impossible("The null type has only one value, so a null value will never be != a null value."), None, None
+
+        elif isinstance(left, Boolean) and isinstance(right, Boolean):
+            if left.just is True:                        # left is {True}
+                if right.just is True:                   # right is {True}
+                    return boolean(True), left, right
+                elif right.just is False:                # right is {False}
+                    return impossible("First argument is always True and second argument is always False."), None, None
+                else:                                    # right is {True, False}
+                    return boolean, left, left
+
+            elif left.just is False:                     # left is {False}
+                if right.just is True:                   # right is {True}
+                    return impossible("First argument is always False and second argument is always True."), None, None
+                elif right.just is False:                # right is {False}
+                    return boolean(True), left, right
+                else:                                    # right is {True, False}
+                    return boolean, left, left
+
+            else:                                        # left is {True, False}
+                if right.just is True:                   # right is {True}
+                    return boolean, right, right
+                elif right.just is False:                # right is {False}
+                    return boolean, right, right
+                else:                                    # right is {True, False}
+                    return boolean, left, right
+
+        elif isinstance(left, Number) and isinstance(right, Number):
+            if left.min == left.max:              # left is a constant
+                if right.min == right.max:        # right is a constant
+                    if left.min == right.min:     # they're the same constants
+                        return impossible("Both arguments are the same constant; they will never be != each other."), None, None
+                    else:
+                        return boolean(True), left, right
+
+                else:                             # left is a constant and right isn't
+                    return boolean, left, difference(right, left)
+
+            elif right.min == right.max:          # right is a constant and left isn't
+                return boolean, difference(left, right), right
+
+            else:                                 # if both are variable, no constraints are possible
+                return boolean, left, right
+
+        elif isinstance(left, String) and isinstance(right, String):
+            # String cannot be parameterized in such a way as to constrict to a single value, so != is ineffective
+            return boolean, left, right
+
+        elif isinstance(left, Collection) and isinstance(right, Collection):
+            # same for Collection
+            return boolean, left, right
+
+        elif isinstance(left, Record) and isinstance(right, Record):
+            # same for Record
+            return boolean, left, right
+
+        else:
+            # schemas are fundamentally different kinds; always unequal, constraints don't tighten
+            return boolean(True), left, right
 
     elif isinstance(left, Number) and isinstance(right, Number):
         leftmin = left.min
@@ -1235,8 +1058,13 @@ def inequality(operator, left, right):
             if almost.min(left.min, right.min) == right.min:
                 rightmin = almost(left.min)   # "almost" because of strict inequality
 
+            if almost.min(left.max, right.min) == left.max and left.max != right.min:
+                out = boolean(True)           # always satisfied
+            else:
+                out = boolean                 # sometimes satisfied (unless constructing a constraint raises FemtocodeError below)
+
             try:
-                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+                return out, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
                 return impossible("First argument is never less than second argument."), None, None
 
@@ -1247,11 +1075,15 @@ def inequality(operator, left, right):
             if almost.min(left.min, right.min) == right.min:
                 rightmin = left.min
 
+            if almost.min(left.max, right.min) == left.max:
+                out = boolean(True)           # always satisfied
+            else:
+                out = boolean                 # sometimes satisfied (unless constructing a constraint raises FemtocodeError below)
+
             try:
-                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+                return out, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
                 return impossible("First argument is never less than or equal to second argument."), None, None
-
 
         elif operator == ">":
             if almost.min(left.min, right.min) == left.min:
@@ -1260,8 +1092,13 @@ def inequality(operator, left, right):
             if almost.max(left.max, right.max) == right.max:
                 rightmax = almost(left.max)   # "almost" because of strict inequality
 
+            if almost.max(left.min, right.max) == left.min and left.min != right.max:
+                out = boolean(True)           # always satisfied
+            else:
+                out = boolean                 # sometimes satisfied (unless constructing a constraint raises FemtocodeError below)
+
             try:
-                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+                return out, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
                 return impossible("First argument is never greater than second argument."), None, None
 
@@ -1272,8 +1109,13 @@ def inequality(operator, left, right):
             if almost.max(left.max, right.max) == right.max:
                 rightmax = left.max
 
+            if almost.max(left.min, right.max) == left.min:
+                out = boolean(True)           # always satisfied
+            else:
+                out = boolean                 # sometimes satisfied (unless constructing a constraint raises FemtocodeError below)
+
             try:
-                return boolean, left(leftmin, leftmax), right(rightmin, rightmax)
+                return out, left(leftmin, leftmax), right(rightmin, rightmax)
             except FemtocodeError:
                 return impossible("First argument is never greater than or equal to second argument."), None, None
 

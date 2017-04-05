@@ -25,6 +25,7 @@ from femtocode.py23 import *
 from femtocode.util import *
 
 inf = float("inf")
+pi = math.pi
 
 class almost(float):
     """almost(x) -> open end of an interval

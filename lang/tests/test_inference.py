@@ -498,7 +498,7 @@ class TestInference(unittest.TestCase):
                                             self.assertTrue((x % y) in c)
 
     def test_lessthan(self):
-        self.assertEqual(inequality("<", real(0, 1), real(2, 3)),         (boolean, real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<", real(0, 1), real(2, 3)),         (boolean(True), real(0, 1), real(2, 3)))
         self.assertEqual(inequality("<", real(0, 1.5), real(1.5, 3)),     (boolean, real(0, 1.5), real(1.5, 3)))
         self.assertEqual(inequality("<", real(0, 2), real(1, 3)),         (boolean, real(0, 2), real(1, 3)))
 
@@ -551,8 +551,8 @@ class TestInference(unittest.TestCase):
                                                         self.assertTrue(x in leftconstraint and y in rightconstraint)
 
     def test_lessequal(self):
-        self.assertEqual(inequality("<=", real(0, 1), real(2, 3)),         (boolean, real(0, 1), real(2, 3)))
-        self.assertEqual(inequality("<=", real(0, 1.5), real(1.5, 3)),     (boolean, real(0, 1.5), real(1.5, 3)))
+        self.assertEqual(inequality("<=", real(0, 1), real(2, 3)),         (boolean(True), real(0, 1), real(2, 3)))
+        self.assertEqual(inequality("<=", real(0, 1.5), real(1.5, 3)),     (boolean(True), real(0, 1.5), real(1.5, 3)))
         self.assertEqual(inequality("<=", real(0, 2), real(1, 3)),         (boolean, real(0, 2), real(1, 3)))
 
         self.assertEqual(inequality("<=", real(0, 3), real(2, 3)),         (boolean, real(0, 3), real(2, 3)))
@@ -604,6 +604,10 @@ class TestInference(unittest.TestCase):
                                                         self.assertTrue(x in leftconstraint and y in rightconstraint)
 
     def test_greaterthan(self):
+        self.assertEqual(inequality(">", real(2, 3), real(0, 1)),         (boolean(True), real(2, 3), real(0, 1)))
+        self.assertEqual(inequality(">", real(1.5, 3), real(0, 1.5)),     (boolean, real(1.5, 3), real(0, 1.5)))
+        self.assertEqual(inequality(">", real(1, 3), real(0, 2)),         (boolean, real(1, 3), real(0, 2)))
+
         values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
         edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
         for leftmin in edges:
@@ -637,6 +641,10 @@ class TestInference(unittest.TestCase):
                                                         self.assertTrue(x in leftconstraint and y in rightconstraint)
 
     def test_greaterequal(self):
+        self.assertEqual(inequality(">=", real(2, 3), real(0, 1)),         (boolean(True), real(2, 3), real(0, 1)))
+        self.assertEqual(inequality(">=", real(1.5, 3), real(0, 1.5)),     (boolean(True), real(1.5, 3), real(0, 1.5)))
+        self.assertEqual(inequality(">=", real(1, 3), real(0, 2)),         (boolean, real(1, 3), real(0, 2)))
+
         values = [0, 0.001, 0.999, 1.0, 1.001, 1.999, 2.0, 2.001, 2.999, 3.0]
         edges = [0, almost(0), 1, almost(1), 2, almost(2), 3, almost(3)]
         for leftmin in edges:
