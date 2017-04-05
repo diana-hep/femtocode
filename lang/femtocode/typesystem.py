@@ -1294,12 +1294,18 @@ class Union(Schema):
     def _json_memo(self, memo):
         return {"type": "union", "possibilities": [x._json_memo(memo) for x in self.possibilities]}
 
-    def _unionNullNumber(self):
-        hasNull = False
-        hasNumber = False
-        hasAnythingElse = False
-        whole = True
-        for p in self.possibilities:
+def _unionNullNumber_helper(schema):
+    hasNull = False
+    hasNumber = False
+    hasAnythingElse = False
+    whole = True
+
+    if isinstance(schema, Number):
+        hasNumber = True
+        whole = schema.whole
+
+    elif isinstance(schema, Union):
+        for p in schema.possibilities:
             if isinstance(p, Null):
                 hasNull = True
             elif isinstance(p, Number):
@@ -1309,15 +1315,31 @@ class Union(Schema):
             else:
                 hasAnythingElse = True
 
-        return hasNull and hasNumber, whole
+    return hasNull, hasNumber, hasAnythingElse, whole
 
-    def unionNullInt(self):
-        hasNullAndNumber, whole = self._unionNullNumber()
-        return hasNullAndNumber and whole
+def isInt(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return not hasNull and hasNumber and not hasAnythingElse and whole
 
-    def unionNullFloat(self):
-        hasNullAndNumber, whole = self._unionNullNumber()
-        return hasNullAndNumber and not whole
+def isFloat(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return not hasNull and hasNumber and not hasAnythingElse and not whole
+
+def isNumber(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return not hasNull and hasNumber and not hasAnythingElse
+
+def isNullInt(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return hasNull and hasNumber and not hasAnythingElse and whole
+
+def isNullFloat(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return hasNull and hasNumber and not hasAnythingElse and not whole
+
+def isNullNumber(schema):
+    hasNull, hasNumber, hasAnythingElse, whole = _unionNullNumber_helper(schema)
+    return hasNull and hasNumber and not hasAnythingElse
 
 def _collectAliases(schema, aliases):
     for n, t in schema._aliases:
@@ -1394,7 +1416,7 @@ def _pretty(schema, depth, comma, memo):
     if isinstance(schema, string_types):
         return [(depth, json.dumps(schema) + comma, schema)]
 
-    elif isinstance(schema, (Impossible, Null, Boolean, Number, String)):
+    elif isinstance(schema, (Impossible, Null, Boolean, Number, String)) or isNumber(schema) or isNullNumber(schema):
         return [(depth, schema._repr_memo(memo) + comma, schema)]
 
     elif isinstance(schema, Collection):

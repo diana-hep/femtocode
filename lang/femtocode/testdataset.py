@@ -108,9 +108,11 @@ class TestDataset(Dataset):
                 for fn, ft in t.fields.items():
                     gettypes(n.rec(fn), ft)
 
+            elif isNumber(t) or isNullNumber(t):
+                pass
+
             elif isinstance(t, Union):
-                if not t.unionNullInt() and not t.unionNullFloat():
-                    raise NotImplementedError
+                raise NotImplementedError
 
         for n, t in self.schema.items():
             gettypes(ColumnName(n), t)
@@ -153,10 +155,10 @@ class TestDataset(Dataset):
 
             return {name: TestColumn(name, name.size() if hasSize else None, dataType)}
 
-        elif isinstance(schema, Union) and schema.unionNullInt():
+        elif isInt(schema) or isNullInt(schema):
             return {name: TestColumn(name, name.size() if hasSize else None, "int")}
 
-        elif isinstance(schema, Union) and schema.unionNullFloat():
+        elif isFloat(schema) or isNullFloat(schema):
             return {name: TestColumn(name, name.size() if hasSize else None, "float")}
 
         elif isinstance(schema, String):
@@ -210,20 +212,22 @@ class TestDataset(Dataset):
         if isinstance(schema, Null):
             raise NotImplementedError
 
-        elif isinstance(schema, (Boolean, Number)):
+        elif isinstance(schema, Boolean):
             segment = group.segments[name]
-
-            if isinstance(schema, Boolean):
-                d = True if datum else False
-            elif schema.whole:
-                d = int(datum)
-            else:
-                d = float(datum)
-
-            segment.data.append(d)
+            segment.data.append(True if datum else False)
             segment.dataLength += 1
 
-        elif isinstance(schema, Union) and schema.unionNullInt():
+        elif isInt(schema):
+            segment = group.segments[name]
+            segment.data.append(int(datum))
+            segment.dataLength += 1
+
+        elif isFloat(schema):
+            segment = group.segments[name]
+            segment.data.append(float(datum))
+            segment.dataLength += 1
+
+        elif isNullInt(schema):
             segment = group.segments[name]
             if datum is None:
                 segment.data.append(Number._intNaN)
@@ -231,12 +235,12 @@ class TestDataset(Dataset):
                 segment.data.append(int(datum))
             segment.dataLength += 1
 
-        elif isinstance(schema, Union) and schema.unionNullFloat():
+        elif isNullFloat(schema):
             segment = group.segments[name]
             if datum is None:
                 segment.data.append(Number._floatNaN)
             else:
-                segment.data.append(int(datum))
+                segment.data.append(float(datum))
             segment.dataLength += 1
 
         elif isinstance(schema, String):
@@ -307,12 +311,12 @@ class TestDataset(Dataset):
             if isinstance(schema, Null):
                 raise NotImplementedError
 
-            elif isinstance(schema, (Boolean, Number)):
+            elif isinstance(schema, Boolean) or isNumber(schema):
                 i = self.dataIndex[name]
                 self.dataIndex[name] += 1
                 return group.segments[name].data[i]
 
-            elif isinstance(schema, Union) and schema.unionNullInt():
+            elif isNullInt(schema):
                 i = self.dataIndex[name]
                 self.dataIndex[name] += 1
                 out = group.segments[name].data[i]
@@ -321,7 +325,7 @@ class TestDataset(Dataset):
                 else:
                     return out
 
-            elif isinstance(schema, Union) and schema.unionNullFloat():
+            elif isNullFloat(schema):
                 i = self.dataIndex[name]
                 self.dataIndex[name] += 1
                 out = group.segments[name].data[i]

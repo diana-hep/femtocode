@@ -343,6 +343,10 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(entry.x if entry.x == 5 else (entry.x - 1 if entry.x == 6 else entry.y), entry.a)
         
     def test_if_nullable(self):
+        print numerical.type("z = if x - y != 0: x / (x - y) else: None; z + 1")
+
+
+
         for entry in numerical.toPython(xlim = "xlim", a = "if xlim < 5: xlim else: None").submit():
             if entry.xlim < 5:
                 self.assertEqual(entry.a, entry.xlim)

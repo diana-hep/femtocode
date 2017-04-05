@@ -75,7 +75,10 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
         
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.add(*[x.schema for x in typedargs]), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Addition (+) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.add(*[x.schema for x in typedargs]), typedargs, frame
 
 StandardLibrary.table[Add.name] = Add()
 
@@ -87,7 +90,10 @@ class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
         
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Subtraction (-) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.subtract(*[x.schema for x in typedargs]), typedargs, frame
 
 StandardLibrary.table[Sub.name] = Sub()
 
@@ -116,7 +122,10 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
         
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.multiply(*[x.schema for x in typedargs]), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Multiplication (*) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.multiply(*[x.schema for x in typedargs]), typedargs, frame
 
 StandardLibrary.table[Mult.name] = Mult()
 
@@ -128,7 +137,10 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Division (/) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         if tonative:
@@ -152,7 +164,10 @@ class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.floordivide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Floor-division (//) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.floordivide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
 StandardLibrary.table[FloorDiv.name] = FloorDiv()
 
@@ -164,7 +179,10 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.power(typedargs[0].schema, typedargs[1].schema), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Power (**) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.power(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         if isinstance(args[1], ast.Num) and args[1].n == 0:
@@ -256,7 +274,10 @@ class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
         
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        return inference.modulo(*[x.schema for x in typedargs]), typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("Modulo (%) can only be used on numbers."), typedargs, frame
+        else:
+            return inference.modulo(*[x.schema for x in typedargs]), typedargs, frame
 
 StandardLibrary.table[Mod.name] = Mod()
 
@@ -314,14 +335,18 @@ StandardLibrary.table[NotEq.name] = NotEq()
 class Inequality(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
-        result, leftconstraint, rightconstraint = inference.inequality(self.name, typedargs[0].schema, typedargs[1].schema)
-        if isinstance(result, Impossible):
-            return result, typedargs, frame
+        if not all(isNumber(ta.schema) for ta in typedargs):
+            return impossible("{0} ({1}) can only be used on numbers.".format(self.longname, self.name)), typedargs, frame
         else:
-            return result, typedargs, frame.fork({args[0]: leftconstraint, args[1]: rightconstraint})
+            result, leftconstraint, rightconstraint = inference.inequality(self.name, typedargs[0].schema, typedargs[1].schema)
+            if isinstance(result, Impossible):
+                return result, typedargs, frame
+            else:
+                return result, typedargs, frame.fork({args[0]: leftconstraint, args[1]: rightconstraint})
 
 class Lt(Inequality):
     name = "<"
+    longname = "Less than"
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Lt()], [args[1]])
@@ -330,6 +355,7 @@ StandardLibrary.table[Lt.name] = Lt()
 
 class LtE(Inequality):
     name = "<="
+    longname = "Less than or equal to"
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.LtE()], [args[1]])
@@ -338,6 +364,7 @@ StandardLibrary.table[LtE.name] = LtE()
 
 class Gt(Inequality):
     name = ">"
+    longname = "Greater than"
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Gt()], [args[1]])
@@ -346,6 +373,7 @@ StandardLibrary.table[Gt.name] = Gt()
 
 class GtE(Inequality):
     name = ">="
+    longname = "Greater than or equal to"
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.GtE()], [args[1]])
@@ -391,7 +419,7 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
         for typedarg in typedargs:
             if not isinstance(typedarg.schema, Boolean):
-                return impossible("All arguments must be boolean."), typedargs, frame
+                return impossible("Logical and can only be used on boolean arguments (use 'x != 0' if you want a zero value of 'x' to be 'False')."), typedargs, frame
             
         # 'and' constraints become intersections.
         for k in keys:
@@ -434,7 +462,7 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
         for typedarg in typedargs:
             if not isinstance(typedarg.schema, Boolean):
-                return impossible("All arguments must be boolean."), typedargs, frame
+                return impossible("Logical or can only be used on boolean arguments (use 'x != 0' if you want a zero value of 'x' to be 'False')."), typedargs, frame
                     
         return boolean, typedargs, subframe
 
@@ -449,7 +477,7 @@ class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
         if not isinstance(typedargs[0].schema, Boolean):
-            return impossible("Argument must be boolean."), typedargs, frame
+            return impossible("Logical not can only be used on boolean arguments (use 'x != 0' if you want a zero value of 'x' to be 'False')."), typedargs, frame
         else:
             return boolean, typedargs, frame
 
@@ -481,7 +509,7 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
             except FemtocodeError as err:
                 raise FemtocodeError("Error in \"if\" predicate. " + str(err))
             if not isinstance(typedpred.schema, Boolean):
-                complain("\"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedpred.schema, prefix="    "))), predicate.original)
+                complain("If-predicate must be boolean (use 'x != 0' if you want a zero value of 'x' to be 'False'). Found\n\n{0}".format(",\n".join(pretty(typedpred.schema, prefix="    "))), predicate.original)
 
             try:
                 typedanti, antiframe = typedtree.build(antipredicate, subframe)
@@ -493,7 +521,7 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
                 raise FemtocodeError("Error while negating predicate for {0} clause. {1}".format(which, str(err)))
 
             if not isinstance(typedanti.schema, Boolean):
-                complain("Negation of \"if\" predicate must be boolean, not\n\n{0}\n".format(",\n".join(pretty(typedanti.schema, prefix="    "))), predicate.original)
+                complain("Negation of if-predicate must be boolean (use 'x != 0' if you want a zero value of 'x' to be 'False'). Found\n\n{0}".format(",\n".join(pretty(typedanti.schema, prefix="    "))), predicate.original)
 
             typedcons = typedtree.build(consequent, predframe)[0]
 
@@ -524,20 +552,19 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
         def replaceNone(expression):
             return expression
 
-        if isinstance(schema, Union):
-            if schema.unionNullInt():
-                def replaceNone(expression):
-                    if isNone(expression):
-                        return ast.Num(Number._intNaN)
-                    else:
-                        return expression
+        if isNullInt(schema):
+            def replaceNone(expression):
+                if isNone(expression):
+                    return ast.Num(Number._intNaN)
+                else:
+                    return expression
 
-            elif schema.unionNullFloat():
-                def replaceNone(expression):
-                    if isNone(expression):
-                        return ast.Num(Number._floatNaN)
-                    else:
-                        return expression
+        elif isNullFloat(schema):
+            def replaceNone(expression):
+                if isNone(expression):
+                    return ast.Num(Number._floatNaN)
+                else:
+                    return expression
 
         chain = statementsToAst("""
             OUT = ALT
@@ -577,9 +604,9 @@ class Dot(lispytree.BuiltinFunction):
             if args[1].value in typedarg.schema.fields:
                 schema = typedarg.schema.fields[args[1].value]
             else:
-                schema = impossible("Record has no field named {0}.".format(json.dumps(args[1].value)))
+                schema = impossible("Record has no field named \"{0}\".".format(json.dumps(args[1].value)))
         else:
-            schema = impossible("Dot (.) used on a non-record type (first argument).")
+            schema = impossible("Dot (.) must be used on record types (first argument) only.")
 
         return schema, [typedarg, args[1]], frame
 
