@@ -97,6 +97,21 @@ class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 StandardLibrary.table[Sub.name] = Sub()
 
+class UAdd(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "u+"
+
+    def pythonast(self, args):
+        return ast.UnaryOp(ast.UAdd(), args[0])
+
+    def buildtyped(self, args, frame):
+        typedargs = _buildargs(args, frame)
+        if len(typedargs) != 1 or not isinstance(typedargs[0].schema, Number):
+            return impossible("Unary plus (+) can only be used with a number."), typedargs, frame
+        else:
+            return typedargs[0].schema, typedargs, frame
+
+StandardLibrary.table[UAdd.name] = UAdd()
+
 class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u-"
 

@@ -41,6 +41,17 @@ semiflat = session.source("SemiFlat", muon=record(pt=real(0, almost(inf)), eta=r
 for i in xrange(100):
     semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10))})
 
+nonflat = session.source("NonFlat", met=real(0, almost(inf)), muons=collection(record(pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))), jets=collection(record(mass=real(0, almost(inf)), pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))))
+
+for i in xrange(100):
+    muons = []
+    jets = []
+    for j in xrange(i % 3):
+        muons.append(nonflat.dataset.types["muons[]"](pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)))
+    for j in xrange(i % 10):
+        jets.append(nonflat.dataset.types["jets[]"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)))
+    nonflat.dataset.fill({"met": float(i), "muons": muons, "jets": jets})
+
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
@@ -90,6 +101,20 @@ class TestLibStandard(unittest.TestCase):
         self.assertEqual(numerical.type("xlim - ylim"), real(almost(-10), 9))
         for entry in numerical.toPython(x = "x", y = "y", a = "x - y").submit():
             self.assertAlmostEqual(entry.x - entry.y, entry.a)
+
+    def test_plus_literal(self):
+        self.assertEqual(numerical.type("+2"), integer(+2, +2))
+        for entry in numerical.toPython(x = "x", a = "+2 + x").submit():
+            self.assertAlmostEqual(+2 + entry.x, entry.a)
+
+    def test_plus(self):
+        self.assertEqual(numerical.type("+xlim"), integer(0, +9))
+        self.assertEqual(numerical.type("+ylim"), real(0, almost(+10)))
+        self.assertEqual(numerical.type("+ylim2"), real(almost(0), almost(+10)))
+        for entry in numerical.toPython(x = "x", a = "+x").submit():
+            self.assertAlmostEqual(+entry.x, entry.a)
+        for entry in numerical.toPython(y = "y", a = "+y").submit():
+            self.assertAlmostEqual(+entry.y, entry.a)
 
     def test_minus_literal(self):
         self.assertEqual(numerical.type("-2"), integer(-2, -2))
@@ -369,3 +394,6 @@ class TestLibStandard(unittest.TestCase):
 
         for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit(debug=True):
             self.assertEqual(entry.muonphi + entry.jetmass, entry.a)
+
+    # def test_map(self):
+    #     print nonflat.type("")

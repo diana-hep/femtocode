@@ -264,7 +264,8 @@ class TestDataset(Dataset):
                     try:
                         sub = datum[fn]
                     except KeyError:
-                        raise FemtocodeError("Datum {0} does not have an attribute or item \"{1}\" whereas the schema requires it:\n\n{2}".format(datum, fn, pretty(schema, prefix="    ")))
+                        out = "Datum {0} does not have an attribute or item \"{1}\" whereas the schema requires it:\n\n{2}".format(datum, fn, pretty(schema, prefix="    "))
+                        raise FemtocodeError(out)
 
                 self._fill(group, sub, name.rec(fn), ft)
 
@@ -286,7 +287,11 @@ class TestDataset(Dataset):
                 try:
                     sub = datum[n]
                 except KeyError:
-                    raise FemtocodeError("Datum {0} does not have an attribute or item \"{1}\" whereas the schema requires it:\n\n{2}".format(datum, n, pretty(schema, prefix="    ")))
+
+                    print "HERE", datum, n, self.schema
+
+                    out = "Datum {0} does not have an attribute or item \"{1}\" but the schema requires it.\n\nRequired fields:\n    {2}".format(datum, n, ", ".join(sorted(self.schema.keys())))
+                    raise FemtocodeError(out)
 
             self._fill(group, sub, ColumnName(n), t)
 
