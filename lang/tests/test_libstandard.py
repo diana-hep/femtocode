@@ -437,5 +437,5 @@ class TestLibStandard(unittest.TestCase):
         for entry in semiflat.toPython(muonphi = "muon.phi", jetmass = "jet.mass", a = "muon.phi + jet.mass").submit():
             self.assertEqual(entry.muonphi + entry.jetmass, entry.a)
 
-    # def test_map(self):
-    #     print nonflat.type("")
+    def test_map(self):
+        self.assertEqual(nonflat.type("muons.map($1.pt + $1.phi)"), collection(real(-pi, almost(inf))))

@@ -30,27 +30,34 @@ class FemtocodeError(Exception):
 def complain(message, *args):
     if len(args) == 0 or (len(args) == 1 and args[0] == None):
         raise FemtocodeError(message)
+
     elif len(args) == 1:
         p, = args
         return complain(message, p.source, p.pos, p.lineno, p.col_offset, p.sourceName, 1)
+
     else:
         source, pos, lineno, col_offset, sourceName, length = args
+
         start = source.rfind("\n", 0, pos)
         if start == -1: start = 0
         start = source.rfind("\n", 0, start)
         if start == -1: start = 0
         end = source.find("\n", pos)
+
         if end == -1:
             snippet = source[start:]
         else:
             snippet = source[start:end]
         snippet = "    " + snippet.replace("\n", "\n    ")
         indicator = "-" * col_offset + "^" * length
+
         if sourceName == "<string>":
             where = ""
         else:
             where = "in \"" + sourceName + "\""
-        raise FemtocodeError("%s\n\nCheck line:col %d:%d (pos %d)%s:\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator))
+
+        out = "%s\n\nCheck line:col %d:%d (pos %d)%s:\n\n%s\n----%s\n" % (message, lineno, col_offset, pos, where, snippet, indicator)
+        raise FemtocodeError(out)
 
 class Function(object):
     def commutative(self):
@@ -59,7 +66,7 @@ class Function(object):
     def associative(self):
         return False
 
-    def arity(self, index):
+    def arity(self, index, positional, named):
         return None
 
     def constrain(self, frame, args):

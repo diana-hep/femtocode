@@ -415,12 +415,13 @@ def buildOrElevate(tree, frame, arity):
     if arity is None or isinstance(tree, parsingtree.FcnDef) or (isinstance(tree, parsingtree.Name) and frame.defined(tree.id) and isinstance(frame[tree.id], Function)):
         return build(tree, frame)[0], frame
 
-    elif isinstance(tree, parsingtree.Attribute):
-        fcn = frame["." + tree.attr]
-        framenumber = frame.framenumber
-        params = list(xrange(arity))
-        args = [Ref(i, framenumber, tree) for i in params]
-        return UserFunction(params, framenumber, [None] * arity, Call.build(fcn, [build(tree.value, frame)[0]] + args, tree), tree), frame
+    ### FIXME: why did I ever think this was correct?
+    # elif isinstance(tree, parsingtree.Attribute):
+    #     fcn = frame["." + tree.attr]
+    #     framenumber = frame.framenumber
+    #     params = list(xrange(arity))
+    #     args = [Ref(i, framenumber, tree) for i in params]
+    #     return UserFunction(params, framenumber, [None] * arity, Call.build(fcn, [build(tree.value, frame)[0]] + args, tree), tree), frame
         
     else:
         subframe = frame.fork()
@@ -578,14 +579,14 @@ def build(tree, frame):
     elif isinstance(tree, parsingtree.AtArg):
         out = frame.get(1 if tree.num is None else tree.num)
         if out is None:
-            complain("Function shortcuts ($n) can only be used in builtin functionals; write your function like {x => f(x)}.", tree)
+            complain("Function shortcut (${0}) not recognized.\n\nEither the function expected at this position has fewer than {0} arguments or a function is not expected at this position.\n\nTry rewriting your function as {{x => f(x)}}.".format(tree.num), tree)
         return out, frame
 
     elif isinstance(tree, parsingtree.FcnCall):
         if isinstance(tree.function, parsingtree.Attribute):
             fcn = frame["." + tree.function.attr]
             args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)), tree)
-            return Call.build(fcn, [build(tree.function.value, frame)[0]] + [buildOrElevate(x, frame, fcn.arity(i + 1))[0] for i, x in enumerate(args)], tree), frame
+            return Call.build(fcn, [build(tree.function.value, frame)[0]] + [buildOrElevate(x, frame, fcn.arity(i + 1, tree.positional, tree.named))[0] for i, x in enumerate(args)], tree), frame
 
         else:
             fcn = build(tree.function, frame)[0]
@@ -593,7 +594,7 @@ def build(tree, frame):
                 complain("Expression {0} is a value, not a function; it cannot be called.".format(fcn.tosrc()), tree)
 
             args = fcn.sortargs(tree.positional, dict((k.id, v) for k, v in zip(tree.names, tree.named)), tree)
-            builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i))[0] for i, x in enumerate(args)]
+            builtArgs = [x if isinstance(x, (LispyTree, Function)) else buildOrElevate(x, frame, fcn.arity(i, tree.positional, tree.named))[0] for i, x in enumerate(args)]
 
             if isinstance(fcn, UserFunction):
                 subframe = frame.fork(dict(zip(fcn.names, builtArgs)))

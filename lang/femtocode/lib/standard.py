@@ -745,7 +745,7 @@ StandardLibrary.table[Dot.name] = Dot()
 class Map(lispytree.BuiltinFunction):
     name = ".map"
             
-    def arity(self, index):
+    def arity(self, index, positional, named):
         if index == 1:
             return 1
         else:
