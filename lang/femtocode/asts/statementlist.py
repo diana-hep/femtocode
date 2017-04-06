@@ -501,7 +501,7 @@ class ExplodeData(Call):
 
     @property
     def args(self):
-        return (self.data, self.fromsize, explodesize)
+        return (self.data, self.fromsize, self.explodesize)
 
     def __repr__(self):
         return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.fromsize, self.explodesize)
@@ -564,10 +564,12 @@ def exploderef(ref, replacements, refnumber, dataset, sizes):
 
         if (ExplodeData, ref.name, sizes) in replacements:
             explodedData = replacements[(ExplodeData, ref.name, sizes)]
-        else:
+        elif ref.size != explodedSize:
             explodedData = ColumnName(refnumber)
             replacements[(ExplodeData, ref.name, sizes)] = explodedData
             statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, explodedSize))
+        else:
+            explodedData = ref.data
 
         return Ref(refnumber, ref.schema, explodedData, explodedSize), statements, refnumber + 1
 
@@ -624,16 +626,18 @@ def _flatBuildPreamble(callargs, dataset, replacements, refnumber, explosions):
     sizes = tuple(sizes)
 
     args = []
+    sizeColumnAssigned = False
     sizeColumn = None
-    for i, argref in enumerate(argrefs):
+    for argref in argrefs:
         if isinstance(argref, Ref):
             final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes)
             statements.extend(ss)
 
-            if i == 0:
+            if not sizeColumnAssigned:
+                sizeColumnAssigned = True
                 sizeColumn = final.size
-            # else:
-            #     assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
+            else:
+                assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
 
             args.append(final.data)
 

@@ -94,7 +94,7 @@ class DependencyGraph(object):
 class Loop(Serializable):
     def __init__(self, plateauSize):
         self.plateauSize = plateauSize
-        self.inputSizes = []
+        self.inputSizes = [None]
         self.targets = []
         self.statements = []
         self.run = None
@@ -103,7 +103,7 @@ class Loop(Serializable):
         return "<Loop over {0} at 0x{1:012x}>".format(str(self.plateauSize), id(self))
 
     def __str__(self):
-        return "\n".join(["Loop over {0} params {1}".format(self.plateauSize, ", ".join(map(str, self.params())))] + ["    " + str(x) for x in self.statements])
+        return "\n".join(["Loop over {0} params ({1}) inputSizes ({2})".format(self.plateauSize, ", ".join(map(str, self.params())), ", ".join(map(str, self.inputSizes)))] + ["    " + str(x) for x in self.statements])
 
     def toJson(self):
         return {"plateauSize": None if self.plateauSize is None else str(self.plateauSize),
@@ -134,10 +134,10 @@ class Loop(Serializable):
         if column not in self.targets:
             self.targets.append(column)
 
-    def newStatement(self, statement):
+    def newStatement(self, statement, allstatements):
         if statement not in self.statements:
-            if isinstance(statement, Call):
-                inputSizes = statement.inputSizes(self.statements)
+            if isinstance(statement, statementlist.Call):
+                inputSizes = statement.inputSizes(allstatements)
                 for ins in inputSizes:
                     if ins not in self.inputSizes:
                         self.inputSizes.append(ins)
@@ -155,6 +155,35 @@ class Loop(Serializable):
 
     def __contains__(self, column):
         return any(x.column == column for x in self.statements)
+
+def testy(statements):
+    if isinstance(statements[0], statementlist.ExplodeSize):
+        preloop = Loop([statements[0].tosize])
+        preloop.newTarget(statements[0].column)
+        preloop.newStatement(statements[0], statements)
+
+        loop = Loop(statements[-1].tosize)
+        loop.newTarget(statements[-1].column)
+        for s in statements[1:]:
+            loop.newStatement(s, statements)
+
+    else:
+        preloop = None
+        loop = Loop(statements[-1].tosize)
+        loop.newTarget(statements[-1].column)
+        for s in statements:
+            loop.newStatement(s, statements)
+
+    print preloop
+    print loop
+
+    for ins in loop.inputSizes:
+        print "init index on", ins
+    print "while loop over", loop.plateauSize
+
+
+
+
 
 class LoopFunction(Serializable):
     pass  # FIXME

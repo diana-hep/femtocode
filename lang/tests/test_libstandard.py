@@ -42,7 +42,6 @@ for i in xrange(100):
     semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10))})
 
 nonflat = session.source("NonFlat", met=real(0, almost(inf)), muons=collection(record(pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))), jets=collection(record(mass=real(0, almost(inf)), pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))))
-
 for i in xrange(100):
     muons = []
     jets = []
@@ -52,9 +51,39 @@ for i in xrange(100):
         jets.append(nonflat.dataset.types["jets[]"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)))
     nonflat.dataset.fill({"met": float(i), "muons": muons, "jets": jets})
 
+oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
+
+from femtocode.execution import testy
+
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
+
+    def test_oldexample(self):
+        print
+        testy(oldexample.toPython(a = "c + d").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "ys.map(y => y + y)").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "ys.map(y => y + c)").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)
+
+        print
+        testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements)
 
     def test_literal(self):
         values = [entry.a for entry in numerical.toPython(a = "3.14").submit()]
@@ -440,9 +469,9 @@ class TestLibStandard(unittest.TestCase):
     def test_map(self):
         self.assertEqual(nonflat.type("muons.map($1.pt + $1.phi)"), collection(real(-pi, almost(inf))))
 
-        print
-        print nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").compile().statements
+        # print
+        # print nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").compile().statements
 
-        for entry in nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").submit():
-            print entry
+        # for entry in nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").submit():
+        #     print entry
 
