@@ -596,8 +596,8 @@ def _flatBuildPreamble(callargs, dataset, replacements, refnumber, explosions):
 
             if i == 0:
                 sizeColumn = final.size
-            else:
-                assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
+            # else:
+            #     assert sizeColumn == final.size, "all arguments in a flat function must have identical size columns: {0} vs {1}".format(sizeColumn, final.size)
 
             args.append(final.data)
 

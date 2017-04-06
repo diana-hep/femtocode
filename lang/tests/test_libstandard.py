@@ -439,3 +439,10 @@ class TestLibStandard(unittest.TestCase):
 
     def test_map(self):
         self.assertEqual(nonflat.type("muons.map($1.pt + $1.phi)"), collection(real(-pi, almost(inf))))
+
+        print
+        print nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").compile().statements
+
+        for entry in nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").submit():
+            print entry
+

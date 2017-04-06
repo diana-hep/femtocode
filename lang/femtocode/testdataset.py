@@ -141,36 +141,29 @@ class TestDataset(Dataset):
         return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
 
     @staticmethod
-    def makeColumns(name, schema, hasSize=False):
+    def makeColumns(name, schema, sizeColumn=None):
         if isinstance(schema, Null):
             raise NotImplementedError
 
-        elif isinstance(schema, (Boolean, Number)):
-            if isinstance(schema, Boolean):
-                dataType = "bool"
-            elif schema.whole:
-                dataType = "int"
-            else:
-                dataType = "float"
-
-            return {name: TestColumn(name, name.size() if hasSize else None, dataType)}
+        elif isinstance(schema, Boolean):
+            return {name: TestColumn(name, sizeColumn, "bool")}
 
         elif isInt(schema) or isNullInt(schema):
-            return {name: TestColumn(name, name.size() if hasSize else None, "int")}
+            return {name: TestColumn(name, sizeColumn, "int")}
 
         elif isFloat(schema) or isNullFloat(schema):
-            return {name: TestColumn(name, name.size() if hasSize else None, "float")}
+            return {name: TestColumn(name, sizeColumn, "float")}
 
         elif isinstance(schema, String):
             raise NotImplementedError
 
         elif isinstance(schema, Collection):
-            return TestDataset.makeColumns(name.coll(), schema.items, True)
+            return TestDataset.makeColumns(name.coll(), schema.items, name.size())
 
         elif isinstance(schema, Record):
             out = {}
             for fn, ft in schema.fields.items():
-                out.update(TestDataset.makeColumns(name.rec(fn), ft, hasSize))
+                out.update(TestDataset.makeColumns(name.rec(fn), ft, sizeColumn))
             return out
 
         elif isinstance(schema, Union):
@@ -189,7 +182,7 @@ class TestDataset(Dataset):
 
         columns = {}
         for n, t in schema.items():
-            columns.update(TestDataset.makeColumns(ColumnName(n), t, False))
+            columns.update(TestDataset.makeColumns(ColumnName(n), t))
 
         out = TestDataset(name, schema, columns, [], 0, 0)
         for n, c in out.columns.items():

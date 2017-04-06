@@ -142,7 +142,7 @@ class DependencyGraph(object):
         targetsToEndpoints = {}
         for action in query.actions:
             for target in action.columns():
-                if target.issize() and target.dropsize() in query.dataset.columns:
+                if target.issize() and target in set(x.size for x in query.dataset.columns.values()):
                     required.add(target)
                 elif target in query.dataset.columns:
                     required.add(target)
@@ -429,6 +429,20 @@ class Executor(Serializable):
         self.order = DependencyGraph.order(loops, self.query.actions, self.required)
         self.compileLoops(debug)
 
+        # transient
+        self._setColumnToSegmentKey()
+
+    def _setColumnToSegmentKey(self):
+        self.columnToSegmentKey = {}
+        for column in self.required:
+            if column.issize():
+                for c in self.query.dataset.columns.values():
+                    if c.size == column:
+                        self.columnToSegmentKey[column] = c.data
+                assert column in self.columnToSegmentKey
+            else:
+                self.columnToSegmentKey[column] = column
+
     def toJson(self):
         return {"query": self.query.toJson(),
                 "required": [str(x) for x in self.required],
@@ -451,6 +465,10 @@ class Executor(Serializable):
         out.required = [ColumnName.parse(x) for x in obj["required"]]
         out.temporaries = [(ColumnName.parse(k), None if v is None else ColumnName.parse(v)) for k, v in obj["temporaries"]]
         out.order = [Loop.fromJson(x.values()[0]) if x.keys()[0] == "loop" else statementlist.Statement.fromJson(x.values()[0]) for x in obj["order"]]
+
+        # transient
+        out._setColumnToSegmentKey()
+
         return out
 
     def compileLoops(self, debug):
@@ -467,9 +485,9 @@ class Executor(Serializable):
         out = {}
         for column in self.required:
             if column.issize():
-                out[column] = group.segments[column.dropsize()].size
+                out[column] = group.segments[self.columnToSegmentKey[column]].size
             else:
-                out[column] = group.segments[column].data
+                out[column] = group.segments[self.columnToSegmentKey[column]].data
         return out
 
     def sizearrays(self, group, inarrays):
@@ -483,7 +501,7 @@ class Executor(Serializable):
             return group.numEntries
 
         elif not size.istmp():
-            return group.segments[size.dropsize()].dataLength
+            return group.segments[self.columnToSegmentKey[size]].dataLength
 
         else:
             raise NotImplementedError
@@ -502,10 +520,10 @@ class Executor(Serializable):
 
                 if loop.size is None:
                     imax = [group.numEntries]
-                elif loop.size.dropsize() in group.segments:
-                    imax = [group.segments[loop.size.dropsize()].dataLength]
+                elif loop.size in self.columnToSegmentKey:
+                    imax = [group.segments[self.columnToSegmentKey[loop.size]].dataLength]
                 else:
-                    imax = [lengths[loop.size.dropsize()]]
+                    imax = [lengths[loop.size]]
                 imax = self.imax(imax)  # format it properly
 
                 args = [arrays[x] for x in loop.params() + loop.targets]
