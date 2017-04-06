@@ -323,10 +323,6 @@ class Dataset(Metadata):
             if isinstance(item, string_types):
                 assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
                 if i + 2 == len(columnName.path):
-                    # primitiveFields = [n for n, t in schema.fields.items() if isinstance(t, Primitive)]
-                    # if len(primitiveFields) > 0:
-                    #     dataColumnPath.append(sorted(primitiveFields)[0])
-                    # else:
                     dataColumnPath.append(item)
                 else:
                     dataColumnPath.append(item)

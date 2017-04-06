@@ -33,337 +33,6 @@ from femtocode.typesystem import *
 from femtocode.util import *
 from femtocode.workflow import Query
 
-class Loop(Serializable):
-    def __init__(self, size):
-        self.size = size
-        self.targets = []
-        self.statements = []
-        self.run = None
-
-    def __repr__(self):
-        return "<Loop over {0} at 0x{1:012x}>".format(str(self.size), id(self))
-
-    def __str__(self):
-        return "\n".join(["Loop over {0} params {1}".format(self.size, ", ".join(map(str, self.params())))] + ["    " + str(x) for x in self.statements])
-
-    def toJson(self):
-        return {"size": None if self.size is None else str(self.size),
-                "targets": [str(x) for x in self.targets],
-                "statements": [x.toJson() for x in self.statements],
-                "run": None if self.run is None else self.run.toJson()}
-
-    @staticmethod
-    def fromJson(obj):
-        assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["size", "targets", "statements", "run"])
-        assert obj["size"] is None or isinstance(obj["size"], string_types)
-        assert isinstance(obj["targets"], list)
-        assert all(isinstance(x, string_types) for x in obj["targets"])
-        assert isinstance(obj["statements"], list)
-
-        out = Loop(None if obj["size"] is None else ColumnName.parse(obj["size"]))
-        out.targets = [ColumnName.parse(x) for x in obj["targets"]]
-        out.statements = [statementlist.Statement.fromJson(x) for x in obj["statements"]]
-        assert all(isinstance(x, statementlist.Call) for x in out.statements)
-        out.run = None if obj["run"] is None else LoopFunction.fromJson(obj["run"])
-        return out
-
-    def newTarget(self, column):
-        if column not in self.targets:
-            self.targets.append(column)
-
-    def newStatement(self, statement):
-        if statement not in self.statements:
-            self.statements.append(statement)
-
-    def params(self):
-        defines = set(x.column for x in self.statements)
-        out = []
-        for statement in self.statements:
-            for arg in statement.args:
-                if isinstance(arg, ColumnName) and arg not in defines and arg not in out:
-                    out.append(arg)
-        return out
-
-    def __contains__(self, column):
-        return any(x.column == column for x in self.statements)
-
-class DependencyGraph(object):
-    def __init__(self, target, query, lookup, required):
-        self.target = target   # ColumnName, could be data or size
-        self.query = query
-        self.lookup = lookup
-        self.lookup[self.target] = self
-        self.required = required
-
-        calls = filter(lambda x: isinstance(x, statementlist.Call) and x.column == target, self.query.statements)
-        assert len(calls) == 1, "each new column must be defined exactly once"
-
-        self.statement = calls[0]
-        self.size = self.statement.tosize
-
-        self.dependencies = []
-        for c in self.statement.args:
-            if isinstance(c, statementlist.Literal):
-                pass
-
-            elif isinstance(c, ColumnName):
-                if c in self.query.dataset.columns:
-                    self.required.add(c)
-
-                elif c in self.lookup:
-                    self.dependencies.append(self.lookup[c])
-
-                else:
-                    self.dependencies.append(DependencyGraph(c, self.query, self.lookup, self.required))
-
-            else:
-                assert False, "expected only Literals and ColumnNames in args, found {0}".format(c)
-
-    def __repr__(self):
-        return "<DependencyGraph of [{0}] at 0x{1:012x}>".format(", ".join(map(str, sorted(self.flattened()))), id(self))
-
-    def pretty(self, indent=""):
-        return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
-
-    def flattened(self):
-        out = set([self.target])
-        for x in self.dependencies:
-            out.update(x.flattened())
-        return out
-
-    def overlap(self, other):
-        return len(self.flattened().intersection(other.flattened())) > 0
-
-    @staticmethod
-    def wholedag(query):
-        lookup = {}
-        required = set()
-        targetsToEndpoints = {}
-        for action in query.actions:
-            for target in action.columns():
-                if target.issize() and target in set(x.size for x in query.dataset.columns.values()):
-                    required.add(target)
-                elif target in query.dataset.columns:
-                    required.add(target)
-                else:
-                    targetsToEndpoints[target] = DependencyGraph(target, query, lookup, required)
-        return targetsToEndpoints, lookup, required
-
-    @staticmethod
-    def connectedSubgraphs(graphs):
-        connectedSubgraphs = []
-        for graph in graphs:
-            found = False
-            for previous in connectedSubgraphs:
-                if any(graph.overlap(g) for g in previous):
-                    previous.append(graph)
-                    found = True
-                    break
-            if not found:
-                connectedSubgraphs.append([graph])
-        return connectedSubgraphs
-
-    def _bucketfill(self, loop, endpoints, size):
-        for dependency in self.dependencies:
-            if dependency.size == size:
-                if dependency.target not in loop:
-                    dependency._bucketfill(loop, endpoints, size)
-            else:
-                endpoints.append(dependency)
-
-        loop.newStatement(self.statement)
-
-    @staticmethod
-    def loops(graphs):
-        loops = {}
-        for startpoints in DependencyGraph.connectedSubgraphs(graphs):
-            while len(startpoints) > 0:
-                newloops = {}
-                endpoints = []
-                for graph in startpoints:
-                    loop = newloops.get(graph.size, Loop(graph.size))
-                    loop.newTarget(graph.target)
-                    graph._bucketfill(loop, endpoints, graph.size)
-                    newloops[graph.size] = loop
-
-                for size, loop in newloops.items():
-                    if size not in loops:
-                        loops[size] = []
-                    loops[size].append(loop)
-
-                startpoints = []
-                for x in endpoints:
-                    if x not in startpoints:
-                        startpoints.append(x)
-
-        return loops
-
-    @staticmethod
-    def order(loops, actions, required):
-        order = [x for x in actions if isinstance(x, statementlist.Aggregation)]
-        targets = set(sum([x.columns() for x in actions], []))
-
-        # FIXME: "Filter" type Actions should appear as far upstream in the order as possible
-
-        while len(targets) > 0:
-            for size in loops:
-                for loop in loops[size]:
-                    if loop not in order:
-                        for target in loop.targets:
-                            if target in targets:
-                                order.insert(0, loop)  # put at beginning (working backward)
-                                break
-
-            targets = set(sum([loop.params() for loop in order if isinstance(loop, Loop)], []))
-            for loop in order:
-                for target in loop.targets:
-                    targets.discard(target)
-            for column in required:
-                targets.discard(column)
-
-        return order
-        
-class Compiler(object):
-    @staticmethod
-    def _compileToPython(name, statements, params, references, debug):
-        if sys.version_info[0] <= 2:
-            args = ast.arguments([ast.Name(n, ast.Param()) for n in params], None, None, [])
-            fcn = ast.FunctionDef(name, args, statements, [])
-        else:
-            args = ast.arguments([ast.arg(n, None) for n in params], None, [], [], None, [])
-            fcn = ast.FunctionDef(name, args, statements, [], None)
-
-        if debug:
-            print("")
-            print(astToSource(fcn))
-            if len(references) > 0:
-                print("\n{0}".format(references))
-            print("")
-
-        moduleast = ast.Module([fcn])
-        fakeLineNumbers(moduleast)
-
-        modulecomp = compile(moduleast, "Femtocode", "exec")
-        out = dict(references)
-        out["$math"] = math
-        exec(modulecomp, out)
-        return LoopFunction(out[name])
-
-    @staticmethod
-    def compileToPython(fcnname, loop, inputs, fcntable, tonative, debug):
-        validNames = {}
-        def valid(n):
-            if n not in validNames:
-                validNames[n] = "v" + repr(len(validNames))
-            return validNames[n]
-        def newname():
-            n = len(validNames)  # an integer can't collide with any incoming names
-            validNames[n] = "_" + repr(n)
-            return validNames[n]
-        
-        references = {}
-
-        # i0 = 0; i0max = imax[0]
-        imax = [loop.size]
-        init = [ast.Assign([ast.Name("i0", ast.Store())], ast.Num(0)),
-                ast.Assign([ast.Name("i0max", ast.Store())], ast.Subscript(ast.Name("imax", ast.Load()), ast.Index(ast.Num(0)), ast.Load()))]
-
-        # while i0 < imax:
-        whileloop = ast.While(ast.Compare(ast.Name("i0", ast.Load()), [ast.Lt()], [ast.Name("i0max", ast.Load())]), [], [])
-
-        schemalookup = dict(inputs)
-        def astAndSchema(arg):
-            if isinstance(arg, ColumnName) and (arg in loop.targets or arg in loop.params()):
-                return ast.Subscript(ast.Name(valid(arg), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Load()), schemalookup[arg]
-            elif isinstance(arg, ColumnName):
-                return ast.Name(valid(arg), ast.Load()), schemalookup[arg]
-            else:
-                return arg.buildexec(), arg.schema
-
-        for statement in loop.statements:
-            if statement.column in loop.targets:
-                # col[i0]
-                target = ast.Subscript(ast.Name(valid(statement.column), ast.Load()), ast.Index(ast.Name("i0", ast.Load())), ast.Store())
-            else:
-                # col
-                target = ast.Name(valid(statement.column), ast.Store())
-
-            if isinstance(statement, statementlist.IsType):
-                astarg, schema = astAndSchema(statement.arg)
-                assignment = fcntable[statement.fcnname].buildexec(target, statement.schema, [astarg], [schema], newname, references, tonative, statement.fromtype, statement.totype, statement.negate)
-                schemalookup[statement.column] = statement.schema
-
-            elif isinstance(statement, statementlist.Explode):
-                raise NotImplementedError
-
-            elif isinstance(statement, statementlist.ExplodeSize):
-                raise NotImplementedError
-
-            elif isinstance(statement, statementlist.ExplodeData):
-                raise NotImplementedError
-
-            elif isinstance(statement, statementlist.Call):
-                # f(x[i0], y[i0], 3.14, ...)
-                astargs = []
-                schemas = []
-                for arg in statement.args:
-                    astarg, schema = astAndSchema(arg)
-                    astargs.append(astarg)
-                    schemas.append(schema)
-
-                assignment = fcntable[statement.fcnname].buildexec(target, statement.schema, astargs, schemas, newname, references, tonative)
-                schemalookup[statement.column] = statement.schema
-
-                # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
-                # So append a few more statements onto that assignment to make sure they stay within range (if applicable)!
-
-            else:
-                assert False, "unrecognized statement: {0}".format(statement)
-
-            whileloop.body.extend(assignment)
-
-        # i0 += 1
-        whileloop.body.append(ast.AugAssign(ast.Name("i0", ast.Store()), ast.Add(), ast.Num(1)))
-
-        fcn = Compiler._compileToPython(fcnname, init + [whileloop], ["imax"] + [valid(x) for x in loop.params() + loop.targets], references, debug)
-        return fcn, imax
-
-class LoopFunction(Serializable):
-    def __init__(self, fcn):
-        self.fcn = fcn
-
-    def __call__(self, *args, **kwds):
-        return self.fcn(*args, **kwds)
-
-    def __getstate__(self):
-        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
-
-    def __setstate__(self, state):
-        self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
-
-    def toJson(self):
-        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
-                "name": self.fcn.func_name,
-                "code": base64.b64encode(marshal.dumps(self.fcn.func_code))}
-
-    @staticmethod
-    def fromJson(obj):
-        assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code"])
-        assert isinstance(obj["class"], string_types)
-        assert "." in obj["class"]
-
-        mod = obj["class"][:obj["class"].rindex(".")]
-        cls = obj["class"][obj["class"].rindex(".") + 1:]
-
-        if mod == LoopFunction.__module__ and cls == LoopFunction.__name__:
-            assert isinstance(obj["name"], string_types)
-            assert isinstance(obj["code"], string_types)
-            return LoopFunction(types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"]))
-        else:
-            return getattr(importlib.import_module(mod), cls).fromJson(obj)
-
 class ExecutionFailure(Serializable):
     def __init__(self, exception, traceback):
         self.exception = exception
@@ -419,138 +88,81 @@ class ExecutionFailure(Serializable):
     def failureJson(obj):
         return isinstance(obj, dict) and set(obj.keys()).difference(set(["_id"])) == set(["class", "message", "traceback"])
 
-class Executor(Serializable):
-    def __init__(self, query, debug):
-        self.query = query
-        targetsToEndpoints, lookup, self.required = DependencyGraph.wholedag(self.query)
-        self.temporaries = sorted((target, graph.size) for target, graph in targetsToEndpoints.items() if not target.issize())
+class DependencyGraph(object):
+    pass  # FIXME
 
-        loops = DependencyGraph.loops(targetsToEndpoints.values())
-        self.order = DependencyGraph.order(loops, self.query.actions, self.required)
-        self.compileLoops(debug)
+class Loop(Serializable):
+    def __init__(self, plateauSize):
+        self.plateauSize = plateauSize
+        self.inputSizes = []
+        self.targets = []
+        self.statements = []
+        self.run = None
 
-        # transient
-        self._setColumnToSegmentKey()
+    def __repr__(self):
+        return "<Loop over {0} at 0x{1:012x}>".format(str(self.plateauSize), id(self))
 
-    def _setColumnToSegmentKey(self):
-        self.columnToSegmentKey = {}
-        for column in self.required:
-            if column.issize():
-                for c in self.query.dataset.columns.values():
-                    if c.size == column:
-                        self.columnToSegmentKey[column] = c.data
-                assert column in self.columnToSegmentKey
-            else:
-                self.columnToSegmentKey[column] = column
+    def __str__(self):
+        return "\n".join(["Loop over {0} params {1}".format(self.plateauSize, ", ".join(map(str, self.params())))] + ["    " + str(x) for x in self.statements])
 
     def toJson(self):
-        return {"query": self.query.toJson(),
-                "required": [str(x) for x in self.required],
-                "temporaries": [(str(data), None if size is None else str(size)) for data, size in self.temporaries],
-                "order": [{"loop": x.toJson()} if isinstance(x, Loop) else {"action": x.toJson()} for x in self.order]}
+        return {"plateauSize": None if self.plateauSize is None else str(self.plateauSize),
+                "inputSizes": [str(x) for x in self.inputSizes],
+                "targets": [str(x) for x in self.targets],
+                "statements": [x.toJson() for x in self.statements],
+                "run": None if self.run is None else self.run.toJson()}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(["query", "required", "temporaries", "order"]).difference(set(obj.keys()).difference(set(["_id"]))) == set()
-        assert isinstance(obj["required"], list)
-        assert all(isinstance(x, string_types) for x in obj["required"])
-        assert isinstance(obj["temporaries"], list)
-        assert all(isinstance(k, string_types) and (v is None or isinstance(v, string_types)) for k, v in obj["temporaries"])
-        assert isinstance(obj["order"], list)
-        assert all(isinstance(x, dict) and len(x) == 1 and isinstance(x.keys()[0], string_types) for x in obj["order"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["plateauSize", "inputSizes", "targets", "statements", "run"])
+        assert obj["plateauSize"] is None or isinstance(obj["plateauSize"], string_types)
+        assert isinstance(obj["inputSizes"], list)
+        assert isinstance(obj["targets"], list)
+        assert all(isinstance(x, string_types) for x in obj["targets"])
+        assert isinstance(obj["statements"], list)
 
-        out = Executor.__new__(Executor)
-        out.query = Query.fromJson(obj["query"])
-        out.required = [ColumnName.parse(x) for x in obj["required"]]
-        out.temporaries = [(ColumnName.parse(k), None if v is None else ColumnName.parse(v)) for k, v in obj["temporaries"]]
-        out.order = [Loop.fromJson(x.values()[0]) if x.keys()[0] == "loop" else statementlist.Statement.fromJson(x.values()[0]) for x in obj["order"]]
-
-        # transient
-        out._setColumnToSegmentKey()
-
+        out = Loop(None if obj["plateauSize"] is None else ColumnName.parse(obj["plateauSize"]))
+        out.inputSizes = [ColumnName.parse(x) for x in obj["inputSizes"]]
+        out.targets = [ColumnName.parse(x) for x in obj["targets"]]
+        out.statements = [statementlist.Statement.fromJson(x) for x in obj["statements"]]
+        assert all(isinstance(x, statementlist.Call) for x in out.statements)
+        out.run = None if obj["run"] is None else LoopFunction.fromJson(obj["run"])
         return out
 
-    def compileLoops(self, debug):
-        fcntable = SymbolTable(StandardLibrary.table.asdict())
-        for lib in self.query.libs:
-            fcntable = fcntable.fork(lib.table.asdict())
+    def newTarget(self, column):
+        if column not in self.targets:
+            self.targets.append(column)
 
-        for i, loop in enumerate(self.order):
-            if isinstance(loop, Loop):
-                fcnname = "f{0}_{1}".format(self.query.id, i)
-                loop.run, loop.imax = Compiler.compileToPython(fcnname, loop, self.query.inputs, fcntable, False, debug)
+    def newStatement(self, statement):
+        if statement not in self.statements:
+            if isinstance(statement, Call):
+                inputSizes = statement.inputSizes(self.statements)
+                for ins in inputSizes:
+                    if ins not in self.inputSizes:
+                        self.inputSizes.append(ins)
 
-    def inarraysFromTest(self, group):
-        out = {}
-        for column in self.required:
-            if column.issize():
-                out[column] = group.segments[self.columnToSegmentKey[column]].size
-            else:
-                out[column] = group.segments[self.columnToSegmentKey[column]].data
+            self.statements.append(statement)
+
+    def params(self):
+        defines = set(x.column for x in self.statements)
+        out = []
+        for statement in self.statements:
+            for arg in statement.args:
+                if isinstance(arg, ColumnName) and arg not in defines and arg not in out:
+                    out.append(arg)
         return out
 
-    def sizearrays(self, group, inarrays):
-        return {}   # FIXME
+    def __contains__(self, column):
+        return any(x.column == column for x in self.statements)
 
-    def length(self, column, size, group, sizearrays):
-        if column.issize():
-            raise NotImplementedError   # whatever its implementation, it can't use sizearrays
+class LoopFunction(Serializable):
+    pass  # FIXME
 
-        elif size is None:
-            return group.numEntries
+class Compiler(object):
+    pass  # FIXME
 
-        elif not size.istmp():
-            return group.segments[self.columnToSegmentKey[size]].dataLength
+class Executor(Serializable):
+    pass  # FIXME
 
-        else:
-            raise NotImplementedError
 
-    def workarrays(self, group, lengths):
-        return dict((data, [None] * lengths[data]) for data, size in self.temporaries)
-
-    def imax(self, imax):
-        return imax
-
-    def runloops(self, group, lengths, arrays):
-        out = None
-        for loopOrAction in self.order:
-            if isinstance(loopOrAction, Loop):
-                loop = loopOrAction
-
-                if loop.size is None:
-                    imax = [group.numEntries]
-                elif loop.size in self.columnToSegmentKey:
-                    imax = [group.segments[self.columnToSegmentKey[loop.size]].dataLength]
-                else:
-                    imax = [lengths[loop.size]]
-                imax = self.imax(imax)  # format it properly
-
-                args = [arrays[x] for x in loop.params() + loop.targets]
-                loop.run(*([imax] + args))
-
-            else:
-                action = loopOrAction
-                out = action.act(group, lengths, arrays)
-
-        return out
-
-    def run(self, inarrays, group):
-        lengths = {}
-        for data, size in self.temporaries:
-            if size is not None and size not in inarrays:
-                lengths[size] = self.length(size, None, group, None)
-
-        sizearrays = self.sizearrays(group, inarrays)
-
-        for data, size in self.temporaries:
-            lengths[data] = self.length(data, size, group, sizearrays)
-
-        workarrays = self.workarrays(group, lengths)
-
-        arrays = {}
-        arrays.update(inarrays)
-        arrays.update(sizearrays)
-        arrays.update(workarrays)
-
-        return self.runloops(group, lengths, arrays)

@@ -100,14 +100,14 @@ class Statement(Serializable):
                             raise FemtocodeError("Expected keys \"to\", \"fcn\", \"tosize\" with \"tosize\" being a list for function $explodesize at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif obj["fcn"] == "$explodedata":
-                        if keys == set(["to", "fcn", "data", "fromsize", "tosize", "schema"]) and isinstance(obj["tosize"], list):
+                        if keys == set(["to", "fcn", "data", "fromsize", "explodesize", "schema"]):
                             return ExplodeData(ColumnName.parse(obj["to"]),
                                                Schema.fromJson(obj["schema"]),
                                                ColumnName.parse(obj["data"]),
                                                ColumnName.parse(obj["fromsize"]),
-                                               [ColumnName.parse(x) for x in obj["tosize"]])
+                                               ColumnName.parse(obj["explodesize"]))
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"tosize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"explodesize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif keys == set(["to", "fcn", "args", "schema", "tosize"]) and isinstance(obj["args"], list):
                         args = []
@@ -360,6 +360,12 @@ class Call(Statement):
     def columnNames(self):
         return [self.column] + list(self.args) + ([] if self.tosize is None else [self.tosize])
 
+    def inputSizes(self, statements):
+        return [] if self.tosize is None else [self.tosize]
+
+    def plateauSize(self, statements):
+        return self.tosize
+
 class IsType(Call):
     def __init__(self, column, tosize, arg, fromtype, totype, negate):
         self.column = column
@@ -399,6 +405,12 @@ class IsType(Call):
     def columnNames(self):
         return [self.column, self.tosize, self.arg]
 
+    def inputSizes(self, statements):
+        return [self.tosize]
+
+    def plateauSize(self, statements):
+        return self.tosize
+
 class Explode(Call):
     def __init__(self, column, schema, data, tosize):
         self.column = column
@@ -432,6 +444,12 @@ class Explode(Call):
     def columnNames(self):
         return [self.column, self.data, self.tosize]
 
+    def inputSizes(self, statements):
+        return [self.tosize]
+
+    def plateauSize(self, statements):
+        return self.tosize
+
 class ExplodeSize(Call):
     def __init__(self, column, tosize):
         self.column = column
@@ -463,13 +481,19 @@ class ExplodeSize(Call):
     def columnNames(self):
         return [self.column] + list(self.tosize)
 
+    def inputSizes(self, statements):
+        return list(self.tosize)
+
+    def plateauSize(self, statements):
+        return self.column
+
 class ExplodeData(Call):
-    def __init__(self, column, schema, data, fromsize, tosize):
+    def __init__(self, column, schema, data, fromsize, explodesize):
         self.column = column
         self.schema = schema
         self.data = data
         self.fromsize = fromsize
-        self.tosize = tuple(tosize)
+        self.explodesize = explodesize
 
     @property
     def fcnname(self):
@@ -477,25 +501,37 @@ class ExplodeData(Call):
 
     @property
     def args(self):
-        return (self.data, self.fromsize) + self.tosize
+        return (self.data, self.fromsize, explodesize)
 
     def __repr__(self):
-        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.fromsize, self.tosize)
+        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.fromsize, self.explodesize)
 
     def __str__(self):
-        return "{0} := {1}({2}, {3}, [{4}]) as {5}".format(str(self.column), self.fcnname, str(self.data), str(self.fromsize), ", ".join(map(str, self.tosize)), self.schema)
+        return "{0} := {1}({2}, {3}, {4}) as {5}".format(str(self.column), self.fcnname, str(self.data), str(self.fromsize), self.explodesize, self.schema)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "fromsize": str(self.fromsize), "tosize": [str(x) for x in self.tosize], "schema": self.schema.toJson()}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "fromsize": str(self.fromsize), "explodesize": str(self.explodesize), "schema": self.schema.toJson()}
 
     def __eq__(self, other):
-        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.tosize == other.tosize
+        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.explodesize == other.explodesize
 
     def __hash__(self):
-        return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.tosize))
+        return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.explodesize))
 
     def columnNames(self):
-        return [self.column, self.data, self.fromsize] + list(self.tosize)
+        return [self.column, self.data, self.fromsize, self.explodesize]
+
+    def inputSizes(self, statements):
+        for statement in statements:
+            if isinstance(statement, ExplodeSize) and statement.column == self.explodesize:
+                return [self.fromsize] + list(statement.tosize)
+        assert False, "explodesize not found for explodedata"
+
+    def plateauSize(self, statements):
+        for statement in statements:
+            if isinstance(statement, ExplodeSize) and statement.column == self.explodesize:
+                return statement.plateauSize()
+        assert False, "explodesize not found for explodedata"
 
 def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
@@ -531,7 +567,7 @@ def exploderef(ref, replacements, refnumber, dataset, sizes):
         else:
             explodedData = ColumnName(refnumber)
             replacements[(ExplodeData, ref.name, sizes)] = explodedData
-            statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, sizes))
+            statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, explodedSize))
 
         return Ref(refnumber, ref.schema, explodedData, explodedSize), statements, refnumber + 1
 
