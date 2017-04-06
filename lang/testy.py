@@ -1,6 +1,6 @@
 numEntries = 2
 in1 = [3, 2, 2, 2, 3, 0, 1, 2]
-in2 = [4, 1]
+in2 = [4, 5]
 
 entry = 0
 in1i = [0, 0, 0]
@@ -15,7 +15,7 @@ while entry < numEntries:
     if deepi != 0:
         countdown[deepi - 1] -= 1
 
-    if deepi == 0:
+    if deepi == 1:
         deepi += 1
         in1i[1] = in1i[0]
         countdown[deepi - 1] = in1[in1i[1]]
@@ -31,7 +31,7 @@ while entry < numEntries:
         newsize.append(in1[in1i[2]])
         in1i[2] += 1
 
-    elif deepi == 1:
+    elif deepi == 0:
         deepi += 1
         in2i[1] = in2i[0]
         countdown[deepi - 1] = in2[in2i[1]]
@@ -44,13 +44,34 @@ while entry < numEntries:
 
     while deepi != 0 and countdown[deepi - 1] == 0:
         deepi -= 1
+        # print "deepi", deepi
+
+        # correct for in1, in1, in2
+        # if deepi == 0:
+        #     in1i[0] = in1i[1]
+        #     in2i[0] = in2i[1]
+        # elif deepi == 1:
+        #     in1i[1] = in1i[2]
+        # elif deepi == 2:
+        #     pass
+
+        # correct for in1, in2, in1
+        # if deepi == 0:
+        #     in1i[0] = in1i[1]
+        #     in2i[0] = in2i[1]
+        # elif deepi == 1:
+        #     in1i[1] = in1i[2]
+        # elif deepi == 2:
+        #     pass
+
+        # correct for in2, in1, in1
         if deepi == 0:
-            in1i[0] = in1i[1]
             in2i[0] = in2i[1]
+            in1i[0] = in1i[1]
         elif deepi == 1:
-            in1i[1] = in1i[2]
-        elif deepi == 2:
             pass
+        elif deepi == 2:
+            in1i[1] = in1i[2]
 
     if deepi == 0:
         entry += 1
