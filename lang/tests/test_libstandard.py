@@ -62,6 +62,10 @@ class TestLibStandard(unittest.TestCase):
 
     def test_oldexample(self):
         print
+        print "xss", oldexample.dataset.groups[0].segments["xss[][]"].size
+        print "ys", oldexample.dataset.groups[0].segments["ys[]"].size
+
+        print
         testy(oldexample.toPython(a = "c + d").compile().statements)
 
         print

@@ -195,7 +195,7 @@ class TestDataset(Dataset):
         self.numGroups = 0
 
     def newGroup(self):
-        self.groups.append(TestGroup(len(self.groups), dict((n, TestSegment(0, 0, 0, [], [] if c.size == n.size() else None)) for n, c in self.columns.items()), 0))
+        self.groups.append(TestGroup(len(self.groups), dict((n, TestSegment(0, 0, 0, [], None if c.size is None else [])) for n, c in self.columns.items()), 0))
         self.numGroups += 1
 
     def _fill(self, group, datum, name, schema):
@@ -242,7 +242,7 @@ class TestDataset(Dataset):
         elif isinstance(schema, Collection):
             sz = len(datum)
             for n, s in group.segments.items():
-                if n.startswith(name) and s.size is not None:
+                if s.size is not None and n.startswith(name):
                     s.size.append(sz)
             coll = name.coll()
             items = schema.items
@@ -280,9 +280,6 @@ class TestDataset(Dataset):
                 try:
                     sub = datum[n]
                 except KeyError:
-
-                    print "HERE", datum, n, self.schema
-
                     out = "Datum {0} does not have an attribute or item \"{1}\" but the schema requires it.\n\nRequired fields:\n    {2}".format(datum, n, ", ".join(sorted(self.schema.keys())))
                     raise FemtocodeError(out)
 
@@ -303,7 +300,7 @@ class TestDataset(Dataset):
             self.groupIndex = 0
             self.entryInGroupIndex = 0
             self.dataIndex = dict((n, 0) for n, c in self.dataset.columns.items())
-            self.sizeIndex = dict((n, 0) for n, c in self.dataset.columns.items() if c.size == n.size())
+            self.sizeIndex = dict((n, 0) for n, c in self.dataset.columns.items() if c.size is not None)
 
         def _next(self, group, name, schema):
             if isinstance(schema, Null):
