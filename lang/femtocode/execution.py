@@ -298,7 +298,7 @@ class Loop(Serializable):
             for statement in self.statements:
                 for arg in statement.args:
                     if isinstance(arg, ColumnName) and arg not in definedHere:
-                        dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(explode.data))))
+                        dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(arg))))
 
         dataincrements = dict((i, []) for i in range(len(self.sizes) + 1))
         if not lengthScan:

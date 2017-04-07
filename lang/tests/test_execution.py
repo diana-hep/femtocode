@@ -36,41 +36,12 @@ from femtocode.workflow import *
 session = TestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
-oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
-oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 1000, "d": 1000})
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 1000, "d": 321})
 
 class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
-
-    # def test_oldexample(self):
-    #     print
-    #     print "xss", oldexample.dataset.groups[0].segments["xss[][]"].size
-    #     print "ys", oldexample.dataset.groups[0].segments["ys[]"].size
-
-    #     print
-    #     testy(oldexample.toPython(a = "c + d").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "ys.map(y => y + y)").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "ys.map(y => y + c)").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)
-
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements)
 
     # def test_submit(self):
     #     session = TestSession()
@@ -91,21 +62,12 @@ class TestExecution(unittest.TestCase):
     #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
 
     def test_oldexample1(self):
-        loop = Loop(ColumnName.parse("#0@size"))
-
         statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
 
+        loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
             loop.newStatement(statement)
-
         loop.newTarget(ColumnName.parse("#4"))
-
-        validNames = {}
-        def valid(n):
-            if n not in validNames:
-                validNames[n] = "v" + repr(len(validNames))
-            return validNames[n]
-
         loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
@@ -138,21 +100,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v5, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
     def test_oldexample2(self):
-        loop = Loop(ColumnName.parse("#0@size"))
-
         statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
 
+        loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
             loop.newStatement(statement)
-
         loop.newTarget(ColumnName.parse("#4"))
-
-        validNames = {}
-        def valid(n):
-            if n not in validNames:
-                validNames[n] = "v" + repr(len(validNames))
-            return validNames[n]
-
         loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
@@ -183,3 +136,38 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(numEntries, [2, 48, 32])
         self.assertEqual(tarray_v4, [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604, 705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208])
         self.assertEqual(tsarray_v5, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+    def test_minimal(self):
+        statements = oldexample.toPython(a = "c + d").compile().statements
+
+        loop = Loop(None)
+        for statement in statements:
+            loop.newStatement(statement)
+        loop.newTarget(ColumnName.parse("#0"))
+        loop.compileToPython("fcnname", {"c": real, "d": real}, StandardLibrary.table, False, False)
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = []
+        darray_v0 = oldexample.dataset.groups[0].segments["c"].data
+        darray_v1 = oldexample.dataset.groups[0].segments["d"].data
+        tarray_v2 = [0] * oldexample.dataset.numEntries
+        
+        loop.run.fcn(numEntries, countdown, darray_v0, darray_v1, tarray_v2)
+        self.assertEqual(numEntries, [2, 2, 0])
+        self.assertEqual(tarray_v2, [1123, 1321])
+
+
+    #     print
+    #     testy(oldexample.toPython(a = "ys.map(y => y + y)").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "ys.map(y => y + c)").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements)
