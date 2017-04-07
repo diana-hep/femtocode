@@ -777,10 +777,10 @@ class Map(lispytree.BuiltinFunction):
         reref = statementlist.Ref(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename))
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = reref
 
-        result, ss, ins, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (reref,))
+        result, ss, ins, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (rename,))
         statements.extend(ss)
         inputs.update(ins)
-
+        
         replacements[(typedtree.TypedTree, call)] = replacements[(typedtree.TypedTree, call.args[1].body)]
         return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, inputs, refnumber
 

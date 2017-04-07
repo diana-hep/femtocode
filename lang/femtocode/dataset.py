@@ -154,9 +154,8 @@ class ColumnName(object):
     def issize(self):
         return self.path[-1] == self._size
 
-    def dropsize(self):
-        assert self.issize()
-        return ColumnName(*self.path[:-1])
+    def depth(self):
+        return self.path.count(ColumnName._coll)
 
     def istmp(self):
         return self.path[0].startswith("#")

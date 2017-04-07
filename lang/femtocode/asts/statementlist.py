@@ -467,7 +467,7 @@ class ExplodeSize(Call):
         return "statementlist.ExplodeSize({0}, {1})".format(self.column, self.tosize)
 
     def __str__(self):
-        return "{0} := {1}([{2}])".format(str(self.column), self.fcnname, ", ".join(map(str, self.tosize)))
+        return "{0} := {1}({2})".format(str(self.column), self.fcnname, ", ".join(map(str, self.tosize)))
 
     def toJson(self):
         return {"to": str(self.column), "fcn": self.fcnname, "tosize": [str(x) for x in self.tosize]}
@@ -612,17 +612,18 @@ def _flatBuildPreamble(callargs, dataset, replacements, refnumber, explosions):
         statements.extend(ss)
         inputs.update(ins)
 
+    uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
     sizes = []
     for explosion in explosions:
-        size = None
-        for argref in argrefs:
-            if isinstance(explosion.schema, Record) and explosion.name.samelevel(argref.data):
-                size = dataset.sizeColumn(argref.data)
+        found = None
+        for size in uniques:
+            if size.startswith(explosion):
+                found = size
                 break
-        if size is None:
-            size = dataset.sizeColumn(explosion.name)
-        if size is not None:
-            sizes.append(size)
+
+        assert found is not None
+        sizes.append(found)
+
     sizes = tuple(sizes)
 
     args = []

@@ -158,7 +158,7 @@ class TestDataset(Dataset):
             raise NotImplementedError
 
         elif isinstance(schema, Collection):
-            return TestDataset.makeColumns(name.coll(), schema.items, name.size())
+            return TestDataset.makeColumns(name.coll(), schema.items, name.coll().size())
 
         elif isinstance(schema, Record):
             out = {}

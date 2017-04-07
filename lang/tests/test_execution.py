@@ -23,32 +23,81 @@ import unittest
 from femtocode.asts import lispytree
 from femtocode.asts import statementlist
 from femtocode.asts import typedtree
+from femtocode.dataset import ColumnName
 from femtocode.defs import SymbolTable
-from femtocode.execution import Executor
+from femtocode.execution import *
 from femtocode.parser import parse
 from femtocode.testdataset import TestDataset
 from femtocode.testdataset import TestSession
 from femtocode.typesystem import *
 from femtocode.workflow import *
 
+session = TestSession()
+
+oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
+
 class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
 
-    def test_submit(self):
-        session = TestSession()
+    # def test_oldexample(self):
+    #     print
+    #     print "xss", oldexample.dataset.groups[0].segments["xss[][]"].size
+    #     print "ys", oldexample.dataset.groups[0].segments["ys[]"].size
 
-        source = session.source("Test", x=integer, y=real)
-        for i in xrange(100):
-            source.dataset.fill({"x": i, "y": 0.2})
+    #     print
+    #     testy(oldexample.toPython(a = "c + d").compile().statements)
 
-        def callback(x):
-            self.assertEqual(source.dataset.numEntries, x.numEntries)
+    #     print
+    #     testy(oldexample.toPython(a = "ys.map(y => y + y)").compile().statements)
 
-        result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
+    #     print
+    #     testy(oldexample.toPython(a = "ys.map(y => y + c)").compile().statements)
 
-        # TestDataset is synchronous, so both callback and assuming it's blocking work
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
 
-        for old, new in zip(source.dataset, result):
-            self.assertAlmostEqual(old.x + old.y - 3, new.a)
-            self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)
+
+    #     print
+    #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements)
+
+    # def test_submit(self):
+    #     session = TestSession()
+
+    #     source = session.source("Test", x=integer, y=real)
+    #     for i in xrange(100):
+    #         source.dataset.fill({"x": i, "y": 0.2})
+
+    #     def callback(x):
+    #         self.assertEqual(source.dataset.numEntries, x.numEntries)
+
+    #     result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
+
+    #     # TestDataset is synchronous, so both callback and assuming it's blocking work
+
+    #     for old, new in zip(source.dataset, result):
+    #         self.assertAlmostEqual(old.x + old.y - 3, new.a)
+    #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
+
+    def test_loop_generation(self):
+        loop = Loop(ColumnName.parse("#0@size"))
+
+        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
+        print
+        print statements
+
+        for statement in statements:
+            loop.newStatement(statement)
+
+        parameters, codetext = loop.codetext("fcnname")
+        print
+        print codetext
