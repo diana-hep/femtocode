@@ -91,6 +91,23 @@ class ExecutionFailure(Serializable):
 class DependencyGraph(object):
     pass  # FIXME
 
+class _ParamNode(object):
+    def __repr__(self):
+        return "<{0}>".format(self.__class__.__name__)
+class _NamedParamNode(_ParamNode):
+    def __init__(self, name):
+        self.name = name
+    def __repr__(self):
+        return "<{0} {1}>".format(self.__class__.__name__, self.name)
+
+class _NumEntries(_ParamNode): pass
+class _Countdown(_ParamNode): pass
+class _SizeArray(_NamedParamNode): pass
+class _DataArray(_NamedParamNode): pass
+class _OutDataArray(_NamedParamNode): pass
+class _OutSizeArray(_NamedParamNode): pass
+class _Index(_NamedParamNode): pass
+
 class Loop(Serializable):
     def __init__(self, plateauSize):
         self.plateauSize = plateauSize
@@ -145,24 +162,15 @@ class Loop(Serializable):
                 assert statement.tosize == self.plateauSize
                 self.statements.append(statement)
 
-    class _NumEntries(object): pass
-    class _Countdown(object): pass
-    class _Array(object):
-        def __init__(self, name):
-            self.name = name
-    class _Index(object):
-        def __init__(self, over):
-            self.over = over
-
     def codetext(self, fcnname, nametrans, lengthScan):
-        parameters = [self._NumEntries(), self._Countdown()]
+        parameters = [_NumEntries(), _Countdown()]
         params = ["numEntries", "countdown"]
 
         uniqueToSizeArray = []
         uniqueToSizeIndex = []
         for i, size in enumerate(self.uniques):
-            parameters.append(self._Array(size))
-            parameters.append(self._Index(size))
+            parameters.append(_SizeArray(size))
+            parameters.append(_Index(size))
             params.append("sarray_" + nametrans(str(size)))
             params.append("sindex_" + nametrans(str(size)))
             uniqueToSizeArray.append("sarray_" + nametrans(str(size)))
@@ -170,8 +178,8 @@ class Loop(Serializable):
 
         uniqueToDataIndex = {}
         for explodedata in self.explodedatas:
-            parameters.append(self._Array(explodedata.data))
-            parameters.append(self._Index(explodedata.data))
+            parameters.append(_DataArray(explodedata.data))
+            parameters.append(_Index(explodedata.data))
             params.append("xdarray_" + nametrans(str(explodedata.data)))
             params.append("xdindex_" + nametrans(str(explodedata.data)))
             for i, size in enumerate(self.uniques):
@@ -181,15 +189,30 @@ class Loop(Serializable):
                 assert i in uniqueToDataIndex
 
         for explode in self.explodes:
-            parameters.append(self._Array(explode.data))
+            parameters.append(_DataArray(explode.data))
             params.append("xarray_" + nametrans(str(explode.data)))
 
         definedHere = set(x.column for x in self.explodedatas + self.explodes + self.statements)
         for statement in self.statements:
             for arg in statement.args:
                 if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere:
-                    parameters.append(self._Array(arg))
+                    parameters.append(_DataArray(arg))
                     params.append("darray_" + nametrans(str(arg)))
+
+        targetcode = []
+        mightneedsize = False
+        for target in self.targets:
+            if isinstance(target, ColumnName):
+                parameters.append(_OutSizeArray(target))
+                params.append("tarray_" + nametrans(str(target)))
+                mightneedsize = True
+                targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
+
+        targetsizecode = ""
+        if mightneedsize and self.explodesize is not None:
+            parameters.append(_OutSizeArray(self.explodesize.column))
+            params.append("tsarray_" + nametrans(str(self.explodesize.column)))
+            targetsizecode = "tsarray_{ts}[numEntries[2]] = {ts}".format(ts = nametrans(str(self.explodesize.column)))
 
         init = ["entry = 0", "deepi = 0"]
 
@@ -204,12 +227,12 @@ class Loop(Serializable):
 
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
-            countdown[deepi] = {array}[{index}[{ud}]]
-            print "size", {array}[{index}[{ud}]]
+            countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
             numEntries[2] += 1
             {index}[{ud}] += 1""".format(deepi = deepi,
                                          array = uniqueToSizeArray[uniquei],
                                          index = uniqueToSizeIndex[uniquei],
+                                         targetsizecode = "\n            " + targetsizecode,
                                          ud = uniqueDepth[uniquei],
                                          udm1 = uniqueDepth[uniquei] - 1)
 
@@ -262,12 +285,14 @@ class Loop(Serializable):
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
             {assigns}
-            print {datarefs}
+
+            REPLACEME
+            {targetcode}
             {increments}
             numEntries[1] += 1""".format(
             deepi = len(self.sizes),
             assigns = "\n            ".join(dataassigns),
-            datarefs = ", ".join(nametrans(str(x.data)) for x in self.explodedatas),
+            targetcode = "\n            ".join(targetcode),
             increments = "\n            ".join(dataincrements[len(self.sizes)])))
 
         resets = []
@@ -284,7 +309,7 @@ class Loop(Serializable):
                 deepi = deepi,
                 revs = "".join("\n                " + x for x in revs) if len(revs) > 0 else "\n                pass"))
 
-        return parameters, """
+        return parameters, params, """
 def {fcnname}({params}):
     {init}
 
@@ -309,20 +334,101 @@ def {fcnname}({params}):
            blocks = "\n        el".join(blocks),
            resets = "\n            el".join(resets))
 
+    def compileToPython(self, fcnname, inputs, fcntable, tonative, debug):
+        validNames = {}
+        def valid(n):
+            if n not in validNames:
+                validNames[n] = "v" + repr(len(validNames))
+            return validNames[n]
+        def newname():
+            n = len(validNames)  # an integer can't collide with any incoming names
+            validNames[n] = "_" + repr(n)
+            return validNames[n]
 
+        parameters, params, codetext = self.codetext(fcnname, valid, False)
+        module = ast.parse(codetext)
 
+        references = {}
+        aststatements = []
+        schemalookup = dict(inputs)
+        for statement in self.explodedatas + self.explodes:
+            schemalookup[statement.column] = statement.schema
 
+        for statement in self.statements:
+            asttarget = ast.Name(valid(statement.column), ast.Store())
 
+            assert not isinstance(statement, (statementlist.Explode, statementlist.ExplodeSize, statementlist.ExplodeData))
 
+            # f(x[i0], y[i0], 3.14, ...)
+            astargs = []
+            schemas = []
+            for arg in statement.args:
+                if isinstance(arg, ColumnName):
+                    astargs.append(ast.Name(valid(arg), ast.Load()))
+                    schemas.append(schemalookup[arg])
+                else:
+                    astargs.append(arg.buildexec())
+                    schemas.append(arg.schema)
 
+            assignment = fcntable[statement.fcnname].buildexec(asttarget, statement.schema, astargs, schemas, newname, references, tonative)
+            schemalookup[statement.column] = statement.schema
 
+            # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)
+            # So append a few more statements onto that assignment to make sure they stay within range (if applicable)!
 
+            aststatements.extend(assignment)
 
-            
+        def replace(node):
+            if isinstance(node, ast.AST):
+                for field in node._fields:
+                    replace(getattr(node, field))
+
+            elif isinstance(node, list):
+                index = None
+                for i, x in enumerate(node):
+                    if isinstance(x, ast.Expr) and isinstance(x.value, ast.Name) and x.value.id == "REPLACEME":
+                        index = i
+                        break
+
+                if index is not None:
+                    node[index : index + 1] = aststatements
+                else:
+                    for x in node:
+                        replace(x)
+
+        replace(module)
+        fakeLineNumbers(module)
+
+        if debug:
+            print("")
+            if self.explodesize is not None:
+                print(self.explodesize)
+            for statement in self.explodedatas + self.explodes + self.statements:
+                print(statement)
+            print("")
+            for parameter, param in zip(parameters, params):
+                print("    {0}: {1}".format(param, parameter))
+            print("")
+            print(codetext)
+            print("")
+            print("REPLACEME:")
+            print("    " + astToSource(ast.Module(aststatements)).replace("\n", "\n    "))
+            print("")
+            if len(references) > 0:
+                for n in sorted(references):
+                    print("    {0}: {1}".format(n, references[n]))
+                print("")
+
+        return parameters, self._reallyCompile(fcnname, module, references)
+
+    def _reallyCompile(self, fcnname, module, references):
+        compiled = compile(module, "Femtocode", "exec")
+        out = dict(references)
+        out["$math"] = math
+        exec(compiled, out)    # exec can't be called in the same function with nested functions
+        return out[fcnname]
+
 class LoopFunction(Serializable):
-    pass  # FIXME
-
-class Compiler(object):
     pass  # FIXME
 
 class Executor(Serializable):
