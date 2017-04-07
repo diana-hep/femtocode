@@ -134,9 +134,12 @@ class Loop(Serializable):
     def __init__(self, plateauSize):
         self.plateauSize = plateauSize
 
-        self.sizes = ()
-        self.uniques = []
-        self.deepiToUnique = []
+        if self.plateauSize is None:
+            self.sizes = ()
+            self.deepiToUnique = []
+            self.uniques = []
+        else:
+            self.setSizes((self.plateauSize,))
 
         self.explodesize = None
         self.explodes = []
@@ -158,8 +161,6 @@ class Loop(Serializable):
             else:
                 self.deepiToUnique.append(self.uniques.index(size))
 
-        assert sum(x.depth() for x in self.uniques) == len(self.sizes)
-
     def newTarget(self, column):
         if column not in self.targets:
             self.targets.append(column)
@@ -170,6 +171,7 @@ class Loop(Serializable):
                 assert self.explodesize is None, "should not assign two explodesizes in the same loop"
                 assert statement.column == self.plateauSize
                 self.setSizes(statement.tosize)
+                assert sum(x.depth() for x in self.uniques) == len(self.sizes)
                 self.explodesize = statement
 
             elif isinstance(statement, statementlist.ExplodeData):
@@ -300,7 +302,7 @@ class Loop(Serializable):
                     n = nametrans(explodedata.column), d = d, depth = deepestData[explodedata.column]))
 
             for explode in self.explodes:
-                dataassigns.append("{n} = xarray_{d}[numEntries[0]]".format(
+                dataassigns.append("{n} = xarray_{d}[entry]".format(
                     n = nametrans(explode.column), d = nametrans(str(explode.data))))
 
             for statement in self.statements:
