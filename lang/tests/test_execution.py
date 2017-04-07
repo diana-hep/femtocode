@@ -97,8 +97,8 @@ class TestExecution(unittest.TestCase):
     def test_loop_generation(self):
         loop = Loop(ColumnName.parse("#0@size"))
 
-        # statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
-        statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
+        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
+        # statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
         print
         print statements
 

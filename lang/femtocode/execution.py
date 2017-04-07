@@ -163,33 +163,33 @@ class Loop(Serializable):
         for i, size in enumerate(self.uniques):
             parameters.append(self._Array(size))
             parameters.append(self._Index(size))
-            params.append("array_" + nametrans(str(size)))
-            params.append("index_" + nametrans(str(size)))
-            uniqueToSizeArray.append("array_" + nametrans(str(size)))
-            uniqueToSizeIndex.append("index_" + nametrans(str(size)))
+            params.append("sarray_" + nametrans(str(size)))
+            params.append("sindex_" + nametrans(str(size)))
+            uniqueToSizeArray.append("sarray_" + nametrans(str(size)))
+            uniqueToSizeIndex.append("sindex_" + nametrans(str(size)))
 
         uniqueToDataIndex = {}
         for explodedata in self.explodedatas:
             parameters.append(self._Array(explodedata.data))
             parameters.append(self._Index(explodedata.data))
-            params.append("array_" + nametrans(str(explodedata.data)))
-            params.append("index_" + nametrans(str(explodedata.data)))
+            params.append("xdarray_" + nametrans(str(explodedata.data)))
+            params.append("xdindex_" + nametrans(str(explodedata.data)))
             for i, size in enumerate(self.uniques):
                 if explodedata.fromsize == size:
-                    uniqueToDataIndex[i] = "index_" + nametrans(str(explodedata.data))
+                    uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
                     break
                 assert i in uniqueToDataIndex
 
         for explode in self.explodes:
             parameters.append(self._Array(explode.data))
-            params.append(nametrans(str(explode.data)))
+            params.append("xarray_" + nametrans(str(explode.data)))
 
         definedHere = set(x.column for x in self.explodedatas + self.explodes + self.statements)
         for statement in self.statements:
             for arg in statement.args:
                 if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere:
                     parameters.append(self._Array(arg))
-                    params.append(nametrans(str(arg)))
+                    params.append("darray_" + nametrans(str(arg)))
 
         init = ["entry = 0", "deepi = 0"]
 
@@ -241,15 +241,23 @@ class Loop(Serializable):
         dataassigns = []
         for explodedata in self.explodedatas:
             d = nametrans(str(explodedata.data))
-            dataassigns.append("{d} = array_{d}[index_{d}[{depth}]]".format(
+            dataassigns.append("{d} = xdarray_{d}[xdindex_{d}[{depth}]]".format(
                 d = d, depth = deepestData[explodedata.column]))
+
+        for explode in self.explodes:
+            dataassigns.append("{d} = xarray_{d}[numEntries[0]]".format(nametrans(str(explode.data))))
+
+        for statement in self.statements:
+            for arg in statement.args:
+                if isinstance(arg, ColumnName) and arg not in definedHere:
+                    dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(nametrans(str(explode.data))))
 
         dataincrements = dict((i, []) for i in range(len(self.sizes) + 1))
         for i, unique in enumerate(self.uniques):
             rindex_plus1 = len(self.sizes) - list(reversed(self.sizes)).index(unique)
             for explodedata in self.explodedatas:
                 if explodedata.fromsize == unique:
-                    dataincrements[rindex_plus1].append("index_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
+                    dataincrements[rindex_plus1].append("xdindex_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
 
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
