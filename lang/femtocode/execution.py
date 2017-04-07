@@ -109,12 +109,18 @@ class ParamNode(Serializable):
     def __repr__(self):
         return self.toJsonString()
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__
+
 class NamedParamNode(ParamNode):
     def __init__(self, name):
         self.name = name
 
     def toJson(self):
         return {self.__class__.__name__: str(self.name)}
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.name == other.name
 
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
@@ -196,26 +202,28 @@ class Loop(Serializable):
         uniqueToDataIndex = {}
         if not lengthScan:
             for explodedata in self.explodedatas:
-                parameters.append(DataArray(explodedata.data))
-                params.append("xdarray_" + nametrans(str(explodedata.data)))
-                parameters.append(Index(explodedata.data))
-                params.append("xdindex_" + nametrans(str(explodedata.data)))
-                for i, size in enumerate(self.uniques):
-                    if explodedata.fromsize == size:
-                        uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
-                        break
-                    assert i in uniqueToDataIndex
+                if DataArray(explodedata.data) not in parameters:
+                    parameters.append(DataArray(explodedata.data))
+                    params.append("xdarray_" + nametrans(str(explodedata.data)))
+                    parameters.append(Index(explodedata.data))
+                    params.append("xdindex_" + nametrans(str(explodedata.data)))
+                    for i, size in enumerate(self.uniques):
+                        if explodedata.fromsize == size:
+                            uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
+                            break
+                        assert i in uniqueToDataIndex
 
         if not lengthScan:
             for explode in self.explodes:
-                parameters.append(DataArray(explode.data))
-                params.append("xarray_" + nametrans(str(explode.data)))
+                if DataArray(explode.data) not in parameters:
+                    parameters.append(DataArray(explode.data))
+                    params.append("xarray_" + nametrans(str(explode.data)))
 
         definedHere = set(x.column for x in self.explodedatas + self.explodes + self.statements)
         if not lengthScan:
             for statement in self.statements:
                 for arg in statement.args:
-                    if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere:
+                    if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere and DataArray(arg) not in parameters:
                         parameters.append(DataArray(arg))
                         params.append("darray_" + nametrans(str(arg)))
 
@@ -223,7 +231,7 @@ class Loop(Serializable):
         if not lengthScan:
             mightneedsize = False
             for target in self.targets:
-                if isinstance(target, ColumnName):
+                if isinstance(target, ColumnName) and OutDataArray(target) not in parameters:
                     parameters.append(OutDataArray(target))
                     params.append("tarray_" + nametrans(str(target)))
                     mightneedsize = True
@@ -231,7 +239,7 @@ class Loop(Serializable):
 
         targetsizecode = ""
         if not lengthScan:
-            if mightneedsize and self.explodesize is not None:
+            if mightneedsize and self.explodesize is not None and OutSizeArray(self.explodesize.column) not in parameters:
                 parameters.append(OutSizeArray(self.explodesize.column))
                 params.append("tsarray_" + nametrans(str(self.explodesize.column)))
                 targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
