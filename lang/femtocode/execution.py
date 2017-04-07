@@ -270,11 +270,6 @@ class Loop(Serializable):
                     if deepi == 0 or self.sizes[deepi - 1] == unique:
                         revs.append(reversals[unique].pop())
 
-                        # for explodedata in self.explodedatas:
-                        #     if explodedata.fromsize == unique:
-                        #         revs.append("index_{d}[0] = index_{d}[1]".format(
-                        #             d = nametrans(str(explodedata.data))))
-
             revs.extend(dataincrements[deepi])
 
             resets.append("if deepi == {deepi}:{revs}".format(
@@ -310,57 +305,7 @@ def {fcnname}({params}):
 
 
 
-#         deepiToUnique = []
-#         uniques = []
-#         for size in self.sizes:
-#             if size not in uniques:
-#                 deepiToUnique.append(len(uniques))
-#                 uniques.append(size)
-#             else:
-#                 deepiToUnique.append(uniques.index(size))
 
-#         totalDepth = sum(x.depth() for x in uniques)
-#         assert totalDepth == len(sizes)
-
-#         params = ["numEntries", "countdown"]
-#         for i in range(len(uniques)):
-#             params.append("size{0}".format(i))
-#             params.append("size{0}i".format(i))
-
-#         datas = []
-#         for name in self.indata():
-#             datas.append(name)
-#             params.append("data_{0}".format(nametrans(name)))
-#             params.append("datai_{0}".format(nametrans(name)))
-
-#         init = ["entry = 0", "deepi = 0", "sizeLength = 0", "dataLength = 0"]
-
-#         blocks = []
-#         reversals = dict((size, []) for size in uniques)
-#         uniqueDepth = [0] * len(uniques)
-
-#         for deepi in range(totalDepth):
-#             uniqueDepth[deepiToUnique[deepi]] += 1
-#             blocks.append("""if deepi == {deepi}:
-#             size{unique}i[{ud}] = size{unique}i[{udm1}]; data{unique}i[{ud}] = data{unique}i[{udm1}]
-#             countdown[deepi] = size{unique}[size{unique}i[{ud}]]
-#             # print "size{unique}[", size{unique}i[{ud}], "]", size{unique}[size{unique}i[{ud}]]
-#             sizeLength += 1
-#             size{unique}i[{ud}] += 1
-# """.format(deepi=deepi,
-#            unique=deepiToUnique[deepi],
-#            ud=uniqueDepth[deepiToUnique[deepi]],
-#            udm1=(uniqueDepth[deepiToUnique[deepi]] - 1),
-#            ))
-
-#             reversal = "size{unique}i[{udm1}] = size{unique}i[{ud}]; data{unique}i[{udm1}] = data{unique}i[{ud}]".format(
-#                 unique=deepiToUnique[deepi],
-#                 ud=uniqueDepth[deepiToUnique[deepi]],
-#                 udm1=(uniqueDepth[deepiToUnique[deepi]] - 1),
-#                 )
-#             reversals[uniques[deepiToUnique[deepi]]].insert(0, reversal)
-
-#         dataassign = []
 
 
 
