@@ -90,14 +90,15 @@ class TestExecution(unittest.TestCase):
     #         self.assertAlmostEqual(old.x + old.y - 3, new.a)
     #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
 
-    def test_loop_generation(self):
+    def test_oldexample1(self):
         loop = Loop(ColumnName.parse("#0@size"))
 
         statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
-        # statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
 
         for statement in statements:
             loop.newStatement(statement)
+
+        loop.newTarget(ColumnName.parse("#4"))
 
         validNames = {}
         def valid(n):
@@ -105,21 +106,80 @@ class TestExecution(unittest.TestCase):
                 validNames[n] = "v" + repr(len(validNames))
             return validNames[n]
 
-        # parameters, codetext = loop.codetext("fcnname", valid, False)
-        # print codetext
-
-        fcnname = loop.compileToPython("fcnname", {}, StandardLibrary.table, False, True)
+        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        array_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
-        index_v0 = [0, 0, 0]
-        array_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
-        index_v1 = [0, 0]
-        array_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
-        index_v2 = [0, 0, 0]
-        array_v3 = oldexample.dataset.groups[0].segments["ys[]"].data
-        index_v3 = [0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+    
+        loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
+        dataLength = numEntries[1]
+        sizeLength = numEntries[2]
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+        xdarray_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
+        xdindex_v2 = [0, 0, 0]
+        xdarray_v3 = oldexample.dataset.groups[0].segments["ys[]"].data
+        xdindex_v3 = [0, 0]
+        tarray_v4 = [0] * dataLength
+        tsarray_v5 = [0] * sizeLength
         
-        # fcnname(numEntries, countdown, array_v0, index_v0, array_v1, index_v1, array_v2, index_v2, array_v3, index_v3)
-        # print numEntries
+        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, xdarray_v2, xdindex_v2, xdarray_v3, xdindex_v3, tarray_v4, tsarray_v5)
+        self.assertEqual(numEntries, [2, 48, 20])
+        self.assertEqual(tarray_v4, [101, 102, 103, 104, 201, 202, 203, 204, 301, 302, 303, 304, 401, 402, 403, 404, 501, 502, 503, 504, 601, 602, 603, 604, 705, 706, 707, 708, 805, 806, 807, 808, 905, 906, 907, 908, 1005, 1006, 1007, 1008, 1105, 1106, 1107, 1108, 1205, 1206, 1207, 1208])
+        self.assertEqual(tsarray_v5, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
+
+    def test_oldexample2(self):
+        loop = Loop(ColumnName.parse("#0@size"))
+
+        statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
+
+        for statement in statements:
+            loop.newStatement(statement)
+
+        loop.newTarget(ColumnName.parse("#4"))
+
+        validNames = {}
+        def valid(n):
+            if n not in validNames:
+                validNames[n] = "v" + repr(len(validNames))
+            return validNames[n]
+
+        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+    
+        loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
+        dataLength = numEntries[1]
+        sizeLength = numEntries[2]
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+        xdarray_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
+        xdindex_v2 = [0, 0, 0]
+        xdarray_v3 = oldexample.dataset.groups[0].segments["ys[]"].data
+        xdindex_v3 = [0, 0]
+        tarray_v4 = [0] * dataLength
+        tsarray_v5 = [0] * sizeLength
+        
+        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, xdarray_v2, xdindex_v2, xdarray_v3, xdindex_v3, tarray_v4, tsarray_v5)
+        self.assertEqual(numEntries, [2, 48, 32])
+        self.assertEqual(tarray_v4, [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604, 705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208])
+        self.assertEqual(tsarray_v5, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])

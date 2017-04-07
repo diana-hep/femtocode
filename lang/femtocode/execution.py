@@ -91,22 +91,38 @@ class ExecutionFailure(Serializable):
 class DependencyGraph(object):
     pass  # FIXME
 
-class _ParamNode(object):
+class ParamNode(Serializable):
+    def toJson(self):
+        return self.__class__.__name__
+
+    @staticmethod
+    def fromJson(obj):
+        if isinstance(obj, string_types):
+            return getattr(self.__module__, obj)()
+        elif isinstance(obj, dict):
+            n, = obj.keys()
+            v, = obj.values()
+            return getattr(self.__module__, n)(ColumnName.parse(v))
+        else:
+            assert False
+
     def __repr__(self):
-        return "<{0}>".format(self.__class__.__name__)
-class _NamedParamNode(_ParamNode):
+        return self.toJsonString()
+
+class NamedParamNode(ParamNode):
     def __init__(self, name):
         self.name = name
-    def __repr__(self):
-        return "<{0} {1}>".format(self.__class__.__name__, self.name)
 
-class _NumEntries(_ParamNode): pass
-class _Countdown(_ParamNode): pass
-class _SizeArray(_NamedParamNode): pass
-class _DataArray(_NamedParamNode): pass
-class _OutDataArray(_NamedParamNode): pass
-class _OutSizeArray(_NamedParamNode): pass
-class _Index(_NamedParamNode): pass
+    def toJson(self):
+        return {self.__class__.__name__: str(self.name)}
+
+class NumEntries(ParamNode): pass
+class Countdown(ParamNode): pass
+class SizeArray(NamedParamNode): pass
+class DataArray(NamedParamNode): pass
+class OutDataArray(NamedParamNode): pass
+class OutSizeArray(NamedParamNode): pass
+class Index(NamedParamNode): pass
 
 class Loop(Serializable):
     def __init__(self, plateauSize):
@@ -122,6 +138,7 @@ class Loop(Serializable):
         self.statements = []
         self.targets = []
 
+        self.prerun = None
         self.run = None
 
     def setSizes(self, sizes):
@@ -163,56 +180,61 @@ class Loop(Serializable):
                 self.statements.append(statement)
 
     def codetext(self, fcnname, nametrans, lengthScan):
-        parameters = [_NumEntries(), _Countdown()]
+        parameters = [NumEntries(), Countdown()]
         params = ["numEntries", "countdown"]
 
         uniqueToSizeArray = []
         uniqueToSizeIndex = []
         for i, size in enumerate(self.uniques):
-            parameters.append(_SizeArray(size))
-            parameters.append(_Index(size))
+            parameters.append(SizeArray(size))
             params.append("sarray_" + nametrans(str(size)))
-            params.append("sindex_" + nametrans(str(size)))
             uniqueToSizeArray.append("sarray_" + nametrans(str(size)))
+            parameters.append(Index(size))
+            params.append("sindex_" + nametrans(str(size)))
             uniqueToSizeIndex.append("sindex_" + nametrans(str(size)))
 
         uniqueToDataIndex = {}
-        for explodedata in self.explodedatas:
-            parameters.append(_DataArray(explodedata.data))
-            parameters.append(_Index(explodedata.data))
-            params.append("xdarray_" + nametrans(str(explodedata.data)))
-            params.append("xdindex_" + nametrans(str(explodedata.data)))
-            for i, size in enumerate(self.uniques):
-                if explodedata.fromsize == size:
-                    uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
-                    break
-                assert i in uniqueToDataIndex
+        if not lengthScan:
+            for explodedata in self.explodedatas:
+                parameters.append(DataArray(explodedata.data))
+                params.append("xdarray_" + nametrans(str(explodedata.data)))
+                parameters.append(Index(explodedata.data))
+                params.append("xdindex_" + nametrans(str(explodedata.data)))
+                for i, size in enumerate(self.uniques):
+                    if explodedata.fromsize == size:
+                        uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
+                        break
+                    assert i in uniqueToDataIndex
 
-        for explode in self.explodes:
-            parameters.append(_DataArray(explode.data))
-            params.append("xarray_" + nametrans(str(explode.data)))
+        if not lengthScan:
+            for explode in self.explodes:
+                parameters.append(DataArray(explode.data))
+                params.append("xarray_" + nametrans(str(explode.data)))
 
         definedHere = set(x.column for x in self.explodedatas + self.explodes + self.statements)
-        for statement in self.statements:
-            for arg in statement.args:
-                if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere:
-                    parameters.append(_DataArray(arg))
-                    params.append("darray_" + nametrans(str(arg)))
+        if not lengthScan:
+            for statement in self.statements:
+                for arg in statement.args:
+                    if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere:
+                        parameters.append(DataArray(arg))
+                        params.append("darray_" + nametrans(str(arg)))
 
         targetcode = []
-        mightneedsize = False
-        for target in self.targets:
-            if isinstance(target, ColumnName):
-                parameters.append(_OutSizeArray(target))
-                params.append("tarray_" + nametrans(str(target)))
-                mightneedsize = True
-                targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
+        if not lengthScan:
+            mightneedsize = False
+            for target in self.targets:
+                if isinstance(target, ColumnName):
+                    parameters.append(OutDataArray(target))
+                    params.append("tarray_" + nametrans(str(target)))
+                    mightneedsize = True
+                    targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
 
         targetsizecode = ""
-        if mightneedsize and self.explodesize is not None:
-            parameters.append(_OutSizeArray(self.explodesize.column))
-            params.append("tsarray_" + nametrans(str(self.explodesize.column)))
-            targetsizecode = "tsarray_{ts}[numEntries[2]] = {ts}".format(ts = nametrans(str(self.explodesize.column)))
+        if not lengthScan:
+            if mightneedsize and self.explodesize is not None:
+                parameters.append(OutSizeArray(self.explodesize.column))
+                params.append("tsarray_" + nametrans(str(self.explodesize.column)))
+                targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
 
         init = ["entry = 0", "deepi = 0"]
 
@@ -236,15 +258,16 @@ class Loop(Serializable):
                                          ud = uniqueDepth[uniquei],
                                          udm1 = uniqueDepth[uniquei] - 1)
 
-            for explodedata in self.explodedatas:
-                if explodedata.fromsize == size:
-                    block += """
+            if not lengthScan:
+                for explodedata in self.explodedatas:
+                    if explodedata.fromsize == size:
+                        block += """
             {index}[{ud}] = {index}[{udm1}]""".format(index = uniqueToDataIndex[uniquei],
-           ud = uniqueDepth[uniquei],
-           udm1 = uniqueDepth[uniquei] - 1)
+                                                      ud = uniqueDepth[uniquei],
+                                                      udm1 = uniqueDepth[uniquei] - 1)
 
-                    if deepestData.get(explodedata.column, 0) < uniqueDepth[uniquei]:
-                        deepestData[explodedata.column] = uniqueDepth[uniquei]
+                        if deepestData.get(explodedata.column, 0) < uniqueDepth[uniquei]:
+                            deepestData[explodedata.column] = uniqueDepth[uniquei]
 
             blocks.append(block + "\n")
 
@@ -262,37 +285,39 @@ class Loop(Serializable):
             reversals[self.uniques[uniquei]].insert(0, reversal)
 
         dataassigns = []
-        for explodedata in self.explodedatas:
-            d = nametrans(str(explodedata.data))
-            dataassigns.append("{d} = xdarray_{d}[xdindex_{d}[{depth}]]".format(
-                d = d, depth = deepestData[explodedata.column]))
+        if not lengthScan:
+            for explodedata in self.explodedatas:
+                d = nametrans(str(explodedata.data))
+                dataassigns.append("{n} = xdarray_{d}[xdindex_{d}[{depth}]]".format(
+                    n = nametrans(explodedata.column), d = d, depth = deepestData[explodedata.column]))
 
-        for explode in self.explodes:
-            dataassigns.append("{d} = xarray_{d}[numEntries[0]]".format(nametrans(str(explode.data))))
+            for explode in self.explodes:
+                dataassigns.append("{n} = xarray_{d}[numEntries[0]]".format(
+                    n = nametrans(explode.column), d = nametrans(str(explode.data))))
 
-        for statement in self.statements:
-            for arg in statement.args:
-                if isinstance(arg, ColumnName) and arg not in definedHere:
-                    dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(nametrans(str(explode.data))))
+            for statement in self.statements:
+                for arg in statement.args:
+                    if isinstance(arg, ColumnName) and arg not in definedHere:
+                        dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(explode.data))))
 
         dataincrements = dict((i, []) for i in range(len(self.sizes) + 1))
-        for i, unique in enumerate(self.uniques):
-            rindex_plus1 = len(self.sizes) - list(reversed(self.sizes)).index(unique)
-            for explodedata in self.explodedatas:
-                if explodedata.fromsize == unique:
-                    dataincrements[rindex_plus1].append("xdindex_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
+        if not lengthScan:
+            for i, unique in enumerate(self.uniques):
+                rindex_plus1 = len(self.sizes) - list(reversed(self.sizes)).index(unique)
+                for explodedata in self.explodedatas:
+                    if explodedata.fromsize == unique:
+                        dataincrements[rindex_plus1].append("xdindex_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
 
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
             {assigns}
 
-            REPLACEME
-            {targetcode}
+            REPLACEME     # <--- see replacement below{targetcode}
             {increments}
             numEntries[1] += 1""".format(
             deepi = len(self.sizes),
             assigns = "\n            ".join(dataassigns),
-            targetcode = "\n            ".join(targetcode),
+            targetcode = ("\n\n            " if len(targetcode) > 0 else "") + "\n            ".join(targetcode),
             increments = "\n            ".join(dataincrements[len(self.sizes)])))
 
         resets = []
@@ -303,7 +328,8 @@ class Loop(Serializable):
                     if deepi == 0 or self.sizes[deepi - 1] == unique:
                         revs.append(reversals[unique].pop())
 
-            revs.extend(dataincrements[deepi])
+            if not lengthScan:
+                revs.extend(dataincrements[deepi])
 
             resets.append("if deepi == {deepi}:{revs}".format(
                 deepi = deepi,
@@ -335,16 +361,50 @@ def {fcnname}({params}):
            resets = "\n            el".join(resets))
 
     def compileToPython(self, fcnname, inputs, fcntable, tonative, debug):
+        prevalidNames = {}
+        def prevalid(n):
+            if n not in prevalidNames:
+                prevalidNames[n] = "v" + repr(len(prevalidNames))
+            return prevalidNames[n]
+
+        def replace(node, withwhat):
+            if isinstance(node, ast.AST):
+                for field in node._fields:
+                    replace(getattr(node, field), withwhat)
+
+            elif isinstance(node, list):
+                index = None
+                for i, x in enumerate(node):
+                    if isinstance(x, ast.Expr) and isinstance(x.value, ast.Name) and x.value.id == "REPLACEME":
+                        index = i
+                        break
+
+                if index is not None:
+                    node[index : index + 1] = withwhat
+                else:
+                    for x in node:
+                        replace(x, withwhat)
+
+        # get a function that looks just like our real one, but with no contents: for measuring the size of arrays before allocating
+        preparameters, preparams, precodetext = self.codetext(fcnname + "_prerun", prevalid, True)
+        premodule = ast.parse(precodetext)
+        replace(premodule, [])
+        fakeLineNumbers(premodule)
+        self.prerun = LoopFunction(self._reallyCompile(fcnname + "_prerun", premodule, {}), preparameters)
+
+        # reset the validNames
         validNames = {}
         def valid(n):
             if n not in validNames:
                 validNames[n] = "v" + repr(len(validNames))
             return validNames[n]
+
         def newname():
             n = len(validNames)  # an integer can't collide with any incoming names
             validNames[n] = "_" + repr(n)
             return validNames[n]
 
+        # now get our real function
         parameters, params, codetext = self.codetext(fcnname, valid, False)
         module = ast.parse(codetext)
 
@@ -378,39 +438,24 @@ def {fcnname}({params}):
 
             aststatements.extend(assignment)
 
-        def replace(node):
-            if isinstance(node, ast.AST):
-                for field in node._fields:
-                    replace(getattr(node, field))
-
-            elif isinstance(node, list):
-                index = None
-                for i, x in enumerate(node):
-                    if isinstance(x, ast.Expr) and isinstance(x.value, ast.Name) and x.value.id == "REPLACEME":
-                        index = i
-                        break
-
-                if index is not None:
-                    node[index : index + 1] = aststatements
-                else:
-                    for x in node:
-                        replace(x)
-
-        replace(module)
+        replace(module, aststatements)
         fakeLineNumbers(module)
 
         if debug:
             print("")
             print("Statements:")
             if self.explodesize is not None:
-                print(self.explodesize)
+                print("    " + str(self.explodesize))
             for statement in self.explodedatas + self.explodes + self.statements:
-                print(statement)
+                print("    " + str(statement))
+            print("")
+            print("Prerun parameters:")
+            for parameter, param in zip(preparameters, preparams):
+                print("    {0}: {1}".format(param, parameter))
             print("")
             print("Parameters:")
             for parameter, param in zip(parameters, params):
                 print("    {0}: {1}".format(param, parameter))
-            print("")
             print(codetext)
             print("REPLACEME:")
             print("    " + astToSource(ast.Module(aststatements)).replace("\n", "\n    "))
@@ -421,7 +466,7 @@ def {fcnname}({params}):
                     print("    {0}: {1}".format(n, references[n]))
                 print("")
 
-        return parameters, self._reallyCompile(fcnname, module, references)
+        self.run = LoopFunction(self._reallyCompile(fcnname, module, references), parameters)
 
     def _reallyCompile(self, fcnname, module, references):
         compiled = compile(module, "Femtocode", "exec")
@@ -431,7 +476,13 @@ def {fcnname}({params}):
         return out[fcnname]
 
 class LoopFunction(Serializable):
-    pass  # FIXME
+    def __init__(self, fcn, parameters):
+        self.fcn = fcn
+        self.parameters = parameters
+
+
+
+
 
 class Executor(Serializable):
     pass  # FIXME
