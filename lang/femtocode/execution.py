@@ -168,12 +168,18 @@ class Loop(Serializable):
             uniqueToSizeArray.append("array_" + nametrans(str(size)))
             uniqueToSizeIndex.append("index_" + nametrans(str(size)))
 
+        uniqueToDataIndex = {}
         for explodedata in self.explodedatas:
             parameters.append(self._Array(explodedata.data))
             parameters.append(self._Index(explodedata.data))
             params.append("array_" + nametrans(str(explodedata.data)))
             params.append("index_" + nametrans(str(explodedata.data)))
-            
+            for i, size in enumerate(self.uniques):
+                if explodedata.fromsize == size:
+                    uniqueToDataIndex[i] = "index_" + nametrans(str(explodedata.data))
+                    break
+                assert i in uniqueToDataIndex
+
         for explode in self.explodes:
             parameters.append(self._Array(explode.data))
             params.append(nametrans(str(explode.data)))
@@ -191,21 +197,33 @@ class Loop(Serializable):
         reversals = dict((size, []) for size in self.uniques)
         uniqueDepth = [0] * len(self.uniques)
 
+        deepestData = {}
         for deepi, size in enumerate(self.sizes):
             uniquei = self.deepiToUnique[deepi]
             uniqueDepth[uniquei] += 1
 
-            blocks.append("""if deepi == {deepi}:
+            block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
             countdown[deepi] = {array}[{index}[{ud}]]
             print "size", {array}[{index}[{ud}]]
             numEntries[2] += 1
-            {index}[{ud}] += 1
-""".format(deepi = deepi,
-           array = uniqueToSizeArray[uniquei],
-           index = uniqueToSizeIndex[uniquei],
+            {index}[{ud}] += 1""".format(deepi = deepi,
+                                         array = uniqueToSizeArray[uniquei],
+                                         index = uniqueToSizeIndex[uniquei],
+                                         ud = uniqueDepth[uniquei],
+                                         udm1 = uniqueDepth[uniquei] - 1)
+
+            for explodedata in self.explodedatas:
+                if explodedata.fromsize == size:
+                    block += """
+            {index}[{ud}] = {index}[{udm1}]""".format(index = uniqueToDataIndex[uniquei],
            ud = uniqueDepth[uniquei],
-           udm1 = uniqueDepth[uniquei] - 1))
+           udm1 = uniqueDepth[uniquei] - 1)
+
+                    if deepestData.get(explodedata.column, 0) < uniqueDepth[uniquei]:
+                        deepestData[explodedata.column] = uniqueDepth[uniquei]
+
+            blocks.append(block + "\n")
 
             reversal = "{index}[{udm1}] = {index}[{ud}]".format(
                 index = uniqueToSizeIndex[uniquei],
@@ -213,10 +231,30 @@ class Loop(Serializable):
                 udm1 = uniqueDepth[uniquei] - 1)
             reversals[self.uniques[uniquei]].insert(0, reversal)
 
-        blocks.append("""if deepi == {0}:
+        dataassigns = []
+        for explodedata in self.explodedatas:
+            d = nametrans(str(explodedata.data))
+            dataassigns.append("{d} = array_{d}[index_{d}[{depth}]]".format(
+                d = d, depth = deepestData[explodedata.column]))
+
+        dataincrements = dict((i, []) for i in range(len(self.sizes) + 1))
+        for i, unique in enumerate(self.uniques):
+            rindex_plus1 = len(self.sizes) - list(reversed(self.sizes)).index(unique)
+            for explodedata in self.explodedatas:
+                if explodedata.fromsize == unique:
+                    dataincrements[rindex_plus1].append("index_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
+
+        blocks.append("""if deepi == {deepi}:
             deepi -= 1
-            print "data    "
-            numEntries[1] += 1""".format(len(self.sizes)))
+            numEntries[1] += 1
+
+            {assigns}
+            print {datarefs}
+            {increments}""".format(
+            deepi = len(self.sizes),
+            assigns = "\n            ".join(dataassigns),
+            datarefs = ", ".join(nametrans(str(x.data)) for x in self.explodedatas),
+            increments = "\n            ".join(dataincrements[len(self.sizes)])))
 
         resets = []
         for deepi, size in enumerate(self.sizes):
@@ -225,6 +263,8 @@ class Loop(Serializable):
                 if len(reversals[unique]) > 0:
                     if deepi == 0 or self.sizes[deepi - 1] == unique:
                         revs.append(reversals[unique].pop())
+
+            revs.extend(dataincrements[deepi])
 
             resets.append("if deepi == {deepi}:{revs}".format(
                 deepi = deepi,
