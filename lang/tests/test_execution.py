@@ -36,6 +36,12 @@ session = TestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
+
+def execed(codetext, fcnname):
+    glob = {}
+    exec(codetext, glob)
+    return glob[fcnname]
 
 class TestExecution(unittest.TestCase):
     def runTest(self):
@@ -98,6 +104,28 @@ class TestExecution(unittest.TestCase):
         for statement in statements:
             loop.newStatement(statement)
 
-        parameters, codetext = loop.codetext("fcnname")
+        validNames = {}
+        def valid(n):
+            if n not in validNames:
+                validNames[n] = "v" + repr(len(validNames))
+            return validNames[n]
+
+        parameters, codetext = loop.codetext("fcnname", valid, False)
         print
         print codetext
+
+        fcnname = execed(codetext, "fcnname")
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        array_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        index_v0 = [0, 0, 0]
+        array_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        index_v1 = [0, 0]
+        array_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
+        index_v2 = [0, 0, 0]
+        array_v3 = oldexample.dataset.groups[0].segments["ys[]"].data
+        index_v3 = [0, 0]
+        
+        fcnname(numEntries, countdown, array_v0, index_v0, array_v1, index_v1, array_v2, index_v2, array_v3, index_v3)
+        print numEntries

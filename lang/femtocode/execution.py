@@ -154,7 +154,7 @@ class Loop(Serializable):
         def __init__(self, over):
             self.over = over
 
-    def codetext(self, fcnname, nametrans=lambda x: x, lengthScan=False):
+    def codetext(self, fcnname, nametrans, lengthScan):
         parameters = [self._NumEntries(), self._Countdown()]
         params = ["numEntries", "countdown"]
 
@@ -185,7 +185,7 @@ class Loop(Serializable):
                     parameters.append(self._Array(arg))
                     params.append(nametrans(str(arg)))
 
-        init = ["entry = 0", "deepi = 0", "sizeLength = 0", "dataLength = 0"]
+        init = ["entry = 0", "deepi = 0"]
 
         blocks = []
         reversals = dict((size, []) for size in self.uniques)
@@ -196,10 +196,11 @@ class Loop(Serializable):
             uniqueDepth[uniquei] += 1
 
             blocks.append("""if deepi == {deepi}:
-                {index}[{ud}] = {index}[{udm1}]
-                countdown[deepi] = {array}[{index}[{ud}]]
-                sizeLength += 1
-                {index}[{ud}] += 1
+            {index}[{ud}] = {index}[{udm1}]
+            countdown[deepi] = {array}[{index}[{ud}]]
+            print "size", {array}[{index}[{ud}]]
+            numEntries[2] += 1
+            {index}[{ud}] += 1
 """.format(deepi = deepi,
            array = uniqueToSizeArray[uniquei],
            index = uniqueToSizeIndex[uniquei],
@@ -213,8 +214,9 @@ class Loop(Serializable):
             reversals[self.uniques[uniquei]].insert(0, reversal)
 
         blocks.append("""if deepi == {0}:
-                deepi -= 1
-                dataLength += 1""".format(len(self.sizes)))
+            deepi -= 1
+            print "data    "
+            numEntries[1] += 1""".format(len(self.sizes)))
 
         resets = []
         for deepi, size in enumerate(self.sizes):
@@ -232,7 +234,7 @@ class Loop(Serializable):
 def {fcnname}({params}):
     {init}
 
-    while entry < numEntries:
+    while entry < numEntries[0]:
         if deepi != 0:
             countdown[deepi - 1] -= 1
 
