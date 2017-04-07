@@ -138,7 +138,7 @@ def generate(sizes):
             dataLength += 1
 
             print {1}
-            {2}""".format(totalDepth, ", ".join(datas), dataincrements[len(sizes)]))
+            {2}""".format(totalDepth, ", ".join(datas), "" if len(sizes) == 0 else dataincrements[len(sizes)]))
 
     resets = []
     for deepi in range(totalDepth):
