@@ -156,9 +156,8 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(numEntries, [2, 2, 0])
         self.assertEqual(tarray_v2, [1123, 1321])
 
-    def test_noexplodes(self):
+    def test_no_explodes(self):
         statements = oldexample.toPython(a = "ys.map(y => y + y)").compile().statements
-        print statements
 
         loop = Loop(ColumnName.parse("ys[]@size"))
         loop.setSizes((ColumnName.parse("ys[]@size"),))
@@ -180,9 +179,36 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v2, [2, 4, 6, 8, 10, 12, 14, 16])
         self.assertEqual(sarray_v0, [4, 4])
 
+    def test_no_explodes2(self):
+        statements = oldexample.toPython(a = "ys.map(y => y + 100)").compile().statements
+
+        loop = Loop(ColumnName.parse("ys[]@size"))
+        loop.setSizes((ColumnName.parse("ys[]@size"),))
+        for statement in statements:
+            loop.newStatement(statement)
+        loop.newTarget(ColumnName.parse("#0"))
+        loop.compileToPython("fcnname", {"ys[]": collection(real)}, StandardLibrary.table, False, False)
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0]
+
+        sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v0 = [0, 0]
+        darray_v1 = oldexample.dataset.groups[0].segments["ys[]"].data
+        tarray_v2 = [0] * oldexample.dataset.groups[0].segments["ys[]"].dataLength
+        
+        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, darray_v1, tarray_v2)
+        self.assertEqual(numEntries, [2, 8, 2])
+        self.assertEqual(tarray_v2, [101, 102, 103, 104, 105, 106, 107, 108])
+        self.assertEqual(sarray_v0, [4, 4])
+
+    # def test_simple_explode(self):
+    #     statements = oldexample.toPython(a = "ys.map(y => y + c)").compile().statements
+    #     print statements
+
 
     #     print
-    #     testy(oldexample.toPython(a = "ys.map(y => y + c)").compile().statements)
+    #     testy(oldexample.toPython(a = "").compile().statements)
 
     #     print
     #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
