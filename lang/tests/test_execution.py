@@ -36,7 +36,7 @@ session = TestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
-oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 1000})
+oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 1000, "d": 1000})
 
 def execed(codetext, fcnname):
     glob = {}
@@ -97,7 +97,8 @@ class TestExecution(unittest.TestCase):
     def test_loop_generation(self):
         loop = Loop(ColumnName.parse("#0@size"))
 
-        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
+        # statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
+        statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => 100*x + y)))").compile().statements
         print
         print statements
 

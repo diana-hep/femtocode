@@ -229,6 +229,13 @@ class Loop(Serializable):
                 index = uniqueToSizeIndex[uniquei],
                 ud = uniqueDepth[uniquei],
                 udm1 = uniqueDepth[uniquei] - 1)
+
+            if uniquei in uniqueToDataIndex:
+                reversal += "\n                {index}[{udm1}] = {index}[{ud}]".format(
+                    index = uniqueToDataIndex[uniquei],
+                    ud = uniqueDepth[uniquei],
+                    udm1 = uniqueDepth[uniquei] - 1)
+
             reversals[self.uniques[uniquei]].insert(0, reversal)
 
         dataassigns = []
@@ -246,11 +253,10 @@ class Loop(Serializable):
 
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
-            numEntries[1] += 1
-
             {assigns}
             print {datarefs}
-            {increments}""".format(
+            {increments}
+            numEntries[1] += 1""".format(
             deepi = len(self.sizes),
             assigns = "\n            ".join(dataassigns),
             datarefs = ", ".join(nametrans(str(x.data)) for x in self.explodedatas),
@@ -263,6 +269,11 @@ class Loop(Serializable):
                 if len(reversals[unique]) > 0:
                     if deepi == 0 or self.sizes[deepi - 1] == unique:
                         revs.append(reversals[unique].pop())
+
+                        # for explodedata in self.explodedatas:
+                        #     if explodedata.fromsize == unique:
+                        #         revs.append("index_{d}[0] = index_{d}[1]".format(
+                        #             d = nametrans(str(explodedata.data))))
 
             revs.extend(dataincrements[deepi])
 
