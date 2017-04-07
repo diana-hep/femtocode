@@ -401,20 +401,22 @@ def {fcnname}({params}):
 
         if debug:
             print("")
+            print("Statements:")
             if self.explodesize is not None:
                 print(self.explodesize)
             for statement in self.explodedatas + self.explodes + self.statements:
                 print(statement)
             print("")
+            print("Parameters:")
             for parameter, param in zip(parameters, params):
                 print("    {0}: {1}".format(param, parameter))
             print("")
             print(codetext)
-            print("")
             print("REPLACEME:")
             print("    " + astToSource(ast.Module(aststatements)).replace("\n", "\n    "))
             print("")
             if len(references) > 0:
+                print("References:")
                 for n in sorted(references):
                     print("    {0}: {1}".format(n, references[n]))
                 print("")
