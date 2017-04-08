@@ -556,10 +556,10 @@ def exploderef(ref, replacements, refnumber, dataset, sizes, explosions):
 
         else:
             if (ExplodeSize, sizes) in replacements:
-                explodedSize = replacements[(ExplodeSize, sizes)][0]
+                explodedSize = replacements[(ExplodeSize, sizes)]
             else:
                 explodedSize = ColumnName(refnumber).size()
-                replacements[(ExplodeSize, sizes)] = (explodedSize, explosions)
+                replacements[(ExplodeSize, sizes)] = explodedSize
                 # print "setting replacements", (ExplodeSize, sizes), "=", explodedSize
                 statements.append(ExplodeSize(explodedSize, sizes))
 
@@ -580,10 +580,10 @@ def exploderef(ref, replacements, refnumber, dataset, sizes, explosions):
         statements = []
 
         if (ExplodeSize, sizes) in replacements:
-            explodedSize = replacements[(ExplodeSize, sizes)][0]
+            explodedSize = replacements[(ExplodeSize, sizes)]
         else:
             explodedSize = ColumnName(refnumber).size()
-            replacements[(ExplodeSize, sizes)] = (explodedSize, explosions)
+            replacements[(ExplodeSize, sizes)] = explodedSize
             # print "setting replacements", (ExplodeSize, sizes), "=", explodedSize
             statements.append(ExplodeSize(explodedSize, sizes))
 
@@ -606,14 +606,23 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
     if replacements is None:
         replacements = {}
 
-    if (typedtree.TypedTree, tree) in replacements and startswith(explosions, replacements[(typedtree.TypedTree, tree)][1]):
-        return replacements[(typedtree.TypedTree, tree)][0], Statements(), {}, refnumber
+    # if (typedtree.TypedTree, tree) in replacements and startswith(explosions, replacements[(typedtree.TypedTree, tree)][1]):
+    #     return replacements[(typedtree.TypedTree, tree)][0], Statements(), {}, refnumber
+
+    found = None
+    for key in replacements:
+        if key[0] == typedtree.TypedTree and key[1] == tree and startswith(explosions, key[2]):
+            found = replacements[key]
+            break
+
+    if found is not None:
+        return found, Statements(), {}, refnumber
 
     elif isinstance(tree, typedtree.Ref):
         assert tree.framenumber is None, "should not encounter any deep references here"
 
         ref = Ref(tree.name, tree.schema, dataset.dataColumn(tree.name), dataset.sizeColumn(tree.name))
-        replacements[(typedtree.TypedTree, tree)] = (ref, explosions)
+        replacements[(typedtree.TypedTree, tree, explosions)] = ref
         if ref.data in dataset.columns:
             inputs = {ref.data: tree.schema}
         else:
@@ -646,6 +655,10 @@ class FlatFunction(object):
             statements.extend(ss)
             inputs.update(ins)
 
+        # for arg in call.args:
+        #     if isinstance(arg, typedtree.Call):
+        #         print "HERE", replacements[(typedtree.TypedTree, arg)][1]
+
         # print "statements", statements, "argrefs", argrefs
 
         uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
@@ -666,7 +679,7 @@ class FlatFunction(object):
 
         argsizes = set(argref.size for argref in argrefs if isinstance(argref, Ref))
 
-        if self.trivial or len(argsizes) != 1:
+        if True or self.trivial or len(argsizes) != 1:
             args = []
             sizeColumnAssigned = False
             sizeColumn = None
@@ -695,7 +708,7 @@ class FlatFunction(object):
             ref = Ref(refnumber, call.schema, columnName, sizeColumn)
 
             refnumber += 1
-            replacements[(typedtree.TypedTree, call)] = (ref, explosions)
+            replacements[(typedtree.TypedTree, call, explosions)] = ref
             statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
 
             return ref, statements, inputs, refnumber
@@ -712,7 +725,7 @@ class FlatFunction(object):
             ref = Ref(refnumber, call.schema, columnName, sizeColumn)
 
             refnumber += 1
-            replacements[(typedtree.TypedTree, call)] = (ref, oldexplosions)
+            replacements[(typedtree.TypedTree, call, explosions)] = ref
             statements.append(Call(columnName, ref.schema, sizeColumn, self.name, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs]))
 
             final, ss, refnumber = exploderef(ref, replacements, refnumber, dataset, sizes, explosions)
