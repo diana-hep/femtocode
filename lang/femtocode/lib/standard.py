@@ -612,6 +612,7 @@ class Is(lispytree.BuiltinFunction):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         if call.schema == boolean(True):
             literal = statementlist.Literal(True, boolean(True))
+            literal.explosions = explosions
             replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
             replacements[(typedtree.TypedTree, call)][explosions] = literal
             return literal, statementlist.Statements(), {}, refnumber
@@ -625,6 +626,7 @@ class Is(lispytree.BuiltinFunction):
 
             columnName = ColumnName(refnumber)
             ref = statementlist.Ref(refnumber, call.schema, columnName, sizeColumn)
+            ref.explosions = explosions
 
             refnumber += 1
             replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
@@ -751,6 +753,7 @@ class Dot(lispytree.BuiltinFunction):
 
         rename = argref.name.rec(field)
         reref = statementlist.Ref(rename, argref.schema.fields[field], dataset.dataColumn(rename), dataset.sizeColumn(rename))
+        reref.explosions = explosions
 
         replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
         replacements[(typedtree.TypedTree, call)][explosions] = reref
@@ -793,25 +796,29 @@ class Map(lispytree.BuiltinFunction):
 
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         argref, statements, inputs, refnumber = statementlist.build(call.args[0], dataset, replacements, refnumber, explosions)
-
+        
         # the argument of the UserFunction is the values of the collection
         rename = argref.name.coll()
+        extendedExplosions = explosions + (rename,)
         reref = statementlist.Ref(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename))
+        reref.explosions = extendedExplosions
 
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = replacements.get((typedtree.TypedTree, call.args[1].refs[0]), {})
-        replacements[(typedtree.TypedTree, call.args[1].refs[0])][explosions + (rename,)] = reref
+        replacements[(typedtree.TypedTree, call.args[1].refs[0])][extendedExplosions] = reref
 
-        result, ss, ins, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, explosions + (rename,))
+        result, ss, ins, refnumber = statementlist.build(call.args[1].body, dataset, replacements, refnumber, extendedExplosions)
         statements.extend(ss)
         inputs.update(ins)
 
         replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
-        replacements[(typedtree.TypedTree, call)][explosions] = replacements[(typedtree.TypedTree, call.args[1].body)][explosions + (rename,)]
+        replacements[(typedtree.TypedTree, call)][explosions] = replacements[(typedtree.TypedTree, call.args[1].body)][extendedExplosions]
 
         if isinstance(result, statementlist.Ref):
-            return statementlist.Ref(result.name, call.schema, result.data, result.size), statements, inputs, refnumber
+            out = statementlist.Ref(result.name, call.schema, result.data, result.size)
         else:
-            return statementlist.Literal(result.value, call.schema), statements, inputs, refnumber
+            out = statementlist.Literal(result.value, call.schema)
+        out.explosions = explosions
+        return out, statements, inputs, refnumber
 
     def tosrc(self, args):
         return astToSource(args[0]) + ".map(" + astToSource(args[1]) + ")"
