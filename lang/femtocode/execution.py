@@ -96,14 +96,17 @@ class DependencyGraph(object):
         self.required = required
 
         calls = [x for x in self.query.statements if isinstance(x, statementlist.Call) and x.column == target]
-        assert len(calls) == 1, "each new column must be defined exactly once"
+        assert len(calls) == 1, "each new column must be defined exactly once: calls = {0} for target = {1}".format(calls, target)
         self.statement = calls[0]
         self.plateauSize = self.statement.plateauSize(self.query.statements)
 
         self.dependencies = []
         for c in self.statement.args:
             if isinstance(c, ColumnName):
-                if c in self.query.dataset.columns:
+                if c.issize() and any(x.size == c for x in query.dataset.columns.values()):
+                    self.required.add(c)
+
+                elif c in self.query.dataset.columns:
                     self.required.add(c)
 
                 elif c in self.lookup:
@@ -137,7 +140,7 @@ class DependencyGraph(object):
         targetsToEndpoints = {}
         for action in query.actions:
             for target in action.columns():
-                if target.issize() and target in set(x.size for x in query.dataset.columns.values()):
+                if target.issize() and any(x.size == target for x in query.dataset.columns.values()):
                     required.add(target)
                 elif target in query.dataset.columns:
                     required.add(target)

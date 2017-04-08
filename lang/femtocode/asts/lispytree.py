@@ -30,6 +30,7 @@ class BuiltinFunction(Function):
 
     commutative = False
     associative = False
+    trivial = False      # prefer recalculation over temporary storage
 
     def __repr__(self):
         return "BuiltinFunction[\"{0}\"]".format(self.name)
@@ -482,12 +483,10 @@ def build(tree, frame):
             return Call.build(frame["<="], [left, right], op), frame
 
         elif isinstance(op, parsingtree.Gt):
-            # use "<" with reversed arguments
-            return Call.build(frame["<"], [right, left], op), frame
+            return Call.build(frame[">"], [left, right], op), frame
 
         elif isinstance(op, parsingtree.GtE):
-            # use "<=" with reversed arguments
-            return Call.build(frame["<="], [right, left], op), frame
+            return Call.build(frame[">="], [left, right], op), frame
 
         elif isinstance(op, parsingtree.In):
             return Call.build(frame["in"], [left, right], op), frame
