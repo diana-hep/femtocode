@@ -43,24 +43,6 @@ class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
 
-    # def test_submit(self):
-    #     session = TestSession()
-
-    #     source = session.source("Test", x=integer, y=real)
-    #     for i in xrange(100):
-    #         source.dataset.fill({"x": i, "y": 0.2})
-
-    #     def callback(x):
-    #         self.assertEqual(source.dataset.numEntries, x.numEntries)
-
-    #     result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
-
-    #     # TestDataset is synchronous, so both callback and assuming it's blocking work
-
-    #     for old, new in zip(source.dataset, result):
-    #         self.assertAlmostEqual(old.x + old.y - 3, new.a)
-    #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
-
     def test_oldexample1(self):
         statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => 100*x + y)))").compile().statements
 
@@ -246,9 +228,68 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 1005, 1006, 2007, 2008, 2009, 2010, 2011, 2012])
         self.assertEqual(sarray_v0, [3, 2, 2, 2, 3, 2, 2, 2])
 
+    def test_megaexample1(self):
+        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements
 
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)
+        loop = Loop(ColumnName.parse("#0@size"))
+        for statement in statements:
+            loop.newStatement(statement)
+        loop.newTarget(ColumnName.parse("#5"))
+        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+
+        loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
+        dataLength = numEntries[1]
+        sizeLength = numEntries[2]
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0, 0]
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+        sindex_v1 = [0, 0]
+        xdarray_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
+        xdindex_v2 = [0, 0, 0]
+        xdarray_v3 = oldexample.dataset.groups[0].segments["ys[]"].data
+        xdindex_v3 = [0, 0]
+        xarray_v4 = oldexample.dataset.groups[0].segments["c"].data
+        tarray_v5 = [0] * dataLength
+        tsarray_v6 = [0] * sizeLength
+        
+        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, xdarray_v2, xdindex_v2, xdarray_v3, xdindex_v3, xarray_v4, tarray_v5, tsarray_v6)
+        self.assertEqual(numEntries, [2, 48, 20])
+        self.assertEqual(tarray_v5, [1001, 1002, 1003, 1004, 2001, 2002, 2003, 2004, 3001, 3002, 3003, 3004, 4001, 4002, 4003, 4004, 5001, 5002, 5003, 5004, 6001, 6002, 6003, 6004, 14005, 14006, 14007, 14008, 16005, 16006, 16007, 16008, 18005, 18006, 18007, 18008, 20005, 20006, 20007, 20008, 22005, 22006, 22007, 22008, 24005, 24006, 24007, 24008])
+        self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
+
+
 
     #     print
     #     testy(oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements)
+
+
+
+
+
+    # def test_submit(self):
+    #     session = TestSession()
+
+    #     source = session.source("Test", x=integer, y=real)
+    #     for i in xrange(100):
+    #         source.dataset.fill({"x": i, "y": 0.2})
+
+    #     def callback(x):
+    #         self.assertEqual(source.dataset.numEntries, x.numEntries)
+
+    #     result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
+
+    #     # TestDataset is synchronous, so both callback and assuming it's blocking work
+
+    #     for old, new in zip(source.dataset, result):
+    #         self.assertAlmostEqual(old.x + old.y - 3, new.a)
+    #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)

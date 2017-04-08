@@ -537,17 +537,40 @@ def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
         return ref, Statements(), refnumber
 
-    elif ref.size is None and len(set(sizes)) == 1:
+    elif ref.size is None:
         statements = []
 
-        if (Explode, ref.name, sizes) in replacements:
-            explodedData = replacements[(Explode, ref.name, sizes)]
-        else:
-            explodedData = ColumnName(refnumber)
-            replacements[(Explode, ref.name, sizes)] = explodedData
-            statements.append(Explode(explodedData, ref.schema, ref.data, sizes[0]))
+        # if (Explode, ref.name, sizes) in replacements:
+        #     print "I don't think this can ever happen" # FIXME
+        #     explodedData = replacements[(Explode, ref.name, sizes)]
+        #     explodedSize = sizes
 
-        return Ref(refnumber, ref.schema, explodedData, sizes[0]), statements, refnumber + 1
+        if len(set(sizes)) == 1:
+            explodedSize = sizes[0]
+
+            if (Explode, ref.name, explodedSize) in replacements:
+                explodedData = replacements[(Explode, ref.name, explodedSize)]
+            else:
+                explodedData = ColumnName(refnumber)
+                replacements[(Explode, ref.name, explodedSize)] = explodedData
+                statements.append(Explode(explodedData, ref.schema, ref.data, explodedSize))
+
+        else:
+            if (ExplodeSize, sizes) in replacements:
+                explodedSize = replacements[(ExplodeSize, sizes)]
+            else:
+                explodedSize = ColumnName(refnumber).size()
+                replacements[(ExplodeSize, sizes)] = explodedSize
+                statements.append(ExplodeSize(explodedSize, sizes))
+
+            if (Explode, ref.name, explodedSize) in replacements:
+                explodedData = replacements[(Explode, ref.name, explodedSize)]
+            else:
+                explodedData = ColumnName(refnumber)
+                replacements[(Explode, ref.name, explodedSize)] = explodedData
+                statements.append(Explode(explodedData, ref.schema, ref.data, explodedSize))
+
+        return Ref(refnumber, ref.schema, explodedData, explodedSize), statements, refnumber + 1
 
     elif set([ref.size]) == set(sizes):
         return ref, [], refnumber
