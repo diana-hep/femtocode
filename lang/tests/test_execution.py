@@ -37,7 +37,7 @@ session = TestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
-oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 1000, "d": 321})
+oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
 
 class TestExecution(unittest.TestCase):
     def runTest(self):
@@ -154,7 +154,7 @@ class TestExecution(unittest.TestCase):
         
         loop.run.fcn(numEntries, countdown, darray_v0, darray_v1, tarray_v2)
         self.assertEqual(numEntries, [2, 2, 0])
-        self.assertEqual(tarray_v2, [1123, 1321])
+        self.assertEqual(tarray_v2, [1123, 2321])
 
     def test_no_explodes(self):
         statements = oldexample.toPython(a = "ys.map(y => y + y)").compile().statements
@@ -220,11 +220,32 @@ class TestExecution(unittest.TestCase):
         
         loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, xarray_v1, darray_v2, tarray_v3)
         self.assertEqual(numEntries, [2, 8, 2])
-        self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008])
+        self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 2005, 2006, 2007, 2008])
         self.assertEqual(sarray_v0, [4, 4])
 
-    #     print
-    #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements)
+    def test_simple_explode2(self):
+        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements
+
+        loop = Loop(ColumnName.parse("xss[][]@size"))
+        for statement in statements:
+            loop.newStatement(statement)
+        loop.newTarget(ColumnName.parse("#1"))
+        loop.compileToPython("fcnname", {"xss[][]": collection(collection(real)), "c": real}, StandardLibrary.table, False, False)
+
+        numEntries = [oldexample.dataset.numEntries, 0, 0]
+        countdown = [0, 0]
+
+        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+        sindex_v0 = [0, 0, 0]
+        xarray_v1 = oldexample.dataset.groups[0].segments["c"].data
+        darray_v2 = oldexample.dataset.groups[0].segments["xss[][]"].data
+        tarray_v3 = [0] * oldexample.dataset.groups[0].segments["xss[][]"].dataLength
+        
+        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, xarray_v1, darray_v2, tarray_v3)
+        self.assertEqual(numEntries, [2, 12, 8])
+        self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 1005, 1006, 2007, 2008, 2009, 2010, 2011, 2012])
+        self.assertEqual(sarray_v0, [3, 2, 2, 2, 3, 2, 2, 2])
+
 
     #     print
     #     testy(oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c*x + y)))").compile().statements)

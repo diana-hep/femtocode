@@ -139,7 +139,7 @@ class Loop(Serializable):
             self.deepiToUnique = []
             self.uniques = []
         else:
-            self.setSizes((self.plateauSize,))
+            self.setSizes((self.plateauSize,) * self.plateauSize.depth())
 
         self.explodesize = None
         self.explodes = []

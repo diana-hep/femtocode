@@ -537,7 +537,7 @@ def exploderef(ref, replacements, refnumber, dataset, sizes):
     if len(sizes) == 0:
         return ref, Statements(), refnumber
 
-    elif ref.size is None and len(sizes) == 1:
+    elif ref.size is None and len(set(sizes)) == 1:
         statements = []
 
         if (Explode, ref.name, sizes) in replacements:
