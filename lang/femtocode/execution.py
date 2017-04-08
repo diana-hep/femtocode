@@ -152,7 +152,7 @@ class DependencyGraph(object):
         for graph in graphs:
             found = False
             for previous in connectedSubgraphs:
-                if any(graph,overlap(g) for g in previous):
+                if any(graph.overlap(g) for g in previous):
                     previous.append(graph)
                     found = True
                     break
