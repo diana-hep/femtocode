@@ -89,7 +89,136 @@ class ExecutionFailure(Serializable):
         return isinstance(obj, dict) and set(obj.keys()).difference(set(["_id"])) == set(["class", "message", "traceback"])
 
 class DependencyGraph(object):
-    pass  # FIXME
+    def __init__(self, target, query, lookup, required):
+        self.target = target
+        self.query = query
+        self.lookup = lookup
+        self.required = required
+
+        calls = [x for x in self.query.statements if isinstance(x, statementlist.Call) and x.column == target]
+        assert len(calls) == 1, "each new column must be defined exactly once"
+        self.statement = calls[0]
+        self.plateauSize = self.statement.plateauSize(self.query.statements)
+
+        self.dependencies = []
+        for c in self.statement.args:
+            if isinstance(c, ColumnName):
+                if c in self.query.dataset.columns:
+                    self.required.add(c)
+
+                elif c in self.lookup:
+                    self.dependencies.append(self.lookup[c])
+
+                else:
+                    self.dependencies.append(DependencyGraph(c, self.query, self.lookup, self.required))
+
+    def __repr__(self):
+        return "<DependencyGraph of [{0}] at 0x{1:012x}>".format(", ".join(map(str, sorted(self.flattened()))), id(self))
+
+    def pretty(self, indent=""):
+        return "\n".join([indent + str(self.statement)] + [x.pretty(indent + "    ") for x in self.dependencies])
+
+    def flattened(self):
+        out = set([self.target])
+        for x in self.dependencies:
+            out.update(x.flattened())
+        return out
+
+    def overlap(self, other):
+        return len(self.flattened().intersection(other.flattened())) > 0
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.target == other.target
+
+    @staticmethod
+    def wholedag(query):
+        lookup = {}
+        required = set()
+        targetsToEndpoints = {}
+        for action in query.actions:
+            for target in action.columns():
+                if target.issize() and target in set(x.size for x in query.dataset.columns.values()):
+                    required.add(target)
+                elif target in query.dataset.columns:
+                    required.add(target)
+                else:
+                    targetsToEndpoints[target] = DependencyGraph(target, query, lookup, required)
+
+        return targetsToEndpoints, lookup, required
+
+    @staticmethod
+    def connectedSubgraphs(graphs):
+        connectedSubgraphs = []
+        for graph in graphs:
+            found = False
+            for previous in connectedSubgraphs:
+                if any(graph,overlap(g) for g in previous):
+                    previous.append(graph)
+                    found = True
+                    break
+
+            if not found:
+                connectedSubgraphs.append([graph])
+
+        return connectedSubgraphs
+
+    def _bucketfill(self, loop, endpoints):
+        for dependency in self.dependencies:
+            if dependency.plateauSize == loop.plateauSize:
+                if dependency.target not in loop:
+                    dependency._bucketfill(loop, endpoints)
+            else:
+                endpoints.append(dependency)
+
+        loop.newStatement(self.statement)
+
+    @staticmethod
+    def loops(graphs):
+        loops = {}
+        for startpoints in DependencyGraph.connectedSubgraphs(graphs):
+            while len(startpoints) > 0:
+                newloops = {}
+                endpoints = []
+                for graph in startpoints:
+                    if graph.plateauSize in newloops:
+                        loop = newloops[graph.plateauSize]
+                    else:
+                        loop = Loop(graph.plateauSize)
+
+                    loop.newTarget(graph.target)
+                    graph._bucketfill(loop, endpoints)
+                    newloops[loop.plateauSize] = loop
+
+                for plateauSize, loop in newloops.items():
+                    if plateauSize not in loops:
+                        loops[plateauSize] = []
+                    loops[plateauSize].append(loop)
+
+                startpoints = []
+                for x in endpoints:
+                    if x not in startpoints:
+                        startpoints.append(x)
+
+        return loops
+
+    @staticmethod
+    def order(loops, actions, required):
+        toadd = sum(loops.values(), [])
+        provided = set(required)
+
+        order = []
+        while len(toadd) > 0:
+            canadd = [loop for loop in toadd if loop.needs().issubset(provided)]
+            assert len(canadd) > 0
+
+            # FIXME: put logic here to allow "Filter" actions to run as early as possible
+            choice = canadd[0]
+            order.append(choice)
+            toadd.remove(choice)
+
+        # Aggregations go last
+        order.extend([x for x in actions if isinstance(x, statementlist.Aggregation)])
+        return order
 
 class ParamNode(Serializable):
     def toJson(self):
@@ -149,6 +278,22 @@ class Loop(Serializable):
 
         self.prerun = None
         self.run = None
+
+    def __contains__(self, column):
+        return any(x.column == column for x in self.statements)
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.plateauSize == other.plateauSize and self.explodesize == other.explodesize and self.explodes == other.explodes and self.explodedatas == other.explodedatas and self.statements == other.statements and self.targets == other.targets
+
+    def needs(self):
+        out = set()
+        if self.explodesize is not None:
+            out.update(self.explodesize.tosize)
+        for statement in self.explodes + self.explodedatas + self.statements:
+            for arg in statement.args:
+                if isinstance(arg, ColumnName):
+                    out.add(arg)
+        return out
 
     def setSizes(self, sizes):
         self.sizes = sizes
