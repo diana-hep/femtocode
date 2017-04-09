@@ -548,12 +548,6 @@ def {fcnname}({params}):
            resets = "\n            el".join(resets))
 
     def compileToPython(self, fcnname, inputs, fcntable, tonative, debug):
-        prevalidNames = {}
-        def prevalid(n):
-            if n not in prevalidNames:
-                prevalidNames[n] = "v" + repr(len(prevalidNames))
-            return prevalidNames[n]
-
         def replace(node, withwhat):
             if isinstance(node, ast.AST):
                 for field in node._fields:
@@ -572,12 +566,28 @@ def {fcnname}({params}):
                     for x in node:
                         replace(x, withwhat)
 
-        # get a function that looks just like our real one, but with no contents: for measuring the size of arrays before allocating
-        preparameters, preparams, precodetext = self.codetext(fcnname + "_prerun", prevalid, True)
-        premodule = ast.parse(precodetext)
-        replace(premodule, [])
-        fakeLineNumbers(premodule)
-        self.prerun = LoopFunction(self._reallyCompile(fcnname + "_prerun", premodule, {}), preparameters)
+        needPrerun = False
+        for target in self.targets:
+            if isinstance(target, ColumnName):
+                needPrerun = True
+                break
+
+        if needPrerun:
+            prevalidNames = {}
+            def prevalid(n):
+                if n not in prevalidNames:
+                    prevalidNames[n] = "v" + repr(len(prevalidNames))
+                return prevalidNames[n]
+
+            # get a function that looks just like our real one, but with no contents: for measuring the size of arrays before allocating
+            preparameters, preparams, precodetext = self.codetext(fcnname + "_prerun", prevalid, True)
+            premodule = ast.parse(precodetext)
+            replace(premodule, [])
+            fakeLineNumbers(premodule)
+            self.prerun = LoopFunction(self._reallyCompile(fcnname + "_prerun", premodule, {}), preparameters)
+
+        else:
+            self.prerun = None
 
         # reset the validNames
         validNames = {}
@@ -686,3 +696,80 @@ class Executor(Serializable):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.compileToPython(fcnname, self.query.inputs, fcntable, False, debug)
 
+
+
+
+    def makeArray(self, length, dtype, init):
+        if init:
+            return [0] * length
+        else:
+            return [None] * length   # more useful error messages
+
+    def run(self, inarrays, group):
+        for loopOrAction in self.order:
+            if isinstance(loopOrAction, Loop):
+                loop = loopOrAction
+
+                if loop.prerun is not None:
+                    i = 0
+                    for param in loop.prerun.parameters:
+                        if isinstance(param, NumEntries):
+                            i += 3
+                        elif isinstance(param, Countdown):
+                            i += len(loop.sizes)
+                        elif isinstance(param, Index):
+                            i += param.name.depth() + 1
+
+                    indexarrays = self.makeArray(i, sizeType, True)
+                    i = 0
+
+                    arguments = []
+                    for param in loop.prerun.parameters:
+                        if isinstance(param, NumEntries):
+                            numEntries = indexarrays[i : i + 3]
+                            numEntries[0] = group.numEntries
+                            arguments.append(numEntries)
+                            i += 3
+
+                        elif isinstance(param, Countdown):
+                            arguments.append(indexarrays[i : i + len(loop.sizes)])
+                            i += len(loop.sizes)
+
+                        elif isinstance(param, SizeArray):
+                            arguments.append(inarrays[param.name])
+
+                        elif isinstance(param, Index):
+                            arguments.append(indexsarrays[i : i + param.name.depth() + 1])
+                            i += param.name.depth() + 1
+
+                        else:
+                            assert False, "unexpected Parameter in prerun: {0}".format(param)
+
+                    loop.prerun.fcn(*arguments)
+                    dataLength = numEntries[1]
+                    sizeLength = numEntries[2]
+
+                i = 0
+                for param in loop.run.parameters:
+
+
+                # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
+                indexarrays = self.makeArray(i, sizeType, True)
+                i = 0
+
+                arguments = []
+                for param in loop.run.parameters:
+                    if isinstance(param, NumEntries):
+                        numEntries = indexarrays[i : i + 3]
+                        numEntries[0] = group.numEntries
+                        arguments.append(numEntries)
+                        i += 3
+
+
+class NumEntries(ParamNode): pass
+class Countdown(ParamNode): pass
+class SizeArray(NamedParamNode): pass
+class DataArray(NamedParamNode): pass
+class OutDataArray(NamedParamNode): pass
+class OutSizeArray(NamedParamNode): pass
+class Index(NamedParamNode): pass
