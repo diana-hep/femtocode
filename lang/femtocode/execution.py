@@ -667,11 +667,22 @@ class LoopFunction(Serializable):
         self.fcn = fcn
         self.parameters = parameters
 
-
-
-
-
 class Executor(Serializable):
-    pass  # FIXME
+    def __init__(self, query, debug):
+        self.query = query
+        targetsToEndpoints, lookup, self.required = DependencyGraph.wholedag(self.query)
 
+        loops = DependencyGraph.loops(targetsToEndpoints.values())
+        self.order = DependencyGraph.order(loops, self.query.actions, self.required)
+        self.compileLoops(debug)
+        
+    def compileLoops(self, debug):
+        fcntable = SymbolTable(StandardLibrary.table.asdict())
+        for lib in self.query.libs:
+            fcntable = fcntable.fork(lib.table.asdict())
+
+        for i, loop in enumerate(self.order):
+            if isinstance(loop, Loop):
+                fcnname = "f{0}_{1}".format(self.query.id, i)
+                loop.compileToPython(fcnname, self.query.inputs, fcntable, False, debug)
 
