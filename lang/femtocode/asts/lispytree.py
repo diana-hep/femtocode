@@ -30,7 +30,6 @@ class BuiltinFunction(Function):
 
     commutative = False
     associative = False
-    trivial = False      # prefer recalculation over temporary storage
 
     def __repr__(self):
         return "BuiltinFunction[\"{0}\"]".format(self.name)

@@ -40,7 +40,6 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "+"
     commutative = True
     associative = True
-    trivial = True
 
     def pythonast(self, args):
         return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
@@ -56,7 +55,6 @@ StandardLibrary.table[Add.name] = Add()
 
 class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
-    trivial = True
 
     def pythonast(self, args):
         return ast.BinOp(args[0], ast.Sub(), args[1])
@@ -72,7 +70,6 @@ StandardLibrary.table[Sub.name] = Sub()
 
 class UAdd(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u+"
-    trivial = True
 
     def pythonast(self, args):
         return ast.UnaryOp(ast.UAdd(), args[0])
@@ -88,7 +85,6 @@ StandardLibrary.table[UAdd.name] = UAdd()
 
 class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u-"
-    trivial = True
 
     def pythonast(self, args):
         return ast.UnaryOp(ast.USub(), args[0])
@@ -106,7 +102,6 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "*"
     commutative = True
     associative = True
-    trivial = True
 
     def pythonast(self, args):
         return reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), args)
@@ -122,7 +117,6 @@ StandardLibrary.table[Mult.name] = Mult()
 
 class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
-    trivial = True
 
     def pythonast(self, args):
         return ast.BinOp(args[0], ast.Div(), ast.Call(ast.Name("float", ast.Load()), [args[1]], [], None, None))
@@ -150,7 +144,6 @@ StandardLibrary.table[Div.name] = Div()
 
 class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "//"
-    trivial = True
 
     def pythonast(self, args):
         return ast.BinOp(args[0], ast.FloorDiv(), args[1])
@@ -166,7 +159,6 @@ StandardLibrary.table[FloorDiv.name] = FloorDiv()
 
 class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "**"
-    trivial = True
 
     def pythonast(self, args):
         return ast.BinOp(args[0], ast.Pow(), args[1])
@@ -262,7 +254,6 @@ StandardLibrary.table[Pow.name] = Pow()
 
 class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "%"
-    trivial = True
 
     def pythonast(self, args):
         # Note: Numba knows that Python's % is modulo and not remainder (unlike C)
@@ -282,7 +273,6 @@ StandardLibrary.table[Mod.name] = Mod()
 class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
     commutative = True
-    trivial = True
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.Eq()], [args[1]])
@@ -300,7 +290,6 @@ StandardLibrary.table[Eq.name] = Eq()
 class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "!="
     commutative = True
-    trivial = True
 
     def pythonast(self, args):
         return ast.Compare(args[0], [ast.NotEq()], [args[1]])
@@ -317,7 +306,6 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
 StandardLibrary.table[NotEq.name] = NotEq()
 
 class Inequality(statementlist.FlatFunction, lispytree.BuiltinFunction):
-    trivial = True
 
     def buildtyped(self, args, frame):
         typedargs = _buildargs(args, frame)
@@ -370,7 +358,6 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "and"
     commutative = True
     associative = True
-    trivial = True
 
     def pythonast(self, args):
         return ast.BoolOp(ast.And(), args)
@@ -422,7 +409,6 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "or"
     commutative = True
     associative = True
-    trivial = True
 
     def pythonast(self, args):
         return ast.BoolOp(ast.Or(), args)
@@ -458,7 +444,6 @@ StandardLibrary.table[Or.name] = Or()
 
 class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "not"
-    trivial = True
 
     def pythonast(self, args):
         return ast.UnaryOp(ast.Not(), args[0])
@@ -584,7 +569,6 @@ StandardLibrary.table[If.name] = If()
 
 class Is(lispytree.BuiltinFunction):
     name = "is"
-    trivial = True
 
     def pythoneval(self, args):
         if args[2]:
@@ -621,7 +605,7 @@ class Is(lispytree.BuiltinFunction):
             totype = call.args[1].value   # literal type expression
             negate = call.args[2].value   # literal boolean
 
-            args, sizeColumn, statements, inputs, repl, refnumber = statementlist._flatBuildPreamble([call.args[0]], self.trivial, dataset, dict(replacements), refnumber, explosions)
+            args, sizeColumn, statements, inputs, repl, refnumber = statementlist._flatBuildPreamble([call.args[0]], dataset, dict(replacements), refnumber, explosions)
             replacements.update(repl)
 
             columnName = ColumnName(refnumber)
@@ -727,7 +711,6 @@ StandardLibrary.table[Is.name] = Is()
 
 class Dot(lispytree.BuiltinFunction):
     name = "."
-    trivial = True
 
     def pythonast(self, args):
         return ast.Attribute(args[0], args[1])

@@ -685,7 +685,7 @@ class FlatFunction(object):
         argexplosions = set(x.explosions() for x in argrefs if isinstance(x, Ref))
         argsizes = set(x.size for x in argrefs if isinstance(x, Ref))
 
-        if not self.trivial and len(argexplosions) == 1:
+        if len(argexplosions) == 1 and len(argsizes) == 1:
             passexp = list(argexplosions)[0]
             sizeColumn = list(argsizes)[0]
 
