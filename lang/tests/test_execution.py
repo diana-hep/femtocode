@@ -339,6 +339,9 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 1)
 
 
+        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(DependencyGraph.order(DependencyGraph.loops(targetsToEndpoints.values()), [], required)), 3)
 
 
 

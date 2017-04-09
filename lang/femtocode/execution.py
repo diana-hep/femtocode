@@ -216,6 +216,7 @@ class DependencyGraph(object):
 
             # FIXME: put logic here to allow "Filter" actions to run as early as possible
             choice = canadd[0]
+            provided.update(choice.defines())
             order.append(choice)
             toadd.remove(choice)
 
@@ -288,15 +289,30 @@ class Loop(Serializable):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.plateauSize == other.plateauSize and self.explodesize == other.explodesize and self.explodes == other.explodes and self.explodedatas == other.explodedatas and self.statements == other.statements and self.targets == other.targets
 
-    def needs(self):
-        out = set()
+    def defines(self):
+        definedHere = set()
         if self.explodesize is not None:
-            out.update(self.explodesize.tosize)
+            definedHere.add(self.explodesize.column)
+
         for statement in self.explodes + self.explodedatas + self.statements:
+            definedHere.add(statement.column)
+
+        return definedHere
+
+    def needs(self):
+        definedHere = set()
+        requires = set()
+        if self.explodesize is not None:
+            definedHere.add(self.explodesize.column)
+            requires.update(self.explodesize.tosize)
+
+        for statement in self.explodes + self.explodedatas + self.statements:
+            definedHere.add(statement.column)
             for arg in statement.args:
                 if isinstance(arg, ColumnName):
-                    out.add(arg)
-        return out
+                    requires.add(arg)
+
+        return requires.difference(definedHere)
 
     def allstatements(self):
         out = statementlist.Statements()
