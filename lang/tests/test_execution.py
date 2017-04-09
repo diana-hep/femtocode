@@ -315,7 +315,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v6, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
     def test_graphs(self):
-        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        query = oldexample.define(z = "if c < 1500: d else: 0").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
 
         print
         print query.statements

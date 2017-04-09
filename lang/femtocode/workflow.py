@@ -224,10 +224,11 @@ class Goal(NotFirst, Workflow):
         for preaction in preactions:
             refs = []
             for tt in preaction.typedTrees():
-                ref, ss, ins, refnumber = statementlist.build(tt, source.dataset, replacements, refnumber)
+                ref, ss, ins, repl, refnumber = statementlist.build(tt, source.dataset, dict(replacements), refnumber)
                 refs.append(ref)
                 statements.extend(ss)
                 inputs.update(ins)
+                replacements.update(repl)
 
             actions.append(preaction.finalize(refs))
 
