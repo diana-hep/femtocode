@@ -320,6 +320,13 @@ class TestExecution(unittest.TestCase):
         print
         print query.statements
 
+        query = oldexample.toPython(a = "ys.map(y => c + 1)").compile()
+
+        print
+        print query.statements
+
+
+
         # targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
 
         # print

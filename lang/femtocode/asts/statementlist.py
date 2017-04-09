@@ -276,6 +276,29 @@ class Ref(Statement):
     def columnNames(self):
         return [self.name, self.data] + ([] if self.size is None else [self.size])
 
+    def explosions(self):
+        if self.size is None:
+            return ()
+        else:
+            return (self.size,) * self.size.depth()
+
+class RefWithExplosions(Ref):
+    def __init__(self, name, schema, data, size, explosions):
+        super(RefWithExplosions, self).__init__(name, schema, data, size)
+        self._explosions = explosions
+
+    def __repr__(self):
+        return "statementlist.RefWithExplosions({0}, {1}, {2}, {3}, {4})".format(self.name, self.schema, self.data, self.size, self._explosions)
+
+    def __eq__(self, other):
+        return other.__class__ == RefWithExplosions and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size and self.explosions == other.explosions
+
+    def __hash__(self):
+        return hash(("statementlist.RefWithExplosions", self.name, self.schema, self.data, self.size, self.explosions))
+
+    def explosions(self):
+        return self._explosions
+
 class Literal(Statement):
     def __init__(self, value, schema):
         self.value = value
@@ -571,9 +594,7 @@ def exploderef(ref, replacements, refnumber, dataset, sizes, explosions):
                 # print "setting replacements", (Explode, ref.name, explodedSize), "=", explodedData
                 statements.append(Explode(explodedData, ref.schema, ref.data, explodedSize))
 
-        out = Ref(refnumber, ref.schema, explodedData, explodedSize)
-        out.explosions = explosions
-        return out, statements, refnumber + 1
+        return RefWithExplosions(refnumber, ref.schema, explodedData, explodedSize, explosions), statements, refnumber + 1
 
     elif set([ref.size]) == set(sizes):
         return ref, [], refnumber
@@ -599,9 +620,7 @@ def exploderef(ref, replacements, refnumber, dataset, sizes, explosions):
         else:
             explodedData = ref.data
 
-        out = Ref(refnumber, ref.schema, explodedData, explodedSize)
-        out.explosions = explosions
-        return out, statements, refnumber + 1
+        return RefWithExplosions(refnumber, ref.schema, explodedData, explodedSize, explosions), statements, refnumber + 1
 
 def startswith(a, b):
     return len(a) >= len(b) and a[:len(b)] == b
@@ -619,8 +638,6 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
         assert tree.framenumber is None, "should not encounter any deep references here"
 
         ref = Ref(tree.name, tree.schema, dataset.dataColumn(tree.name), dataset.sizeColumn(tree.name))
-        ref.explosions = explosions
-
         replacements[(typedtree.TypedTree, tree)] = replacements.get((typedtree.TypedTree, tree), {})
         replacements[(typedtree.TypedTree, tree)][explosions] = ref
         if ref.data in dataset.columns:
@@ -632,8 +649,6 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
 
     elif isinstance(tree, typedtree.Literal):
         literal = Literal(tree.value, tree.schema)
-        literal.explosions = explosions
-
         replacements[(typedtree.TypedTree, tree)] = replacements.get((typedtree.TypedTree, tree), {})
         replacements[(typedtree.TypedTree, tree)][explosions] = literal
         return literal, Statements(), {}, refnumber
@@ -645,6 +660,21 @@ def build(tree, dataset, replacements=None, refnumber=0, explosions=()):
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
 # def _flatBuildPreamble(callargs, trivial, dataset, replacements, refnumber, explosions):
+
+def explosionsToSizes(explosions, dataset):
+    uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
+    sizes = []
+    for explosion in explosions:
+        found = None
+        for size in uniques:
+            if size.startswith(explosion):
+                found = size
+                break
+
+        assert found is not None
+        sizes.append(found)
+
+    return tuple(sizes)
 
 class FlatFunction(object):
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
@@ -659,32 +689,27 @@ class FlatFunction(object):
             argrefs.append(argref)
             statements.extend(ss)
             inputs.update(ins)
-        
-        # for arg in call.args:
-        #     if isinstance(arg, typedtree.Call):
-        #         print "HERE", replacements[(typedtree.TypedTree, arg)]
 
-        # print "statements", statements, "argrefs", argrefs
+        argexplosions = set(x.explosions() for x in argrefs if isinstance(x, Ref))
+        argsizes = set(x.size for x in argrefs if isinstance(x, Ref))
 
-        uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
-        sizes = []
-        for explosion in explosions:
-            found = None
-            for size in uniques:
-                if size.startswith(explosion):
-                    found = size
-                    break
+        if len(argexplosions) == 1:   # FIXME: not self.trivial and 
+            passexp = list(argexplosions)[0]
+            sizeColumn = list(argsizes)[0]
 
-            assert found is not None
-            sizes.append(found)
+            columnName = ColumnName(refnumber)
+            ref = RefWithExplosions(refnumber, call.schema, columnName, sizeColumn, passexp)
 
-        sizes = tuple(sizes)
+            refnumber += 1
+            replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
+            replacements[(typedtree.TypedTree, call)][passexp] = ref
+            statements.append(Call(columnName, ref.schema, sizeColumn, self.name, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs]))
 
-        # print "explode sizes", sizes
+            return ref, statements, inputs, refnumber
 
-        argsizes = set(argref.size for argref in argrefs if isinstance(argref, Ref))
+        else:
+            sizes = explosionsToSizes(explosions, dataset)
 
-        if True or self.trivial or len(argsizes) != 1:
             args = []
             sizeColumnAssigned = False
             sizeColumn = None
@@ -692,8 +717,6 @@ class FlatFunction(object):
                 if isinstance(argref, Ref):
                     final, ss, refnumber = exploderef(argref, replacements, refnumber, dataset, sizes, explosions)
                     statements.extend(ss)
-
-                    # print "argref", argref, "final", final, "statements", ss
 
                     if not sizeColumnAssigned:
                         sizeColumnAssigned = True
@@ -710,40 +733,15 @@ class FlatFunction(object):
                     assert False, "unexpected in argrefs: {0}".format(argref)
 
             columnName = ColumnName(refnumber)
-            ref = Ref(refnumber, call.schema, columnName, sizeColumn)
-            ref.explosions = explosions
+            ref = RefWithExplosions(refnumber, call.schema, columnName, sizeColumn, explosions)
 
             refnumber += 1
             replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
             replacements[(typedtree.TypedTree, call)][explosions] = ref
             statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
-            statements[-1].explosions = explosions
 
             return ref, statements, inputs, refnumber
-
-        else:
-            sizeColumn = list(argsizes)[0]
-            oldexplosions = ()
-            for (explodedSize, oldexp) in replacements.values():
-                if sizeColumn == explodedSize:
-                    oldexplosions = oldexp
-                    break
-
-            columnName = ColumnName(refnumber)
-            ref = Ref(refnumber, call.schema, columnName, sizeColumn)
-            ref.explosions = explosions
-
-            refnumber += 1
-            replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
-            replacements[(typedtree.TypedTree, call)][explosions] = ref
-            statements.append(Call(columnName, ref.schema, sizeColumn, self.name, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs]))
-            statements[-1].explosions = explosions
-
-            final, ss, refnumber = exploderef(ref, replacements, refnumber, dataset, sizes, explosions)
-            statements.extend(ss)
-
-            return ref, statements, inputs, refnumber
-
+        
 class Action(Statement):
     @property
     def type(self):
