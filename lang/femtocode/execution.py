@@ -298,6 +298,15 @@ class Loop(Serializable):
                     out.add(arg)
         return out
 
+    def allstatements(self):
+        out = statementlist.Statements()
+        if self.explodesize is not None:
+            out.append(self.explodesize)
+        out.extend(self.explodes)
+        out.extend(self.explodedatas)
+        out.extend(self.statements)
+        return out
+
     def setSizes(self, sizes):
         self.sizes = sizes
         self.deepiToUnique = []
@@ -316,24 +325,28 @@ class Loop(Serializable):
     def newStatement(self, statement):
         if statement not in self.statements:
             if isinstance(statement, statementlist.ExplodeSize):
-                assert self.explodesize is None, "should not assign two explodesizes in the same loop"
-                assert statement.column == self.plateauSize
-                self.setSizes(statement.tosize)
-                assert sum(x.depth() for x in self.uniques) == len(self.sizes)
-                self.explodesize = statement
+                if statement != self.explodesize:
+                    assert self.explodesize is None, "should not assign two explodesizes in the same loop"
+                    assert statement.column == self.plateauSize
+                    self.setSizes(statement.tosize)
+                    assert sum(x.depth() for x in self.uniques) == len(self.sizes)
+                    self.explodesize = statement
 
             elif isinstance(statement, statementlist.ExplodeData):
                 assert self.explodesize is not None
                 assert self.explodesize.column == statement.explodesize
-                self.explodedatas.append(statement)
+                if statement not in self.explodedatas:
+                    self.explodedatas.append(statement)
 
             elif isinstance(statement, statementlist.Explode):
                 assert statement.tosize == self.plateauSize
-                self.explodes.append(statement)
+                if statement not in self.explodes:
+                    self.explodes.append(statement)
 
             else:
                 assert statement.tosize == self.plateauSize
-                self.statements.append(statement)
+                if statement not in self.statements:
+                    self.statements.append(statement)
 
     def codetext(self, fcnname, nametrans, lengthScan):
         parameters = [NumEntries(), Countdown()]

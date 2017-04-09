@@ -314,27 +314,31 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v5, [1001, 2001, 1002, 2002, 1003, 2003, 1004, 2004, 3001, 4001, 3002, 4002, 3003, 4003, 3004, 4004, 5001, 6001, 5002, 6002, 5003, 6003, 5004, 6004, 14005, 16005, 14006, 16006, 14007, 16007, 14008, 16008, 18005, 20005, 18006, 20006, 18007, 20007, 18008, 20008, 22005, 24005, 22006, 24006, 22007, 24007, 22008, 24008])
         self.assertEqual(tsarray_v6, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
-    def test_graphs(self):
-        query = oldexample.define(z = "if c < 1500: d else: 0").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+    def test_graph_connections(self):
+        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(DependencyGraph.connectedSubgraphs(targetsToEndpoints.values())), 1)
 
-        print
-        print query.statements
+        query = oldexample.define(z = "c").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(DependencyGraph.connectedSubgraphs(targetsToEndpoints.values())), 2)
 
-        query = oldexample.toPython(a = "ys.map(y => c + 1)").compile()
+        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
 
-        print
-        print query.statements
+        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 3)
+
+        query = oldexample.define(z = "c").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 2)
+
+        query = oldexample.define(z = "c").toPython(a = "ys.map(y => y + z)", b = "ys.map(y => y + z)").compile()
+        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
+        self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 1)
 
 
-
-        # targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
-
-        # print
-        # print targetsToEndpoints
-        # print lookup
-        # print required
-
-        # print DependencyGraph.connectedSubgraphs(targetsToEndpoints.values())
 
 
 

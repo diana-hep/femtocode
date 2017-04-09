@@ -699,8 +699,6 @@ class FlatFunction(object):
             replacements[(typedtree.TypedTree, call)][passexp] = ref
             statements.append(self._buildstatements_build(columnName, ref.schema, sizeColumn, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs], call))
 
-            return ref, statements, inputs, replacements, refnumber
-
         else:
             sizes = explosionsToSizes(explosions, dataset)
 
@@ -735,7 +733,7 @@ class FlatFunction(object):
             replacements[(typedtree.TypedTree, call)][explosions] = ref
             statements.append(self._buildstatements_build(columnName, ref.schema, sizeColumn, args, call))
 
-            return ref, statements, inputs, replacements, refnumber
+        return ref, statements, inputs, replacements, refnumber
 
 class Action(Statement):
     @property
