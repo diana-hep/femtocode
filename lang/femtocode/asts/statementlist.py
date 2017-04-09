@@ -651,8 +651,6 @@ def build(tree, dataset, replacements={}, refnumber=0, explosions=()):
     else:
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
-# def _flatBuildPreamble(callargs, trivial, dataset, replacements, refnumber, explosions):
-
 def explosionsToSizes(explosions, dataset):
     uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
     sizes = []
@@ -669,13 +667,17 @@ def explosionsToSizes(explosions, dataset):
     return tuple(sizes)
 
 class FlatFunction(object):
-    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
-        # args, sizeColumn, statements, inputs, refnumber = _flatBuildPreamble(call.args, self.trivial, dataset, replacements, refnumber, explosions)
+    def _buildstatements_args(self, call):
+        return call.args
 
+    def _buildstatements_build(self, columnName, schema, sizeColumn, args, call):
+        return Call(columnName, schema, sizeColumn, self.name, args)
+
+    def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         statements = Statements()
         inputs = {}
         argrefs = []
-        for arg in call.args:
+        for arg in self._buildstatements_args(call):
             argref, ss, ins, repl, refnumber = build(arg, dataset, dict(replacements), refnumber, explosions)
             argrefs.append(argref)
             statements.extend(ss)
@@ -695,7 +697,7 @@ class FlatFunction(object):
             refnumber += 1
             replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
             replacements[(typedtree.TypedTree, call)][passexp] = ref
-            statements.append(Call(columnName, ref.schema, sizeColumn, self.name, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs]))
+            statements.append(self._buildstatements_build(columnName, ref.schema, sizeColumn, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs], call))
 
             return ref, statements, inputs, replacements, refnumber
 
@@ -731,10 +733,10 @@ class FlatFunction(object):
             refnumber += 1
             replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
             replacements[(typedtree.TypedTree, call)][explosions] = ref
-            statements.append(Call(columnName, ref.schema, sizeColumn, self.name, args))
+            statements.append(self._buildstatements_build(columnName, ref.schema, sizeColumn, args, call))
 
             return ref, statements, inputs, replacements, refnumber
-        
+
 class Action(Statement):
     @property
     def type(self):

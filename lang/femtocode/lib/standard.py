@@ -567,7 +567,7 @@ class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
             
 StandardLibrary.table[If.name] = If()
 
-class Is(lispytree.BuiltinFunction):
+class Is(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "is"
 
     def pythoneval(self, args):
@@ -593,6 +593,15 @@ class Is(lispytree.BuiltinFunction):
 
         return boolean(True) if fromtype == out else boolean, typedargs, frame.fork({args[0]: out})
 
+    def _buildstatements_args(self, call):
+        return [call.args[0]]
+
+    def _buildstatements_build(self, columnName, schema, sizeColumn, args, call):
+        fromtype = call.args[0].schema
+        totype = call.args[1].value   # literal type expression
+        negate = call.args[2].value   # literal boolean
+        return statementlist.IsType(columnName, sizeColumn, args[0], fromtype, totype, negate)
+
     def buildstatements(self, call, dataset, replacements, refnumber, explosions):
         if call.schema == boolean(True):
             literal = statementlist.Literal(True, boolean(True))
@@ -601,22 +610,7 @@ class Is(lispytree.BuiltinFunction):
             return literal, statementlist.Statements(), {}, replacements, refnumber
 
         else:
-            fromtype = call.args[0].schema
-            totype = call.args[1].value   # literal type expression
-            negate = call.args[2].value   # literal boolean
-
-            args, sizeColumn, statements, inputs, repl, refnumber = statementlist._flatBuildPreamble([call.args[0]], dataset, dict(replacements), refnumber, explosions)
-            replacements.update(repl)
-
-            columnName = ColumnName(refnumber)
-            ref = statementlist.Ref(refnumber, call.schema, columnName, sizeColumn)
-
-            refnumber += 1
-            replacements[(typedtree.TypedTree, call)] = replacements.get((typedtree.TypedTree, call), {})
-            replacements[(typedtree.TypedTree, call)][explosions] = ref
-            statements.append(statementlist.IsType(columnName, sizeColumn, args[0], fromtype, totype, negate))
-
-            return ref, statements, inputs, replacements, refnumber
+            return super(Is, self).buildstatements(call, dataset, replacements, refnumber, explosions)
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative, fromtype, totype, negate):
         arg, = args
