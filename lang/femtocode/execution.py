@@ -235,7 +235,10 @@ class ParamNode(Serializable):
         elif isinstance(obj, dict):
             n, = obj.keys()
             v, = obj.values()
-            return getattr(self.__module__, n)(ColumnName.parse(v))
+            if isinstance(v, list):
+                return getattr(self.__module__, n)(ColumnName.parse(*v))
+            else:
+                return getattr(self.__module__, n)(ColumnName.parse(v))
         else:
             assert False
 
@@ -257,11 +260,20 @@ class NamedParamNode(ParamNode):
 
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
+class Index(NamedParamNode): pass
 class SizeArray(NamedParamNode): pass
 class DataArray(NamedParamNode): pass
-class OutDataArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
-class Index(NamedParamNode): pass
+class OutDataArray(NamedParamNode):
+    def __init__(self, name, dtype):
+        super(OutDataArray, self).__init__(name)
+        self.dtype = dtype
+
+    def toJson(self):
+        return {self.__class__.__name__: [str(self.name), self.dtype]}
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.name == other.name and self.dtype == other.dtype
 
 class Loop(Serializable):
     def __init__(self, plateauSize):
@@ -410,6 +422,8 @@ class Loop(Serializable):
         if not lengthScan:
             mightneedsize = False
             for target in self.targets:
+                # FIXME: OutDataArray needs a dtype! This is wrong!!!
+
                 if isinstance(target, ColumnName) and OutDataArray(target) not in parameters:
                     parameters.append(OutDataArray(target))
                     params.append("tarray_" + nametrans(str(target)))
@@ -567,10 +581,11 @@ def {fcnname}({params}):
                         replace(x, withwhat)
 
         needPrerun = False
-        for target in self.targets:
-            if isinstance(target, ColumnName):
-                needPrerun = True
-                break
+        if self.explodesize is not None:
+            for target in self.targets:
+                if isinstance(target, ColumnName):
+                    needPrerun = True
+                    break
 
         if needPrerun:
             prevalidNames = {}
@@ -720,6 +735,7 @@ class Executor(Serializable):
                         elif isinstance(param, Index):
                             i += param.name.depth() + 1
 
+                    # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                     indexarrays = self.makeArray(i, sizeType, True)
                     i = 0
 
@@ -735,23 +751,32 @@ class Executor(Serializable):
                             arguments.append(indexarrays[i : i + len(loop.sizes)])
                             i += len(loop.sizes)
 
-                        elif isinstance(param, SizeArray):
-                            arguments.append(inarrays[param.name])
-
                         elif isinstance(param, Index):
                             arguments.append(indexsarrays[i : i + param.name.depth() + 1])
                             i += param.name.depth() + 1
 
+                        elif isinstance(param, SizeArray):
+                            arguments.append(inarrays[param.name])
+
                         else:
-                            assert False, "unexpected Parameter in prerun: {0}".format(param)
+                            assert False, "unexpected Parameter in Loop.prerun: {0}".format(param)
 
                     loop.prerun.fcn(*arguments)
                     dataLength = numEntries[1]
                     sizeLength = numEntries[2]
 
+                else:
+                    dataLength = # FIXME!!!!
+                    sizeLength = 
+
                 i = 0
                 for param in loop.run.parameters:
-
+                    if isinstance(param, NumEntries):
+                        i += 3
+                    elif isinstance(param, Countdown):
+                        i += len(loop.sizes)
+                    elif isinstance(param, Index):
+                        i += param.name.depth() + 1
 
                 # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                 indexarrays = self.makeArray(i, sizeType, True)
@@ -765,11 +790,29 @@ class Executor(Serializable):
                         arguments.append(numEntries)
                         i += 3
 
+                    elif isinstance(param, Countdown):
+                        arguments.append(indexarrays[i : i + len(loop.sizes)])
+                        i += len(loop.sizes)
 
-class NumEntries(ParamNode): pass
-class Countdown(ParamNode): pass
-class SizeArray(NamedParamNode): pass
-class DataArray(NamedParamNode): pass
-class OutDataArray(NamedParamNode): pass
-class OutSizeArray(NamedParamNode): pass
-class Index(NamedParamNode): pass
+                    elif isinstance(param, Index):
+                        arguments.append(indexsarrays[i : i + param.name.depth() + 1])
+                        i += param.name.depth() + 1
+
+                    elif isinstance(param, (SizeArray, DataArray)):
+                        arguments.append(inarrays[param.name])
+
+                    elif isinstance(param, OutSizeArray):
+                        inarrays[param.name] = self.makeArray(sizeLength, sizeType, False)
+                        arguments.append(inarrays[param.name])
+
+                    elif isinstance(param, OutDataArray):
+                        inarrays[param.name] = self.makeArray(dataLength, param.dtype, False)
+                        arguments.append(inarrays[param.name])
+
+                    else:
+                        assert False, "unexpected Parameter in Loop.run: {0}".format(param)
+
+                loop.prerun.fcn(*arguments)
+
+            else:   # TODO: handle other loopOrAction cases
+                pass
