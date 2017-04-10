@@ -551,7 +551,7 @@ class ExplodeData(Call):
     def plateauSize(self, statements):
         for statement in statements:
             if isinstance(statement, ExplodeSize) and statement.column == self.explodesize:
-                return statement.plateauSize()
+                return statement.plateauSize(statements)
         assert False, "explodesize not found for explodedata"
 
 def exploderef(ref, replacements, refnumber, dataset, sizes, explosions):
@@ -764,7 +764,7 @@ class Action(Statement):
         else:
             raise FemtocodeError("Unrecognized action \"{0}\" at JSON{1}".format(tpe, path))
     
-    def act(self, inarrays, workarrays):
+    def act(self, group, columns, columnLengths, lengths, arrays):
         raise NotImplementedError
 
 class Aggregation(Action):
@@ -851,42 +851,25 @@ class ReturnPythonDataset(Aggregation):
         tally.numEntries = sum(group.numEntries for group in tally.groups)
         return tally
 
-    def act(self, group, lengths, arrays):
+    def act(self, group, columns, columnLengths, lengths, arrays):
         from femtocode.testdataset import TestSegment
+
         segments = {}
-        for n, ref in self.namesToRefs:
-            numEntries = group.numEntries
+        for name, ref in self.namesToRefs:
+            if not isinstance(name, ColumnName):
+                name = ColumnName(name)
 
-            if isinstance(ref, Ref):
-                if ref.data in group.segments:
-                    dataLength = group.segments[ref.data].dataLength
-                else:
-                    dataLength = lengths[ref.data]
-
-                if ref.size is None:
-                    sizeLength = None
-                elif ref.size.dropsize() in group.segments:
-                    sizeLength = group.segments[ref.size.dropsize()].sizeLength
-                else:
-                    sizeLength = lengths[ref.size]
-
+            for n, outputColumn in schemaToColumns(name, ref.schema, False).items():
+                numEntries = group.numEntries
+                dataLength, sizeLength = columnLengths[ref.size]
                 data = arrays[ref.data]
-                size = None if ref.size is None else arrays[ref.size]
+                size = arrays[ref.size] if ref.size is not None else None
 
-            elif isinstance(ref, Literal):
-                dataLength = numEntries
-                sizeLength = None
-                data = [ref.value] * numEntries
-                size = None
+                if not isinstance(data, list):
+                    data = data.tolist()   # because it's Numpy
+                if size is not None and not isinstance(size, list):
+                    size = size.tolist()   # because it's Numpy
 
-            else:
-                assert False, "unexpected object as ref: \"{0}\" {1}".format(n, ref)
-
-            if not isinstance(data, list):
-                data = data.tolist()   # because it's Numpy
-            if size is not None and not isinstance(size, list):
-                size = size.tolist()   # because it's Numpy
-
-            segments[ColumnName.parse(n)] = TestSegment(numEntries, dataLength, sizeLength, data, size)
+                segments[n] = TestSegment(numEntries, dataLength, sizeLength, data, size)
 
         return ReturnPythonDataset.Segments(segments)

@@ -52,7 +52,8 @@ class TestExecution(unittest.TestCase):
         # FIXME: do something about this case!
 
     def test_oldexample1(self):
-        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => x + y)))").compile().statements
+        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => x + y)))").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
@@ -89,8 +90,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v4, [2, 3, 4, 5, 3, 4, 5, 6, 4, 5, 6, 7, 5, 6, 7, 8, 6, 7, 8, 9, 7, 8, 9, 10, 12, 13, 14, 15, 13, 14, 15, 16, 14, 15, 16, 17, 15, 16, 17, 18, 16, 17, 18, 19, 17, 18, 19, 20])
         self.assertEqual(tsarray_v5, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda x: map(lambda y: x + y, old.ys), xs), old.xss), new.a)
+
     def test_oldexample2(self):
-        statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => x + y)))").compile().statements
+        query = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => x + y)))").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
@@ -127,6 +132,9 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v4, [2, 3, 3, 4, 4, 5, 5, 6, 4, 5, 5, 6, 6, 7, 7, 8, 6, 7, 7, 8, 8, 9, 9, 10, 12, 13, 13, 14, 14, 15, 15, 16, 14, 15, 15, 16, 16, 17, 17, 18, 16, 17, 17, 18, 18, 19, 19, 20])
         self.assertEqual(tsarray_v5, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda y: map(lambda x: x + y, xs), old.ys), old.xss), new.a)
+
     def test_minimal(self):
         query = oldexample.toPython(a = "c + d").compile()
         statements = query.statements
@@ -151,15 +159,14 @@ class TestExecution(unittest.TestCase):
             self.assertEqual(old.c + old.d, new.a)
 
     def test_no_explodes(self):
-        statements = oldexample.toPython(a = "ys.map(y => y + y)").compile().statements
-        print
-        print statements
+        query = oldexample.toPython(a = "ys.map(y => y + y)").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("ys[]@size"))
         for statement in statements:
             loop.newStatement(statement)
         loop.newTarget(ColumnName.parse("#0"))
-        loop.compileToPython("fcnname", {"ys[]": collection(real)}, StandardLibrary.table, False, False)
+        loop.compileToPython("fcnname", {"ys[]": collection(real)}, StandardLibrary.table, False, True)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
@@ -173,6 +180,9 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(numEntries, [2, 8, 2])
         self.assertEqual(tarray_v2, [2, 4, 6, 8, 10, 12, 14, 16])
         self.assertEqual(sarray_v0, [4, 4])
+
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda y: y + y, old.ys), new.a)
 
     def test_no_explodes2(self):
         statements = oldexample.toPython(a = "ys.map(y => y + 100)").compile().statements

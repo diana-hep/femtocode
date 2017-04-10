@@ -663,10 +663,11 @@ def {fcnname}({params}):
             for statement in self.explodedatas + self.explodes + self.statements:
                 print("    " + str(statement))
             print("")
-            print("Prerun parameters:")
-            for parameter, param in zip(preparameters, preparams):
-                print("    {0}: {1}".format(param, parameter))
-            print("")
+            if self.prerun is not None:
+                print("Prerun parameters:")
+                for parameter, param in zip(preparameters, preparams):
+                    print("    {0}: {1}".format(param, parameter))
+                print("")
             print("Parameters:")
             for parameter, param in zip(parameters, params):
                 print("    {0}: {1}".format(param, parameter))
@@ -774,7 +775,7 @@ class Executor(Serializable):
                             i += len(loop.sizes)
 
                         elif isinstance(param, Index):
-                            arguments.append(indexsarrays[i : i + param.name.depth() + 1])
+                            arguments.append(indexarrays[i : i + param.name.depth() + 1])
                             i += param.name.depth() + 1
 
                         elif isinstance(param, SizeArray):
@@ -817,7 +818,7 @@ class Executor(Serializable):
                         i += len(loop.sizes)
 
                     elif isinstance(param, Index):
-                        arguments.append(indexsarrays[i : i + param.name.depth() + 1])
+                        arguments.append(indexarrays[i : i + param.name.depth() + 1])
                         i += param.name.depth() + 1
 
                     elif isinstance(param, (SizeArray, DataArray)):
@@ -826,6 +827,7 @@ class Executor(Serializable):
                     elif isinstance(param, OutSizeArray):
                         inarrays[param.name] = self.makeArray(sizeLength, sizeType, False)
                         arguments.append(inarrays[param.name])
+                        columnLengths[param.name] = columnLengths[loop.plateauSize]
 
                     elif isinstance(param, OutDataArray):
                         inarrays[param.name] = self.makeArray(dataLength, param.dtype, False)
@@ -835,15 +837,18 @@ class Executor(Serializable):
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
                 loop.run.fcn(*arguments)
-
+                
                 if loop.explodesize is not None:
-                    lengths[loop.explodesize.column] = columnLength[loop.plateauSize].sizeLength
+                    lengths[loop.explodesize.column] = columnLengths[loop.plateauSize][1]
                 for target in loop.targets:
                     if isinstance(target, ColumnName):
                         lengths[target] = columnLengths[loop.plateauSize][0]
 
+                        if loop.plateauSize is not None and not target.issize():
+                            columnLengths[target.size()] = columnLengths[loop.plateauSize]
+
             else:
                 action = loopOrAction
-                out = action.act(group, lengths, inarrays)
+                out = action.act(group, columns, columnLengths, lengths, inarrays)
 
         return out
