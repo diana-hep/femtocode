@@ -352,16 +352,6 @@ class Loop(Serializable):
         self.uniques = list(reversed(self.uniques))
         self.deepiToUnique = [len(self.uniques) - i - 1 for i in reversed(self.deepiToUnique)]
 
-        # self.sizes = sizes
-        # self.deepiToUnique = []
-        # self.uniques = []
-        # for size in self.sizes:
-        #     if size not in self.uniques:
-        #         self.deepiToUnique.append(len(self.uniques))
-        #         self.uniques.append(size)
-        #     else:
-        #         self.deepiToUnique.append(self.uniques.index(size))
-
     def newTarget(self, column):
         if column not in self.targets:
             self.targets.append(column)
@@ -524,7 +514,6 @@ class Loop(Serializable):
         if not lengthScan:
             for i, unique in enumerate(self.uniques):
                 rindex_plus1 = len(self.deepiToUnique) - list(reversed(self.deepiToUnique)).index(i)
-                # rindex_plus1 = len(self.explosions) - list(reversed(self.explosions)).index(unique)
                 for explodedata in self.explodedatas:
                     if explodedata.fromsize == unique:
                         dataincrements[rindex_plus1].append("xdindex_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))

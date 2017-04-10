@@ -447,8 +447,8 @@ class TestLibStandard(unittest.TestCase):
         for entry in nonflat.toPython(pt = "muons.map($1.pt)", phi = "muons.map($1.phi)", a = "muons.map(mu => mu.pt + mu.phi)").submit():
             self.assertEqual(mapp(zip(entry.pt, entry.phi), lambda x: x[0] + x[1]), entry.a)
 
-    # def test_map2(self):
-    #     print
-    #     print nonflat.toPython(a = "muons.map(mu1 => muons.map(mu2 => mu2.pt + 1))").compile().statements
+    def test_map2(self):
+        print
+        print nonflat.toPython(a = "muons.map(mu1 => muons.map(mu2 => mu2.pt + 1))").compile().statements
 
         

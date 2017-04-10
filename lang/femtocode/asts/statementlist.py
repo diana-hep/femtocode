@@ -609,63 +609,6 @@ def exploderef(ref, replacements, refnumber, dataset, explosions):
 
         return RefWithExplosions(refnumber, ref.schema, explodedData, explodedSize, explosions), statements, replacements, refnumber + 1
 
-    # if len(sizes) == 0:
-    #     return ref, Statements(), replacements, refnumber
-
-    # elif ref.size is None:
-    #     statements = []
-
-    #     if len(set(sizes)) == 1:
-    #         explodedSize = sizes[0]
-
-    #         if (Explode, ref.name, explodedSize) in replacements:
-    #             explodedData = replacements[(Explode, ref.name, explodedSize)]
-    #         else:
-    #             explodedData = ColumnName(refnumber)
-    #             replacements[(Explode, ref.name, explodedSize)] = explodedData
-    #             statements.append(Explode(explodedData, ref.schema, ref.data, explodedSize))
-
-    #     else:
-    #         if (ExplodeSize, sizes) in replacements:
-    #             explodedSize = replacements[(ExplodeSize, sizes)]
-    #         else:
-    #             explodedSize = ColumnName(refnumber).size()
-    #             replacements[(ExplodeSize, sizes)] = explodedSize
-    #             statements.append(ExplodeSize(explodedSize, sizes))
-
-    #         if (Explode, ref.name, explodedSize) in replacements:
-    #             explodedData = replacements[(Explode, ref.name, explodedSize)]
-    #         else:
-    #             explodedData = ColumnName(refnumber)
-    #             replacements[(Explode, ref.name, explodedSize)] = explodedData
-    #             statements.append(Explode(explodedData, ref.schema, ref.data, explodedSize))
-
-    #     return RefWithExplosions(refnumber, ref.schema, explodedData, explodedSize, explosions), statements, replacements, refnumber + 1
-
-    # elif set([ref.size]) == set(sizes):
-    #     return ref, [], replacements, refnumber
-
-    # else:
-    #     statements = []
-
-    #     if (ExplodeSize, sizes) in replacements:
-    #         explodedSize = replacements[(ExplodeSize, sizes)]
-    #     else:
-    #         explodedSize = ColumnName(refnumber).size()
-    #         replacements[(ExplodeSize, sizes)] = explodedSize
-    #         statements.append(ExplodeSize(explodedSize, sizes))
-
-    #     if (ExplodeData, ref.name, sizes) in replacements:
-    #         explodedData = replacements[(ExplodeData, ref.name, sizes)]
-    #     elif ref.size != explodedSize:
-    #         explodedData = ColumnName(refnumber)
-    #         replacements[(ExplodeData, ref.name, sizes)] = explodedData
-    #         statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, explodedSize))
-    #     else:
-    #         explodedData = ref.data
-
-    #     return RefWithExplosions(refnumber, ref.schema, explodedData, explodedSize, explosions), statements, replacements, refnumber + 1
-
 def startswith(a, b):
     return len(a) >= len(b) and a[:len(b)] == b
 
@@ -699,19 +642,6 @@ def build(tree, dataset, replacements={}, refnumber=0, explosions=()):
 
     else:
         assert False, "unexpected type in typedtree: {0}".format(tree)
-
-# def explosionsToSizes(explosions, dataset):
-#     uniques = sorted(set(dataset.sizeColumn(x.name) for x in explosions if dataset.sizeColumn(x.name) is not None), key=lambda x: -len(x.path))
-#     sizes = []
-#     for explosion in explosions:
-#         found = None
-#         for size in uniques:
-#             if size.startswith(explosion.name):    # uniques is sorted (above) to ensure that we match greedily (deepest possible path)
-#                 found = size
-#                 break
-#         assert found is not None
-#         sizes.append(found)
-#     return tuple(sizes)
 
 class FlatFunction(object):
     def _buildstatements_args(self, call):
@@ -747,8 +677,6 @@ class FlatFunction(object):
             statements.append(self._buildstatements_build(columnName, ref.schema, sizeColumn, [arg.data if isinstance(arg, Ref) else arg for arg in argrefs], call))
 
         else:
-            # sizes = explosionsToSizes(explosions, dataset)
-
             args = []
             sizeColumnAssigned = False
             sizeColumn = None
