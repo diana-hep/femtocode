@@ -25,7 +25,7 @@ from femtocode.typesystem import *
 from femtocode.util import *
 
 sizeType = "uint64"
-
+        
 class ColumnName(object):
     recordsep = "-"
     colltag = "[]"
@@ -157,11 +157,31 @@ class ColumnName(object):
     def depth(self):
         return self.path.count(ColumnName._coll)
 
+    def explosions(self):
+        out = []
+        for i in range(1, len(self.path) + 1):
+            if self.path[i - 1] == ColumnName._coll:
+                out.append(Explosion(ColumnName(*self.path[:i])))
+        return tuple(out)
+
     def istmp(self):
         return self.path[0].startswith("#")
 
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
+
+class Explosion(object):
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "Explosion({0})".format(self.name)
+
+    def __eq__(self, other):
+        return other.__class__ == Explosion and self.name == other.name
+
+    def __hash__(self):
+        return hash(("Explosion", self.name))
 
 class Metadata(Serializable): pass
 

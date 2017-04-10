@@ -22,7 +22,7 @@ from functools import reduce
 from femtocode.asts import lispytree
 from femtocode.asts import statementlist
 from femtocode.asts import typedtree
-from femtocode.dataset import ColumnName
+from femtocode.dataset import *
 from femtocode.defs import *
 from femtocode import inference
 from femtocode.typesystem import *
@@ -780,7 +780,7 @@ class Map(lispytree.BuiltinFunction):
 
         # the argument of the UserFunction is the values of the collection
         rename = argref.name.coll()
-        extendedExplosions = explosions + (rename,)
+        extendedExplosions = explosions + (Explosion(rename),)
         reref = statementlist.RefWithExplosions(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename), extendedExplosions)
 
         if reref.data in dataset.columns:

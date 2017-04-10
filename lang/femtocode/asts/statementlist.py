@@ -281,7 +281,7 @@ class Ref(Statement):
         if self.size is None:
             return ()
         else:
-            return (self.size,) * self.size.depth()
+            return self.explosions()
 
 class RefWithExplosions(Ref):
     def __init__(self, name, schema, data, size, explosions):
@@ -647,12 +647,12 @@ def build(tree, dataset, replacements={}, refnumber=0, explosions=()):
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
 def explosionsToSizes(explosions, dataset):
-    uniques = sorted(set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None), key=lambda x: -len(x.path))
+    uniques = sorted(set(dataset.sizeColumn(x.name) for x in explosions if dataset.sizeColumn(x.name) is not None), key=lambda x: -len(x.path))
     sizes = []
     for explosion in explosions:
         found = None
         for size in uniques:
-            if size.startswith(explosion):    # uniques is sorted (above) to ensure that we match greedily (deepest possible path)
+            if size.startswith(explosion.name):    # uniques is sorted (above) to ensure that we match greedily (deepest possible path)
                 found = size
                 break
 
