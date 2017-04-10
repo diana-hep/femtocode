@@ -644,7 +644,11 @@ def {fcnname}({params}):
                     astargs.append(arg.buildexec())
                     schemas.append(arg.schema)
 
-            assignment = fcntable[statement.fcnname].buildexec(asttarget, statement.schema, astargs, schemas, newname, references, tonative)
+            if isinstance(statement, statementlist.IsType):
+                assignment = fcntable[statement.fcnname].buildexec(asttarget, statement.schema, astargs, schemas, newname, references, tonative, statement.fromtype, statement.totype, statement.negate)
+            else:
+                assignment = fcntable[statement.fcnname].buildexec(asttarget, statement.schema, astargs, schemas, newname, references, tonative)
+
             schemalookup[statement.column] = statement.schema
 
             # FIXME: numeric types with restricted min/max should have additional statements "clamping" the result to that range (to avoid bugs due to round-off)

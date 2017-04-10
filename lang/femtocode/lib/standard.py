@@ -730,7 +730,7 @@ class Dot(lispytree.BuiltinFunction):
         field = call.args[1].value
 
         rename = argref.name.rec(field)
-        if isinstance(argref, RefWithExplosions):
+        if isinstance(argref, statementlist.RefWithExplosions):
             reref = statementlist.RefWithExplosions(rename, argref.schema.fields[field], dataset.dataColumn(rename), dataset.sizeColumn(rename), argref.explosions())
         else:
             reref = statementlist.Ref(rename, argref.schema.fields[field], dataset.dataColumn(rename), dataset.sizeColumn(rename))

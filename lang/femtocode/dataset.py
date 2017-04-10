@@ -317,27 +317,24 @@ class Dataset(Metadata):
             columnName = ColumnName(columnName)
 
         schema = self.schema[columnName.path[0]]
-        dataColumnPath = [columnName.path[0]]
         for i, item in enumerate(columnName.path[1:]):
             if isinstance(item, string_types):
                 assert isinstance(schema, Record), "column {0} not a Record at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
-                if i + 2 == len(columnName.path):
-                    dataColumnPath.append(item)
-                else:
-                    dataColumnPath.append(item)
                 schema = schema.fields[item]
 
             elif isinstance(item, ColumnName.Coll):
                 assert isinstance(schema, Collection), "column {0} not a Collection at {1}".format(columnName, ColumnName(*columnName.path[:i+2]))
-                dataColumnPath.append(item)
                 schema = schema.items
 
             else:
                 assert False, "unexpected item in ColumnName for data: {0}".format(item)
 
-        if ColumnName(*dataColumnPath) in self.columns:
-            return self.columns[ColumnName(*dataColumnPath)].size
+        if columnName in self.columns:
+            return self.columns[columnName].size
         else:
+            for c in self.columns.values():
+                if c.size == columnName.size():
+                    return c.size
             return None
 
 class MetadataFromJson(object):
