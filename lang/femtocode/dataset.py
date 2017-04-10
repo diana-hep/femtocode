@@ -378,3 +378,42 @@ class MetadataFromJson(object):
             self._cache[key] = dataset
 
         return self._cache[key]
+
+def schemaToColumns(name, schema, dtype=True, sizeColumn=None):
+    if isinstance(schema, Null):
+        raise NotImplementedError   # not sure what I would do with this
+
+    elif isinstance(schema, Boolean):
+        return {name: Column(name, sizeColumn, "bool")}
+
+    elif isInt(schema) or isNullInt(schema):
+        return {name: Column(name, sizeColumn, "int64" if dtype else "int")}
+
+    elif isFloat(schema) or isNullFloat(schema):
+        return {name: Column(name, sizeColumn, "float64" if dtype else "float")}
+
+    elif isinstance(schema, String):
+        raise NotImplementedError   # TODO
+
+    elif isinstance(schema, Collection):
+        return schemaToColumns(name.coll(), schema.items, dtype, name.coll().size())
+
+    elif isinstance(schema, Record):
+        out = {}
+        for fn, ft in schema.fields.items():
+            out.update(schemaToColumns(name.rec(fn), ft, dtype, sizeColumn))
+        return out
+
+    elif isinstance(schema, Union):
+        raise NotImplementedError   # TODO
+
+    else:
+        assert False, "unexpected type: {0} {1}".format(type(schema), schema)
+
+def schemasToColumns(namesToSchemas, dtype=True):
+    columns = {}
+    for n, t in namesToSchemas.items():
+        if not isinstance(n, ColumnName):
+            n = ColumnName(n)
+        columns.update(schemaToColumns(n, t, dtype, None))
+    return columns

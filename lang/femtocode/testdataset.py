@@ -139,38 +139,6 @@ class TestDataset(Dataset):
 
     def __hash__(self):
         return hash(("TestDataset", self.name, tuple(sorted(self.schema.items())), tuple(sorted(self.columns.items())), tuple(self.groups), self.numEntries, self.numGroups))
-
-    @staticmethod
-    def makeColumns(name, schema, sizeColumn=None):
-        if isinstance(schema, Null):
-            raise NotImplementedError
-
-        elif isinstance(schema, Boolean):
-            return {name: TestColumn(name, sizeColumn, "bool")}
-
-        elif isInt(schema) or isNullInt(schema):
-            return {name: TestColumn(name, sizeColumn, "int")}
-
-        elif isFloat(schema) or isNullFloat(schema):
-            return {name: TestColumn(name, sizeColumn, "float")}
-
-        elif isinstance(schema, String):
-            raise NotImplementedError
-
-        elif isinstance(schema, Collection):
-            return TestDataset.makeColumns(name.coll(), schema.items, name.coll().size())
-
-        elif isinstance(schema, Record):
-            out = {}
-            for fn, ft in schema.fields.items():
-                out.update(TestDataset.makeColumns(name.rec(fn), ft, sizeColumn))
-            return out
-
-        elif isinstance(schema, Union):
-            raise NotImplementedError
-
-        else:
-            assert False, "unexpected type: {0} {1}".format(type(schema), schema)
         
     @staticmethod
     def fromSchema(name, asdict=None, **askwds):
@@ -180,9 +148,7 @@ class TestDataset(Dataset):
             schema = dict(asdict)
         schema.update(askwds)
 
-        columns = {}
-        for n, t in schema.items():
-            columns.update(TestDataset.makeColumns(ColumnName(n), t))
+        columns = dict((n, TestColumn(c.data, c.size, c.dataType)) for n, c in schemasToColumns(schema, False).items())
 
         out = TestDataset(name, schema, columns, [], 0, 0)
         for n, c in out.columns.items():

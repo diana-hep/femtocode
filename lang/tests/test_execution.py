@@ -148,6 +148,8 @@ class TestExecution(unittest.TestCase):
 
     def test_no_explodes(self):
         statements = oldexample.toPython(a = "ys.map(y => y + y)").compile().statements
+        print
+        print statements
 
         loop = Loop(ColumnName.parse("ys[]@size"))
         for statement in statements:
@@ -337,7 +339,6 @@ class TestExecution(unittest.TestCase):
         query = oldexample.define(z = "c").toPython(a = "ys.map(y => y + z)", b = "ys.map(y => y + z)").compile()
         targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 1)
-
 
         query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
         targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)

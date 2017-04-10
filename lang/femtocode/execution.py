@@ -24,8 +24,7 @@ import traceback
 import types
 
 from femtocode.asts import statementlist
-from femtocode.dataset import ColumnName
-from femtocode.dataset import sizeType
+from femtocode.dataset import *
 from femtocode.defs import *
 from femtocode.lib.standard import StandardLibrary
 from femtocode.py23 import *
@@ -422,13 +421,16 @@ class Loop(Serializable):
         if not lengthScan:
             mightneedsize = False
             for target in self.targets:
-                # FIXME: OutDataArray needs a dtype! This is wrong!!!
-
-                if isinstance(target, ColumnName) and OutDataArray(target) not in parameters:
-                    parameters.append(OutDataArray(target))
-                    params.append("tarray_" + nametrans(str(target)))
-                    mightneedsize = True
-                    targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
+                if isinstance(target, ColumnName):
+                    for statement in self.explodes + self.explodedatas + self.statements:
+                        if statement.column == target:
+                            for c in schemaToColumns(ColumnName(target.path[0]), statement.schema).values():
+                                if OutDataArray(c.data, c.dataType) not in parameters:
+                                    parameters.append(OutDataArray(c.data, c.dataType))
+                                    params.append("tarray_" + nametrans(str(c.data)))
+                                    mightneedsize = True
+                                    ## FIXME: surely this doesn't handle multicolumns right...
+                                    targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(c.data))))
 
         targetsizecode = ""
         if not lengthScan:
@@ -721,6 +723,11 @@ class Executor(Serializable):
             return [None] * length   # more useful error messages
 
     def run(self, inarrays, group):
+        lengths = {None: (group.numEntries, None)}
+        for segment in group.segments.values():
+            if segment.size is not None:
+                lengths[segment.size] = (segment.dataLength, segment.sizeLength)
+
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
@@ -762,12 +769,12 @@ class Executor(Serializable):
                             assert False, "unexpected Parameter in Loop.prerun: {0}".format(param)
 
                     loop.prerun.fcn(*arguments)
-                    dataLength = numEntries[1]
-                    sizeLength = numEntries[2]
+                    dataLength = int(numEntries[1])
+                    sizeLength = int(numEntries[2])
+                    lengths[loop.plateauSize] = dataLength, sizeLength
 
                 else:
-                    dataLength = # FIXME!!!!
-                    sizeLength = 
+                    dataLength, sizeLength = lengths[loop.plateauSize]
 
                 i = 0
                 for param in loop.run.parameters:
