@@ -185,7 +185,8 @@ class TestExecution(unittest.TestCase):
             self.assertEqual(map(lambda y: y + y, old.ys), new.a)
 
     def test_no_explodes2(self):
-        statements = oldexample.toPython(a = "ys.map(y => y + 100)").compile().statements
+        query = oldexample.toPython(a = "ys.map(y => y + 100)").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("ys[]@size"))
         for statement in statements:
@@ -206,8 +207,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v2, [101, 102, 103, 104, 105, 106, 107, 108])
         self.assertEqual(sarray_v0, [4, 4])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda y: y + 100, old.ys), new.a)
+
     def test_simple_explode(self):
-        statements = oldexample.toPython(a = "ys.map(y => y + c)").compile().statements
+        query = oldexample.toPython(a = "ys.map(y => y + c)").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("ys[]@size"))
         for statement in statements:
@@ -229,8 +234,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 2005, 2006, 2007, 2008])
         self.assertEqual(sarray_v0, [4, 4])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda y: y + old.c, old.ys), new.a)
+
     def test_simple_explode2(self):
-        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile().statements
+        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("xss[][]@size"))
         for statement in statements:
@@ -252,8 +261,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v3, [1001, 1002, 1003, 1004, 1005, 1006, 2007, 2008, 2009, 2010, 2011, 2012])
         self.assertEqual(sarray_v0, [3, 2, 2, 2, 3, 2, 2, 2])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda x: x + old.c, xs), old.xss), new.a)
+
     def test_megaexample1(self):
-        statements = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile().statements
+        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
@@ -291,8 +304,12 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v5, [1001, 1002, 1003, 1004, 2001, 2002, 2003, 2004, 3001, 3002, 3003, 3004, 4001, 4002, 4003, 4004, 5001, 5002, 5003, 5004, 6001, 6002, 6003, 6004, 14005, 14006, 14007, 14008, 16005, 16006, 16007, 16008, 18005, 18006, 18007, 18008, 20005, 20006, 20007, 20008, 22005, 22006, 22007, 22008, 24005, 24006, 24007, 24008])
         self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda x: map(lambda y: old.c * x + y, old.ys), xs), old.xss), new.a)
+
     def test_megaexample2(self):
-        statements = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile().statements
+        query = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile()
+        statements = query.statements
 
         loop = Loop(ColumnName.parse("#0@size"))
         for statement in statements:
@@ -330,50 +347,53 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tarray_v5, [1001, 2001, 1002, 2002, 1003, 2003, 1004, 2004, 3001, 4001, 3002, 4002, 3003, 4003, 3004, 4004, 5001, 6001, 5002, 6002, 5003, 6003, 5004, 6004, 14005, 16005, 14006, 16006, 14007, 16007, 14008, 16008, 18005, 20005, 18006, 20006, 18007, 20007, 18008, 20008, 22005, 24005, 22006, 24006, 22007, 24007, 22008, 24008])
         self.assertEqual(tsarray_v6, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
-    def test_graph_connections(self):
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda y: map(lambda x: old.c * x + y, xs), old.ys), old.xss), new.a)
+
+    def test_graph_connections1(self):
         query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
         targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
         self.assertEqual(len(DependencyGraph.connectedSubgraphs(targetsToEndpoints.values())), 1)
+        self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 3)
+        self.assertEqual(len(DependencyGraph.order(DependencyGraph.loops(targetsToEndpoints.values()), [], required)), 3)
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda x: x + (old.c - old.d), xs), old.xss), new.a)
+            self.assertEqual(map(lambda y: y + (old.c - old.d), old.ys), new.b)
+
+    def test_graph_connections2(self):
         query = oldexample.define(z = "c").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
         targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
         self.assertEqual(len(DependencyGraph.connectedSubgraphs(targetsToEndpoints.values())), 2)
-
-        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
-        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
-
-        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
-        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
-        self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 3)
-
-        query = oldexample.define(z = "c").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
-        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 2)
 
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda xs: map(lambda x: x + old.c, xs), old.xss), new.a)
+            self.assertEqual(map(lambda y: y + old.c, old.ys), new.b)
+
+    def test_graph_connections3(self):
         query = oldexample.define(z = "c").toPython(a = "ys.map(y => y + z)", b = "ys.map(y => y + z)").compile()
         targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 1)
 
-        query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
-        targetsToEndpoints, lookup, required = DependencyGraph.wholedag(query)
-        self.assertEqual(len(DependencyGraph.order(DependencyGraph.loops(targetsToEndpoints.values()), [], required)), 3)
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(map(lambda y: y + old.c, old.ys), new.a)
+            self.assertEqual(map(lambda y: y + old.c, old.ys), new.b)
 
+    def test_submit(self):
+        session = TestSession()
 
+        source = session.source("Test", x=integer, y=real)
+        for i in xrange(100):
+            source.dataset.fill({"x": i, "y": 0.2})
 
-    # def test_submit(self):
-    #     session = TestSession()
+        def callback(x):
+            self.assertEqual(source.dataset.numEntries, x.numEntries)
 
-    #     source = session.source("Test", x=integer, y=real)
-    #     for i in xrange(100):
-    #         source.dataset.fill({"x": i, "y": 0.2})
+        result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
 
-    #     def callback(x):
-    #         self.assertEqual(source.dataset.numEntries, x.numEntries)
+        # TestDataset is synchronous, so both callback and assuming it's blocking work
 
-    #     result = source.define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5").submit(callback)
-
-    #     # TestDataset is synchronous, so both callback and assuming it's blocking work
-
-    #     for old, new in zip(source.dataset, result):
-    #         self.assertAlmostEqual(old.x + old.y - 3, new.a)
-    #         self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
+        for old, new in zip(source.dataset, result):
+            self.assertAlmostEqual(old.x + old.y - 3, new.a)
+            self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
