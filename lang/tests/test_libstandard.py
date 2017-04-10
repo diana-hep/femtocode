@@ -51,6 +51,9 @@ for i in xrange(100):
         jets.append(nonflat.dataset.types["jets[]"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)))
     nonflat.dataset.fill({"met": float(i), "muons": muons, "jets": jets})
 
+def mapp(obj, fcn):
+    return list(map(fcn, obj))
+
 class TestLibStandard(unittest.TestCase):
     def runTest(self):
         pass
@@ -441,9 +444,5 @@ class TestLibStandard(unittest.TestCase):
     def test_map(self):
         self.assertEqual(nonflat.type("muons.map($1.pt + $1.phi)"), collection(real(-pi, almost(inf))))
 
-        # print
-        # print nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").compile().statements
-
-        # for entry in nonflat.toPython(pts = "muons.map($1.pt)", phis = "muons.map($1.phi)", a = "muons.map($1.pt + $1.phi)").submit():
-        #     print entry
-
+        for entry in nonflat.toPython(pt = "muons.map($1.pt)", phi = "muons.map($1.phi)", a = "muons.map(mu => mu.pt + mu.phi)").submit():
+            self.assertEqual(mapp(zip(entry.pt, entry.phi), lambda x: x[0] + x[1]), entry.a)
