@@ -59,7 +59,7 @@ class ExecutionFailure(Serializable):
 
         else:
             if sys.version_info[0] <= 2:
-                raise self.exception.__class__, self.exception, self.traceback
+                exec("raise self.exception.__class__, self.exception, self.traceback")
             else:
                 raise self.exception.with_traceback(self.traceback)
 

@@ -85,7 +85,7 @@ class TestSyntax(unittest.TestCase):
                             if not (isinstance(valueTwo, ast.AST)):
                                 same = False
                             deepcompare(valueOne, valueTwo, indent + "    ")
-                        elif valueOne is None or isinstance(valueOne, (int, long, float, complex, basestring)):
+                        elif valueOne is None or isinstance(valueOne, (int, long, float, complex) + string_types):
                             if not (valueOne == valueTwo):
                                 same = False
                             treeOne += repr(valueOne) + "\n"

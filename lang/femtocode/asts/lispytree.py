@@ -59,7 +59,7 @@ class BuiltinFunction(Function):
             fcn = ast.FunctionDef("tmp", params, [ast.Return(self.pythonast(refs))], [])
         else:
             params = ast.arguments([ast.arg("x{0}".format(i), None) for i in xrange(len(args))], None, [], [], None, [])
-            fcn = ast.FunctionDef("tmp", params, [ast.Return(self.pythonast(refs))], None)
+            fcn = ast.FunctionDef("tmp", params, [ast.Return(self.pythonast(refs))], [], None)
 
         moduleast = ast.Module([fcn])
         fakeLineNumbers(moduleast)

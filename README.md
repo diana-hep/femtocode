@@ -30,9 +30,9 @@ Installing all of them (`python setup.py install --user`) from top to bottom in 
 
 Femtocode was inspired by fast SQL services that translate users’ requests into operations with the same meaning as the their queries, yet are much faster than naive interpretations of them. The ability to perform these translations is helped by the fact that SQL minimally constrains the computation: there are no “for” loops to specify an order of iteration, no mutable variables, etc. The language is fast _because_ it is high-level, rather than in spite of being high-level.
 
-At first, it would seem that SQL would be ideal for the first phase of every high-energy physics analysis: reducing huge sets of data points into distributions (histograms). But in their original form, these “data points” are structured collections of events containing jets containing tracks containing hits, all arbitrary-length lists of multi-field records. As a language, SQL does not express explode-operate-recombine tasks easily and most SQL implementations cannot evaluate them without expensive joins.
+At first, it would seem that SQL would be ideal for the first phase of every high-energy physics analysis: reducing huge sets of data points into distributions (histograms). But in their original form, these “data points” are structured collections of events containing jets containing tracks containing hits, all arbitrary-length lists of multi-field records. As a language, SQL does not express explode-operate-implode tasks easily and most SQL implementations cannot evaluate them without expensive joins.
 
-Femtocode generalizes the SELECT and WHERE parts of SQL by adding explode-operate-recombine semantics in a functional syntax. For instance, given data structured as `events >> jets >> tracks`,
+Femtocode generalizes the SELECT and WHERE parts of SQL by adding explode-operate-implode semantics in a functional syntax. For instance, given data structured as `events >> jets >> tracks`,
 
     jets.map(j => j.tracks.filter(t => t.pt > 5).sum).max
 
@@ -55,7 +55,7 @@ Within this playground, any single-pass algorithm can be written that does not i
 
 (See [this blog post](http://blog.twitter.com/2013/dremel-made-simple-with-parquet) for a description of shredding in Parquet. Femtocode has a slightly different shredding algorithm and performs all calculations in the shredded form, rather than just using it for efficient storage.)
 
-Within Femtocode’s restrictions, there are only three kinds of operations: explode, flat, and combine.
+Within Femtocode’s restrictions, there are only three kinds of operations: explode, flat, and implode.
 
 #### Explode operations
 
@@ -73,9 +73,9 @@ Two or more arrays have the same level of structure, and can therefore be operat
 
 Splitting loops appropriately would allow for automatic vectorization in this case, and any function adhering to the Numpy ufunc specification could be included in the language.
 
-#### Combine operations
+#### Implode operations
 
-<img src="docs/reduce.png" width="300px" alt="Combine operation">
+<img src="docs/reduce.png" width="300px" alt="Implode operation">
 
 An array at one level of structure is reduced to a lower level of structure by computing the sum, maximum, minimum, etc. per group.
 
@@ -87,8 +87,8 @@ translates into
 
    1. Take a `cut` variable (one per event) and associate each `t.pt` value to the appropriate one (explode).
    2. Mask `t.pt` values that are greater than `cut` (flat).
-   3. Compute their sum, one per jet (combine).
-   4. Find the maximal jet by this measure (another combine).
+   3. Compute their sum, one per jet (implode).
+   4. Find the maximal jet by this measure (another implode).
 
 Columnar operations like these can be performed considerably faster than constructing jet objects containing variable-length track collections, executing the literal code, and then deleting these objects before moving on to the next event.
 
@@ -125,7 +125,7 @@ workflow = session.source("b-physics")                   # pull from a named dat
        .filter("goodmuons.size >= 2")                    # keep events with at least two
        .define(dimuon = """
            mu1, mu2 = goodmuons.maxby($1.pt, 2);         # pick the top two by pt
-           energy = mu1.E + mu2.E;                       # compute combined energy/momentum
+           energy = mu1.E + mu2.E;                       # compute imploded energy/momentum
            px = mu1.px + mu2.px;
            py = mu1.py + mu2.py;
            pz = mu1.pz + mu2.pz;
@@ -237,7 +237,7 @@ Fast execution is based on two external libraries: [Numpy](http://www.numpy.org/
 Femtocode is compiled in the following steps:
 
    1. Femtocode snippets in a workflow are parsed, analyzed, and type-checked.
-   2. Code is translated into a sequence of explode, flat, and combine statements.
+   2. Code is translated into a sequence of explode, flat, and implode statements.
    3. These statements are bound into a query object that is sent to the server as JSON.
    4. The query server builds dependency graphs among the statements to decide which to combine into loops.
    5. Loops are compiled into Python bytecode.
@@ -395,7 +395,7 @@ This operation has only been tested on Linux, and it likely constrains the serve
 **Done:**
 
    * Core of language parsing, type checking, type inference and logical inference. However, only two functions have been fully implemented (`+` and `.map`).
-   * Explode and flat function compilation, not combine.
+   * Explode and flat function compilation, not implode.
    * Workflow generation, query generation, futures and result handling.
    * Modular dataset metadata: JSON files and MongoDB.
    * Modular backends: Numpy, ROOT, CouchBase.
@@ -407,7 +407,7 @@ This operation has only been tested on Linux, and it likely constrains the serve
 **In 1 month:**
 
    * Test of the full, distributed server on KNL (as opposed to feasibility tests).
-   * Implementation of at least one combine function.
+   * Implementation of at least one implode function.
    * Enough functions to compute invariant mass for demo.
    * Importing flat functions from Numpy ufuncs.
    * End-to-end demo.

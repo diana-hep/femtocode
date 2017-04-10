@@ -647,12 +647,12 @@ def build(tree, dataset, replacements={}, refnumber=0, explosions=()):
         assert False, "unexpected type in typedtree: {0}".format(tree)
 
 def explosionsToSizes(explosions, dataset):
-    uniques = set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None)
+    uniques = sorted(set(dataset.sizeColumn(x) for x in explosions if dataset.sizeColumn(x) is not None), key=lambda x: -len(x.path))
     sizes = []
     for explosion in explosions:
         found = None
         for size in uniques:
-            if size.startswith(explosion):
+            if size.startswith(explosion):    # uniques is sorted (above) to ensure that we match greedily (deepest possible path)
                 found = size
                 break
 

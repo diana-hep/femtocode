@@ -39,6 +39,9 @@ oldexample = session.source("OldExample", xss=collection(collection(integer)), y
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
 oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
 
+def mapp(obj, fcn):
+    return list(map(fcn, obj))
+
 class TestExecution(unittest.TestCase):
     def runTest(self):
         pass
@@ -91,7 +94,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v5, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda x: map(lambda y: x + y, old.ys), xs), old.xss), new.a)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: x + y))), new.a)
 
     def test_oldexample2(self):
         query = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => x + y)))").compile()
@@ -133,7 +136,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v5, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda y: map(lambda x: x + y, xs), old.ys), old.xss), new.a)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(old.ys, lambda y: mapp(xs, lambda x: x + y))), new.a)
 
     def test_minimal(self):
         query = oldexample.toPython(a = "c + d").compile()
@@ -182,7 +185,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(sarray_v0, [4, 4])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda y: y + y, old.ys), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + y), new.a)
 
     def test_no_explodes2(self):
         query = oldexample.toPython(a = "ys.map(y => y + 100)").compile()
@@ -208,7 +211,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(sarray_v0, [4, 4])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda y: y + 100, old.ys), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + 100), new.a)
 
     def test_simple_explode(self):
         query = oldexample.toPython(a = "ys.map(y => y + c)").compile()
@@ -235,7 +238,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(sarray_v0, [4, 4])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda y: y + old.c, old.ys), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + old.c), new.a)
 
     def test_simple_explode2(self):
         query = oldexample.toPython(a = "xss.map(xs => xs.map(x => x + c))").compile()
@@ -262,7 +265,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(sarray_v0, [3, 2, 2, 2, 3, 2, 2, 2])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda x: x + old.c, xs), old.xss), new.a)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: x + old.c)), new.a)
 
     def test_megaexample1(self):
         query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
@@ -305,7 +308,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda x: map(lambda y: old.c * x + y, old.ys), xs), old.xss), new.a)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
 
     def test_megaexample2(self):
         query = oldexample.toPython(a = "xss.map(xs => ys.map(y => xs.map(x => c*x + y)))").compile()
@@ -348,7 +351,7 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v6, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda y: map(lambda x: old.c * x + y, xs), old.ys), old.xss), new.a)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(old.ys, lambda y: mapp(xs, lambda x: old.c * x + y))), new.a)
 
     def test_graph_connections1(self):
         query = oldexample.define(z = "c - d").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
@@ -358,8 +361,8 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(len(DependencyGraph.order(DependencyGraph.loops(targetsToEndpoints.values()), [], required)), 3)
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda x: x + (old.c - old.d), xs), old.xss), new.a)
-            self.assertEqual(map(lambda y: y + (old.c - old.d), old.ys), new.b)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: x + (old.c - old.d))), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + (old.c - old.d)), new.b)
 
     def test_graph_connections2(self):
         query = oldexample.define(z = "c").toPython(a = "xss.map(xs => xs.map(x => x + z))", b = "ys.map(y => y + z)").compile()
@@ -368,8 +371,8 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 2)
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda xs: map(lambda x: x + old.c, xs), old.xss), new.a)
-            self.assertEqual(map(lambda y: y + old.c, old.ys), new.b)
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: x + old.c)), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + old.c), new.b)
 
     def test_graph_connections3(self):
         query = oldexample.define(z = "c").toPython(a = "ys.map(y => y + z)", b = "ys.map(y => y + z)").compile()
@@ -377,8 +380,8 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(len(sum(DependencyGraph.loops(targetsToEndpoints.values()).values(), [])), 1)
 
         for old, new in zip(oldexample.dataset, session.submit(query)):
-            self.assertEqual(map(lambda y: y + old.c, old.ys), new.a)
-            self.assertEqual(map(lambda y: y + old.c, old.ys), new.b)
+            self.assertEqual(mapp(old.ys, lambda y: y + old.c), new.a)
+            self.assertEqual(mapp(old.ys, lambda y: y + old.c), new.b)
 
     def test_submit(self):
         session = TestSession()

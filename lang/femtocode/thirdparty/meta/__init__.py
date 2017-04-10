@@ -1,6 +1,6 @@
 
-from decompiler.instructions import make_module
-from asttools.visitors.pysourcegen import dump_python_source
+from femtocode.thirdparty.meta.decompiler.instructions import make_module
+from femtocode.thirdparty.meta.asttools.visitors.pysourcegen import dump_python_source
 import sys
 def decompile(code, mode='exec'):
     '''
