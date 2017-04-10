@@ -363,7 +363,14 @@ class TestSession(object):
         tally = action.initialize()
 
         for group in query.dataset.groups:
-            subtally = executor.run(executor.inarraysFromTest(group), group)
+            inarrays = {}
+            for column in executor.required:
+                if column.issize():
+                    inarrays[column] = group.segments[executor.columnToSegmentKey[column]].size
+                else:
+                    inarrays[column] = group.segments[executor.columnToSegmentKey[column]].data
+            
+            subtally = executor.run(inarrays, group, query.dataset.columns)
             tally = action.update(tally, subtally)
             if onupdate is not None:
                 onupdate(tally)

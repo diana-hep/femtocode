@@ -702,6 +702,20 @@ class Executor(Serializable):
         loops = DependencyGraph.loops(targetsToEndpoints.values())
         self.order = DependencyGraph.order(loops, self.query.actions, self.required)
         self.compileLoops(debug)
+
+        # transient
+        self._setColumnToSegmentKey()
+
+    def _setColumnToSegmentKey(self):
+        self.columnToSegmentKey = {}
+        for column in self.required:
+            if column.issize():
+                for c in self.query.dataset.columns.values():
+                    if c.size == column:
+                        self.columnToSegmentKey[column] = c.data
+                assert column in self.columnToSegmentKey
+            else:
+                self.columnToSegmentKey[column] = column
         
     def compileLoops(self, debug):
         fcntable = SymbolTable(StandardLibrary.table.asdict())
@@ -713,21 +727,22 @@ class Executor(Serializable):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.compileToPython(fcnname, self.query.inputs, fcntable, False, debug)
 
-
-
-
     def makeArray(self, length, dtype, init):
         if init:
             return [0] * length
         else:
             return [None] * length   # more useful error messages
 
-    def run(self, inarrays, group):
-        lengths = {None: (group.numEntries, None)}
-        for segment in group.segments.values():
-            if segment.size is not None:
-                lengths[segment.size] = (segment.dataLength, segment.sizeLength)
+    def run(self, inarrays, group, columns):
+        columnLengths = {None: (group.numEntries, None)}
+        lengths = {}
+        for name, segment in group.segments.items():
+            lengths[columns[name].data] = segment.dataLength
+            if columns[name].size is not None:
+                columnLengths[columns[name].size] = (segment.dataLength, segment.sizeLength)
+                lengths[columns[name].size] = segment.sizeLength
 
+        out = None
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
@@ -771,10 +786,10 @@ class Executor(Serializable):
                     loop.prerun.fcn(*arguments)
                     dataLength = int(numEntries[1])
                     sizeLength = int(numEntries[2])
-                    lengths[loop.plateauSize] = dataLength, sizeLength
+                    columnLengths[loop.plateauSize] = dataLength, sizeLength
 
                 else:
-                    dataLength, sizeLength = lengths[loop.plateauSize]
+                    dataLength, sizeLength = columnLengths[loop.plateauSize]
 
                 i = 0
                 for param in loop.run.parameters:
@@ -819,7 +834,16 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
-                loop.prerun.fcn(*arguments)
+                loop.run.fcn(*arguments)
 
-            else:   # TODO: handle other loopOrAction cases
-                pass
+                if loop.explodesize is not None:
+                    lengths[loop.explodesize.column] = columnLength[loop.plateauSize].sizeLength
+                for target in loop.targets:
+                    if isinstance(target, ColumnName):
+                        lengths[target] = columnLengths[loop.plateauSize][0]
+
+            else:
+                action = loopOrAction
+                out = action.act(group, lengths, inarrays)
+
+        return out

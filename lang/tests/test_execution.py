@@ -128,7 +128,8 @@ class TestExecution(unittest.TestCase):
         self.assertEqual(tsarray_v5, [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
 
     def test_minimal(self):
-        statements = oldexample.toPython(a = "c + d").compile().statements
+        query = oldexample.toPython(a = "c + d").compile()
+        statements = query.statements
 
         loop = Loop(None)
         for statement in statements:
@@ -145,6 +146,9 @@ class TestExecution(unittest.TestCase):
         loop.run.fcn(numEntries, countdown, darray_v0, darray_v1, tarray_v2)
         self.assertEqual(numEntries, [2, 2, 0])
         self.assertEqual(tarray_v2, [1123, 2321])
+
+        for old, new in zip(oldexample.dataset, session.submit(query)):
+            self.assertEqual(old.c + old.d, new.a)
 
     def test_no_explodes(self):
         statements = oldexample.toPython(a = "ys.map(y => y + y)").compile().statements

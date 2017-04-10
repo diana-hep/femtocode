@@ -268,7 +268,8 @@ class Ref(Statement):
                 "size": None if self.size is None else str(self.size)}
 
     def __eq__(self, other):
-        return other.__class__ == Ref and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
+        # equality includes the subtype, RefWithExplosions
+        return isinstance(other, Ref) and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size
 
     def __hash__(self):
         return hash(("statementlist.Ref", self.name, self.schema, self.data, self.size))
@@ -289,12 +290,6 @@ class RefWithExplosions(Ref):
 
     def __repr__(self):
         return "statementlist.RefWithExplosions({0}, {1}, {2}, {3}, {4})".format(self.name, self.schema, self.data, self.size, self._explosions)
-
-    def __eq__(self, other):
-        return other.__class__ == RefWithExplosions and self.name == other.name and self.schema == other.schema and self.data == other.data and self.size == other.size and self.explosions == other.explosions
-
-    def __hash__(self):
-        return hash(("statementlist.RefWithExplosions", self.name, self.schema, self.data, self.size, self.explosions))
 
     def explosions(self):
         return self._explosions
