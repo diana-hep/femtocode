@@ -115,12 +115,18 @@ class ColumnName(object):
 
     def __eq__(self, other):
         if isinstance(other, string_types):
-            return str(self) == other
+            return self == ColumnName.parse(other)
         else:
             return other.__class__ == ColumnName and self.path == other.path
 
     def __req__(self, other):
         return self.__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __rne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash(str(self))
@@ -161,7 +167,7 @@ class ColumnName(object):
         out = []
         for i in range(1, len(self.path) + 1):
             if self.path[i - 1] == ColumnName._coll:
-                out.append(Explosion(ColumnName(*self.path[:i])))
+                out.append(ColumnName(*self.path[:i]))
         return tuple(out)
 
     def istmp(self):
@@ -170,18 +176,41 @@ class ColumnName(object):
     def startswith(self, prefix):
         return len(prefix.path) <= len(self.path) and self.path[:len(prefix.path)] == prefix.path
 
-class Explosion(object):
-    def __init__(self, name):
-        self.name = name
+def progressionOf(explosions, sizeColumn):
+    if not progression(explosions):
+        return False
 
-    def __repr__(self):
-        return "Explosion({0})".format(self.name)
+    if len(explosions) == 0:
+        return sizeColumn is None
+    else:
+        return sizeColumn == explosions[-1].size()
 
-    def __eq__(self, other):
-        return other.__class__ == Explosion and self.name == other.name
+def progression(explosions):
+    if len(explosions) == 0:
+        return True
 
-    def __hash__(self):
-        return hash(("Explosion", self.name))
+    last = explosions[-1]
+    depth = last.depth()
+    for x in reversed(explosions[:-1]):
+        if x.depth() != depth - 1 or not last.startswith(x):
+            return False
+        last = x
+        depth -= 1
+
+    return depth == 1
+
+def explosionsToSizes(explosions):
+    uniques = []
+    for explosion in reversed(explosions):
+        found = False
+        for unique in uniques:
+            if unique.startswith(explosion):
+                found = True
+
+        if not found:
+            uniques.append(explosion.size())
+
+    return list(reversed(uniques))
 
 class Metadata(Serializable): pass
 

@@ -279,11 +279,11 @@ class Loop(Serializable):
         self.plateauSize = plateauSize
 
         if self.plateauSize is None:
-            self.sizes = ()
+            self.explosions = ()
             self.deepiToUnique = []
             self.uniques = []
         else:
-            self.setSizes((self.plateauSize,) * self.plateauSize.depth())
+            self.setExplosions(self.plateauSize.explosions())
 
         self.explodesize = None
         self.explodes = []
@@ -315,7 +315,7 @@ class Loop(Serializable):
         requires = set()
         if self.explodesize is not None:
             definedHere.add(self.explodesize.column)
-            requires.update(self.explodesize.tosize)
+            requires.update(explosionsToSizes(self.explodesize.tosize))
 
         for statement in self.explodes + self.explodedatas + self.statements:
             definedHere.add(statement.column)
@@ -334,16 +334,33 @@ class Loop(Serializable):
         out.extend(self.statements)
         return out
 
-    def setSizes(self, sizes):
-        self.sizes = sizes
+    def setExplosions(self, explosions):
+        self.explosions = explosions
         self.deepiToUnique = []
         self.uniques = []
-        for size in self.sizes:
-            if size not in self.uniques:
+        for deepi, explosion in reversed(list(enumerate(self.explosions))):
+            found = False
+            for uniquei, unique in enumerate(self.uniques):
+                if unique.startswith(explosion):
+                    self.deepiToUnique.append(uniquei)
+                    found = True
+
+            if not found:
                 self.deepiToUnique.append(len(self.uniques))
-                self.uniques.append(size)
-            else:
-                self.deepiToUnique.append(self.uniques.index(size))
+                self.uniques.append(explosion.size())
+
+        self.uniques = list(reversed(self.uniques))
+        self.deepiToUnique = [len(self.uniques) - i - 1 for i in reversed(self.deepiToUnique)]
+
+        # self.sizes = sizes
+        # self.deepiToUnique = []
+        # self.uniques = []
+        # for size in self.sizes:
+        #     if size not in self.uniques:
+        #         self.deepiToUnique.append(len(self.uniques))
+        #         self.uniques.append(size)
+        #     else:
+        #         self.deepiToUnique.append(self.uniques.index(size))
 
     def newTarget(self, column):
         if column not in self.targets:
@@ -355,8 +372,8 @@ class Loop(Serializable):
                 if statement != self.explodesize:
                     assert self.explodesize is None, "should not assign two explodesizes in the same loop"
                     assert statement.column == self.plateauSize
-                    self.setSizes(statement.tosize)
-                    assert sum(x.depth() for x in self.uniques) == len(self.sizes)
+                    self.setExplosions(statement.tosize)
+                    assert sum(x.depth() for x in self.uniques) == len(self.explosions)
                     self.explodesize = statement
 
             elif isinstance(statement, statementlist.ExplodeData):
@@ -401,7 +418,7 @@ class Loop(Serializable):
                         if explodedata.fromsize == size:
                             uniqueToDataIndex[i] = "xdindex_" + nametrans(str(explodedata.data))
                             break
-                        assert i in uniqueToDataIndex
+                    assert i in uniqueToDataIndex
 
         if not lengthScan:
             for explode in self.explodes:
@@ -446,7 +463,7 @@ class Loop(Serializable):
         uniqueDepth = [0] * len(self.uniques)
 
         deepestData = {}
-        for deepi, size in enumerate(self.sizes):
+        for deepi, explosion in enumerate(self.explosions):
             uniquei = self.deepiToUnique[deepi]
             uniqueDepth[uniquei] += 1
 
@@ -463,7 +480,7 @@ class Loop(Serializable):
 
             if not lengthScan:
                 for explodedata in self.explodedatas:
-                    if explodedata.fromsize == size:
+                    if explodedata.fromsize == explosion.size():
                         block += """
             {index}[{ud}] = {index}[{udm1}]""".format(index = uniqueToDataIndex[uniquei],
                                                       ud = uniqueDepth[uniquei],
@@ -503,10 +520,11 @@ class Loop(Serializable):
                     if isinstance(arg, ColumnName) and arg not in definedHere:
                         dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(arg))))
 
-        dataincrements = dict((i, []) for i in range(len(self.sizes) + 1))
+        dataincrements = dict((i, []) for i in range(len(self.explosions) + 1))
         if not lengthScan:
             for i, unique in enumerate(self.uniques):
-                rindex_plus1 = len(self.sizes) - list(reversed(self.sizes)).index(unique)
+                rindex_plus1 = len(self.deepiToUnique) - list(reversed(self.deepiToUnique)).index(i)
+                # rindex_plus1 = len(self.explosions) - list(reversed(self.explosions)).index(unique)
                 for explodedata in self.explodedatas:
                     if explodedata.fromsize == unique:
                         dataincrements[rindex_plus1].append("xdindex_{0}[{1}] += 1".format(nametrans(str(explodedata.data)), unique.depth()))
@@ -518,17 +536,17 @@ class Loop(Serializable):
             REPLACEME     # <--- see replacement below{targetcode}
             {increments}
             numEntries[1] += 1""".format(
-            deepi = len(self.sizes),
+            deepi = len(self.explosions),
             assigns = "\n            ".join(dataassigns),
             targetcode = ("\n\n            " if len(targetcode) > 0 else "") + "\n            ".join(targetcode),
-            increments = "\n            ".join(dataincrements[len(self.sizes)])))
+            increments = "\n            ".join(dataincrements[len(self.explosions)])))
 
         resets = []
-        for deepi, size in enumerate(self.sizes):
+        for deepi, explosion in enumerate(self.explosions):
             revs = []
-            for unique in self.uniques:
+            for uniquei, unique in enumerate(self.uniques):
                 if len(reversals[unique]) > 0:
-                    if deepi == 0 or self.sizes[deepi - 1] == unique:
+                    if deepi == 0 or self.deepiToUnique[deepi - 1] == uniquei:
                         revs.append(reversals[unique].pop())
 
             if not lengthScan:
@@ -758,7 +776,7 @@ class Executor(Serializable):
                         if isinstance(param, NumEntries):
                             i += 3
                         elif isinstance(param, Countdown):
-                            i += len(loop.sizes)
+                            i += len(loop.explosions)
                         elif isinstance(param, Index):
                             i += param.name.depth() + 1
 
@@ -775,8 +793,8 @@ class Executor(Serializable):
                             i += 3
 
                         elif isinstance(param, Countdown):
-                            arguments.append(indexarrays[i : i + len(loop.sizes)])
-                            i += len(loop.sizes)
+                            arguments.append(indexarrays[i : i + len(loop.explosions)])
+                            i += len(loop.explosions)
 
                         elif isinstance(param, Index):
                             arguments.append(indexarrays[i : i + param.name.depth() + 1])
@@ -801,7 +819,7 @@ class Executor(Serializable):
                     if isinstance(param, NumEntries):
                         i += 3
                     elif isinstance(param, Countdown):
-                        i += len(loop.sizes)
+                        i += len(loop.explosions)
                     elif isinstance(param, Index):
                         i += param.name.depth() + 1
 
@@ -818,8 +836,8 @@ class Executor(Serializable):
                         i += 3
 
                     elif isinstance(param, Countdown):
-                        arguments.append(indexarrays[i : i + len(loop.sizes)])
-                        i += len(loop.sizes)
+                        arguments.append(indexarrays[i : i + len(loop.explosions)])
+                        i += len(loop.explosions)
 
                     elif isinstance(param, Index):
                         arguments.append(indexarrays[i : i + param.name.depth() + 1])

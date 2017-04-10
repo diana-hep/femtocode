@@ -780,7 +780,7 @@ class Map(lispytree.BuiltinFunction):
 
         # the argument of the UserFunction is the values of the collection
         rename = argref.name.coll()
-        extendedExplosions = explosions + (Explosion(rename),)
+        extendedExplosions = explosions + (rename,)
         reref = statementlist.RefWithExplosions(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename), extendedExplosions)
 
         if reref.data in dataset.columns:
