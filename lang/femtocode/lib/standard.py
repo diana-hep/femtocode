@@ -783,6 +783,11 @@ class Map(lispytree.BuiltinFunction):
         extendedExplosions = explosions + (rename,)
         reref = statementlist.RefWithExplosions(rename, argref.schema.items, dataset.dataColumn(rename), dataset.sizeColumn(rename), extendedExplosions)
 
+        if reref.data in dataset.columns:
+            inputs = {reref.data: reref.schema}
+        else:
+            inputs = {}
+
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = replacements.get((typedtree.TypedTree, call.args[1].refs[0]), {})
         replacements[(typedtree.TypedTree, call.args[1].refs[0])][extendedExplosions] = reref
 

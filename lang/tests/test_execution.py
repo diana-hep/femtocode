@@ -166,7 +166,7 @@ class TestExecution(unittest.TestCase):
         for statement in statements:
             loop.newStatement(statement)
         loop.newTarget(ColumnName.parse("#0"))
-        loop.compileToPython("fcnname", {"ys[]": collection(real)}, StandardLibrary.table, False, True)
+        loop.compileToPython("fcnname", {"ys[]": collection(real)}, StandardLibrary.table, False, False)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
