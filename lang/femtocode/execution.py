@@ -473,6 +473,7 @@ class Loop(Serializable):
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
             countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
+
             numEntries[2] += 1
             {index}[{ud}] += 1""".format(deepi = deepi,
                                          array = uniqueToSizeArray[uniquei],
@@ -535,6 +536,7 @@ class Loop(Serializable):
             {assigns}
 
             REPLACEME     # <--- see replacement below{targetcode}
+
             {increments}
             numEntries[1] += 1""".format(
             deepi = len(self.explosions),
@@ -575,8 +577,7 @@ def {fcnname}({params}):
             {resets}
 
         if deepi == 0:
-            entry += 1
-""".format(fcnname = fcnname,
+            entry += 1""".format(fcnname = fcnname,
            params = ", ".join(params),
            init = "\n    ".join(init),
            blocks = "\n        el".join(blocks),
