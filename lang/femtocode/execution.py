@@ -276,8 +276,8 @@ class NamedParamNode(ParamNode):
 
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
-class Skip(ParamNode): pass
 class Index(NamedParamNode): pass
+class Skip(NamedParamNode): pass
 class SizeArray(NamedParamNode): pass
 class DataArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
@@ -400,14 +400,16 @@ class Loop(Serializable):
                     self.statements.append(statement)
 
     def parameters(self, nametrans, lengthScan):
-        parameters = [NumEntries(), Countdown(), Skip()]
-        params = ["numEntries", "countdown", "skip"]
+        parameters = [NumEntries(), Countdown()]
+        params = ["numEntries", "countdown"]
 
         uniqueToSizeArray = []
         uniqueToSizeIndex = []
+        uniqueToSizeSkip = []
         for i, size in enumerate(self.uniques):
             arrayname = "sarray_{0}_{1}".format(nametrans(str(size)), i)
             indexname = "sindex_{0}_{1}".format(nametrans(str(size)), i)
+            skipname = "skip_{0}_{1}".format(nametrans(str(size)), i)
 
             parameters.append(SizeArray(size))
             params.append(arrayname)
@@ -416,6 +418,10 @@ class Loop(Serializable):
             parameters.append(Index(size))
             params.append(indexname)
             uniqueToSizeIndex.append(indexname)
+
+            parameters.append(Skip(size))
+            params.append(skipname)
+            uniqueToSizeSkip.append(skipname)
 
         uniqueToExplodeDataNames = {}
         if not lengthScan:
@@ -856,10 +862,10 @@ class Executor(Serializable):
                             i += 3
                         elif isinstance(param, Countdown):
                             i += len(loop.explosions)
-                        elif isinstance(param, Skip):
-                            i += len(loop.explosions)
                         elif isinstance(param, Index):
                             i += param.name.depth() + 1
+                        elif isinstance(param, Skip):
+                            i += param.name.depth()
 
                     # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                     indexarrays = self.makeArray(i, sizeType, True)
@@ -877,13 +883,13 @@ class Executor(Serializable):
                             arguments.append(indexarrays[i : i + len(loop.explosions)])
                             i += len(loop.explosions)
 
-                        elif isinstance(param, Skip):
-                            arguments.append(indexarrays[i : i + len(loop.explosions)])
-                            i += len(loop.explosions)
-
                         elif isinstance(param, Index):
                             arguments.append(indexarrays[i : i + param.name.depth() + 1])
                             i += param.name.depth() + 1
+
+                        elif isinstance(param, Skip):
+                            arguments.append(indexarrays[i : i + param.name.depth()])
+                            i += param.name.depth()
 
                         elif isinstance(param, SizeArray):
                             arguments.append(inarrays[param.name])
@@ -905,10 +911,10 @@ class Executor(Serializable):
                         i += 3
                     elif isinstance(param, Countdown):
                         i += len(loop.explosions)
-                    elif isinstance(param, Skip):
-                        i += len(loop.explosions)
                     elif isinstance(param, Index):
                         i += param.name.depth() + 1
+                    elif isinstance(param, Skip):
+                        i += param.name.depth()
 
                 # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                 indexarrays = self.makeArray(i, sizeType, True)
@@ -926,13 +932,13 @@ class Executor(Serializable):
                         arguments.append(indexarrays[i : i + len(loop.explosions)])
                         i += len(loop.explosions)
 
-                    elif isinstance(param, Skip):
-                        arguments.append(indexarrays[i : i + len(loop.explosions)])
-                        i += len(loop.explosions)
-
                     elif isinstance(param, Index):
                         arguments.append(indexarrays[i : i + param.name.depth() + 1])
                         i += param.name.depth() + 1
+
+                    elif isinstance(param, Skip):
+                        arguments.append(indexarrays[i : i + param.name.depth()])
+                        i += param.name.depth()
 
                     elif isinstance(param, (SizeArray, DataArray)):
                         arguments.append(inarrays[param.name])
