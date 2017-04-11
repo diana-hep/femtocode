@@ -67,7 +67,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
         sindex_v0 = [0, 0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
@@ -79,7 +79,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
         sindex_v0 = [0, 0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
@@ -107,11 +107,11 @@ class TestExecution(unittest.TestCase):
         for statement in statements:
             loop.newStatement(statement)
         loop.newTarget(ColumnName.parse("#2"))
-        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
+        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, True)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["xss[][]"].size
@@ -123,7 +123,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["xss[][]"].size
@@ -179,7 +179,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
-        skip = [0]
+        skip = [0, 0]
 
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
@@ -206,7 +206,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
-        skip = [0]
+        skip = [0, 0]
 
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
@@ -233,7 +233,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
-        skip = [0]
+        skip = [0, 0]
 
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
@@ -261,7 +261,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0]
-        skip = [0]
+        skip = [0, 0]
 
         sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
         sindex_v0 = [0, 0, 0]
@@ -299,7 +299,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
         sindex_v0 = [0, 0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
@@ -311,7 +311,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
         sindex_v0 = [0, 0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
@@ -344,7 +344,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["xss[][]"].size
@@ -356,7 +356,7 @@ class TestExecution(unittest.TestCase):
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
-        skip = [0, 0]
+        skip = [0, 0, 0]
         sarray_v0 = oldexample.dataset.groups[0].segments["ys[]"].size
         sindex_v0 = [0, 0]
         sarray_v1 = oldexample.dataset.groups[0].segments["xss[][]"].size

@@ -1,4 +1,4 @@
-xdata = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+xdata = [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]
 xsize = [3, 2, 2, 2, 3, 2, 2, 2]
 
 # xdata = [1, 2, 3, 4, 5, 6]
@@ -13,11 +13,8 @@ xsize = [3, 2, 2, 2, 3, 2, 2, 2]
 ydata = [1, 2, 3, 4, 5, 6, 7, 8]
 ysize = [4, 4]
 
-ydata = [5, 6, 7, 8]
-ysize = [0, 4]
-
-# ydata = [1, 2, 3, 4]
-# ysize = [4, 0]
+# ydata = [5, 6, 7, 8]
+# ysize = [0, 4]
 
 outdata = []
 outsize = []
@@ -31,8 +28,7 @@ ysizeindex = [0, 0]
 entry = 0
 deepi = 0
 
-xskip = [False, False]
-yskip = [False]
+skip = [False, False]
 
 while entry < numEntries:
     if deepi != 0:
@@ -41,66 +37,49 @@ while entry < numEntries:
     if deepi == 0:
         xsizeindex[1] = xsizeindex[0]
         xdataindex[1] = xdataindex[0]
+        countdown[deepi] = xsize[xsizeindex[1]]
 
-        # print "ZERO x", xsizeindex[1], xdataindex[1]
-
-        if True:
-            countdown[deepi] = xsize[xsizeindex[1]]
-            xsizeindex[1] += 1
-        if True:
-            outsize.append(countdown[deepi])
+        outsize.append(countdown[deepi])
 
         if countdown[deepi] == 0:
-            xskip[0] = True
+            skip[0] = True
             countdown[deepi] = 1
         else:
-            xskip[0] = False
+            skip[0] = False
 
-        # print "xskip", xskip
+        xsizeindex[1] += 1
 
     elif deepi == 1:
-        ysizeindex[1] = ysizeindex[0]
-        ydataindex[1] = ydataindex[0]
-
-        # print "ONE  y", ysizeindex[1], ydataindex[1]
-
-        if True:
-            countdown[deepi] = ysize[ysizeindex[1]]
-            ysizeindex[1] += 1
-        if not xskip[0]:
-            outsize.append(countdown[deepi])
-
-        # print "xskip", xskip
-
-    elif deepi == 2:
         xsizeindex[2] = xsizeindex[1]
         xdataindex[2] = xdataindex[1]
 
-        # print "TWO  x", xsizeindex[2], xdataindex[2]
-
-        if not xskip[0]:
+        if not skip[0]:
             countdown[deepi] = xsize[xsizeindex[2]]
-            xsizeindex[2] += 1
-        if not xskip[0]:
             outsize.append(countdown[deepi])
 
         if countdown[deepi] == 0:
-            xskip[1] = True
+            skip[1] = True
             countdown[deepi] = 1
         else:
-            xskip[1] = False
+            skip[1] = False
 
-        # print "xskip", xskip
+        if not skip[0]:
+            xsizeindex[2] += 1
+
+    elif deepi == 2:
+        ysizeindex[1] = ysizeindex[0]
+        ydataindex[1] = ydataindex[0]
+        countdown[deepi] = ysize[ysizeindex[1]]
+        ysizeindex[1] += 1
+
+        if not skip[0] and not skip[1]:
+            outsize.append(countdown[deepi])
 
     elif deepi == 3:
         deepi -= 1
-
-        # print "THREE xdata", xdataindex[2], xskip, "ydata", ydataindex[1], yskip
-
-        if not xskip[0] and not xskip[1]:
-            # print xdata[xdataindex[2]], ydata[ydataindex[1]]
+        if not skip[0] and not skip[1]:
             outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
-            xdataindex[2] += 1
+            ydataindex[1] += 1
 
     deepi += 1
 
@@ -118,7 +97,8 @@ while entry < numEntries:
             xdataindex[1] = xdataindex[2]
             
         elif deepi == 2:
-            ydataindex[1] += 1
+            if not skip[0] and not skip[1]:
+                xdataindex[2] += 1
 
     if deepi == 0:
         entry += 1

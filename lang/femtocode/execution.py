@@ -495,12 +495,13 @@ class Loop(Serializable):
 
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
-            countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
-            numEntries[2] += 1
-            {index}[{ud}] += 1""".format(deepi = deepi,
+            if True:
+                countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
+                numEntries[2] += 1
+                {index}[{ud}] += 1""".format(deepi = deepi,
                                          array = uniqueToSizeArray[uniquei],
                                          index = uniqueToSizeIndex[uniquei],
-                                         targetsizecode = "\n            " + targetsizecode,
+                                         targetsizecode = "\n                " + targetsizecode,
                                          ud = uniqueDepth[uniquei],
                                          udm1 = uniqueDepth[uniquei] - 1)
 
@@ -856,7 +857,7 @@ class Executor(Serializable):
                         elif isinstance(param, Countdown):
                             i += len(loop.explosions)
                         elif isinstance(param, Skip):
-                            i += max(0, len(loop.explosions) - 1)
+                            i += len(loop.explosions)
                         elif isinstance(param, Index):
                             i += param.name.depth() + 1
 
@@ -877,8 +878,8 @@ class Executor(Serializable):
                             i += len(loop.explosions)
 
                         elif isinstance(param, Skip):
-                            arguments.append(indexarrays[i : i + max(0, len(loop.explosions) - 1)])
-                            i += max(0, len(loop.explosions) - 1)
+                            arguments.append(indexarrays[i : i + len(loop.explosions)])
+                            i += len(loop.explosions)
 
                         elif isinstance(param, Index):
                             arguments.append(indexarrays[i : i + param.name.depth() + 1])
@@ -905,7 +906,7 @@ class Executor(Serializable):
                     elif isinstance(param, Countdown):
                         i += len(loop.explosions)
                     elif isinstance(param, Skip):
-                        i += max(0, len(loop.explosions) - 1)
+                        i += len(loop.explosions)
                     elif isinstance(param, Index):
                         i += param.name.depth() + 1
 
@@ -926,8 +927,8 @@ class Executor(Serializable):
                         i += len(loop.explosions)
 
                     elif isinstance(param, Skip):
-                        arguments.append(indexarrays[i : i + max(0, len(loop.explosions) - 1)])
-                        i += max(0, len(loop.explosions) - 1)
+                        arguments.append(indexarrays[i : i + len(loop.explosions)])
+                        i += len(loop.explosions)
 
                     elif isinstance(param, Index):
                         arguments.append(indexarrays[i : i + param.name.depth() + 1])
