@@ -459,7 +459,7 @@ class Loop(Serializable):
                         parameters.append(DataArray(arg))
                         params.append("darray_" + nametrans(str(arg)))
 
-        return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere
+        return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere
 
     def targetcode(self, nametrans, lengthScan, parameters, params):
         targetcode = []
@@ -487,32 +487,47 @@ class Loop(Serializable):
         return targetcode, targetsizecode
 
     def codetext(self, fcnname, nametrans, lengthScan):
-        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
+        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
         targetcode, targetsizecode = self.targetcode(nametrans, lengthScan, parameters, params)
 
         blocks = []
         reversals = dict((size, []) for size in self.uniques)
         uniqueDepth = [0] * len(self.uniques)
 
+        uniquesSkipped = {}
+        def logical(strs):
+            if len(strs) == 0:
+                return "True"
+            else:
+                return " and ".join(x + " == 0" for x in strs)
+
         deepestData = {}
         for deepi, explosion in enumerate(self.explosions):
             uniquei = self.deepiToUnique[deepi]
             uniqueDepth[uniquei] += 1
 
+            skipvar = "{0}[{1}]".format(uniqueToSizeSkip[uniquei], uniqueDepth[uniquei] - 1)
+
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
-            if True:
+            if {thisskipped}:
                 countdown[deepi] = {array}[{index}[{ud}]]
                 {index}[{ud}] += 1
-            if True:
-                {targetsizecode}
+
+            if {allskipped}:{targetsizecode}
                 numEntries[2] += 1
 """.format(deepi = deepi,
+           skipvar = skipvar,
+           thisskipped = logical(uniquesSkipped.get(uniqueToSizeSkip[uniquei], [])),
+           allskipped = logical(sum(uniquesSkipped.values(), [])),
            array = uniqueToSizeArray[uniquei],
            index = uniqueToSizeIndex[uniquei],
            targetsizecode = "\n                " + targetsizecode,
            ud = uniqueDepth[uniquei],
            udm1 = uniqueDepth[uniquei] - 1)
+
+            uniquesSkipped[uniqueToSizeSkip[uniquei]] = uniquesSkipped.get(uniqueToSizeSkip[uniquei], [])
+            uniquesSkipped[uniqueToSizeSkip[uniquei]].append(skipvar)
 
             if not lengthScan:
                 for (i, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
@@ -557,25 +572,29 @@ class Loop(Serializable):
                     if isinstance(arg, ColumnName) and arg not in definedHere:
                         dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(arg))))
 
+        incrementsuniquei = {}
         dataincrements = dict((i, []) for i in range(len(self.explosions) + 1))
         if not lengthScan:
             for (uniquei, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
                 rindex_plus1 = len(self.deepiToUnique) - list(reversed(self.deepiToUnique)).index(uniquei)
                 dataincrements[rindex_plus1].append("{index}[{depth}] += 1".format(index = indexname, depth = self.uniques[uniquei].depth()))
+                incrementsuniquei[rindex_plus1] = uniquei
 
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
 
-            if True:
+            if {allskipped}:
                 {assigns}
 
                 REPLACEME             # <--- see replacement below{targetcode}
                 numEntries[1] += 1
 
-            if True:
+            if {thisskipped}:
                 pass
                 {increments}""".format(
             deepi = len(self.explosions),
+            thisskipped = logical(uniquesSkipped.get(uniqueToSizeSkip[incrementsuniquei[len(self.explosions)]], []) if not lengthScan else []),
+            allskipped = logical(sum(uniquesSkipped.values(), [])),
             assigns = "\n                ".join(dataassigns),
             targetcode = ("\n\n                " if len(targetcode) > 0 else "") + "\n                ".join(targetcode),
             increments = "\n                ".join(dataincrements[len(self.explosions)])))
