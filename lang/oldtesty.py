@@ -12,6 +12,7 @@ def testy(xdata, xsize, ydata, ysize):
     deepi = 0
 
     xskip = [False, False]
+    yskip = [False]
 
     while entry < numEntries:
         if deepi != 0:
@@ -20,9 +21,12 @@ def testy(xdata, xsize, ydata, ysize):
         if deepi == 0:
             xsizeindex[1] = xsizeindex[0]
             xdataindex[1] = xdataindex[0]
-            countdown[deepi] = xsize[xsizeindex[1]]
 
-            outsize.append(countdown[deepi])
+            if True:
+                countdown[deepi] = xsize[xsizeindex[1]]
+                xsizeindex[1] += 1
+            if True:
+                outsize.append(countdown[deepi])
 
             if countdown[deepi] == 0:
                 xskip[0] = True
@@ -30,14 +34,14 @@ def testy(xdata, xsize, ydata, ysize):
             else:
                 xskip[0] = False
 
-            xsizeindex[1] += 1
-
         elif deepi == 1:
             xsizeindex[2] = xsizeindex[1]
             xdataindex[2] = xdataindex[1]
 
             if not xskip[0]:
                 countdown[deepi] = xsize[xsizeindex[2]]
+                xsizeindex[2] += 1
+            if not xskip[0]:
                 outsize.append(countdown[deepi])
 
             if countdown[deepi] == 0:
@@ -46,23 +50,30 @@ def testy(xdata, xsize, ydata, ysize):
             else:
                 xskip[1] = False
 
-            if not xskip[0]:
-                xsizeindex[2] += 1
-
         elif deepi == 2:
             ysizeindex[1] = ysizeindex[0]
             ydataindex[1] = ydataindex[0]
-            countdown[deepi] = ysize[ysizeindex[1]]
-            ysizeindex[1] += 1
 
+            if True:
+                countdown[deepi] = ysize[ysizeindex[1]]
+                ysizeindex[1] += 1
             if not xskip[0] and not xskip[1]:
                 outsize.append(countdown[deepi])
 
+            if countdown[deepi] == 0:
+                yskip[0] = True
+                countdown[deepi] = 1
+            else:
+                yskip[0] = False
+
         elif deepi == 3:
             deepi -= 1
-            if not xskip[0] and not xskip[1]:
+
+            if not xskip[0] and not xskip[1] and not yskip[0]:
                 outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
-            ydataindex[1] += 1
+
+            if not yskip[0]:
+                ydataindex[1] += 1
 
         deepi += 1
 
