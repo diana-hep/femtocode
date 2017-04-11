@@ -38,6 +38,8 @@ session = TestSession()
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
 oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
+oldexample.dataset.fill({"xss": [], "ys": [1, 2], "c": 2000, "d": 321})
+oldexample.dataset.fill({"xss": [], "ys": [3, 4, 5], "c": 2000, "d": 321})
 
 def mapp(obj, fcn):
     return list(map(fcn, obj))
@@ -216,14 +218,11 @@ class TestExecution(unittest.TestCase):
     def test_double_explode(self):
         query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
         statements = query.statements
-
         for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
-            # print new
-            # print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
-
-            # self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
-
-            pass
+            print
+            print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
+            print new.a
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
 
     def test_simple_explode(self):
         query = oldexample.toPython(a = "ys.map(y => y + c)").compile()

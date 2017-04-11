@@ -51,6 +51,18 @@ for i in xrange(100):
         jets.append(nonflat.dataset.types["jets[]"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)))
     nonflat.dataset.fill({"met": float(i), "muons": muons, "jets": jets})
 
+oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer)
+oldexample.dataset.fill({"xss": [[1, 2], [], [5, 6]], "ys": [1, 2, 3, 4], "c": 100})
+oldexample.dataset.fill({"xss": [[1, 2], [5, 6]], "ys": [], "c": 100})
+oldexample.dataset.fill({"xss": [], "ys": [1, 2], "c": 100})
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [3, 4, 5], "c": 100})
+
+# oldexample = session.source("OldExample", ys=collection(integer))
+# oldexample.dataset.fill({"ys": [1, 2, 3, 4]})
+# oldexample.dataset.fill({"ys": []})
+# oldexample.dataset.fill({"ys": [1, 2]})
+# oldexample.dataset.fill({"ys": [3, 4, 5]})
+
 def mapp(obj, fcn):
     return list(map(fcn, obj))
 
@@ -448,7 +460,8 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(mapp(zip(entry.pt, entry.phi), lambda x: x[0] + x[1]), entry.a)
 
     def test_map2(self):
-        for entry in nonflat.toPython(a = "muons.map(mu1 => muons.map(mu2 => mu2.pt + met))").submit(debug = True):
-            print entry
+        for old, new in zip(oldexample.dataset, oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").submit(debug = True)):
+            print
+            print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
+            print new.a
 
-        
