@@ -166,7 +166,7 @@ class DependencyGraph(object):
 
     def _bucketfill(self, loop, endpoints):
         for dependency in self.dependencies:
-            if dependency.plateauSize == loop.plateauSize:
+            if dependency.plateauSize == loop.plateauSize and not isinstance(dependency.statement, statementlist.ExplodeSize):
                 if dependency.target not in loop:
                     dependency._bucketfill(loop, endpoints)
             else:
@@ -177,29 +177,46 @@ class DependencyGraph(object):
     @staticmethod
     def loops(graphs):
         loops = {}
+        sizeToExplosion = {}
         for startpoints in DependencyGraph.connectedSubgraphs(graphs):
             while len(startpoints) > 0:
                 newloops = {}
                 endpoints = []
-                for graph in startpoints:
-                    if graph.plateauSize in newloops:
-                        loop = newloops[graph.plateauSize]
+                for startpoint in startpoints:
+                    if isinstance(startpoint.statement, statementlist.ExplodeSize):
+                        sizeToExplosion[startpoint.statement.column] = startpoint.statement.explosions
+
+                    issingleton = isinstance(startpoint.statement, statementlist.ExplodeSize)
+
+                    if (startpoint.plateauSize, issingleton) in newloops:
+                        loop = newloops[(startpoint.plateauSize, issingleton)]
+
+                    elif isinstance(startpoint.statement, statementlist.ExplodeSize):
+                        loop = ExplodeSizeLoop(startpoint.statement)
+
                     else:
-                        loop = Loop(graph.plateauSize)
+                        loop = NoExplodeSizeLoop(startpoint.plateauSize)
 
-                    loop.newTarget(graph.target)
-                    graph._bucketfill(loop, endpoints)
-                    newloops[loop.plateauSize] = loop
+                    if not issingleton:
+                        loop.newTarget(startpoint.target)
+                        startpoint._bucketfill(loop, endpoints)
 
-                for plateauSize, loop in newloops.items():
+                    newloops[(loop.plateauSize, issingleton)] = loop
+
+                for (plateauSize, issingleton), loop in newloops.items():
                     if plateauSize not in loops:
-                        loops[plateauSize] = []
-                    loops[plateauSize].append(loop)
+                        loops[(plateauSize, issingleton)] = []
+                    loops[(plateauSize, issingleton)].append(loop)
 
                 startpoints = []
                 for x in endpoints:
                     if x not in startpoints:
                         startpoints.append(x)
+
+        for loopsAtPlateau in loops.values():
+            for loop in loopsAtPlateau:
+                if startpoint.plateauSize in sizeToExplosion:
+                    loop.setExplosions(sizeToExplosion[startpoint.plateauSize])
 
         return loops
 
@@ -315,7 +332,7 @@ class Loop(Serializable):
         requires = set()
         if self.explodesize is not None:
             definedHere.add(self.explodesize.column)
-            requires.update(explosionsToSizes(self.explodesize.tosize))
+            requires.update(explosionsToSizes(self.explodesize.explosions))
 
         for statement in self.explodes + self.explodedatas + self.statements:
             definedHere.add(statement.column)
@@ -362,9 +379,7 @@ class Loop(Serializable):
                 if statement != self.explodesize:
                     assert self.explodesize is None, "should not assign two explodesizes in the same loop"
                     assert statement.column == self.plateauSize
-                    self.setExplosions(statement.tosize)
-                    ### No, not for "muons.map(mu1 => muons.map(mu2 => ...))
-                    # assert sum(x.depth() for x in self.uniques) == len(self.explosions)
+                    self.setExplosions(statement.explosions)
                     self.explodesize = statement
 
             elif isinstance(statement, statementlist.ExplodeData):
@@ -586,7 +601,8 @@ def {fcnname}({params}):
             {resets}
 
         if deepi == 0:
-            entry += 1""".format(fcnname = fcnname,
+            entry += 1
+""".format(fcnname = fcnname,
            params = ", ".join(params),
            init = "\n    ".join(init),
            blocks = "\n        el".join(blocks),
@@ -722,6 +738,43 @@ def {fcnname}({params}):
         out["$math"] = math
         exec(compiled, out)    # exec can't be called in the same function with nested functions
         return out[fcnname]
+
+class NoExplodeSizeLoop(Loop):
+    def setExplosions(self, explosions):
+        self.explosions = explosions
+        self.deepiToUnique = []
+        self.uniques = []
+        for deepi, explosion in reversed(list(enumerate(self.explosions))):
+            found = False
+            for uniquei, unique in enumerate(self.uniques):
+                if unique.startswith(explosion) and unique != explosion.size():
+                    self.deepiToUnique.append(uniquei)
+                    found = True
+
+            if not found:
+                self.deepiToUnique.append(len(self.uniques))
+                self.uniques.append(explosion.size())
+
+        self.uniques = list(reversed(self.uniques))
+        self.deepiToUnique = [len(self.uniques) - i - 1 for i in reversed(self.deepiToUnique)]
+
+    def newStatement(self, statement):
+        if statement not in self.statements:
+            assert not isinstance(statement, statementlist.ExplodeSize)
+
+            if isinstance(statement, statementlist.ExplodeData):
+                if statement not in self.explodedatas:
+                    self.explodedatas.append(statement)
+                
+            elif isinstance(statement, statementlist.Explode):
+                assert statement.tosize == self.plateauSize
+                if statement not in self.explodes:
+                    self.explodes.append(statement)
+
+            else:
+                assert statement.tosize == self.plateauSize
+                if statement not in self.statements:
+                    self.statements.append(statement)
 
 class ExplodeSizeLoop(Loop):
     def __init__(self, explodesize):

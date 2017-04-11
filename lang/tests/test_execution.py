@@ -416,7 +416,7 @@ class TestExecution(unittest.TestCase):
         statements = query.statements
 
         loop = ExplodeSizeLoop(statements[0])
-        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, True)
+        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
 
         numEntries = [oldexample.dataset.numEntries, 0, 0]
         countdown = [0, 0, 0]
@@ -440,8 +440,15 @@ class TestExecution(unittest.TestCase):
         loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, tsarray_v6)
         self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
+    def test_separate_explodesize2(self):
+        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        statements = query.statements
 
-
+        for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
+            print
+            print old
+            print new
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
 
     # def test_double_explode(self):
     #     query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
