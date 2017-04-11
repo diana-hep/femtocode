@@ -1,121 +1,176 @@
-xdata = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-xsize = [3, 2, 2, 2, 3, 2, 2, 2]
+def testy(xdata, xsize, ydata, ysize):
+    outdata = []
+    outsize = []
 
-# xdata = [1, 2, 3, 4, 5, 6]
-# xsize = [3, 0, 0, 0, 3, 2, 2, 2]
+    numEntries = 2
+    countdown = [0, 0, 0]
+    xdataindex = [0, 0, 0]
+    xsizeindex = [0, 0, 0]
+    ydataindex = [0, 0]
+    ysizeindex = [0, 0]
+    entry = 0
+    deepi = 0
 
-# xdata = [1, 2, 3, 4, 5, 6]
-# xsize = [0, 3, 2, 2, 2]
+    xskip = [False, False]
+    yskip = [False]
 
-# xdata = []
-# xsize = [0, 0]
-
-ydata = [1, 2, 3, 4, 5, 6, 7, 8]
-ysize = [4, 4]
-
-ydata = [5, 6, 7, 8]
-ysize = [0, 4]
-
-# ydata = [1, 2, 3, 4]
-# ysize = [4, 0]
-
-outdata = []
-outsize = []
-
-numEntries = 2
-countdown = [0, 0, 0]
-xdataindex = [0, 0, 0]
-xsizeindex = [0, 0, 0]
-ydataindex = [0, 0]
-ysizeindex = [0, 0]
-entry = 0
-deepi = 0
-
-xskip = [False, False]
-yskip = [False]
-
-while entry < numEntries:
-    if deepi != 0:
-        countdown[deepi - 1] -= 1
-
-    if deepi == 0:
-        xsizeindex[1] = xsizeindex[0]
-        xdataindex[1] = xdataindex[0]
-
-        if True:
-            countdown[deepi] = xsize[xsizeindex[1]]
-            xsizeindex[1] += 1
-        if True:
-            outsize.append(countdown[deepi])
-
-        if countdown[deepi] == 0:
-            xskip[0] = True
-            countdown[deepi] = 1
-        else:
-            xskip[0] = False
-
-    elif deepi == 1:
-        ysizeindex[1] = ysizeindex[0]
-        ydataindex[1] = ydataindex[0]
-
-        if True:
-            countdown[deepi] = ysize[ysizeindex[1]]
-            ysizeindex[1] += 1
-        if not xskip[0]:
-            outsize.append(countdown[deepi])
-
-        if countdown[deepi] == 0:
-            yskip[0] = True
-            countdown[deepi] = 1
-        else:
-            yskip[0] = False
-
-    elif deepi == 2:
-        xsizeindex[2] = xsizeindex[1]
-        xdataindex[2] = xdataindex[1]
-
-        if not xskip[0]:
-            countdown[deepi] = xsize[xsizeindex[2]]
-            xsizeindex[2] += 1
-        if not xskip[0] and not yskip[0]:
-            outsize.append(countdown[deepi])
-
-        if countdown[deepi] == 0:
-            xskip[1] = True
-            countdown[deepi] = 1
-        else:
-            xskip[1] = False
-
-    elif deepi == 3:
-        deepi -= 1
-
-        if not xskip[0] and not xskip[1] and not yskip[0]:
-            outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
-
-        if not xskip[0] and not xskip[1]:
-            xdataindex[2] += 1
-
-    deepi += 1
-
-    while deepi != 0 and countdown[deepi - 1] == 0:
-        deepi -= 1
+    while entry < numEntries:
+        if deepi != 0:
+            countdown[deepi - 1] -= 1
 
         if deepi == 0:
-            xsizeindex[0] = xsizeindex[1]
-            xdataindex[0] = xdataindex[1]
-            ysizeindex[0] = ysizeindex[1]
-            ydataindex[0] = ydataindex[1]
+            xsizeindex[1] = xsizeindex[0]
+            xdataindex[1] = xdataindex[0]
+
+            if True:
+                countdown[deepi] = xsize[xsizeindex[1]]
+                xsizeindex[1] += 1
+            if True:
+                outsize.append(countdown[deepi])
+
+            if countdown[deepi] == 0:
+                xskip[0] = True
+                countdown[deepi] = 1
+            else:
+                xskip[0] = False
 
         elif deepi == 1:
-            xsizeindex[1] = xsizeindex[2]
-            xdataindex[1] = xdataindex[2]
-            
+            ysizeindex[1] = ysizeindex[0]
+            ydataindex[1] = ydataindex[0]
+
+            if True:
+                countdown[deepi] = ysize[ysizeindex[1]]
+                ysizeindex[1] += 1
+            if not xskip[0]:
+                outsize.append(countdown[deepi])
+
+            if countdown[deepi] == 0:
+                yskip[0] = True
+                countdown[deepi] = 1
+            else:
+                yskip[0] = False
+
         elif deepi == 2:
-            if not yskip[0]:
-                ydataindex[1] += 1
+            xsizeindex[2] = xsizeindex[1]
+            xdataindex[2] = xdataindex[1]
 
-    if deepi == 0:
-        entry += 1
+            if not xskip[0]:
+                countdown[deepi] = xsize[xsizeindex[2]]
+                xsizeindex[2] += 1
+            if not xskip[0] and not yskip[0]:
+                outsize.append(countdown[deepi])
 
-print outsize
-print outdata
+            if countdown[deepi] == 0:
+                xskip[1] = True
+                countdown[deepi] = 1
+            else:
+                xskip[1] = False
+
+        elif deepi == 3:
+            deepi -= 1
+
+            if not xskip[0] and not xskip[1] and not yskip[0]:
+                outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
+
+            if not xskip[0] and not xskip[1]:
+                xdataindex[2] += 1
+
+        deepi += 1
+
+        while deepi != 0 and countdown[deepi - 1] == 0:
+            deepi -= 1
+
+            if deepi == 0:
+                xsizeindex[0] = xsizeindex[1]
+                xdataindex[0] = xdataindex[1]
+                ysizeindex[0] = ysizeindex[1]
+                ydataindex[0] = ydataindex[1]
+
+            elif deepi == 1:
+                xsizeindex[1] = xsizeindex[2]
+                xdataindex[1] = xdataindex[2]
+
+            elif deepi == 2:
+                if not yskip[0]:
+                    ydataindex[1] += 1
+
+        if deepi == 0:
+            entry += 1
+
+    return outdata, outsize
+
+assert testy([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [3, 2, 2, 2, 3, 2, 2, 2],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604,
+     705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([7, 8, 9, 10, 11, 12], [3, 0, 0, 0, 3, 2, 2, 2],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 3, 2, 2, 2],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [0, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([1, 2, 3, 4, 5, 6], [3, 2, 2, 2, 3, 0, 0, 0],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604], \
+    [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0])
+
+assert testy([1, 2, 3, 4, 5, 6], [3, 2, 2, 2, 0],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604], \
+    [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 0])
+
+assert testy([7, 8, 9, 10, 11, 12], [3, 0, 0, 0, 3, 0, 0, 0],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [], \
+    [3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 3, 0, 0, 0],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [], \
+    [0, 3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 0],
+             [1, 2, 3, 4, 5, 6, 7, 8], [4, 4]) == (
+    [], \
+    [0, 0])
+
+assert testy([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [3, 2, 2, 2, 3, 2, 2, 2],
+             [5, 6, 7, 8], [0, 4]) == (
+    [705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [3, 0, 0, 0, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [3, 2, 2, 2, 3, 2, 2, 2],
+             [1, 2, 3, 4], [4, 0]) == (
+    [101, 201, 102, 202, 103, 203, 104, 204, 301, 401, 302, 402, 303, 403, 304, 404, 501, 601, 502, 602, 503, 603, 504, 604], \
+    [3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 3, 0, 0, 0])
+
+assert testy([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [3, 2, 2, 2, 3, 2, 2, 2],
+             [], [0, 0]) == (
+    [], \
+    [3, 0, 0, 0, 3, 0, 0, 0])
+
+assert testy([7, 8, 9, 10, 11, 12], [3, 0, 0, 0, 3, 2, 2, 2],
+             [5, 6, 7, 8], [0, 4]) == (
+    [705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [3, 0, 0, 0, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 3, 2, 2, 2],
+             [5, 6, 7, 8], [0, 4]) == (
+    [705, 805, 706, 806, 707, 807, 708, 808, 905, 1005, 906, 1006, 907, 1007, 908, 1008, 1105, 1205, 1106, 1206, 1107, 1207, 1108, 1208], \
+    [0, 3, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2, 4, 2, 2, 2, 2])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 3, 0, 0, 0],
+             [5, 6, 7, 8], [0, 4]) == (
+    [], \
+    [0, 3, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, 0])
+
+assert testy([7, 8, 9, 10, 11, 12], [0, 0],
+             [5, 6, 7, 8], [0, 4]) == (
+    [], \
+    [0, 0])
