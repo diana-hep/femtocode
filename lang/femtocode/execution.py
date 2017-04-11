@@ -729,11 +729,15 @@ class ExplodeSizeLoop(Loop):
         self.newStatement(explodesize)
         self.newTarget(explodesize.column)
 
+    def targetcode(self, nametrans, lengthScan, parameters, params):
+        targetcode = []
+        targetsizecode = ""
+        if not lengthScan:
+            parameters.append(OutSizeArray(self.explodesize.column))
+            params.append("tsarray_" + nametrans(str(self.explodesize.column)))
+            targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
 
-
-
-
-
+        return targetcode, targetsizecode
 
 class LoopFunction(Serializable):
     def __init__(self, fcn, parameters):
