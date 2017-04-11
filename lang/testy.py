@@ -28,7 +28,7 @@ ysizeindex = [0, 0]
 entry = 0
 deepi = 0
 
-xskip = [False, False]
+skip = [False, False]
 
 while entry < numEntries:
     if deepi != 0:
@@ -42,10 +42,10 @@ while entry < numEntries:
         outsize.append(countdown[deepi])
 
         if countdown[deepi] == 0:
-            xskip[0] = True
+            skip[0] = True
             countdown[deepi] = 1
         else:
-            xskip[0] = False
+            skip[0] = False
 
         xsizeindex[1] += 1
 
@@ -53,17 +53,17 @@ while entry < numEntries:
         xsizeindex[2] = xsizeindex[1]
         xdataindex[2] = xdataindex[1]
 
-        if not xskip[0]:
+        if not skip[0]:
             countdown[deepi] = xsize[xsizeindex[2]]
             outsize.append(countdown[deepi])
 
         if countdown[deepi] == 0:
-            xskip[1] = True
+            skip[1] = True
             countdown[deepi] = 1
         else:
-            xskip[1] = False
+            skip[1] = False
 
-        if not xskip[0]:
+        if not skip[0]:
             xsizeindex[2] += 1
 
     elif deepi == 2:
@@ -72,12 +72,12 @@ while entry < numEntries:
         countdown[deepi] = ysize[ysizeindex[1]]
         ysizeindex[1] += 1
 
-        if not xskip[0] and not xskip[1]:
+        if not skip[0] and not skip[1]:
             outsize.append(countdown[deepi])
 
     elif deepi == 3:
         deepi -= 1
-        if not xskip[0] and not xskip[1]:
+        if not skip[0] and not skip[1]:
             outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
         ydataindex[1] += 1
 
@@ -97,7 +97,7 @@ while entry < numEntries:
             xdataindex[1] = xdataindex[2]
             
         elif deepi == 2:
-            if not xskip[0] and not xskip[1]:
+            if not skip[0] and not skip[1]:
                 xdataindex[2] += 1
 
     if deepi == 0:
