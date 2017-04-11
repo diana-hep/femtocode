@@ -100,14 +100,15 @@ class Statement(Serializable):
                             raise FemtocodeError("Expected keys \"to\", \"fcn\", \"tosize\" with \"tosize\" being a list for function $explodesize at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif obj["fcn"] == "$explodedata":
-                        if keys == set(["to", "fcn", "data", "fromsize", "explodesize", "schema"]):
+                        if keys == set(["to", "fcn", "data", "fromsize", "explodesize", "explosions", "schema"]):
                             return ExplodeData(ColumnName.parse(obj["to"]),
                                                Schema.fromJson(obj["schema"]),
                                                ColumnName.parse(obj["data"]),
                                                ColumnName.parse(obj["fromsize"]),
-                                               ColumnName.parse(obj["explodesize"]))
+                                               ColumnName.parse(obj["explodesize"]),
+                                               tuple(ColumnName.parse(x) for x in obj["explosions"]))
                         else:
-                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"explodesize\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
+                            raise FemtocodeError("Expected keys \"to\", \"fcn\", \"data\", \"fromsize\", \"explodesize\", \"explosions\", \"schema\" with \"tosize\" being a list for function $explodedata at JSON{0}\n\n    found {1}".format(path, json.dumps(sorted(keys))))
 
                     elif keys == set(["to", "fcn", "args", "schema", "tosize"]) and isinstance(obj["args"], list):
                         args = []
@@ -509,12 +510,13 @@ class ExplodeSize(Call):
         return self.column
 
 class ExplodeData(Call):
-    def __init__(self, column, schema, data, fromsize, explodesize):
+    def __init__(self, column, schema, data, fromsize, explodesize, explosions):
         self.column = column
         self.schema = schema
         self.data = data
         self.fromsize = fromsize
         self.explodesize = explodesize
+        self.explosions = explosions
 
     @property
     def fcnname(self):
@@ -525,27 +527,27 @@ class ExplodeData(Call):
         return (self.data, self.fromsize, self.explodesize)
 
     def __repr__(self):
-        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4})".format(self.column, self.schema, self.data, self.fromsize, self.explodesize)
+        return "statementlist.ExplodeData({0}, {1}, {2}, {3}, {4}, {5})".format(self.column, self.schema, self.data, self.fromsize, self.explodesize, self.explosions)
 
     def __str__(self):
-        return "{0} := {1}({2}, {3}, {4}) as {5}".format(str(self.column), self.fcnname, str(self.data), str(self.fromsize), self.explodesize, self.schema)
+        return "{0} := {1}({2}, {3}, {4}, ({5})) as {6}".format(str(self.column), self.fcnname, str(self.data), str(self.fromsize), self.explodesize, ", ".join(map(str, self.explosions)), self.schema)
 
     def toJson(self):
-        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "fromsize": str(self.fromsize), "explodesize": str(self.explodesize), "schema": self.schema.toJson()}
+        return {"to": str(self.column), "fcn": self.fcnname, "data": str(self.data), "fromsize": str(self.fromsize), "explodesize": str(self.explodesize), "explosions": [str(x) for x in self.explosions], "schema": self.schema.toJson()}
 
     def __eq__(self, other):
-        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.explodesize == other.explodesize
+        return other.__class__ == ExplodeData and self.column == other.column and self.schema == other.schema and self.data == other.data and self.fromsize == other.fromsize and self.explodesize == other.explodesize and self.explosions == other.explosions
 
     def __hash__(self):
-        return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.explodesize))
+        return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.explodesize, self.explosions))
 
     def columnNames(self):
-        return [self.column, self.data, self.fromsize, self.explodesize]
+        return [self.column, self.data, self.fromsize, self.explodesize] + list(self.explosions)
 
     def inputSizes(self, statements):
         for statement in statements:
             if isinstance(statement, ExplodeSize) and statement.column == self.explodesize:
-                return [self.fromsize] + list(statement.tosize)
+                return [self.fromsize] + list(statement.tosize) + list(self.explosions)
         assert False, "explodesize not found for explodedata"
 
     def plateauSize(self, statements):
@@ -598,12 +600,13 @@ def exploderef(ref, replacements, refnumber, dataset, explosions):
             replacements[(ExplodeSize, explosions)] = explodedSize
             statements.append(ExplodeSize(explodedSize, explosions))
 
-        if (ExplodeData, ref.name, explosions) in replacements:
-            explodedData = replacements[(ExplodeData, ref.name, explosions)]
+        if (ExplodeData, ref.name, explosions, ref.explosions()) in replacements:
+            explodedData = replacements[(ExplodeData, ref.name, explosions, ref.explosions())]
         elif ref.size != explodedSize:
             explodedData = ColumnName(refnumber)
-            replacements[(ExplodeData, ref.name, explosions)] = explodedData
-            statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, explodedSize))
+            replacements[(ExplodeData, ref.name, explosions, ref.explosions())] = explodedData
+            statements.append(ExplodeData(explodedData, ref.schema, ref.data, ref.size, explodedSize, ref.explosions()))
+
         else:
             explodedData = ref.data
 

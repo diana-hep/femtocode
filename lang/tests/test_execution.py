@@ -213,13 +213,17 @@ class TestExecution(unittest.TestCase):
         for old, new in zip(oldexample.dataset, session.submit(query)):
             self.assertEqual(mapp(old.ys, lambda y: y + 100), new.a)
 
-    # def test_double_explode(self):
-    #     query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
-    #     statements = query.statements
+    def test_double_explode(self):
+        query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+        statements = query.statements
 
-    #     for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
-    #         print old, new
-    #         self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+        for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
+            # print new
+            # print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
+
+            # self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+            pass
 
     def test_simple_explode(self):
         query = oldexample.toPython(a = "ys.map(y => y + c)").compile()
