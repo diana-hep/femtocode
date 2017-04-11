@@ -502,14 +502,17 @@ class Loop(Serializable):
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
             if True:
-                countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
+                countdown[deepi] = {array}[{index}[{ud}]]
+                {index}[{ud}] += 1
+            if True:
+                {targetsizecode}
                 numEntries[2] += 1
-                {index}[{ud}] += 1""".format(deepi = deepi,
-                                         array = uniqueToSizeArray[uniquei],
-                                         index = uniqueToSizeIndex[uniquei],
-                                         targetsizecode = "\n                " + targetsizecode,
-                                         ud = uniqueDepth[uniquei],
-                                         udm1 = uniqueDepth[uniquei] - 1)
+""".format(deepi = deepi,
+           array = uniqueToSizeArray[uniquei],
+           index = uniqueToSizeIndex[uniquei],
+           targetsizecode = "\n                " + targetsizecode,
+           ud = uniqueDepth[uniquei],
+           udm1 = uniqueDepth[uniquei] - 1)
 
             if not lengthScan:
                 for (i, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
@@ -562,16 +565,20 @@ class Loop(Serializable):
 
         blocks.append("""if deepi == {deepi}:
             deepi -= 1
-            {assigns}
 
-            REPLACEME     # <--- see replacement below{targetcode}
+            if True:
+                {assigns}
 
-            {increments}
-            numEntries[1] += 1""".format(
+                REPLACEME             # <--- see replacement below{targetcode}
+                numEntries[1] += 1
+
+            if True:
+                pass
+                {increments}""".format(
             deepi = len(self.explosions),
-            assigns = "\n            ".join(dataassigns),
-            targetcode = ("\n\n            " if len(targetcode) > 0 else "") + "\n            ".join(targetcode),
-            increments = "\n            ".join(dataincrements[len(self.explosions)])))
+            assigns = "\n                ".join(dataassigns),
+            targetcode = ("\n\n                " if len(targetcode) > 0 else "") + "\n                ".join(targetcode),
+            increments = "\n                ".join(dataincrements[len(self.explosions)])))
 
         resets = []
         for deepi, explosion in enumerate(self.explosions):
@@ -611,7 +618,7 @@ def {fcnname}({params}):
 """.format(fcnname = fcnname,
            params = ", ".join(params),
            blocks = "\n        el".join(blocks),
-           resets = "\n            el".join(resets))
+           resets = "\n\n            el".join(resets))
 
     def compileToPython(self, fcnname, inputs, fcntable, tonative, debug):
         def replace(node, withwhat):
