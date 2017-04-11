@@ -1,12 +1,20 @@
-# xdata = [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]
-# xsize = [3, 2, 2, 2, 3, 2, 2, 2]
-xdata = [1, 2, 3, 4, 5, 6]
-xsize = [3, 0, 0, 0, 3, 2, 2, 2]
+xdata = [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]
+xsize = [3, 2, 2, 2, 3, 2, 2, 2]
+
+# xdata = [1, 2, 3, 4, 5, 6]
+# xsize = [3, 0, 0, 0, 3, 2, 2, 2]
+
 # xdata = [1, 2, 3, 4, 5, 6]
 # xsize = [0, 3, 2, 2, 2]
 
+# xdata = []
+# xsize = [0, 0]
+
 ydata = [1, 2, 3, 4, 5, 6, 7, 8]
 ysize = [4, 4]
+
+# ydata = [5, 6, 7, 8]
+# ysize = [0, 4]
 
 outdata = []
 outsize = []
@@ -33,7 +41,7 @@ while entry < numEntries:
 
         outsize.append(countdown[deepi])
 
-        if xsize[xsizeindex[1]] == 0:
+        if countdown[deepi] == 0:
             xskip[0] = True
             countdown[deepi] = 1
         else:
@@ -44,12 +52,12 @@ while entry < numEntries:
     elif deepi == 1:
         xsizeindex[2] = xsizeindex[1]
         xdataindex[2] = xdataindex[1]
-        countdown[deepi] = xsize[xsizeindex[2]]
 
         if not xskip[0]:
+            countdown[deepi] = xsize[xsizeindex[2]]
             outsize.append(countdown[deepi])
 
-        if xsize[xsizeindex[2]] == 0:
+        if countdown[deepi] == 0:
             xskip[1] = True
             countdown[deepi] = 1
         else:
@@ -69,7 +77,7 @@ while entry < numEntries:
 
     elif deepi == 3:
         deepi -= 1
-        print "{} ({}, {})".format(xskip, xdata[xdataindex[2]], ydata[ydataindex[1]])
+        # print "{} ({}, {})".format(xskip, xdata[xdataindex[2]], ydata[ydataindex[1]])
         if not xskip[0] and not xskip[1]:
             outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
         ydataindex[1] += 1
