@@ -42,8 +42,6 @@ while entry < numEntries:
         xsizeindex[1] = xsizeindex[0]
         xdataindex[1] = xdataindex[0]
 
-        # print "ZERO x", xsizeindex[1], xdataindex[1]
-
         if True:
             countdown[deepi] = xsize[xsizeindex[1]]
             xsizeindex[1] += 1
@@ -56,13 +54,9 @@ while entry < numEntries:
         else:
             xskip[0] = False
 
-        # print "xskip", xskip
-
     elif deepi == 1:
         ysizeindex[1] = ysizeindex[0]
         ydataindex[1] = ydataindex[0]
-
-        # print "ONE  y", ysizeindex[1], ydataindex[1]
 
         if True:
             countdown[deepi] = ysize[ysizeindex[1]]
@@ -70,18 +64,20 @@ while entry < numEntries:
         if not xskip[0]:
             outsize.append(countdown[deepi])
 
-        # print "xskip", xskip
+        if countdown[deepi] == 0:
+            yskip[0] = True
+            countdown[deepi] = 1
+        else:
+            yskip[0] = False
 
     elif deepi == 2:
         xsizeindex[2] = xsizeindex[1]
         xdataindex[2] = xdataindex[1]
 
-        # print "TWO  x", xsizeindex[2], xdataindex[2]
-
         if not xskip[0]:
             countdown[deepi] = xsize[xsizeindex[2]]
             xsizeindex[2] += 1
-        if not xskip[0]:
+        if not xskip[0] and not yskip[0]:
             outsize.append(countdown[deepi])
 
         if countdown[deepi] == 0:
@@ -90,16 +86,13 @@ while entry < numEntries:
         else:
             xskip[1] = False
 
-        # print "xskip", xskip
-
     elif deepi == 3:
         deepi -= 1
 
-        # print "THREE xdata", xdataindex[2], xskip, "ydata", ydataindex[1], yskip
+        if not xskip[0] and not xskip[1] and not yskip[0]:
+            outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
 
         if not xskip[0] and not xskip[1]:
-            # print xdata[xdataindex[2]], ydata[ydataindex[1]]
-            outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
             xdataindex[2] += 1
 
     deepi += 1
@@ -118,7 +111,8 @@ while entry < numEntries:
             xdataindex[1] = xdataindex[2]
             
         elif deepi == 2:
-            ydataindex[1] += 1
+            if not yskip[0]:
+                ydataindex[1] += 1
 
     if deepi == 0:
         entry += 1
