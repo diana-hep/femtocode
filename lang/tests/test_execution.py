@@ -213,15 +213,6 @@ class TestExecution(unittest.TestCase):
         for old, new in zip(oldexample.dataset, session.submit(query)):
             self.assertEqual(mapp(old.ys, lambda y: y + 100), new.a)
 
-    # def test_double_explode(self):
-    #     query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
-    #     statements = query.statements
-    #     for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
-    #         print
-    #         print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
-    #         print new.a
-    #         self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
-
     def test_simple_explode(self):
         query = oldexample.toPython(a = "ys.map(y => y + c)").compile()
         statements = query.statements
@@ -419,3 +410,37 @@ class TestExecution(unittest.TestCase):
         for old, new in zip(source.dataset, result):
             self.assertAlmostEqual(old.x + old.y - 3, new.a)
             self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
+
+    def test_separate_explodesize(self):
+        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        statements = query.statements
+        print statements
+
+        loop = ExplodeSizeLoop(statements[0])
+
+        validNames = {}
+        def valid(n):
+            if n not in validNames:
+                validNames[n] = "v" + repr(len(validNames))
+            return validNames[n]
+
+        def newname():
+            n = len(validNames)  # an integer can't collide with any incoming names
+            validNames[n] = "_" + repr(n)
+            return validNames[n]
+
+        # now get our real function
+        parameters, params, codetext = loop.codetext("whatever", valid, False)
+        print parameters
+        print params
+        print codetext
+
+
+    # def test_double_explode(self):
+    #     query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+    #     statements = query.statements
+    #     for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
+    #         print
+    #         print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
+    #         print new.a
+    #         self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)

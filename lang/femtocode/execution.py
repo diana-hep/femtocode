@@ -383,7 +383,7 @@ class Loop(Serializable):
                 if statement not in self.statements:
                     self.statements.append(statement)
 
-    def codetext(self, fcnname, nametrans, lengthScan):
+    def parameters(self, nametrans, lengthScan):
         parameters = [NumEntries(), Countdown()]
         params = ["numEntries", "countdown"]
 
@@ -437,6 +437,9 @@ class Loop(Serializable):
                         parameters.append(DataArray(arg))
                         params.append("darray_" + nametrans(str(arg)))
 
+        return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere
+
+    def targetcode(self, nametrans, lengthScan, parameters, params):
         targetcode = []
         if not lengthScan:
             mightneedsize = False
@@ -458,6 +461,12 @@ class Loop(Serializable):
                 parameters.append(OutSizeArray(self.explodesize.column))
                 params.append("tsarray_" + nametrans(str(self.explodesize.column)))
                 targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
+
+        return targetcode, targetsizecode
+
+    def codetext(self, fcnname, nametrans, lengthScan):
+        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
+        targetcode, targetsizecode = self.targetcode(nametrans, lengthScan, parameters, params)
 
         init = ["entry = 0", "deepi = 0"]
 
@@ -713,6 +722,18 @@ def {fcnname}({params}):
         out["$math"] = math
         exec(compiled, out)    # exec can't be called in the same function with nested functions
         return out[fcnname]
+
+class ExplodeSizeLoop(Loop):
+    def __init__(self, explodesize):
+        super(ExplodeSizeLoop, self).__init__(explodesize.column)
+        self.newStatement(explodesize)
+        self.newTarget(explodesize.column)
+
+
+
+
+
+
 
 class LoopFunction(Serializable):
     def __init__(self, fcn, parameters):
