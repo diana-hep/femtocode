@@ -166,7 +166,7 @@ class DependencyGraph(object):
 
     def _bucketfill(self, loop, endpoints):
         for dependency in self.dependencies:
-            if dependency.plateauSize == loop.plateauSize and not isinstance(dependency.statement, statementlist.ExplodeSize):
+            if dependency.plateauSize == loop.plateauSize:   #  and not isinstance(dependency.statement, statementlist.ExplodeSize):
                 if dependency.target not in loop:
                     dependency._bucketfill(loop, endpoints)
             else:
@@ -177,25 +177,25 @@ class DependencyGraph(object):
     @staticmethod
     def loops(graphs):
         loops = {}
-        sizeToExplosion = {}
+        # sizeToExplosion = {}
         for startpoints in DependencyGraph.connectedSubgraphs(graphs):
             while len(startpoints) > 0:
                 newloops = {}
                 endpoints = []
                 for startpoint in startpoints:
-                    if isinstance(startpoint.statement, statementlist.ExplodeSize):
-                        sizeToExplosion[startpoint.statement.column] = startpoint.statement.explosions
+                    # if isinstance(startpoint.statement, statementlist.ExplodeSize):
+                    #     sizeToExplosion[startpoint.statement.column] = startpoint.statement.explosions
 
-                    issingleton = isinstance(startpoint.statement, statementlist.ExplodeSize)
+                    issingleton = False   # isinstance(startpoint.statement, statementlist.ExplodeSize)
 
                     if (startpoint.plateauSize, issingleton) in newloops:
                         loop = newloops[(startpoint.plateauSize, issingleton)]
 
-                    elif isinstance(startpoint.statement, statementlist.ExplodeSize):
-                        loop = ExplodeSizeLoop(startpoint.statement)
+                    # elif isinstance(startpoint.statement, statementlist.ExplodeSize):
+                    #     loop = ExplodeSizeLoop(startpoint.statement)
 
                     else:
-                        loop = NoExplodeSizeLoop(startpoint.plateauSize)
+                        loop = Loop(startpoint.plateauSize)   # NoExplodeSizeLoop(startpoint.plateauSize)
 
                     if not issingleton:
                         loop.newTarget(startpoint.target)
@@ -213,10 +213,10 @@ class DependencyGraph(object):
                     if x not in startpoints:
                         startpoints.append(x)
 
-        for loopsAtPlateau in loops.values():
-            for loop in loopsAtPlateau:
-                if startpoint.plateauSize in sizeToExplosion:
-                    loop.setExplosions(sizeToExplosion[startpoint.plateauSize])
+        # for loopsAtPlateau in loops.values():
+        #     for loop in loopsAtPlateau:
+        #         if startpoint.plateauSize in sizeToExplosion:
+        #             loop.setExplosions(sizeToExplosion[startpoint.plateauSize])
 
         return loops
 
@@ -483,8 +483,6 @@ class Loop(Serializable):
         parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
         targetcode, targetsizecode = self.targetcode(nametrans, lengthScan, parameters, params)
 
-        init = ["entry = 0", "deepi = 0"]
-
         blocks = []
         reversals = dict((size, []) for size in self.uniques)
         uniqueDepth = [0] * len(self.uniques)
@@ -497,7 +495,6 @@ class Loop(Serializable):
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
             countdown[deepi] = {array}[{index}[{ud}]]{targetsizecode}
-
             numEntries[2] += 1
             {index}[{ud}] += 1""".format(deepi = deepi,
                                          array = uniqueToSizeArray[uniquei],
@@ -562,6 +559,7 @@ class Loop(Serializable):
             REPLACEME     # <--- see replacement below{targetcode}
 
             {increments}
+            entryData += 1
             numEntries[1] += 1""".format(
             deepi = len(self.explosions),
             assigns = "\n            ".join(dataassigns),
@@ -583,15 +581,25 @@ class Loop(Serializable):
                 deepi = deepi,
                 revs = "".join("\n                " + x for x in revs) if len(revs) > 0 else "\n                pass"))
 
-        return parameters, params, """
+        return parameters, params, """lengthScan = {lengthScan}
 def {fcnname}({params}):
-    {init}
+    entry = 0
+    deepi = 0
+    entryData = 0
 
     while entry < numEntries[0]:
         if deepi != 0:
             countdown[deepi - 1] -= 1
 
         {blocks}
+
+        if not lengthScan:
+            if deepi == 0:
+                print "countdown[0]", countdown[0], "sindex_v0_0[1]", sindex_v0_0[1]
+            elif deepi == 1:
+                print "countdown[1]", countdown[1], "sindex_v0_0[2]", sindex_v0_0[2]
+            elif deepi == 2:
+                print "countdown[2]", countdown[2], "sindex_v1_1[1]", sindex_v1_1[1]
 
         deepi += 1
 
@@ -602,9 +610,17 @@ def {fcnname}({params}):
 
         if deepi == 0:
             entry += 1
-""".format(fcnname = fcnname,
+            if not lengthScan:
+                print "entryData", entryData
+                print "sindex_v0_0 (xss size) ", sindex_v0_0[0]
+                print "sindex_v1_1 (ys size)  ", sindex_v1_1[0]
+                print "xdindex_v2_0 (xss data)", xdindex_v2_0[0]
+                print "xdindex_v4_1 (ys data) ", xdindex_v4_1[0]
+                print
+            entryData = 0
+""".format(lengthScan = lengthScan,
+           fcnname = fcnname,
            params = ", ".join(params),
-           init = "\n    ".join(init),
            blocks = "\n        el".join(blocks),
            resets = "\n            el".join(resets))
 
@@ -938,6 +954,7 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
+                print "REAL RUN"
                 loop.run.fcn(*arguments)
                 
                 if loop.explodesize is not None:
