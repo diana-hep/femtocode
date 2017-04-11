@@ -77,7 +77,6 @@ while entry < numEntries:
 
     elif deepi == 3:
         deepi -= 1
-        # print "{} ({}, {})".format(xskip, xdata[xdataindex[2]], ydata[ydataindex[1]])
         if not xskip[0] and not xskip[1]:
             outdata.append(xdata[xdataindex[2]] * 100 + ydata[ydataindex[1]])
         ydataindex[1] += 1

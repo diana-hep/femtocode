@@ -277,6 +277,7 @@ class NamedParamNode(ParamNode):
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
 class Index(NamedParamNode): pass
+class Skip(NamedParamNode): pass
 class SizeArray(NamedParamNode): pass
 class DataArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
@@ -404,9 +405,11 @@ class Loop(Serializable):
 
         uniqueToSizeArray = []
         uniqueToSizeIndex = []
+        uniqueToSizeSkip = []
         for i, size in enumerate(self.uniques):
             arrayname = "sarray_{0}_{1}".format(nametrans(str(size)), i)
             indexname = "sindex_{0}_{1}".format(nametrans(str(size)), i)
+            skipname  = "skip_{0}_{1}".format(nametrans(str(size)), i)
 
             parameters.append(SizeArray(size))
             params.append(arrayname)
@@ -415,6 +418,10 @@ class Loop(Serializable):
             parameters.append(Index(size))
             params.append(indexname)
             uniqueToSizeIndex.append(indexname)
+
+            # parameters.append(Skip(size))
+            # params.append(skipname)
+            # uniqueToSizeSkip.append(skipname)
 
         uniqueToExplodeDataNames = {}
         if not lengthScan:
@@ -452,7 +459,7 @@ class Loop(Serializable):
                         parameters.append(DataArray(arg))
                         params.append("darray_" + nametrans(str(arg)))
 
-        return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere
+        return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere
 
     def targetcode(self, nametrans, lengthScan, parameters, params):
         targetcode = []
@@ -480,7 +487,7 @@ class Loop(Serializable):
         return targetcode, targetsizecode
 
     def codetext(self, fcnname, nametrans, lengthScan):
-        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
+        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
         targetcode, targetsizecode = self.targetcode(nametrans, lengthScan, parameters, params)
 
         blocks = []
@@ -559,7 +566,6 @@ class Loop(Serializable):
             REPLACEME     # <--- see replacement below{targetcode}
 
             {increments}
-            entryData += 1
             numEntries[1] += 1""".format(
             deepi = len(self.explosions),
             assigns = "\n            ".join(dataassigns),
@@ -581,25 +587,16 @@ class Loop(Serializable):
                 deepi = deepi,
                 revs = "".join("\n                " + x for x in revs) if len(revs) > 0 else "\n                pass"))
 
-        return parameters, params, """lengthScan = {lengthScan}
+        return parameters, params, """
 def {fcnname}({params}):
     entry = 0
     deepi = 0
-    entryData = 0
 
     while entry < numEntries[0]:
         if deepi != 0:
             countdown[deepi - 1] -= 1
 
         {blocks}
-
-        if not lengthScan:
-            if deepi == 0:
-                print "countdown[0]", countdown[0], "sindex_v0_0[1]", sindex_v0_0[1]
-            elif deepi == 1:
-                print "countdown[1]", countdown[1], "sindex_v0_0[2]", sindex_v0_0[2]
-            elif deepi == 2:
-                print "countdown[2]", countdown[2], "sindex_v1_1[1]", sindex_v1_1[1]
 
         deepi += 1
 
@@ -610,16 +607,7 @@ def {fcnname}({params}):
 
         if deepi == 0:
             entry += 1
-            if not lengthScan:
-                print "entryData", entryData
-                print "sindex_v0_0 (xss size) ", sindex_v0_0[0]
-                print "sindex_v1_1 (ys size)  ", sindex_v1_1[0]
-                print "xdindex_v2_0 (xss data)", xdindex_v2_0[0]
-                print "xdindex_v4_1 (ys data) ", xdindex_v4_1[0]
-                print
-            entryData = 0
-""".format(lengthScan = lengthScan,
-           fcnname = fcnname,
+""".format(fcnname = fcnname,
            params = ", ".join(params),
            blocks = "\n        el".join(blocks),
            resets = "\n            el".join(resets))
@@ -755,58 +743,58 @@ def {fcnname}({params}):
         exec(compiled, out)    # exec can't be called in the same function with nested functions
         return out[fcnname]
 
-class NoExplodeSizeLoop(Loop):
-    def setExplosions(self, explosions):
-        self.explosions = explosions
-        self.deepiToUnique = []
-        self.uniques = []
-        for deepi, explosion in reversed(list(enumerate(self.explosions))):
-            found = False
-            for uniquei, unique in enumerate(self.uniques):
-                if unique.startswith(explosion) and unique != explosion.size():
-                    self.deepiToUnique.append(uniquei)
-                    found = True
+# class NoExplodeSizeLoop(Loop):
+#     def setExplosions(self, explosions):
+#         self.explosions = explosions
+#         self.deepiToUnique = []
+#         self.uniques = []
+#         for deepi, explosion in reversed(list(enumerate(self.explosions))):
+#             found = False
+#             for uniquei, unique in enumerate(self.uniques):
+#                 if unique.startswith(explosion) and unique != explosion.size():
+#                     self.deepiToUnique.append(uniquei)
+#                     found = True
 
-            if not found:
-                self.deepiToUnique.append(len(self.uniques))
-                self.uniques.append(explosion.size())
+#             if not found:
+#                 self.deepiToUnique.append(len(self.uniques))
+#                 self.uniques.append(explosion.size())
 
-        self.uniques = list(reversed(self.uniques))
-        self.deepiToUnique = [len(self.uniques) - i - 1 for i in reversed(self.deepiToUnique)]
+#         self.uniques = list(reversed(self.uniques))
+#         self.deepiToUnique = [len(self.uniques) - i - 1 for i in reversed(self.deepiToUnique)]
 
-    def newStatement(self, statement):
-        if statement not in self.statements:
-            assert not isinstance(statement, statementlist.ExplodeSize)
+#     def newStatement(self, statement):
+#         if statement not in self.statements:
+#             assert not isinstance(statement, statementlist.ExplodeSize)
 
-            if isinstance(statement, statementlist.ExplodeData):
-                if statement not in self.explodedatas:
-                    self.explodedatas.append(statement)
+#             if isinstance(statement, statementlist.ExplodeData):
+#                 if statement not in self.explodedatas:
+#                     self.explodedatas.append(statement)
                 
-            elif isinstance(statement, statementlist.Explode):
-                assert statement.tosize == self.plateauSize
-                if statement not in self.explodes:
-                    self.explodes.append(statement)
+#             elif isinstance(statement, statementlist.Explode):
+#                 assert statement.tosize == self.plateauSize
+#                 if statement not in self.explodes:
+#                     self.explodes.append(statement)
 
-            else:
-                assert statement.tosize == self.plateauSize
-                if statement not in self.statements:
-                    self.statements.append(statement)
+#             else:
+#                 assert statement.tosize == self.plateauSize
+#                 if statement not in self.statements:
+#                     self.statements.append(statement)
 
-class ExplodeSizeLoop(Loop):
-    def __init__(self, explodesize):
-        super(ExplodeSizeLoop, self).__init__(explodesize.column)
-        self.newStatement(explodesize)
-        self.newTarget(explodesize.column)
+# class ExplodeSizeLoop(Loop):
+#     def __init__(self, explodesize):
+#         super(ExplodeSizeLoop, self).__init__(explodesize.column)
+#         self.newStatement(explodesize)
+#         self.newTarget(explodesize.column)
 
-    def targetcode(self, nametrans, lengthScan, parameters, params):
-        targetcode = []
-        targetsizecode = ""
-        if not lengthScan:
-            parameters.append(OutSizeArray(self.explodesize.column))
-            params.append("tsarray_" + nametrans(str(self.explodesize.column)))
-            targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
+#     def targetcode(self, nametrans, lengthScan, parameters, params):
+#         targetcode = []
+#         targetsizecode = ""
+#         if not lengthScan:
+#             parameters.append(OutSizeArray(self.explodesize.column))
+#             params.append("tsarray_" + nametrans(str(self.explodesize.column)))
+#             targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
 
-        return targetcode, targetsizecode
+#         return targetcode, targetsizecode
 
 class LoopFunction(Serializable):
     def __init__(self, fcn, parameters):
@@ -875,6 +863,8 @@ class Executor(Serializable):
                             i += len(loop.explosions)
                         elif isinstance(param, Index):
                             i += param.name.depth() + 1
+                        elif isinstance(param, Skip):
+                            i += param.name.depth()
 
                     # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                     indexarrays = self.makeArray(i, sizeType, True)
@@ -895,6 +885,10 @@ class Executor(Serializable):
                         elif isinstance(param, Index):
                             arguments.append(indexarrays[i : i + param.name.depth() + 1])
                             i += param.name.depth() + 1
+
+                        elif isinstance(param, Skip):
+                            arguments.append(indexarrays[i : i + param.name.depth()])
+                            i += param.name.depth()
 
                         elif isinstance(param, SizeArray):
                             arguments.append(inarrays[param.name])
@@ -918,6 +912,8 @@ class Executor(Serializable):
                         i += len(loop.explosions)
                     elif isinstance(param, Index):
                         i += param.name.depth() + 1
+                    elif isinstance(param, Skip):
+                        i += param.name.depth()
 
                 # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
                 indexarrays = self.makeArray(i, sizeType, True)
@@ -939,6 +935,10 @@ class Executor(Serializable):
                         arguments.append(indexarrays[i : i + param.name.depth() + 1])
                         i += param.name.depth() + 1
 
+                    elif isinstance(param, Skip):
+                        arguments.append(indexarrays[i : i + param.name.depth()])
+                        i += param.name.depth()
+
                     elif isinstance(param, (SizeArray, DataArray)):
                         arguments.append(inarrays[param.name])
 
@@ -954,7 +954,6 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
-                print "REAL RUN"
                 loop.run.fcn(*arguments)
                 
                 if loop.explodesize is not None:

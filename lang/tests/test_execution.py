@@ -412,34 +412,34 @@ class TestExecution(unittest.TestCase):
             self.assertAlmostEqual(old.x + old.y - 3, new.a)
             self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
 
-    def test_separate_explodesize(self):
-        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
-        statements = query.statements
+    # def test_separate_explodesize(self):
+    #     query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+    #     statements = query.statements
 
-        loop = ExplodeSizeLoop(statements[0])
-        loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
+    #     loop = ExplodeSizeLoop(statements[0])
+    #     loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
 
-        numEntries = [oldexample.dataset.numEntries, 0, 0]
-        countdown = [0, 0, 0]
-        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
-        sindex_v0 = [0, 0, 0]
-        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
-        sindex_v1 = [0, 0]
+    #     numEntries = [oldexample.dataset.numEntries, 0, 0]
+    #     countdown = [0, 0, 0]
+    #     sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+    #     sindex_v0 = [0, 0, 0]
+    #     sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+    #     sindex_v1 = [0, 0]
 
-        loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
-        dataLength = numEntries[1]
-        sizeLength = numEntries[2]
+    #     loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
+    #     dataLength = numEntries[1]
+    #     sizeLength = numEntries[2]
 
-        numEntries = [oldexample.dataset.numEntries, 0, 0]
-        countdown = [0, 0, 0]
-        sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
-        sindex_v0 = [0, 0, 0]
-        sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
-        sindex_v1 = [0, 0]
-        tsarray_v6 = [0] * sizeLength
+    #     numEntries = [oldexample.dataset.numEntries, 0, 0]
+    #     countdown = [0, 0, 0]
+    #     sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
+    #     sindex_v0 = [0, 0, 0]
+    #     sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
+    #     sindex_v1 = [0, 0]
+    #     tsarray_v6 = [0] * sizeLength
         
-        loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, tsarray_v6)
-        self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
+    #     loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, tsarray_v6)
+    #     self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
     def test_separate_explodesize2(self):
         query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
