@@ -30,64 +30,101 @@ class ROOTFetcher(threading.Thread):
         self.workItem = workItem
         self.daemon = True
 
-    def files(self, column):
-        out = None
-        if column.issize():
-            for n, c in self.workItem.executor.query.dataset.columns.items():
-                if c.size == column:
-                    out = self.workItem.group.segments[n].files
-                    break
-        else:
-            out = self.workItem.group.segments[column].files
+    class _Pair(object):
+        def __init__(self, dataBranch, sizeBranch, dataoccupant, sizeoccupant, dtype):
+            self.dataBranch = dataBranch
+            self.sizeBranch = sizeBranch
+            self.dataoccupant = dataoccupant
+            self.sizeoccupant = sizeoccupant
+            self.dtype = dtype
 
-        if out is None:
-            out = self.workItem.group.files
-        return out
+    class _FilesetTree(object):
+        def __init__(self, fileset, tree):
+            self.fileset = tuple(sorted(fileset))
+            self.tree = tree
+
+        def __eq__(self, other):
+            return other.__class__ == ROOTFetcher._FilesetTree and self.fileset == other.fileset and self.tree == other.tree
+
+        def __hash__(self):
+            return hash(("ROOTFetcher._FilesetTree", self.fileset, self.tree))
 
     def run(self):
         try:
-            columnNameToArray = {}
-            filesetsToColumns = {}
-            filesetsToOccupants = {}
+            filesetsToPairs = {}
 
-            for occupant in self.occupants:
-                column = occupant.address.column
-                columnNameToArray[column] = occupant.rawarray
+            for dataoccupant in self.occupants:
+                if not dataoccupant.address.column.issize():
+                    fileset = self.workItem.group.segments[dataoccupant.address.column].files
+                    if fileset is None:
+                        fileset = self.workItem.group.files
 
-                filesetTree = (tuple(sorted(self.files(column))),
-                           self.workItem.executor.query.dataset.columns[column].tree)
+                    tree = self.workItem.executor.query.dataset.columns[dataoccupant.address.column].tree
 
-                if not column.issize():
-                    if filesetTree not in filesetsToColumns:
-                        filesetsToColumns[filesetTree] = []
-                    filesetsToColumns[filesetTree].append(column)
+                    key = ROOTFetcher._FilesetTree(fileset, tree)
+                    if key not in filesetsToPairs:
+                        filesetsToPairs[key] = []
 
-                if filesetTree not in filesetsToOccupants:
-                    filesetsToOccupants[filesetTree] = []
-                filesetsToOccupants[filesetTree].append(occupant)
+                    filesetsToPairs[key].append(ROOTFetcher._Pair(
+                        self.workItem.executor.query.dataset.columns[dataoccupant.address.column].dataBranch,
+                        self.workItem.executor.query.dataset.columns[dataoccupant.address.column].sizeBranch,
+                        dataoccupant,
+                        None,
+                        self.workItem.executor.query.dataset.columns[dataoccupant.address.column].dataType))
 
-            for (fileset, tree), columns in filesetsToColumns.items():
+            for sizeoccupant in self.occupants:
+                if sizeoccupant.address.column.issize():
+                    found = False
+                    for filesetTree, pairs in filesetsToPairs.items():
+                        for pair in pairs:
+                            c = self.workItem.executor.query.dataset.columns.get(pair.dataoccupant.address.column)
+                            if c is not None and c.size == sizeoccupant.address.column:
+                                pair.sizeoccupant = sizeoccupant
+                                found = True
+                                break
+                        if found:
+                            break
+
+                    if not found:
+                        found = False
+                        for c in self.workItem.executor.query.dataset.columns.values():
+                            if c.size == sizeoccupant.address.column:
+                                fileset = self.workItem.group.segments[c.data].files
+                                if fileset is None:
+                                    fileset = self.workItem.group.files
+
+                                key = ROOTFetcher._FilesetTree(fileset, c.tree)
+                                if key not in filesetsToPairs:
+                                    filesetsToPairs[key] = []
+
+                                filesetsToPairs[key].append(ROOTFetcher._Pair(
+                                    self.workItem.executor.query.dataset.columns[c.data].dataBranch,
+                                    self.workItem.executor.query.dataset.columns[c.data].sizeBranch,
+                                    None,
+                                    sizeoccupant,
+                                    self.workItem.executor.query.dataset.columns[c.data].dataType))
+                                break
+
+                        assert found
+
+            for filesetTree, pairs in filesetsToPairs.items():
                 toget = []
-                for column in columns:
-                    if not column.issize():
-                        dataBranch = self.workItem.executor.query.dataset.columns[column].dataBranch
-                        sizeBranch = self.workItem.executor.query.dataset.columns[column].sizeBranch
-                        dataArray = columnNameToArray[column].view(self.workItem.executor.query.dataset.columns[column].dataType)
+                for pair in pairs:
+                    if pair.sizeBranch is None:
+                        toget.append((pair.dataBranch, None if pair.dataoccupant is None else pair.dataoccupant.rawarray))
+                    else:
+                        toget.append((pair.dataBranch, pair.sizeBranch,
+                                      None if pair.dataoccupant is None else pair.dataoccupant.rawarray.view(pair.dtype),
+                                      None if pair.sizeoccupant is None else pair.sizeoccupant.rawarray.view(sizeType)))
 
-                        if sizeBranch is None:
-                            toget.append((dataBranch, dataArray))
-                        else:
-                            sizeArray = columnNameToArray.get(str(column.size()))
-                            if sizeArray is not None:
-                                sizeArray = sizeArray.view(sizeType)
+                for file in filesetTree.fileset:
+                    fillarrays(file, filesetTree.tree, toget)
 
-                            toget.append((dataBranch, sizeBranch, dataArray, sizeArray))
-
-                for file in fileset:
-                    fillarrays(file, tree, toget)
-
-                for occupant in filesetsToOccupants[(fileset, tree)]:
-                    occupant.filledBytes = occupant.totalBytes
+                for pair in pairs:
+                    if pair.dataoccupant is not None:
+                        pair.dataoccupant.filledBytes = pair.dataoccupant.totalBytes
+                    if pair.sizeoccupant is not None:
+                        pair.sizeoccupant.filledBytes = pair.sizeoccupant.totalBytes
 
         except Exception as exception:
             for occupant in self.occupants:
