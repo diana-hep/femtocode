@@ -516,6 +516,12 @@ class Loop(Serializable):
 
             if {allskipped}:{targetsizecode}
                 numEntries[2] += 1
+
+            if countdown[deepi] == 0:
+                {skipvar} = 1
+                countdown[deepi] = 1
+            else:
+                {skipvar} = 0
 """.format(deepi = deepi,
            skipvar = skipvar,
            thisskipped = logical(uniquesSkipped.get(uniqueToSizeSkip[uniquei], [])),
