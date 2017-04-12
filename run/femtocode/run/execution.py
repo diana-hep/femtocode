@@ -29,6 +29,7 @@ from femtocode.defs import *
 from femtocode.execution import *
 from femtocode.lib.standard import StandardLibrary
 from femtocode.typesystem import *
+from femtocode.testdataset import TestSession
 
 # initialize all the parts of LLVM that Numba needs
 numba.jit([(numba.float64[:],)], nopython=True)(lambda x: x[0])
@@ -62,13 +63,12 @@ def compileToNative(loopFunction, inputs):
             sig.append(numbaSizeType)
 
         elif isinstance(param, (DataArray, OutDataArray)):
-            sig.append(numba.from_dtype(numpy.dtype(param.dataType)))
+            sig.append(numba.from_dtype(numpy.dtype(param.dataType))[:])
 
         else:
             assert False, "unexpected type: {0}".format(param)
 
     sig = tuple(sig)
-
     return numba.jit([sig], nopython=True)(loopFunction.fcn)
 
 def serializeNative(nativefcn):
@@ -260,3 +260,10 @@ class NativeAsyncExecutor(NativeExecutor):
         out = Executor.fromJson(obj)
         out.__class__ = NativeAsyncExecutor
         return out
+
+class NativeTestSession(TestSession):
+    def _makeExecutor(self, query, debug):
+        return NativeExecutor(query, debug)
+
+    def _processArray(self, array, dataType):
+        return numpy.array(array, dtype=dataType)

@@ -355,8 +355,14 @@ class TestSession(object):
     def source(self, name, asdict=None, **askwds):
         return Source(self, TestDataset.fromSchema(name, asdict, **askwds))
 
+    def _makeExecutor(self, query, debug):
+        return Executor(query, debug)
+
+    def _processArray(self, array, dataType):
+        return array
+
     def submit(self, query, ondone=None, onupdate=None, debug=False):
-        executor = Executor(query, debug)
+        executor = self._makeExecutor(query, debug)
         action = query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
@@ -366,9 +372,9 @@ class TestSession(object):
             inarrays = {}
             for column in executor.required:
                 if column.issize():
-                    inarrays[column] = group.segments[executor.columnToSegmentKey[column]].size
+                    inarrays[column] = self._processArray(group.segments[executor.columnToSegmentKey[column]].size, sizeType)
                 else:
-                    inarrays[column] = group.segments[executor.columnToSegmentKey[column]].data
+                    inarrays[column] = self._processArray(group.segments[executor.columnToSegmentKey[column]].data, query.dataset.columns[column].dataType)
             
             subtally = executor.run(inarrays, group, query.dataset.columns)
             tally = action.update(tally, subtally)

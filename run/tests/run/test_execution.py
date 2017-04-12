@@ -28,12 +28,11 @@ from femtocode.defs import SymbolTable
 from femtocode.execution import *
 from femtocode.lib.standard import StandardLibrary
 from femtocode.parser import parse
-from femtocode.testdataset import TestDataset
-from femtocode.testdataset import TestSession
+from femtocode.run.execution import NativeTestSession
 from femtocode.typesystem import *
 from femtocode.workflow import *
 
-session = TestSession()
+session = NativeTestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
 oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
@@ -414,7 +413,7 @@ class TestExecution(unittest.TestCase):
             self.assertEqual(mapp(old.ys, lambda y: y + old.c), new.b)
 
     def test_submit(self):
-        session = TestSession()
+        session = NativeTestSession()
 
         source = session.source("Test", x=integer, y=real)
         for i in xrange(100):
