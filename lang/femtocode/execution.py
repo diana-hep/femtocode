@@ -235,15 +235,22 @@ class ParamNode(Serializable):
     def fromJson(obj):
         if isinstance(obj, string_types):
             return getattr(self.__module__, obj)()
-        elif isinstance(obj, dict):
+
+        elif isinstance(obj, dict) and len(obj) == 1:
             n, = obj.keys()
             v, = obj.values()
-            if isinstance(v, list):
-                return getattr(self.__module__, n)(ColumnName.parse(*v))
-            else:
-                return getattr(self.__module__, n)(ColumnName.parse(v))
+            return getattr(self.__module__, n)(ColumnName.parse(v))
+
+        elif isinstance(obj, dict) and len(obj) == 2:
+            assert "dataType" in obj
+            dataType = obj["dataType"]
+            del obj["dataType"]
+            n, = obj.keys()
+            v, = obj.values()
+            return getattr(self.__module__, n)(ColumnName.parse(v), dataType)
+            
         else:
-            assert False
+            assert False, "unrecognized type: {0}".format(obj)
 
     def __repr__(self):
         return self.toJsonString()
@@ -261,23 +268,25 @@ class NamedParamNode(ParamNode):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.name == other.name
 
+class NamedTypedParamNode(NamedParamNode):
+    def __init__(self, name, dataType):
+        super(NamedTypedParamNode, self).__init__(name)
+        self.dataType = dataType
+
+    def toJson(self):
+        return {self.__class__.__name__: str(self.name), "dataType": self.dataType}
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.name == other.name and self.dataType == other.dataType
+
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
 class Index(NamedParamNode): pass
 class Skip(NamedParamNode): pass
 class SizeArray(NamedParamNode): pass
-class DataArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
-class OutDataArray(NamedParamNode):
-    def __init__(self, name, dtype):
-        super(OutDataArray, self).__init__(name)
-        self.dtype = dtype
-
-    def toJson(self):
-        return {self.__class__.__name__: [str(self.name), self.dtype]}
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.name == other.name and self.dtype == other.dtype
+class DataArray(NamedTypedParamNode): pass
+class OutDataArray(NamedTypedParamNode): pass
 
 class Loop(Serializable):
     def __init__(self, plateauSize):
@@ -304,6 +313,38 @@ class Loop(Serializable):
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.plateauSize == other.plateauSize and self.explodesize == other.explodesize and self.explodes == other.explodes and self.explodedatas == other.explodedatas and self.statements == other.statements and self.targets == other.targets
+
+    def toJson(self):
+        return {"plateauSize": str(self.plateauSize),
+                "explosions": [str(x) for x in self.explosions],
+                "explodesize": None if self.explodesize is None else str(self.explodesize),
+                "explodes": [x.toJson() for x in self.explodes],
+                "explodedatas": [x.toJson() for x in self.explodedatas],
+                "statements": [x.toJson() for x in self.statements],
+                "targets": [str(x) for x in self.targets],
+                "prerun": None if self.prerun is None else self.prerun.toJson(),
+                "run": None if self.run is None else self.run.toJson()}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["plateauSize", "explosions", "explodesize", "explodes", "explodedatas", "statements", "targets", "prerun", "run"])
+
+        loop = Loop(ColumnName.parse(obj["plateauSize"]))
+        loop.setExplosions(tuple(ColumnName.parse(x) for x in obj["explosions"]))
+        loop.explodesize = None if obj["explodesize"] is None else statementlist.Statement(obj["explodesize"])
+        if loop.explodesize is not None:
+            assert isinstance(loop.explodesize, statementlist.ExplodeSize)
+        loop.explodes = [statementlist.Statement.fromJson(x) for x in obj["explodes"]]
+        assert all(isinstance(x, statementlist.Explode) for x in loop.explodes)
+        loop.explodedatas = [statementlist.Statement.fromJson(x) for x in obj["explodedatas"]]
+        assert all(isinstance(x, statementlist.ExplodeData) for x in loop.explodes)
+        loop.statements = [statementlist.Statement.fromJson(x) for x in obj["statements"]]
+        assert all(isinstance(x, statementlist.Call) for x in loop.explodes)
+        loop.targets = [ColumnName.parse(x) for x in obj["targets"]]
+        loop.prerun = None if obj["prerun"] is None else LoopFunction.fromJson(obj["prerun"])
+        loop.run = None if obj["run"] is None else LoopFunction.fromJson(obj["run"])
+        return loop
 
     def defines(self):
         definedHere = set()
@@ -386,7 +427,48 @@ class Loop(Serializable):
                 if statement not in self.statements:
                     self.statements.append(statement)
 
-    def parameters(self, nametrans, lengthScan):
+    @staticmethod
+    def argschemaToDataType(schema):
+        if isinstance(schema, Null):
+            raise NotImplementedError   # not sure what to do
+
+        elif isinstance(schema, Boolean):
+            return "bool"
+
+        elif isInt(schema) or isNullInt(schema):
+            return "int64"
+
+        elif isFloat(schema) or isNullFloat(schema):
+            return "float64"
+
+        elif isinstance(schema, String):
+            raise NotImplementedError   # TODO
+
+        elif isinstance(schema, Collection):
+            return Loop.argschemaToDataType(schema.items)
+
+        elif isinstance(schema, Union):
+            raise NotImplementedError   # TODO
+
+        else:
+            assert False, "schema cannot be used on a column: {0}".format(schema)
+
+    def dataType(self, name, inputs):
+        assert isinstance(name, ColumnName)
+
+        schema = None
+        if name in inputs:
+            schema = inputs[name]
+        else:
+            for statement in self.explodes + self.explodedatas + self.statements:
+                if statement.column == name:
+                    schema = statement.schema
+                    break
+            assert schema is not None, "not found: {0} in\n\n{1}".format(name, statementlist.Statements(*(self.explodes + self.explodedatas + self.statements)))
+
+        return Loop.argschemaToDataType(schema)
+
+    def parameters(self, nametrans, inputs, lengthScan):
         parameters = [NumEntries(), Countdown()]
         params = ["numEntries", "countdown"]
 
@@ -422,7 +504,7 @@ class Loop(Serializable):
                         if (i, explodedata.data) not in uniqueToExplodeDataNames:
                             uniqueToExplodeDataNames[(i, explodedata.data)] = (explodedata, arrayname, indexname, varname)
 
-                            parameters.append(DataArray(explodedata.data))
+                            parameters.append(DataArray(explodedata.data, Loop.argschemaToDataType(explodedata.schema)))
                             params.append(arrayname)
 
                             parameters.append(Index(explodedata.data))
@@ -434,35 +516,35 @@ class Loop(Serializable):
 
         if not lengthScan:
             for explode in self.explodes:
-                if DataArray(explode.data) not in parameters:
-                    parameters.append(DataArray(explode.data))
+                dataType = Loop.argschemaToDataType(explode.schema)
+                if DataArray(explode.data, dataType) not in parameters:
+                    parameters.append(DataArray(explode.data, dataType))
                     params.append("xarray_" + nametrans(str(explode.data)))
 
         definedHere = set(x.column for x in self.explodedatas + self.explodes + self.statements)
         if not lengthScan:
             for statement in self.statements:
                 for arg in statement.args:
-                    if isinstance(arg, ColumnName) and not arg.issize() and arg not in definedHere and DataArray(arg) not in parameters:
-                        parameters.append(DataArray(arg))
-                        params.append("darray_" + nametrans(str(arg)))
+                    if isinstance(arg, ColumnName) and not arg.issize():
+                        dataType = self.dataType(arg, inputs)
+                        if dataType is not None and arg not in definedHere and DataArray(arg, dataType) not in parameters:
+                            parameters.append(DataArray(arg, dataType))
+                            params.append("darray_" + nametrans(str(arg)))
 
         return parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere
 
-    def targetcode(self, nametrans, lengthScan, parameters, params):
+    def targetcode(self, nametrans, inputs, lengthScan, parameters, params):
         targetcode = []
         if not lengthScan:
             mightneedsize = False
             for target in self.targets:
-                if isinstance(target, ColumnName):
-                    for statement in self.explodes + self.explodedatas + self.statements:
-                        if statement.column == target:
-                            for c in schemaToColumns(ColumnName(target.path[0]), statement.schema).values():
-                                if OutDataArray(c.data, c.dataType) not in parameters:
-                                    parameters.append(OutDataArray(c.data, c.dataType))
-                                    params.append("tarray_" + nametrans(str(c.data)))
-                                    mightneedsize = True
-                                    ## FIXME: surely this doesn't handle multicolumns right...
-                                    targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(c.data))))
+                if isinstance(target, ColumnName) and not target.issize():
+                    dataType = self.dataType(target, inputs)
+                    if OutDataArray(target, dataType) not in parameters:
+                        parameters.append(OutDataArray(target, dataType))
+                        params.append("tarray_" + nametrans(str(target)))
+                        mightneedsize = True
+                        targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
 
         targetsizecode = ""
         if not lengthScan:
@@ -473,9 +555,9 @@ class Loop(Serializable):
 
         return targetcode, targetsizecode
 
-    def codetext(self, fcnname, nametrans, lengthScan):
-        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, lengthScan)
-        targetcode, targetsizecode = self.targetcode(nametrans, lengthScan, parameters, params)
+    def codetext(self, fcnname, nametrans, inputs, lengthScan):
+        parameters, params, uniqueToSizeArray, uniqueToSizeIndex, uniqueToSizeSkip, uniqueToExplodeDataNames, definedHere = self.parameters(nametrans, inputs, lengthScan)
+        targetcode, targetsizecode = self.targetcode(nametrans, inputs, lengthScan, parameters, params)
 
         blocks = []
         reversals = dict((size, []) for size in self.uniques)
@@ -669,7 +751,7 @@ def {fcnname}({params}):
                 return prevalidNames[n]
 
             # get a function that looks just like our real one, but with no contents: for measuring the size of arrays before allocating
-            preparameters, preparams, precodetext = self.codetext(fcnname + "_prerun", prevalid, True)
+            preparameters, preparams, precodetext = self.codetext(fcnname + "_prerun", prevalid, inputs, True)
             premodule = ast.parse(precodetext)
             replace(premodule, [])
             fakeLineNumbers(premodule)
@@ -691,7 +773,7 @@ def {fcnname}({params}):
             return validNames[n]
 
         # now get our real function
-        parameters, params, codetext = self.codetext(fcnname, valid, False)
+        parameters, params, codetext = self.codetext(fcnname, valid, inputs, False)
         module = ast.parse(codetext)
 
         references = {}
@@ -771,6 +853,34 @@ class LoopFunction(Serializable):
         self.fcn = fcn
         self.parameters = parameters
 
+    def __getstate__(self):
+        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
+
+    def __setstate__(self, state):
+        self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
+
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "name": self.fcn.func_name,
+                "code": base64.b64encode(marshal.dumps(self.fcn.func_code))}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code"])
+        assert isinstance(obj["class"], string_types)
+        assert "." in obj["class"]
+
+        mod = obj["class"][:obj["class"].rindex(".")]
+        cls = obj["class"][obj["class"].rindex(".") + 1:]
+
+        if mod == LoopFunction.__module__ and cls == LoopFunction.__name__:
+            assert isinstance(obj["name"], string_types)
+            assert isinstance(obj["code"], string_types)
+            return LoopFunction(types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"]))
+        else:
+            return getattr(importlib.import_module(mod), cls).fromJson(obj)
+
 class Executor(Serializable):
     def __init__(self, query, debug):
         self.query = query
@@ -793,7 +903,47 @@ class Executor(Serializable):
                 assert column in self.columnToSegmentKey
             else:
                 self.columnToSegmentKey[column] = column
-        
+
+    def toJson(self):
+        return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
+                "query": self.query.toJson(),
+                "required": [str(x) for x in self.required],
+                "order": [{"loop": x.toJson()} if isinstance(x, Loop) else {"action": x.toJson()} for x in self.order]}
+
+    @staticmethod
+    def fromJson(obj):
+        assert isinstance(obj, dict)
+        assert "class" in obj
+
+        mod = obj["class"][:obj["class"].rindex(".")]
+        cls = obj["class"][obj["class"].rindex(".") + 1:]
+
+        if mod == LoopFunction.__module__ and cls == LoopFunction.__name__:
+            assert set(obj.keys()).difference(set(["_id"])) == set(["class", "query", "required", "order"])
+            assert all(isinstance(x, dict) and len(x) == 1 for x in obj["order"])
+
+            out = Executor.__new__(Executor)
+            out.query = Query.fromJson(obj["query"])
+            out.required = [ColumnName.parse(x) for x in obj["required"]]
+            out.order = []
+            for loopOrAction in obj["order"]:
+                t, = loopOrAction.keys()
+                v, = loopOrAction.keys()
+                if t == "loop":
+                    out.order.append(Loop.fromJson(v))
+                elif t == "action":
+                    out.order.append(Loop.fromJson(v))
+                else:
+                    assert False, "unexpected type in order: {0}".format(t)
+
+            # transient
+            out._setColumnToSegmentKey()
+
+            return out
+
+        else:
+            return getattr(importlib.import_module(mod), cls).fromJson(obj)
+
     def compileLoops(self, debug):
         fcntable = SymbolTable(StandardLibrary.table.asdict())
         for lib in self.query.libs:
@@ -804,7 +954,7 @@ class Executor(Serializable):
                 fcnname = "f{0}_{1}".format(self.query.id, i)
                 loop.compileToPython(fcnname, self.query.inputs, fcntable, False, debug)
 
-    def makeArray(self, length, dtype, init):
+    def makeArray(self, length, dataType, init):
         if init:
             return [0] * length
         else:
@@ -918,7 +1068,7 @@ class Executor(Serializable):
                         columnLengths[param.name] = columnLengths[loop.plateauSize]
 
                     elif isinstance(param, OutDataArray):
-                        inarrays[param.name] = self.makeArray(dataLength, param.dtype, False)
+                        inarrays[param.name] = self.makeArray(dataLength, param.dataType, False)
                         arguments.append(inarrays[param.name])
 
                     else:
