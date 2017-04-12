@@ -853,21 +853,26 @@ class LoopFunction(Serializable):
         self.fcn = fcn
         self.parameters = parameters
 
+    def __call__(self, *args, **kwds):
+        return self.fcn(*args, **kwds)
+        
     def __getstate__(self):
-        return self.fcn.func_name, marshal.dumps(self.fcn.func_code)
+        return self.fcn.func_name, marshal.dumps(self.fcn.func_code), self.parameters
 
     def __setstate__(self, state):
         self.fcn = types.FunctionType(marshal.loads(state[1]), {}, state[0])
+        self.parameters = state[2]
 
     def toJson(self):
         return {"class": self.__class__.__module__ + "." + self.__class__.__name__,
                 "name": self.fcn.func_name,
-                "code": base64.b64encode(marshal.dumps(self.fcn.func_code))}
+                "code": base64.b64encode(marshal.dumps(self.fcn.func_code)),
+                "parameters": [x.toJson() for x in self.parameters]}
 
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["class", "name", "code", "parameters"])
         assert isinstance(obj["class"], string_types)
         assert "." in obj["class"]
 
@@ -877,7 +882,11 @@ class LoopFunction(Serializable):
         if mod == LoopFunction.__module__ and cls == LoopFunction.__name__:
             assert isinstance(obj["name"], string_types)
             assert isinstance(obj["code"], string_types)
-            return LoopFunction(types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"]))
+
+            fcn = types.FunctionType(marshal.loads(base64.b64decode(obj["code"])), {}, obj["name"])
+            parameters = [ParamNode.fromJson(x) for x in obj["parameters"]]
+            return LoopFunction(fcn, parameters)
+
         else:
             return getattr(importlib.import_module(mod), cls).fromJson(obj)
 
@@ -1016,7 +1025,7 @@ class Executor(Serializable):
                         else:
                             assert False, "unexpected Parameter in Loop.prerun: {0}".format(param)
 
-                    loop.prerun.fcn(*arguments)
+                    loop.prerun(*arguments)
                     dataLength = int(numEntries[1])
                     sizeLength = int(numEntries[2])
                     columnLengths[loop.plateauSize] = dataLength, sizeLength
@@ -1074,7 +1083,7 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
-                loop.run.fcn(*arguments)
+                loop.run(*arguments)
                 
                 if loop.explodesize is not None:
                     lengths[loop.explodesize.column] = columnLengths[loop.plateauSize][1]
