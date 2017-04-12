@@ -431,35 +431,6 @@ class TestExecution(unittest.TestCase):
             self.assertAlmostEqual(old.x + old.y - 3, new.a)
             self.assertAlmostEqual(old.x + old.y - 0.5, new.b)
 
-    # def test_separate_explodesize(self):
-    #     query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
-    #     statements = query.statements
-
-    #     loop = ExplodeSizeLoop(statements[0])
-    #     loop.compileToPython("fcnname", {}, StandardLibrary.table, False, False)
-
-    #     numEntries = [oldexample.dataset.numEntries, 0, 0]
-    #     countdown = [0, 0, 0]
-    #     sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
-    #     sindex_v0 = [0, 0, 0]
-    #     sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
-    #     sindex_v1 = [0, 0]
-
-    #     loop.prerun.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1)
-    #     dataLength = numEntries[1]
-    #     sizeLength = numEntries[2]
-
-    #     numEntries = [oldexample.dataset.numEntries, 0, 0]
-    #     countdown = [0, 0, 0]
-    #     sarray_v0 = oldexample.dataset.groups[0].segments["xss[][]"].size
-    #     sindex_v0 = [0, 0, 0]
-    #     sarray_v1 = oldexample.dataset.groups[0].segments["ys[]"].size
-    #     sindex_v1 = [0, 0]
-    #     tsarray_v6 = [0] * sizeLength
-        
-    #     loop.run.fcn(numEntries, countdown, sarray_v0, sindex_v0, sarray_v1, sindex_v1, tsarray_v6)
-    #     self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
-
     def test_skipping(self):
         missings = session.source("Missings", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
         missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
@@ -492,11 +463,42 @@ class TestExecution(unittest.TestCase):
         for old, new in zip(emptiers.dataset, session.submit(query, debug=False)):
             self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
 
-    # def test_double_explode(self):
-    #     query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
-    #     statements = query.statements
-    #     for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
-    #         print
-    #         print mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2))
-    #         print new.a
-    #         self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+    def test_double_explode(self):
+        query = oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+        statements = query.statements
+        for old, new in zip(oldexample.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+        missings = session.source("Missings", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
+
+        query = missings.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+        statements = query.statements
+        for old, new in zip(missings.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+        empties = session.source("Empties", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+        empties.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        empties.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        empties.dataset.fill({"xss": [], "ys": [], "c": 1000, "d": 123})
+
+        query = empties.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+        statements = query.statements
+        for old, new in zip(empties.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+        emptier = session.source("Emptier", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+
+        query = emptier.toPython(a = "ys.map(y1 => ys.map(y2 => y1 + y2))").compile()
+        statements = query.statements
+        for old, new in zip(emptier.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
