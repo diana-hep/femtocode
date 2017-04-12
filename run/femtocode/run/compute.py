@@ -120,13 +120,11 @@ class Minion(threading.Thread):
             try:
                 # actually do the work; ideally 99.999% of the time spent in this whole project
                 # should be in that second line there
-                startTime = time.time()
-                subtally = workItem.run()
-                endTime = time.time()
+                subtally, subtime = workItem.run()
             except Exception as exception:
                 workItem.executor.oneFailure(ExecutionFailure(exception, sys.exc_info()[2]))
             else:
-                workItem.executor.oneComputeDone(workItem.group.id, endTime - startTime, subtally)
+                workItem.executor.oneComputeDone(workItem.group.id, subtime, subtally)
 
             # for the cache
             workItem.decrementNeed()

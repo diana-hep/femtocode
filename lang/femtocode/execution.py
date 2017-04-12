@@ -20,6 +20,7 @@ import importlib
 import marshal
 import math
 import sys
+import time
 import traceback
 import types
 
@@ -978,6 +979,7 @@ class Executor(Serializable):
                 columnLengths[columns[name].size] = (segment.dataLength, segment.sizeLength)
                 lengths[columns[name].size] = segment.sizeLength
 
+        totalTime = 0.0
         out = None
         for loopOrAction in self.order:
             if isinstance(loopOrAction, Loop):
@@ -1006,7 +1008,10 @@ class Executor(Serializable):
                         else:
                             assert False, "unexpected Parameter in Loop.prerun: {0}".format(param)
 
+                    startTime = time.time()
                     loop.prerun(*arguments)
+                    totalTime += time.time() - startTime
+
                     dataLength = int(numEntries[1])
                     sizeLength = int(numEntries[2])
                     columnLengths[loop.plateauSize] = dataLength, sizeLength
@@ -1045,8 +1050,10 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
+                startTime = time.time()
                 loop.run(*arguments)
-                
+                totalTime += time.time() - startTime
+
                 if loop.explodesize is not None:
                     lengths[loop.explodesize.column] = columnLengths[loop.plateauSize][1]
                 for target in loop.targets:
@@ -1060,4 +1067,4 @@ class Executor(Serializable):
                 action = loopOrAction
                 out = action.act(group, columns, columnLengths, lengths, inarrays)
 
-        return out
+        return out, totalTime

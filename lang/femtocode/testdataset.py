@@ -366,6 +366,7 @@ class TestSession(object):
         action = query.actions[-1]
         assert isinstance(action, statementlist.Aggregation), "last action must always be an aggregation"
 
+        totalTime = 0.0
         tally = action.initialize()
 
         for group in query.dataset.groups:
@@ -376,7 +377,10 @@ class TestSession(object):
                 else:
                     inarrays[column] = self._processArray(group.segments[executor.columnToSegmentKey[column]].data, query.dataset.columns[column].dataType)
             
-            subtally = executor.run(inarrays, group, query.dataset.columns)
+            subtally, subtime = executor.run(inarrays, group, query.dataset.columns)
+
+            totalTime += subtime
+
             tally = action.update(tally, subtally)
             if onupdate is not None:
                 onupdate(tally)
