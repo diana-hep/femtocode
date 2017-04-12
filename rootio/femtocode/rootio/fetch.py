@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import threading
 
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
+from femtocode.execution import ExecutionFailure
 from femtocode.run.compute import DataAddress
 from femtocode.rootio._fastreader import fillarrays
 
@@ -29,8 +31,12 @@ class ROOTFetcher(threading.Thread):
         self.daemon = True
 
     def files(self, column):
+        out = None
         if column.issize():
-            out = self.workItem.group.segments[column.dropsize()].files
+            for n, c in self.workItem.executor.query.dataset.columns.items():
+                if c.size == column:
+                    out = self.workItem.group.segments[n].files
+                    break
         else:
             out = self.workItem.group.segments[column].files
 
@@ -39,45 +45,51 @@ class ROOTFetcher(threading.Thread):
         return out
 
     def run(self):
-        columnNameToArray = {}
-        filesetsToColumns = {}
-        filesetsToOccupants = {}
+        try:
+            columnNameToArray = {}
+            filesetsToColumns = {}
+            filesetsToOccupants = {}
 
-        for occupant in self.occupants:
-            column = occupant.address.column
-            columnNameToArray[column] = occupant.rawarray
+            for occupant in self.occupants:
+                column = occupant.address.column
+                columnNameToArray[column] = occupant.rawarray
 
-            filesetTree = (tuple(sorted(self.files(column))),
-                       self.workItem.executor.dataset.columns[column].tree)
+                filesetTree = (tuple(sorted(self.files(column))),
+                           self.workItem.executor.query.dataset.columns[column].tree)
 
-            if not column.issize():
-                if filesetTree not in filesetsToColumns:
-                    filesetsToColumns[filesetTree] = []
-                filesetsToColumns[filesetTree].append(column)
-
-            if filesetTree not in filesetsToOccupants:
-                filesetsToOccupants[filesetTree] = []
-            filesetsToOccupants[filesetTree].append(occupant)
-
-        for (fileset, tree), columns in filesetsToColumns.items():
-            toget = []
-            for column in columns:
                 if not column.issize():
-                    dataBranch = self.workItem.executor.dataset.columns[column].dataBranch
-                    sizeBranch = self.workItem.executor.dataset.columns[column].sizeBranch
-                    dataArray = columnNameToArray[column].view(self.workItem.executor.dataset.columns[column].dataType)
+                    if filesetTree not in filesetsToColumns:
+                        filesetsToColumns[filesetTree] = []
+                    filesetsToColumns[filesetTree].append(column)
 
-                    if sizeBranch is None:
-                        toget.append((dataBranch, dataArray))
-                    else:
-                        sizeArray = columnNameToArray.get(str(column.size()))
-                        if sizeArray is not None:
-                            sizeArray = sizeArray.view(sizeType)
+                if filesetTree not in filesetsToOccupants:
+                    filesetsToOccupants[filesetTree] = []
+                filesetsToOccupants[filesetTree].append(occupant)
 
-                        toget.append((dataBranch, sizeBranch, dataArray, sizeArray))
+            for (fileset, tree), columns in filesetsToColumns.items():
+                toget = []
+                for column in columns:
+                    if not column.issize():
+                        dataBranch = self.workItem.executor.query.dataset.columns[column].dataBranch
+                        sizeBranch = self.workItem.executor.query.dataset.columns[column].sizeBranch
+                        dataArray = columnNameToArray[column].view(self.workItem.executor.query.dataset.columns[column].dataType)
 
-            for file in fileset:
-                fillarrays(file, tree, toget)
+                        if sizeBranch is None:
+                            toget.append((dataBranch, dataArray))
+                        else:
+                            sizeArray = columnNameToArray.get(str(column.size()))
+                            if sizeArray is not None:
+                                sizeArray = sizeArray.view(sizeType)
 
-            for occupant in filesetsToOccupants[(fileset, tree)]:
-                occupant.filledBytes = occupant.totalBytes
+                            toget.append((dataBranch, sizeBranch, dataArray, sizeArray))
+
+                for file in fileset:
+                    fillarrays(file, tree, toget)
+
+                for occupant in filesetsToOccupants[(fileset, tree)]:
+                    occupant.filledBytes = occupant.totalBytes
+
+        except Exception as exception:
+            for occupant in self.occupants:
+                with occupant.lock:
+                    occupant.fetchfailure = ExecutionFailure(exception, sys.exc_info()[2])

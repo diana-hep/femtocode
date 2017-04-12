@@ -740,6 +740,10 @@ class Dot(lispytree.BuiltinFunction):
 
         if reref.data in dataset.columns:
             inputs[reref.data] = reref.schema
+        if reref.size is not None:
+            for c in dataset.columns.values():
+                if reref.size == c.size:
+                    inputs[reref.size] = None
 
         return reref, statements, inputs, replacements, refnumber
 
@@ -787,6 +791,10 @@ class Map(lispytree.BuiltinFunction):
             inputs = {reref.data: reref.schema}
         else:
             inputs = {}
+        if reref.size is not None:
+            for c in dataset.columns.values():
+                if reref.size == c.size:
+                    inputs[reref.size] = None
 
         replacements[(typedtree.TypedTree, call.args[1].refs[0])] = replacements.get((typedtree.TypedTree, call.args[1].refs[0]), {})
         replacements[(typedtree.TypedTree, call.args[1].refs[0])][extendedExplosions] = reref

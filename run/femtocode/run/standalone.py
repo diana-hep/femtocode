@@ -115,7 +115,7 @@ class StandaloneSession(object):
 
     def submit(self, query, ondone=None, onupdate=None, debug=False):
         # attach a more detailed Dataset to the query (same content, but with runtime details)
-        query.dataset = self.metadata.dataset(query.dataset.name, list(xrange(query.dataset.numGroups)), query.statements.columnNames(), False)
+        query.dataset = self.metadata.dataset(query.dataset.name, list(xrange(query.dataset.numGroups)), query.inputs.keys(), False)
 
         # create an executor with a reference to the FutureQueryResult we will return to the user
         query.lock = threading.Lock()
@@ -133,17 +133,23 @@ if __name__ == "__main__":
     session = StandaloneSession()
     session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
-    def callback(outputdataset):
-        print outputdataset, len(list(outputdataset))
+    # def callback(outputdataset):
+    #     print outputdataset, len(list(outputdataset))
 
-    from femtocode.lib.custom import *
-    custom = CustomLibrary()
-    custom.add(CustomFlatFunction("mysin", "math", "sin", lambda x: real))
+    # from femtocode.lib.custom import *
+    # custom = CustomLibrary()
+    # custom.add(CustomFlatFunction("mysin", "math", "sin", lambda x: real))
 
-    result = session.source("xy").define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5", c = "mysin(x)").submit(libs=custom)
+    # result = session.source("xy").define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5", c = "mysin(x)").submit(libs=custom)
 
-    complete = result.await()
-    print result.wallTime, result.computeTime
+    # complete = result.await()
+    # print result.wallTime, result.computeTime
 
-    for event in complete:
+    # for event in complete:
+    #     print event
+
+    pending = session.source("MuOnia").toPython(pt = "muons.map($1.pt)").submit(debug = True)
+    final = pending.await()
+    print pending.wallTime, pending.computeTime
+    for event in final:
         print event

@@ -416,6 +416,13 @@ class MetadataFromJson(object):
                 for column in list(dataset.columns):
                     if column not in columns:
                         del dataset.columns[column]
+                for group in dataset.groups:
+                    todrop = []
+                    for n, seg in group.segments.items():
+                        if n not in columns:
+                            todrop.append(n)
+                    while len(todrop) > 0:
+                        del group.segments[todrop.pop()]
 
             # drop schema if not requested
             if not schema:

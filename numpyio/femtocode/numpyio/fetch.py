@@ -29,6 +29,7 @@ import numpy
 from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
+from femtocode.execution import ExecutionFailure
 from femtocode.run.compute import DataAddress
 from femtocode.run.cache import CacheOccupant
 from femtocode.numpyio.xrootd import XRootDReader
@@ -43,8 +44,12 @@ class NumpyFetcher(threading.Thread):
         self.daemon = True
 
     def files(self, column):
+        out = None
         if column.issize():
-            out = self.workItem.group.segments[column.dropsize()].files
+            for n, c in self.workItem.executor.query.dataset.columns.items():
+                if c.size == column:
+                    out = self.workItem.group.segments[n].files
+                    break
         else:
             out = self.workItem.group.segments[column].files
 
@@ -53,45 +58,51 @@ class NumpyFetcher(threading.Thread):
         return out
 
     def run(self):
-        filesToOccupants = {}
+        try:
+            filesToOccupants = {}
 
-        for occupant in self.occupants:
-            for fileName in self.files(occupant.address.column):
-                if fileName not in filesToOccupants:
-                    filesToOccupants[fileName] = []
-                filesToOccupants[fileName].append(occupant)
+            for occupant in self.occupants:
+                for fileName in self.files(occupant.address.column):
+                    if fileName not in filesToOccupants:
+                        filesToOccupants[fileName] = []
+                    filesToOccupants[fileName].append(occupant)
 
-        for fileName, occupants in filesToOccupants.items():
-            protocol = urlparse(fileName).scheme
-            if protocol == "":
-                zf = zipfile.ZipFile(open(fileName, "rb"))
-            elif protocol == "root":
-                zf = zipfile.ZipFile(XRootDReader(fileName))
-            else:
-                raise NotImplementedError
-
-            for occupant in occupants:
-                stream = zf.open(str(occupant.address.column) + ".npy")
-                assert stream.read(6) == "\x93NUMPY"
-
-                version = struct.unpack("bb", stream.read(2))
-                if version[0] == 1:
-                    headerlen, = struct.unpack("<H", stream.read(2))
+            for fileName, occupants in filesToOccupants.items():
+                protocol = urlparse(fileName).scheme
+                if protocol == "":
+                    zf = zipfile.ZipFile(open(fileName, "rb"))
+                elif protocol == "root":
+                    zf = zipfile.ZipFile(XRootDReader(fileName))
                 else:
-                    headerlen, = struct.unpack("<I", stream.read(4))
+                    raise NotImplementedError
 
-                header = stream.read(headerlen)
-                headerdata = ast.literal_eval(header)
+                for occupant in occupants:
+                    stream = zf.open(str(occupant.address.column) + ".npy")
+                    assert stream.read(6) == "\x93NUMPY"
 
-                dtype = numpy.dtype(headerdata["descr"])
-                numBytes = reduce(lambda a, b: a * b, (dtype.itemsize,) + headerdata["shape"])
+                    version = struct.unpack("bb", stream.read(2))
+                    if version[0] == 1:
+                        headerlen, = struct.unpack("<H", stream.read(2))
+                    else:
+                        headerlen, = struct.unpack("<I", stream.read(4))
 
-                assert occupant.totalBytes == numBytes
+                    header = stream.read(headerlen)
+                    headerdata = ast.literal_eval(header)
 
-                readBytes = 0
-                while readBytes < numBytes:
-                    size = min(self.chunksize, numBytes - readBytes)
-                    readBytes += size
-                    occupant.fill(stream.read(size))
+                    dtype = numpy.dtype(headerdata["descr"])
+                    numBytes = reduce(lambda a, b: a * b, (dtype.itemsize,) + headerdata["shape"])
 
-            zf.close()
+                    assert occupant.totalBytes == numBytes
+
+                    readBytes = 0
+                    while readBytes < numBytes:
+                        size = min(self.chunksize, numBytes - readBytes)
+                        readBytes += size
+                        occupant.fill(stream.read(size))
+
+                zf.close()
+
+        except Exception as exception:
+            for occupant in self.occupants:
+                with occupant.lock:
+                    occupant.fetchfailure = ExecutionFailure(exception, sys.exc_info()[2])

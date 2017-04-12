@@ -75,6 +75,14 @@ class WorkItem(object):
         assert len(self.occupants) != 0
         return all(occupant.ready() for occupant in self.occupants)
 
+    def fetchfailure(self):
+        for occupant in self.occupants:
+            with occupant.lock:
+                fetchfailure = occupant.fetchfailure
+            if fetchfailure is not None:
+                return fetchfailure
+        return None
+
     def decrementNeed(self):
         assert len(self.occupants) != 0
         for occupant in self.occupants:

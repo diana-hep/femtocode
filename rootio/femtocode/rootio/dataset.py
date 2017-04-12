@@ -157,7 +157,7 @@ class ROOTDataset(Dataset):
                     paths[(path, quantity.frm.tree)].append(quantity.frm.branch)
 
     @staticmethod
-    def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name=None):
+    def _makeGroups(quantity, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name=None, sizename=None):
         if isinstance(quantity, DatasetDeclaration) or isinstance(quantity, DatasetDeclaration.Record):
             newColumns = {}
 
@@ -168,7 +168,7 @@ class ROOTDataset(Dataset):
                 else:
                     subname = name.rec(k)
 
-                columns, groups = ROOTDataset._makeGroups(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, subname)
+                columns, groups = ROOTDataset._makeGroups(v, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, subname, sizename)
 
                 for n, c in columns.items():
                     assert n not in newColumns
@@ -233,7 +233,7 @@ class ROOTDataset(Dataset):
             return newColumns, newGroups
 
         elif isinstance(quantity, DatasetDeclaration.Collection):
-            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name.coll())
+            return ROOTDataset._makeGroups(quantity.items, filesToNumEntries, fileColumnsToLengths, pathsToFiles, fileColumnsToSize, name.coll(), name.coll().size())
 
         elif isinstance(quantity, DatasetDeclaration.Primitive):
             sizeBranch = ()
@@ -247,7 +247,7 @@ class ROOTDataset(Dataset):
                             raise DatasetDeclaration.Error(quantity.frm.loc, "branch {0} has a counter branch in some files and not others".format(json.dumps(quantity.frm.branch)))
 
             column = ROOTColumn(name,
-                                name.size() if sizeBranch is not None else None,
+                                sizename,
                                 quantity.frm.dtype,
                                 quantity.frm.tree,
                                 quantity.frm.branch,

@@ -501,7 +501,7 @@ class ExplodeSize(Call):
         return hash(("statementlist.ExplodeSize", self.column, self.explosions))
 
     def columnNames(self):
-        return [self.column] + list(self.explosions)
+        return [self.column]
 
     def inputSizes(self, statements):
         return list(self.explosions)
@@ -542,7 +542,7 @@ class ExplodeData(Call):
         return hash(("statementlist.ExplodeData", self.column, self.schema, self.data, self.fromsize, self.explodesize, self.explosions))
 
     def columnNames(self):
-        return [self.column, self.data, self.fromsize, self.explodesize] + list(self.explosions)
+        return [self.column, self.data, self.fromsize, self.explodesize]
 
     def inputSizes(self, statements):
         for statement in statements:
@@ -631,6 +631,10 @@ def build(tree, dataset, replacements={}, refnumber=0, explosions=()):
             inputs = {ref.data: tree.schema}
         else:
             inputs = {}
+        if ref.size is not None:
+            for c in dataset.columns.values():
+                if ref.size == c.size:
+                    inputs[ref.size] = None
 
         return ref, Statements(), inputs, replacements, refnumber
 
@@ -811,7 +815,7 @@ class ReturnPythonDataset(Aggregation):
         return [r.size for n, r in self.namesToRefs if isinstance(r, Ref) and r.size is not None] + [r.data for n, r in self.namesToRefs if isinstance(r, Ref)]
 
     def columnNames(self):
-        return sum(self.namesToRefs.columnNames(), [])
+        return sum([x.columnNames() for x in self.namesToRefs.values()], [])
 
     def initialize(self):
         from femtocode.testdataset import TestDataset

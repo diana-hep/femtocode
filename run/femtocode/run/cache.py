@@ -44,7 +44,7 @@ class CacheOccupant(object):
         self.rawarray = allocate(totalBytes)    # maybe use an alternative allocation method, maybe not
         self.needCount = 1
         self.lock = threading.Lock()            # CacheMaster and Minion both change needCount
-                                                # Fetcher sets filledBytes and CacheMaster checks it
+        self.fetchfailure = None                # Fetcher sets filledBytes and CacheMaster checks it
 
     def __repr__(self):
         return "<CacheOccupant for {0} at 0x{1:012x}>".format(self.address, id(self))
@@ -115,6 +115,16 @@ class CacheOrder(object):
         self.order.append(occupant)
         self.lookup[occupant.address] = occupant
 
+    def discard(self, occupant):
+        try:
+            self.order.remove(occupant)
+        except ValueError:
+            pass
+        try:
+            del self.lookup[occupant.address]
+        except KeyError:
+            pass
+
     def extract(self, address):
         assert address in self.lookup
         occupant = None
@@ -157,7 +167,24 @@ class NeedWantCache(object):
         for occupant in todemote:
             del self.need[occupant.address]
             self.want.add(occupant)
-            
+
+    def removeFailures(self):
+        toremove = []
+        for occupant in self.need.values():
+            with occupant.lock:
+                if occupant.fetchfailure is not None:
+                    toremove.append(occupant)
+        for occupant in toremove:
+            del self.need[occupant.address]
+
+        toremove = []
+        for occupant in self.want:
+            with occupant.lock:
+                if occupant.fetchfailure is not None:
+                    toremove.append(occupant)
+        for occupant in toremove:
+            self.want.discard(occupant)
+
     def howManyToEvict(self, workItem):
         required = workItem.required()
 
@@ -310,6 +337,11 @@ class CacheMaster(threading.Thread):
                     toremove.append(index)
                     self.outgoing.put(workItem)
                     workItem.executor.oneLoadDone(workItem.group.id)
+                else:
+                    fetchfailure = workItem.fetchfailure()
+                    if fetchfailure is not None:
+                        workItem.executor.oneFailure(fetchfailure)
+                        toremove.append(index)
             while len(toremove) > 0:
                 del self.loading[toremove.pop()]
 
