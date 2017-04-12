@@ -196,7 +196,7 @@ class DependencyGraph(object):
                     newloops[(loop.plateauSize, issingleton)] = loop
 
                 for (plateauSize, issingleton), loop in newloops.items():
-                    if plateauSize not in loops:
+                    if (plateauSize, issingleton) not in loops:
                         loops[(plateauSize, issingleton)] = []
                     loops[(plateauSize, issingleton)].append(loop)
 

@@ -142,5 +142,8 @@ if __name__ == "__main__":
 
     result = session.source("xy").define(z = "x + y").toPython(a = "z - 3", b = "z - 0.5", c = "mysin(x)").submit(libs=custom)
 
-    for event in result.await():
+    complete = result.await()
+    print result.wallTime, result.computeTime
+
+    for event in complete:
         print event

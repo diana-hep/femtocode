@@ -82,7 +82,7 @@ class WorkItem(object):
 
     def run(self):
         inarrays = dict((x.address.column, x.array()) for x in self.occupants)
-        return self.executor.run(inarrays, self.group)
+        return self.executor.run(inarrays, self.group, self.executor.query.dataset.columns)
 
     def decrementNeed(self):
         assert len(self.occupants) != 0
