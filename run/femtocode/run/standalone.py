@@ -148,8 +148,18 @@ if __name__ == "__main__":
     # for event in complete:
     #     print event
 
-    pending = session.source("MuOnia").toPython(pt = "muons.map($1.pt + 1)").submit(debug = True)
+    pending = session.source("MuOnia").toPython(mass = """
+
+muons.map(mu1 => muons.map(mu2 =>
+
+  mu1.pt + mu2.pt
+
+))
+
+""").submit()
+
     final = pending.await()
     print pending.wallTime, pending.computeTime
     for event in final:
         print event
+        break

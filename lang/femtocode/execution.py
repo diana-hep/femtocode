@@ -984,40 +984,21 @@ class Executor(Serializable):
                 loop = loopOrAction
 
                 if loop.prerun is not None:
-                    i = 0
-                    for param in loop.prerun.parameters:
-                        if isinstance(param, NumEntries):
-                            i += 3
-                        elif isinstance(param, Countdown):
-                            i += len(loop.explosions)
-                        elif isinstance(param, Index):
-                            i += param.name.depth() + 1
-                        elif isinstance(param, Skip):
-                            i += param.name.depth()
-
-                    # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
-                    indexarrays = self.makeArray(i, sizeType, True)
-                    i = 0
-
                     arguments = []
                     for param in loop.prerun.parameters:
                         if isinstance(param, NumEntries):
-                            numEntries = indexarrays[i : i + 3]
+                            numEntries = self.makeArray(3, sizeType, True)
                             numEntries[0] = group.numEntries
                             arguments.append(numEntries)
-                            i += 3
 
                         elif isinstance(param, Countdown):
-                            arguments.append(indexarrays[i : i + len(loop.explosions)])
-                            i += len(loop.explosions)
+                            arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
 
                         elif isinstance(param, Index):
-                            arguments.append(indexarrays[i : i + param.name.depth() + 1])
-                            i += param.name.depth() + 1
+                            arguments.append(self.makeArray(param.name.depth() + 1, sizeType, True))
 
                         elif isinstance(param, Skip):
-                            arguments.append(indexarrays[i : i + param.name.depth()])
-                            i += param.name.depth()
+                            arguments.append(self.makeArray(param.name.depth(), sizeType, True))
 
                         elif isinstance(param, SizeArray):
                             arguments.append(inarrays[param.name])
@@ -1033,40 +1014,21 @@ class Executor(Serializable):
                 else:
                     dataLength, sizeLength = columnLengths[loop.plateauSize]
 
-                i = 0
-                for param in loop.run.parameters:
-                    if isinstance(param, NumEntries):
-                        i += 3
-                    elif isinstance(param, Countdown):
-                        i += len(loop.explosions)
-                    elif isinstance(param, Index):
-                        i += param.name.depth() + 1
-                    elif isinstance(param, Skip):
-                        i += param.name.depth()
-
-                # cut up a single, contiguous array so that the indexes will probably all be on the same memory page (only when this is Numpy, of course)
-                indexarrays = self.makeArray(i, sizeType, True)
-                i = 0
-
                 arguments = []
                 for param in loop.run.parameters:
                     if isinstance(param, NumEntries):
-                        numEntries = indexarrays[i : i + 3]
+                        numEntries = self.makeArray(3, sizeType, True)
                         numEntries[0] = group.numEntries
                         arguments.append(numEntries)
-                        i += 3
 
                     elif isinstance(param, Countdown):
-                        arguments.append(indexarrays[i : i + len(loop.explosions)])
-                        i += len(loop.explosions)
+                        arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
 
                     elif isinstance(param, Index):
-                        arguments.append(indexarrays[i : i + param.name.depth() + 1])
-                        i += param.name.depth() + 1
+                        arguments.append(self.makeArray(param.name.depth() + 1, sizeType, True))
 
                     elif isinstance(param, Skip):
-                        arguments.append(indexarrays[i : i + param.name.depth()])
-                        i += param.name.depth()
+                        arguments.append(self.makeArray(param.name.depth(), sizeType, True))
 
                     elif isinstance(param, (SizeArray, DataArray)):
                         arguments.append(inarrays[param.name])

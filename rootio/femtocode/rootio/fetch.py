@@ -111,7 +111,7 @@ class ROOTFetcher(threading.Thread):
                 toget = []
                 for pair in pairs:
                     if pair.sizeBranch is None:
-                        toget.append((pair.dataBranch, None if pair.dataoccupant is None else pair.dataoccupant.rawarray))
+                        toget.append((pair.dataBranch, None if pair.dataoccupant is None else pair.dataoccupant.rawarray.view(pair.dtype)))
                     else:
                         toget.append((pair.dataBranch, pair.sizeBranch,
                                       None if pair.dataoccupant is None else pair.dataoccupant.rawarray.view(pair.dtype),
