@@ -36,8 +36,7 @@ from femtocode.workflow import *
 session = TestSession()
 
 oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
-# oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
-oldexample.dataset.fill({"xss": [[], [], []], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
 oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
 
 def mapp(obj, fcn):
@@ -462,13 +461,35 @@ class TestExecution(unittest.TestCase):
     #     self.assertEqual(tsarray_v6, [3, 2, 4, 4, 2, 4, 4, 2, 4, 4, 3, 2, 4, 4, 2, 4, 4, 2, 4, 4])
 
     def test_skipping(self):
-        query = oldexample.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
-        statements = query.statements
+        missings = session.source("Missings", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [], "ys": [], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
+        missings.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
 
-        for old, new in zip(oldexample.dataset, session.submit(query, debug=True)):
-            print
-            print old
-            print new
+        query = missings.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        for old, new in zip(missings.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
+
+        empties = session.source("Empties", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+        empties.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        empties.dataset.fill({"xss": [[], [], []], "ys": [], "c": 1000, "d": 123})
+        empties.dataset.fill({"xss": [], "ys": [], "c": 1000, "d": 123})
+
+        query = empties.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        for old, new in zip(empties.dataset, session.submit(query, debug=False)):
+            self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
+
+        emptiers = session.source("Emptiers", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
+
+        query = emptiers.toPython(a = "xss.map(xs => xs.map(x => ys.map(y => c * x + y)))").compile()
+        for old, new in zip(emptiers.dataset, session.submit(query, debug=False)):
             self.assertEqual(mapp(old.xss, lambda xs: mapp(xs, lambda x: mapp(old.ys, lambda y: old.c * x + y))), new.a)
 
     # def test_double_explode(self):

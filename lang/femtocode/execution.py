@@ -499,7 +499,7 @@ class Loop(Serializable):
             if len(strs) == 0:
                 return "True"
             else:
-                return " or ".join(x + " == 0" for x in strs)
+                return " and ".join(x + " == 0" for x in strs)
 
         deepestData = {}
         for deepi, explosion in enumerate(self.explosions):
@@ -510,6 +510,7 @@ class Loop(Serializable):
 
             block = """if deepi == {deepi}:
             {index}[{ud}] = {index}[{udm1}]
+
             if {thisskipped}:
                 countdown[deepi] = {array}[{index}[{ud}]]
                 {index}[{ud}] += 1
