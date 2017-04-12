@@ -105,9 +105,9 @@ class TestStatementlist(unittest.TestCase):
     def test_mapmapadd2(self):
         result, statements = self.compile("xss.map(xs => ys.map(y => xs.map(x => x + y)))", self.mockDataset(xss=collection(collection(real)), ys=collection(real)))
         self.check(statements, [
-            {"to": "#0@size", "fcn": "$explodesize", "tosize": ["xss[][]@size", "ys[]@size", "xss[][]@size"]},
-            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "explodesize": "#0@size", "schema": "real"},
-            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "explodesize": "#0@size", "schema": "real"},
+            {"to": "#0@size", "fcn": "$explodesize", "explosions": ["xss[]", "ys[]", "xss[][]"]},
+            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "explodesize": "#0@size", "explosions": ["xss[]", "ys[]", "xss[][]"], "schema": "real"},
+            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "explodesize": "#0@size", "explosions": ["xss[]", "ys[]"], "schema": "real"},
             {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "tosize": "#0@size"}
             ])
         self.check(result, {"name": "#2", "data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
@@ -115,9 +115,9 @@ class TestStatementlist(unittest.TestCase):
     def test_mapmapadd3(self):
         result, statements = self.compile("xss.map(xs => xs.map(x => ys.map(y => x + y)))", self.mockDataset(xss=collection(collection(real)), ys=collection(real)))
         self.check(statements, [
-            {"to": "#0@size", "fcn": "$explodesize", "tosize": ["xss[][]@size", "xss[][]@size", "ys[]@size"]},
-            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "explodesize": "#0@size", "schema": "real"},
-            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "explodesize": "#0@size", "schema": "real"},
+            {"to": "#0@size", "fcn": "$explodesize", "explosions": ["xss[]", "xss[][]", "ys[]"]},
+            {"to": "#0", "fcn": "$explodedata", "data": "xss[][]", "fromsize": "xss[][]@size", "explodesize": "#0@size", "explosions": ["xss[]", "xss[][]"], "schema": "real"},
+            {"to": "#1", "fcn": "$explodedata", "data": "ys[]", "fromsize": "ys[]@size", "explodesize": "#0@size", "explosions": ["xss[]", "xss[][]", "ys[]"], "schema": "real"},
             {"to": "#2", "fcn": "+", "args": ["#0", "#1"], "schema": "real", "tosize": "#0@size"}
             ])
         self.check(result, {"name": "#2", "data": "#2", "size": "#0@size", "schema": {"type": "collection", "items": {"type": "collection", "items": {"type": "collection", "items": "real"}}}})
