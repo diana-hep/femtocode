@@ -16,6 +16,7 @@
 
 import ast
 import json
+import math
 import sys
 from functools import reduce
 
@@ -41,7 +42,7 @@ class Add(statementlist.FlatFunction, lispytree.BuiltinFunction):
     commutative = True
     associative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return reduce(lambda x, y: ast.BinOp(x, ast.Add(), y), args)
         
     def buildtyped(self, args, frame):
@@ -56,7 +57,7 @@ StandardLibrary.table[Add.name] = Add()
 class Sub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "-"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BinOp(args[0], ast.Sub(), args[1])
         
     def buildtyped(self, args, frame):
@@ -71,7 +72,7 @@ StandardLibrary.table[Sub.name] = Sub()
 class UAdd(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u+"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.UnaryOp(ast.UAdd(), args[0])
 
     def buildtyped(self, args, frame):
@@ -86,7 +87,7 @@ StandardLibrary.table[UAdd.name] = UAdd()
 class USub(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "u-"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.UnaryOp(ast.USub(), args[0])
 
     def buildtyped(self, args, frame):
@@ -103,7 +104,7 @@ class Mult(statementlist.FlatFunction, lispytree.BuiltinFunction):
     commutative = True
     associative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return reduce(lambda x, y: ast.BinOp(x, ast.Mult(), y), args)
         
     def buildtyped(self, args, frame):
@@ -118,7 +119,7 @@ StandardLibrary.table[Mult.name] = Mult()
 class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "/"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BinOp(args[0], ast.Div(), ast.Call(ast.Name("float", ast.Load()), [args[1]], [], None, None))
 
     def buildtyped(self, args, frame):
@@ -145,7 +146,7 @@ StandardLibrary.table[Div.name] = Div()
 class FloorDiv(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "//"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BinOp(args[0], ast.FloorDiv(), args[1])
 
     def buildtyped(self, args, frame):
@@ -160,7 +161,7 @@ StandardLibrary.table[FloorDiv.name] = FloorDiv()
 class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "**"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BinOp(args[0], ast.Pow(), args[1])
 
     def buildtyped(self, args, frame):
@@ -255,7 +256,7 @@ StandardLibrary.table[Pow.name] = Pow()
 class Mod(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "%"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         # Note: Numba knows that Python's % is modulo and not remainder (unlike C)
         return ast.BinOp(args[0], ast.Mod(), args[1])
         
@@ -274,7 +275,7 @@ class Eq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "=="
     commutative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.Eq()], [args[1]])
         
     def buildtyped(self, args, frame):
@@ -291,7 +292,7 @@ class NotEq(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "!="
     commutative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.NotEq()], [args[1]])
 
     def buildtyped(self, args, frame):
@@ -322,7 +323,7 @@ class Lt(Inequality):
     name = "<"
     longname = "Less than"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.Lt()], [args[1]])
         
 StandardLibrary.table[Lt.name] = Lt()
@@ -331,7 +332,7 @@ class LtE(Inequality):
     name = "<="
     longname = "Less than or equal to"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.LtE()], [args[1]])
         
 StandardLibrary.table[LtE.name] = LtE()
@@ -340,7 +341,7 @@ class Gt(Inequality):
     name = ">"
     longname = "Greater than"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.Gt()], [args[1]])
         
 StandardLibrary.table[Gt.name] = Gt()
@@ -349,7 +350,7 @@ class GtE(Inequality):
     name = ">="
     longname = "Greater than or equal to"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Compare(args[0], [ast.GtE()], [args[1]])
         
 StandardLibrary.table[GtE.name] = GtE()
@@ -359,7 +360,7 @@ class And(statementlist.FlatFunction, lispytree.BuiltinFunction):
     commutative = True
     associative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BoolOp(ast.And(), args)
         
     def buildtyped(self, args, frame):
@@ -410,7 +411,7 @@ class Or(statementlist.FlatFunction, lispytree.BuiltinFunction):
     commutative = True
     associative = True
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.BoolOp(ast.Or(), args)
 
     def buildtyped(self, args, frame):
@@ -445,7 +446,7 @@ StandardLibrary.table[Or.name] = Or()
 class Not(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "not"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.UnaryOp(ast.Not(), args[0])
 
     def buildtyped(self, args, frame):
@@ -462,7 +463,7 @@ StandardLibrary.table[Not.name] = Not()
 class If(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "if"
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         predicates = args[:-1][0::3]
         antipredicates = args[:-1][1::3]
         consequents = args[:-1][2::3]
@@ -706,7 +707,7 @@ StandardLibrary.table[Is.name] = Is()
 class Dot(lispytree.BuiltinFunction):
     name = "."
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         return ast.Attribute(args[0], args[1])
 
     def buildtyped(self, args, frame):
@@ -829,3 +830,183 @@ class Map(lispytree.BuiltinFunction):
         return Function.sortargsWithNames(positional, named, ["fcn"], [None], original)
 
 StandardLibrary.table[Map.name] = Map()
+
+########################################################## Core math
+
+class FlatReal1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    def buildtyped(self, args, frame):
+        if len(args) != 1:
+            return impossible("The {0} function takes only one argument.".format(self.name))
+
+        typedargs = _buildargs(args, frame)
+        if not isNumber(typedargs[0]):
+            return impossible("The {0} function can only be used on numbers.".format(self.name))
+        else:
+            return self.image(typedargs[0])
+
+    def image(self, domain):
+        raise NotImplementedError
+
+    def projection(self, endpoint):
+        if isinstance(endpoint, almost):
+            return almost(self.pythoneval([endpoint.real]))
+        else:
+            return self.pythoneval([endpoint])
+
+    def imageFromTurningPoints(self, domain, turningPointAboveMin, turningPointBelowMax, wholeimage):
+        if turningPointAboveMin > turningPointBelowMax:
+            # monotonic on this interval
+            one, two = self.projection(domain.min), self.projection(domain.max)
+            if one < two:
+                return real(one, two)
+            else:
+                return real(two, one)
+
+        elif turningPointAboveMin == turningPointBelowMax:
+            # monotonic to turning point
+            one, two, three = self.projection(domain.min), self.projection(turningPointAboveMin), self.projection(domain.max)
+            return real(almost.min(one, two, three), almost.max(one, two, three))
+
+        else:
+            # the whole image
+            return wholeimage
+
+class Abs(FlatReal1D):
+    name = "abs"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Name("abs", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if domain.min.real < 0 and domain.max.real > 0:
+            return domain(0, almost.max(-domain.min, domain.max))
+        elif domain.min == almost(0) and domain.max.real > 0:
+            return domain(almost(0), domain.max)
+        elif domain.min.real < 0 and domain.max == almost(0):
+            return domain(almost(0), -domain.min)
+        elif domain.max <= 0:
+            return domain(-domain.max, -domain.min)
+        else:
+            return domain
+
+StandardLibrary.table[Abs.name] = Abs()
+
+class ExplikeFlatReal1D(FlatReal1D):
+    def image(self, domain):
+        # positively monotonic everywhere
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+class SqrtlikeFlatReal1D(FlatReal1D):
+    def image(self, domain):
+        # positively monotonic with negative values excluded
+        if domain.min.real < 0:
+            return impossible("The {0} function can only be used on non-negative numbers.".format(self.name))
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+class LoglikeFlatReal1D(FlatReal1D):
+    def image(self, domain):
+        # positively monotonic with negative values excluded and 0 mapped to -inf
+        if domain.min.real < 0:
+            return impossible("The {0} function can only be used on non-negative numbers.".format(self.name))
+        if domain.min == 0:
+            low = -inf
+        elif domain.min == almost(0):
+            low = almost(-inf)
+        else:
+            low = self.projection(domain.min)
+        return real(low, self.projection(domain.high))
+
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
+        return [ast.Assign([target], self.pythonast(args))]
+
+    def pythonast(self, args, tonative=False):
+        arg, = args
+        if self.base == math.e:
+            if tonative:
+                return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None)
+            else:
+                return ast.IfExp(ast.Compare(arg, ops=[ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+        else:
+            if tonative:
+                return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None)
+            else:
+                return ast.IfExp(ast.Compare(arg, ops=[ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+
+class Sqrt(SqrtlikeFlatReal1D):
+    name = "sqrt"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "sqrt", ast.Load()), args, [], None, None)
+
+StandardLibrary.table[Sqrt.name] = Sqrt()
+
+class Exp(ExplikeFlatReal1D):
+    name = "exp"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "exp", ast.Load()), args, [], None, None)
+
+StandardLibrary.table[Exp.name] = Exp()
+
+class Log(LoglikeFlatReal1D):
+    name = "log"
+    base = math.e
+
+StandardLibrary.table[Log.name] = Log()
+
+class Log2(LoglikeFlatReal1D):
+    name = "log2"
+    base = 2
+
+StandardLibrary.table[Log2.name] = Log2()
+
+class Log10(LoglikeFlatReal1D):
+    name = "log10"
+    base = 10
+
+StandardLibrary.table[Log10.name] = Log10()
+    
+class Sin(FlatReal1D):
+    name = "sin"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "sin", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if math.isinf(domain.min.real) or math.isinf(domain.max.real):
+            return real(-1.0, 1.0)
+        turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
+        turningPointBelowMax = (math.floor(domain.max.real / math.pi - 0.5) + 0.5) * math.pi
+        return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
+
+StandardLibrary.table[Sin.name] = Sin()
+
+class Cos(FlatReal1D):
+    name = "cos"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "cos", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if math.icosf(domain.min.real) or math.icosf(domain.max.real):
+            return real(-1.0, 1.0)
+        turningPointAboveMin = (math.ceil(domain.min.real / math.pi)) * math.pi
+        turningPointBelowMax = (math.floor(domain.max.real / math.pi)) * math.pi
+        return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
+
+StandardLibrary.table[Cos.name] = Cos()
+
+# TODO:
+###########
+# tan
+# atan2
+# asin
+# acos
+# atan
+# sinh
+# cosh
+# tanh
+# asinh
+# acosh
+# atanh
+# some sort of rounding? (should change type to integer)

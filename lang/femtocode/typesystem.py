@@ -674,7 +674,13 @@ class Number(Primitive):
             raise FemtocodeError("Number min ({0}) must not be greater than max ({1}){2}".format(min, max, " after adjustments for whole-numbered interval" if whole else ""))
         if min.real == max.real and (isinstance(min, almost) or isinstance(max, almost)):
             raise FemtocodeError("Number min ({0}) and max ({1}) may only be equal to one another if they are closed endpoints (not almost(endpoint))".format(min, max))
-            
+
+        # get rid of negative zeros (for display reasons)
+        if min == 0: min = 0
+        elif min == almost(0): min = almost(0)
+        if max == 0: max = 0
+        elif max == almost(0): max = almost(0)
+
         self.min = min
         self.max = max
         self.whole = whole

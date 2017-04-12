@@ -49,7 +49,7 @@ class BuiltinFunction(Function):
     def __hash__(self):
         return hash(("lispytree." + self.__module__ + "." + self.__class__.__name__,))
 
-    def pythonast(self, args):
+    def pythonast(self, args, tonative=False):
         assert False, "missing implementation: {0}".format(self)
 
     def pythoneval(self, args, debug=False):
