@@ -499,7 +499,7 @@ class Loop(Serializable):
             if len(strs) == 0:
                 return "True"
             else:
-                return " and ".join(x + " == 0" for x in strs)
+                return " or ".join(x + " == 0" for x in strs)
 
         deepestData = {}
         for deepi, explosion in enumerate(self.explosions):
@@ -593,7 +593,7 @@ class Loop(Serializable):
                 pass
                 {increments}""".format(
             deepi = len(self.explosions),
-            thisskipped = logical(uniquesSkipped.get(uniqueToSizeSkip[incrementsuniquei[len(self.explosions)]], []) if not lengthScan else []),
+            thisskipped = logical(uniquesSkipped.get(uniqueToSizeSkip[incrementsuniquei[len(self.explosions)]], []) if len(self.explosions) in incrementsuniquei else []),
             allskipped = logical(sum(uniquesSkipped.values(), [])),
             assigns = "\n                ".join(dataassigns),
             targetcode = ("\n\n                " if len(targetcode) > 0 else "") + "\n                ".join(targetcode),
@@ -608,9 +608,11 @@ class Loop(Serializable):
                         revs.append(reversals[unique].pop())
 
             if not lengthScan:
-                revs.extend(dataincrements[deepi])
+                if len(dataincrements[deepi]) > 0:
+                    revs.append("if {0}:".format(logical(uniquesSkipped.get(uniqueToSizeSkip[incrementsuniquei[deepi]], []) if not lengthScan else [])))
+                    revs.extend(["    " + x for x in dataincrements[deepi]])
 
-            resets.append("if deepi == {deepi}:{revs}".format(
+            resets.append("""if deepi == {deepi}:{revs}""".format(
                 deepi = deepi,
                 revs = "".join("\n                " + x for x in revs) if len(revs) > 0 else "\n                pass"))
 
