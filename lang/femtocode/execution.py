@@ -477,20 +477,20 @@ class Loop(Serializable):
         uniqueToSizeIndex = []
         uniqueToSizeSkip = []
         for i, size in enumerate(self.uniques):
-            arrayname = "sarray_{0}_{1}".format(nametrans(str(size)), i)
-            indexname = "sindex_{0}_{1}".format(nametrans(str(size)), i)
-            skipname = "skip_{0}_{1}".format(nametrans(str(size)), i)
+            arrayname = "sarray_{0}_u{1}".format(nametrans(str(size)), i)
+            indexname = "sindex_{0}_u{1}".format(nametrans(str(size)), i)
+            skipname = "skip_{0}_u{1}".format(nametrans(str(size)), i)
 
             parameters.append(SizeArray(size))
             params.append(arrayname)
             uniqueToSizeArray.append(arrayname)
 
-            parameters.append(Index(size))
-            params.append(indexname)
+            # parameters.append(Index(size))
+            # params.append(indexname)
             uniqueToSizeIndex.append(indexname)
 
-            parameters.append(Skip(size))
-            params.append(skipname)
+            # parameters.append(Skip(size))
+            # params.append(skipname)
             uniqueToSizeSkip.append(skipname)
 
         uniqueToExplodeDataNames = {}
@@ -498,8 +498,8 @@ class Loop(Serializable):
             for explodedata in self.explodedatas:
                 for i, size in enumerate(self.uniques):
                     if explodedata.fromsize == size:
-                        arrayname = "xdarray_{0}_{1}".format(nametrans(str(explodedata.data)), i)
-                        indexname = "xdindex_{0}_{1}".format(nametrans(str(explodedata.data)), i)
+                        arrayname = "xdarray_{0}_u{1}".format(nametrans(str(explodedata.data)), i)
+                        indexname = "xdindex_{0}_u{1}".format(nametrans(str(explodedata.data)), i)
                         varname = nametrans(explodedata.column)
 
                         if (i, explodedata.data) not in uniqueToExplodeDataNames:
@@ -508,8 +508,8 @@ class Loop(Serializable):
                             parameters.append(DataArray(explodedata.data, Loop.argschemaToDataType(explodedata.schema)))
                             params.append(arrayname)
 
-                            parameters.append(Index(explodedata.data))
-                            params.append(indexname)
+                            # parameters.append(Index(explodedata.data))
+                            # params.append(indexname)
 
                             break
 
@@ -569,28 +569,42 @@ class Loop(Serializable):
             if len(strs) == 0:
                 return "True"
             else:
-                return " and ".join(x + " == 0" for x in strs)
+                return " and ".join("not " + x for x in strs)
 
+        init = []
+
+        for unique, index in zip(self.uniques, uniqueToSizeIndex):
+            for depth in range(unique.depth() + 1):
+                init.append("{0}_i{1} = 0".format(index, depth))
+
+        for unique, skip in zip(self.uniques, uniqueToSizeSkip):
+            for depth in range(unique.depth()):
+                init.append("{0}_i{1} = False".format(skip, depth))
+
+        for (i, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
+            for depth in range(uniqueDepth[i] + 1):
+                init.append("{0}_i{1} = 0".format(indexname, depth))
+        
         deepestData = {}
         for deepi, explosion in enumerate(self.explosions):
             uniquei = self.deepiToUnique[deepi]
             uniqueDepth[uniquei] += 1
 
-            skipvar = "{0}[{1}]".format(uniqueToSizeSkip[uniquei], uniqueDepth[uniquei] - 1)
+            skipvar = "{0}_{1}".format(uniqueToSizeSkip[uniquei], uniqueDepth[uniquei] - 1)
 
             block = """if deepi == {deepi}:
-            {index}[{ud}] = {index}[{udm1}]
+            {index}_i{ud} = {index}_i{udm1}
 
             if {thisskipped}:
-                countdown[deepi] = {array}[{index}[{ud}]]
-                {index}[{ud}] += 1
+                countdown[{deepi}] = {array}[{index}_i{ud}]
+                {index}_i{ud} += 1
 
             if {allskipped}:{targetsizecode}
                 numEntries[2] += 1
 
-            if countdown[deepi] == 0:
+            if countdown[{deepi}] == 0:
                 {skipvar} = 1
-                countdown[deepi] = 1
+                countdown[{deepi}] = 1
             else:
                 {skipvar} = 0
 """.format(deepi = deepi,
@@ -610,9 +624,9 @@ class Loop(Serializable):
                 for (i, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
                     if i == uniquei:
                         block += """
-            {index}[{ud}] = {index}[{udm1}]""".format(index = indexname,
-                                                      ud = uniqueDepth[uniquei],
-                                                      udm1 = uniqueDepth[uniquei] - 1)
+            {index}_i{ud} = {index}_i{udm1}""".format(index = indexname,
+                                                    ud = uniqueDepth[uniquei],
+                                                    udm1 = uniqueDepth[uniquei] - 1)
 
 
                         if deepestData.get(explodedata.column, 0) < uniqueDepth[uniquei]:
@@ -620,14 +634,14 @@ class Loop(Serializable):
 
             blocks.append(block + "\n")
 
-            reversal = "{index}[{udm1}] = {index}[{ud}]".format(
+            reversal = "{index}_i{udm1} = {index}_i{ud}".format(
                 index = uniqueToSizeIndex[uniquei],
                 ud = uniqueDepth[uniquei],
                 udm1 = uniqueDepth[uniquei] - 1)
 
             for (i, explodeddata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
                 if i == uniquei:
-                    reversal += "\n                {index}[{udm1}] = {index}[{ud}]".format(
+                    reversal += "\n                {index}_i{udm1} = {index}_i{ud}".format(
                         index = indexname,
                         ud = uniqueDepth[uniquei],
                         udm1 = uniqueDepth[uniquei] - 1)
@@ -637,7 +651,7 @@ class Loop(Serializable):
         dataassigns = []
         if not lengthScan:
             for (uniquei, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
-                dataassigns.append("{n} = {array}[{index}[{depth}]]".format(
+                dataassigns.append("{n} = {array}[{index}_i{depth}]".format(
                     n = varname, array = arrayname, index = indexname, depth = deepestData[explodedata.column]))
 
             for explode in self.explodes:
@@ -654,7 +668,7 @@ class Loop(Serializable):
         if not lengthScan:
             for (uniquei, explodedata), (explodedata, arrayname, indexname, varname) in uniqueToExplodeDataNames:
                 rindex_plus1 = len(self.deepiToUnique) - list(reversed(self.deepiToUnique)).index(uniquei)
-                dataincrements[rindex_plus1].append("{index}[{depth}] += 1".format(index = indexname, depth = self.uniques[uniquei].depth()))
+                dataincrements[rindex_plus1].append("{index}_i{depth} += 1".format(index = indexname, depth = self.uniques[uniquei].depth()))
                 incrementsuniquei[rindex_plus1] = uniquei
 
         blocks.append("""if deepi == {deepi}:
@@ -698,6 +712,8 @@ def {fcnname}({params}):
     entry = 0
     deepi = 0
 
+    {init}
+
     while entry < numEntries[0]:
         if deepi != 0:
             countdown[deepi - 1] -= 1
@@ -715,6 +731,7 @@ def {fcnname}({params}):
             entry += 1
 """.format(fcnname = fcnname,
            params = ", ".join(params),
+           init = "\n    ".join(init),
            blocks = "\n        el".join(blocks),
            resets = "\n\n            el".join(resets))
 

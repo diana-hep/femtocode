@@ -925,12 +925,12 @@ class LoglikeFlatReal1D(FlatReal1D):
             if tonative:
                 return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None)
             else:
-                return ast.IfExp(ast.Compare(arg, ops=[ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
         else:
             if tonative:
                 return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None)
             else:
-                return ast.IfExp(ast.Compare(arg, ops=[ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
 
 class Sqrt(SqrtlikeFlatReal1D):
     name = "sqrt"
@@ -1010,3 +1010,5 @@ StandardLibrary.table[Cos.name] = Cos()
 # acosh
 # atanh
 # some sort of rounding? (should change type to integer)
+
+# also important: turn the indexes and skips into simple values on the stack for a speed comparison to a baseline of 45 ms for the 2 GB file
