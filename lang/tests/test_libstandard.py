@@ -451,38 +451,101 @@ class TestLibStandard(unittest.TestCase):
 ########################################################## Core math
 
     def test_round(self):
+        self.assertEqual(session.source("Test", x=integer(3, 6)).type("round(x)"), integer(3, 6))
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("round(x)"), integer(3, 7))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 6.5)).type("round(x)"), integer(almost(-inf), 7))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-inf), inf)).type("round(x)"))
+        self.assertEqual(session.source("Test", x=union(real(-6.5, -3.14), real(3.14, 6.5))).type("round(x)"), union(integer(-7, -3), integer(3, 7)))
         for entry in numerical.toPython(x = "x", y = "y", a = "round(y)").submit():
             self.assertEqual(entry.a, entry.x)
 
     def test_floor(self):
+        self.assertEqual(session.source("Test", x=integer(3, 6)).type("floor(x)"), integer(3, 6))
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("floor(x)"), integer(3, 6))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 6.5)).type("floor(x)"), integer(almost(-inf), 6))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-inf), inf)).type("floor(x)"))
+        self.assertEqual(session.source("Test", x=union(real(-6.5, -3.14), real(3.14, 6.5))).type("floor(x)"), union(integer(-7, -4), integer(3, 6)))
         for entry in numerical.toPython(x = "x", y = "y", a = "floor(y)").submit():
             self.assertEqual(entry.a, entry.x)
 
     def test_ceil(self):
+        self.assertEqual(session.source("Test", x=integer(3, 6)).type("ceil(x)"), integer(3, 6))
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("ceil(x)"), integer(4, 7))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 6.5)).type("ceil(x)"), integer(almost(-inf), 7))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-inf), inf)).type("ceil(x)"))
+        self.assertEqual(session.source("Test", x=union(real(-6.5, -3.14), real(3.14, 6.5))).type("ceil(x)"), union(integer(-6, -3), integer(4, 7)))
         for entry in numerical.toPython(x = "x", y = "y", a = "ceil(y)").submit():
             self.assertEqual(entry.a, entry.x + 1)
 
     def test_abs(self):
+        self.assertEqual(session.source("Test", x=integer(-6, -3)).type("abs(x)"), integer(3, 6))
+        self.assertEqual(session.source("Test", x=real(-6.28, -3.14)).type("abs(x)"), real(3.14, 6.28))
+        self.assertEqual(session.source("Test", x=integer(-6, 3)).type("abs(x)"), integer(0, 6))
+        self.assertEqual(session.source("Test", x=real(-6.28, 3.14)).type("abs(x)"), real(0, 6.28))
+
+        self.assertEqual(session.source("Test", x=integer(almost(-inf), -3)).type("abs(x)"), integer(3, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), -3.14)).type("abs(x)"), real(3.14, almost(inf)))
+        self.assertEqual(session.source("Test", x=integer(almost(-inf), 3)).type("abs(x)"), integer(0, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 3.14)).type("abs(x)"), real(0, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(-inf, -3.14)).type("abs(x)"), real(3.14, inf))
+        self.assertEqual(session.source("Test", x=real(-inf, 3.14)).type("abs(x)"), real(0, inf))
+
+        self.assertEqual(session.source("Test", x=integer(6, almost(inf))).type("abs(x)"), integer(6, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(inf))).type("abs(x)"), real(3.14, almost(inf)))
+        self.assertEqual(session.source("Test", x=integer(-3, almost(inf))).type("abs(x)"), integer(0, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(-3.14, almost(inf))).type("abs(x)"), real(0, almost(inf)))
+        self.assertEqual(session.source("Test", x=real(3.14, inf)).type("abs(x)"), real(3.14, inf))
+        self.assertEqual(session.source("Test", x=real(-3.14, inf)).type("abs(x)"), real(0, inf))
+
         for entry in numerical.toPython(y = "y", a = "abs(y - 50)").submit():
             self.assertEqual(entry.a, abs(entry.y - 50))
 
     def test_sqrt(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("sqrt(x)"), real(math.sqrt(3.14), math.sqrt(6.5)))
+        self.assertEqual(session.source("Test", x=real(almost(0), 6.5)).type("sqrt(x)"), real(almost(0), math.sqrt(6.5)))
+        self.assertEqual(session.source("Test", x=real(0, 6.5)).type("sqrt(x)"), real(0, math.sqrt(6.5)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 6.5)).type("sqrt(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 0)).type("sqrt(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, almost(0))).type("sqrt(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, -0.1)).type("sqrt(x)"))
         for entry in numerical.toPython(ylim = "ylim", a = "sqrt(ylim)").submit():
             self.assertEqual(entry.a, math.sqrt(entry.ylim))
 
     def test_exp(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("exp(x)"), real(math.exp(3.14), math.exp(6.5)))
         for entry in numerical.toPython(y = "y", a = "exp(y)").submit():
             self.assertEqual(entry.a, math.exp(entry.y))
 
     def test_log(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("log(x)"), real(math.log(3.14), math.log(6.5)))
+        self.assertEqual(session.source("Test", x=real(almost(0), 6.5)).type("log(x)"), real(almost(-inf), math.log(6.5)))
+        self.assertEqual(session.source("Test", x=real(0, 6.5)).type("log(x)"), real(-inf, math.log(6.5)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 6.5)).type("log(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 0)).type("log(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, almost(0))).type("log(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, -0.1)).type("log(x)"))
         for entry in numerical.toPython(ylim = "ylim", a = "log(ylim)").submit():
             self.assertEqual(entry.a, math.log(entry.ylim))
 
     def test_log2(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("log2(x)"), real(math.log(3.14, 2), math.log(6.5, 2)))
+        self.assertEqual(session.source("Test", x=real(almost(0), 6.5)).type("log2(x)"), real(almost(-inf), math.log(6.5, 2)))
+        self.assertEqual(session.source("Test", x=real(0, 6.5)).type("log2(x)"), real(-inf, math.log(6.5, 2)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 6.5)).type("log2(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 0)).type("log2(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, almost(0))).type("log2(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, -0.1)).type("log2(x)"))
         for entry in numerical.toPython(ylim = "ylim", a = "log2(ylim)").submit():
             self.assertEqual(entry.a, math.log(entry.ylim, 2))
 
     def test_log10(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("log10(x)"), real(math.log(3.14, 10), math.log(6.5, 10)))
+        self.assertEqual(session.source("Test", x=real(almost(0), 6.5)).type("log10(x)"), real(almost(-inf), math.log(6.5, 10)))
+        self.assertEqual(session.source("Test", x=real(0, 6.5)).type("log10(x)"), real(-inf, math.log(6.5, 10)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 6.5)).type("log10(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, 0)).type("log10(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, almost(0))).type("log10(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1, -0.1)).type("log10(x)"))
         for entry in numerical.toPython(ylim = "ylim", a = "log10(ylim)").submit():
             self.assertEqual(entry.a, math.log(entry.ylim, 10))
 

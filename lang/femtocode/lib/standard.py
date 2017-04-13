@@ -851,8 +851,15 @@ class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
         typedargs = _buildargs(args, frame)
         if not isNumber(typedargs[0].schema):
             return impossible("The {0} function can only be used on numbers.".format(self.name)), typedargs, frame
+
         else:
-            return self.image(typedargs[0].schema), typedargs, frame
+            if isinstance(typedargs[0].schema, Union):
+                possibilities = []
+                for p in typedargs[0].schema.possibilities:
+                    possibilities.append(self.image(p))
+                return union(*possibilities), typedargs, frame
+            else:
+                return self.image(typedargs[0].schema), typedargs, frame
 
     def image(self, domain):
         raise NotImplementedError
@@ -884,14 +891,14 @@ class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
 class RoundlikeFlatNumeric1D(FlatNumeric1D):
     def image(self, domain):
         if domain.min == -inf:
-            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name)), typedargs, frame
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name))
         elif domain.min == almost(-inf):
             min = domain.min
         else:
             min = self.projection(domain.min)
 
         if domain.max == inf:
-            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name)), typedargs, frame
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name))
         elif domain.max == almost(inf):
             max = domain.max
         else:
