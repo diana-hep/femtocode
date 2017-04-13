@@ -30,8 +30,6 @@ from femtocode.py23 import *
 from femtocode.dataset import ColumnName
 from femtocode.dataset import sizeType
 from femtocode.execution import ExecutionFailure
-from femtocode.run.compute import DataAddress
-from femtocode.run.cache import CacheOccupant
 from femtocode.numpyio.xrootd import XRootDReader
 
 class NumpyFetcher(threading.Thread):
