@@ -151,33 +151,34 @@ if __name__ == "__main__":
     pending = session.source("MuOnia").define(mumass = "0.105658").toPython(mass = """
 muons.map(mu1 => muons.map({mu2 =>
 
-  mu1.pt * 2 - mu2.pt * -1
+  p1x = mu1.pt * cos(mu1.phi);
+  p1y = mu1.pt * sin(mu1.phi);
+  p1z = mu1.pt * sinh(mu1.eta);
+  E1 = sqrt(p1x**2 + p1y**2 + p1z**2 + mumass**2);
+
+  p2x = mu2.pt * cos(mu2.phi);
+  p2y = mu2.pt * sin(mu2.phi);
+  p2z = mu2.pt * sinh(mu2.eta);
+  E2 = sqrt(p2x**2 + p2y**2 + p2z**2 + mumass**2);
+
+  px = p1x + p2x;
+  py = p1y + p2y;
+  pz = p1z + p2z;
+  E = E1 + E2;
+
+  if E**2 - px**2 - py**2 - pz**2 >= 0:
+    sqrt(E**2 - px**2 - py**2 - pz**2)
+  else:
+    None
 
 }))
-""").submit(debug = True)
+""").submit()
 
     final = pending.await()
     print pending.wallTime, pending.computeTime
+    outfile = open("/tmp/downloads/dimuon_masses.txt", "w")
     for i, event in enumerate(final):
-        print event
-        if i == 10: break
-
-  # p1x = mu1.pt * cos(mu1.phi);
-  # p1y = mu1.pt * sin(mu1.phi);
-  # p1z = mu1.pt * sinh(mu1.eta);
-  # E1 = sqrt(p1x**2 + p1y**2 + p1z**2 + mumass**2);
-
-  # p2x = mu2.pt * cos(mu2.phi);
-  # p2y = mu2.pt * sin(mu2.phi);
-  # p2z = mu2.pt * sinh(mu2.eta);
-  # E2 = sqrt(p2x**2 + p2y**2 + p2z**2 + mumass**2);
-
-  # px = p1x + p2x;
-  # py = p1y + p2y;
-  # pz = p1z + p2z;
-  # E = E1 + E2;
-
-  # if E**2 - px**2 - py**2 - pz**2 >= 0:
-  #   sqrt(E**2 - px**2 - py**2 - pz**2)
-  # else:
-  #   None
+        for one in event.mass:
+            for two in one:
+                outfile.write(repr(two) + "\n")
+    outfile.close()
