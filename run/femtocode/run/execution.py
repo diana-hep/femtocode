@@ -47,10 +47,7 @@ def compileToNative(loopFunction, inputs):
 
     sig = []
     for param in loopFunction.parameters:
-        if isinstance(param, NumEntries):
-            sig.append(numbaSizeType)
-
-        elif isinstance(param, Countdown):
+        if isinstance(param, Countdown):
             sig.append(numbaSizeType)
 
         elif isinstance(param, (SizeArray, OutSizeArray)):

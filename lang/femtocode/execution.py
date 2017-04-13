@@ -280,7 +280,6 @@ class NamedTypedParamNode(NamedParamNode):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.name == other.name and self.dataType == other.dataType
 
-class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
 class SizeArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
@@ -468,8 +467,8 @@ class Loop(Serializable):
         return Loop.argschemaToDataType(schema)
 
     def parameters(self, nametrans, inputs, lengthScan):
-        parameters = [NumEntries(), Countdown()]
-        params = ["numEntries", "countdown"]
+        parameters = [Countdown()]
+        params = ["countdown"]
 
         uniqueToSizeArray = []
         uniqueToSizeIndex = []
@@ -533,14 +532,14 @@ class Loop(Serializable):
                         parameters.append(OutDataArray(target, dataType))
                         params.append("tarray_" + nametrans(str(target)))
                         mightneedsize = True
-                        targetcode.append("tarray_{t}[numEntries[1]] = {t}".format(t = nametrans(str(target))))
+                        targetcode.append("tarray_{t}[dataLength] = {t}".format(t = nametrans(str(target))))
 
         targetsizecode = ""
         if not lengthScan:
             if mightneedsize and self.explodesize is not None and OutSizeArray(self.explodesize.column) not in parameters:
                 parameters.append(OutSizeArray(self.explodesize.column))
                 params.append("tsarray_" + nametrans(str(self.explodesize.column)))
-                targetsizecode = "tsarray_{ts}[numEntries[2]] = countdown[deepi]".format(ts = nametrans(str(self.explodesize.column)))
+                targetsizecode = "tsarray_{ts}[sizeLength] = countdown[3 + deepi]".format(ts = nametrans(str(self.explodesize.column)))
 
         return targetcode, targetsizecode
 
@@ -584,15 +583,15 @@ class Loop(Serializable):
             {index}_i{ud} = {index}_i{udm1}
 
             if {thisskipped}:
-                countdown[{deepi}] = {array}[{index}_i{ud}]
+                countdown[3 + {deepi}] = {array}[{index}_i{ud}]
                 {index}_i{ud} += 1
 
             if {allskipped}:{targetsizecode}
-                numEntries[2] += 1
+                sizeLength += 1
 
-            if countdown[{deepi}] == 0:
+            if countdown[3 + {deepi}] == 0:
                 {skipvar} = 1
-                countdown[{deepi}] = 1
+                countdown[3 + {deepi}] = 1
             else:
                 {skipvar} = 0
 """.format(deepi = deepi,
@@ -649,7 +648,7 @@ class Loop(Serializable):
             for statement in self.statements:
                 for arg in statement.args:
                     if isinstance(arg, ColumnName) and arg not in definedHere:
-                        dataassigns.append("{d} = darray_{d}[numEntries[1]]".format(d = nametrans(str(arg))))
+                        dataassigns.append("{d} = darray_{d}[dataLength]".format(d = nametrans(str(arg))))
 
         incrementsuniquei = {}
         dataincrements = dict((i, []) for i in range(len(self.explosions) + 1))
@@ -666,7 +665,7 @@ class Loop(Serializable):
                 {assigns}
 
                 REPLACEME             # <--- see replacement below{targetcode}
-                numEntries[1] += 1
+                dataLength += 1
 
             if {thisskipped}:
                 pass
@@ -697,26 +696,32 @@ class Loop(Serializable):
 
         return parameters, params, """
 def {fcnname}({params}):
+    numEntries = countdown[0]
+    dataLength = 0
+    sizeLength = 0
     entry = 0
     deepi = 0
 
     {init}
 
-    while entry < numEntries[0]:
+    while entry < numEntries:
         if deepi != 0:
-            countdown[deepi - 1] -= 1
+            countdown[3 + deepi - 1] -= 1
 
         {blocks}
 
         deepi += 1
 
-        while deepi != 0 and countdown[deepi - 1] == 0:
+        while deepi != 0 and countdown[3 + deepi - 1] == 0:
             deepi -= 1
 
             {resets}
 
         if deepi == 0:
             entry += 1
+
+    countdown[1] = dataLength
+    countdown[2] = sizeLength
 """.format(fcnname = fcnname,
            params = ", ".join(params),
            init = "\n    ".join(init),
@@ -990,16 +995,16 @@ class Executor(Serializable):
             if isinstance(loopOrAction, Loop):
                 loop = loopOrAction
 
+                countdown = self.makeArray(3 + len(loop.explosions), sizeType, True)
+                countdown[0] = group.numEntries
+                for i in range(1, len(countdown)):
+                    countdown[i] = 0
+
                 if loop.prerun is not None:
                     arguments = []
                     for param in loop.prerun.parameters:
-                        if isinstance(param, NumEntries):
-                            numEntries = self.makeArray(3, sizeType, True)
-                            numEntries[0] = group.numEntries
-                            arguments.append(numEntries)
-
-                        elif isinstance(param, Countdown):
-                            arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
+                        if isinstance(param, Countdown):
+                            arguments.append(countdown)
 
                         elif isinstance(param, SizeArray):
                             arguments.append(inarrays[param.name])
@@ -1011,22 +1016,21 @@ class Executor(Serializable):
                     loop.prerun(*arguments)
                     totalTime += time.time() - startTime
 
-                    dataLength = int(numEntries[1])
-                    sizeLength = int(numEntries[2])
+                    dataLength = int(countdown[1])
+                    sizeLength = int(countdown[2])
                     columnLengths[loop.plateauSize] = dataLength, sizeLength
 
                 else:
                     dataLength, sizeLength = columnLengths[loop.plateauSize]
 
+                countdown[0] = group.numEntries
+                for i in range(1, len(countdown)):
+                    countdown[i] = 0
+
                 arguments = []
                 for param in loop.run.parameters:
-                    if isinstance(param, NumEntries):
-                        numEntries = self.makeArray(3, sizeType, True)
-                        numEntries[0] = group.numEntries
-                        arguments.append(numEntries)
-
-                    elif isinstance(param, Countdown):
-                        arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
+                    if isinstance(param, Countdown):
+                        arguments.append(countdown)
 
                     elif isinstance(param, (SizeArray, DataArray)):
                         arguments.append(inarrays[param.name])
