@@ -81,9 +81,6 @@ class ROOTFetcher(threading.Thread):
                             if c is not None and c.size == sizeoccupant.address.column:
                                 pair.sizeoccupant = sizeoccupant
                                 found = True
-                                break
-                        if found:
-                            break
 
                     if not found:
                         found = False

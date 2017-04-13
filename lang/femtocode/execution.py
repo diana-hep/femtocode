@@ -487,14 +487,17 @@ class Loop(Serializable):
         uniqueToExplodeDataNames = {}
         if not lengthScan:
             for explodedata in self.explodedatas:
-                for i, size in enumerate(self.uniques):
-                    if explodedata.fromsize == size:
-                        arrayname = "xdarray_{0}_u{1}".format(nametrans(str(explodedata.data)), i)
-                        indexname = "xdindex_{0}_u{1}".format(nametrans(str(explodedata.data)), i)
-                        varname = nametrans(explodedata.column)
+                for deepi in range(len(self.explosions)):
+                    explosions = self.explosions[:deepi + 1]
+                    if explodedata.explosions == explosions:
+                        uniquei = self.deepiToUnique[deepi]
 
-                        if (i, explodedata.data) not in uniqueToExplodeDataNames:
-                            uniqueToExplodeDataNames[(i, explodedata.data)] = (explodedata, arrayname, indexname, varname)
+                        arrayname = "xdarray_{0}_u{1}".format(nametrans(str(explodedata.data)), uniquei)
+                        indexname = "xdindex_{0}_u{1}".format(nametrans(str(explodedata.data)), uniquei)
+                        varname = nametrans(explodedata.column)
+                        
+                        if (uniquei, explodedata.data) not in uniqueToExplodeDataNames:
+                            uniqueToExplodeDataNames[(uniquei, explodedata.data)] = (explodedata, arrayname, indexname, varname)
 
                             parameters.append(DataArray(explodedata.data, Loop.argschemaToDataType(explodedata.schema)))
                             params.append(arrayname)
@@ -912,6 +915,7 @@ class Executor(Serializable):
 
         # transient
         self._setColumnToSegmentKey()
+        self.debug = debug
 
     def _setColumnToSegmentKey(self):
         self.columnToSegmentKey = {}
@@ -958,6 +962,7 @@ class Executor(Serializable):
 
             # transient
             out._setColumnToSegmentKey()
+            out.debug = False
 
             return out
 
@@ -980,6 +985,15 @@ class Executor(Serializable):
         else:
             return [None] * length   # more useful error messages
 
+    def printArrays(self, message, inarrays):
+        print("\n" + message)
+        for key in sorted(inarrays):
+            if len(inarrays[key]) < 50:
+                print("    {0}: length {1} {2} id 0x{3:012x}".format(key, len(inarrays[key]), list(inarrays[key]), id(inarrays[key])))
+            else:
+                print("    {0}: length {1} head/tail {2} ... {3} id 0x{4:012x}".format(key, len(inarrays[key]), list(inarrays[key][:3]), list(inarrays[key][-3:]), id(inarrays[key])))
+        print("\n")
+
     def run(self, inarrays, group, columns):
         columnLengths = {None: (group.numEntries, None)}
         lengths = {}
@@ -988,6 +1002,9 @@ class Executor(Serializable):
             if columns[name].size is not None:
                 columnLengths[columns[name].size] = (segment.dataLength, segment.sizeLength)
                 lengths[columns[name].size] = segment.sizeLength
+
+        if self.debug:
+            self.printArrays("Initial set of arrays:", inarrays)
 
         totalTime = 0.0
         out = None
@@ -1012,6 +1029,8 @@ class Executor(Serializable):
                         else:
                             assert False, "unexpected Parameter in Loop.prerun: {0}".format(param)
 
+                    if self.debug:
+                        print("Calling prerun with {0}".format(loop.prerun.parameters))
                     startTime = time.time()
                     loop.prerun(*arguments)
                     totalTime += time.time() - startTime
@@ -1019,9 +1038,13 @@ class Executor(Serializable):
                     dataLength = int(countdown[1])
                     sizeLength = int(countdown[2])
                     columnLengths[loop.plateauSize] = dataLength, sizeLength
+                    if self.debug:
+                        print("Computed dataLength: {0} sizeLength: {1}".format(dataLength, sizeLength))
 
                 else:
                     dataLength, sizeLength = columnLengths[loop.plateauSize]
+                    if self.debug:
+                        print("Already knew dataLength: {0} sizeLength: {1}".format(dataLength, sizeLength))
 
                 countdown[0] = group.numEntries
                 for i in range(1, len(countdown)):
@@ -1047,6 +1070,8 @@ class Executor(Serializable):
                     else:
                         assert False, "unexpected Parameter in Loop.run: {0}".format(param)
 
+                if self.debug:
+                    print("Calling run with {0}".format(loop.run.parameters))
                 startTime = time.time()
                 loop.run(*arguments)
                 totalTime += time.time() - startTime
@@ -1059,6 +1084,9 @@ class Executor(Serializable):
 
                         if loop.plateauSize is not None and not target.issize():
                             columnLengths[target.size()] = columnLengths[loop.plateauSize]
+
+                if self.debug:
+                    self.printArrays("Arrays are now:", inarrays)
 
             else:
                 action = loopOrAction

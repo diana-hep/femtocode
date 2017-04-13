@@ -35,9 +35,9 @@ from femtocode.workflow import *
 
 session = TestSession()
 
-oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), c=integer, d=integer)
-oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "c": 1000, "d": 123})
-oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "c": 2000, "d": 321})
+oldexample = session.source("OldExample", xss=collection(collection(integer)), ys=collection(integer), ys2=collection(integer), c=integer, d=integer)
+oldexample.dataset.fill({"xss": [[1, 2], [3, 4], [5, 6]], "ys": [1, 2, 3, 4], "ys2": [1, 2, 3, 4], "c": 1000, "d": 123})
+oldexample.dataset.fill({"xss": [[7, 8], [9, 10], [11, 12]], "ys": [5, 6, 7, 8], "ys2": [5, 6, 7, 8], "c": 2000, "d": 321})
 
 def mapp(obj, fcn):
     return list(map(fcn, obj))
@@ -441,3 +441,7 @@ class TestExecution(unittest.TestCase):
         statements = query.statements
         for old, new in zip(emptier.dataset, session.submit(query, debug=False)):
             self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+    def test_double_explode2(self):
+        for old, new in zip(oldexample.dataset, oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1*2 - y2*2))").submit()):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1*2 - y2*2)), new.a)

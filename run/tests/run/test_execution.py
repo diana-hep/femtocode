@@ -440,3 +440,7 @@ class TestExecution(unittest.TestCase):
         statements = query.statements
         for old, new in zip(emptier.dataset, session.submit(query, debug=False)):
             self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1 + y2)), new.a)
+
+    def test_double_explode2(self):
+        for old, new in zip(oldexample.dataset, oldexample.toPython(a = "ys.map(y1 => ys.map(y2 => y1*2 - y2*2))").submit()):
+            self.assertEqual(mapp(old.ys, lambda y1: mapp(old.ys, lambda y2: y1*2 - y2*2)), new.a)
