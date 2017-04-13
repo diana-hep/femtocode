@@ -550,14 +550,39 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(entry.a, math.log(entry.ylim, 10))
 
     def test_sin(self):
+        self.assertEqual(session.source("Test", x=real(-0.1, 1.0)).type("sin(x)"), real(math.sin(-0.1), math.sin(1.0)))
+        self.assertEqual(session.source("Test", x=real(-0.1, almost(1.0))).type("sin(x)"), real(math.sin(-0.1), almost(math.sin(1.0))))
+        self.assertEqual(session.source("Test", x=real(-0.1, math.pi/2)).type("sin(x)"), real(math.sin(-0.1), math.sin(math.pi/2)))
+        self.assertEqual(session.source("Test", x=real(-0.1, almost(math.pi/2))).type("sin(x)"), real(math.sin(-0.1), almost(math.sin(math.pi/2))))
+        self.assertEqual(session.source("Test", x=real(-0.1, 3.2)).type("sin(x)"), real(math.sin(-0.1), 1.0))
+        self.assertEqual(session.source("Test", x=real(-0.1, almost(3.2))).type("sin(x)"), real(math.sin(-0.1), 1.0))
+        self.assertEqual(session.source("Test", x=real(-0.1, 10.0)).type("sin(x)"), real(-1.0, 1.0))
+        self.assertEqual(session.source("Test", x=real(-0.1, almost(10.0))).type("sin(x)"), real(-1.0, 1.0))
+        self.assertEqual(session.source("Test", x=real(-0.1, almost(inf))).type("sin(x)"), real(-1.0, 1.0))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-0.1, inf)).type("sin(x)"))
+        self.assertEqual(session.source("Test", x=real(almost(0), 1)).type("sin(1/x)"), real(-1.0, 1.0))
         for entry in numerical.toPython(y = "y", a = "sin(y)").submit():
             self.assertEqual(entry.a, math.sin(entry.y))
 
     def test_cos(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("cos(x)"), real(math.cos(1.0), math.cos(0.1)))
+        self.assertEqual(session.source("Test", x=real(almost(0.0), 1.0)).type("cos(x)"), real(math.cos(1.0), almost(1.0)))
+        self.assertEqual(session.source("Test", x=real(0.0, 1.0)).type("cos(x)"), real(math.cos(1.0), 1.0))
+        self.assertEqual(session.source("Test", x=real(-0.1, 1.0)).type("cos(x)"), real(math.cos(1.0), 1.0))
+        self.assertEqual(session.source("Test", x=real(-10.0, 1.0)).type("cos(x)"), real(-1.0, 1.0))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 1.0)).type("cos(x)"), real(-1.0, 1.0))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-inf, 1.0)).type("cos(x)"))
         for entry in numerical.toPython(y = "y", a = "cos(y)").submit():
             self.assertEqual(entry.a, math.cos(entry.y))
 
     def test_tan(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("tan(x)"), real(math.tan(0.1), math.tan(1.0)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(math.pi/2))).type("tan(x)"), real(math.tan(0.1), almost(inf)))
+        self.assertEqual(session.source("Test", x=real(0.1, math.pi/2)).type("tan(x)"), real(math.tan(0.1), inf))
+        self.assertEqual(session.source("Test", x=real(0.1, 2.0)).type("tan(x)"), union(extended(-inf, math.tan(2.0)), extended(math.tan(0.1), max=inf)))
+        self.assertEqual(session.source("Test", x=real(0.1, 3.5)).type("tan(x)"), extended)
+        self.assertEqual(session.source("Test", x=real(0.1, 10)).type("tan(x)"), extended)
+        self.assertEqual(session.source("Test", x=real(0.1, almost(inf))).type("tan(x)"), real(-inf, inf))
         for entry in numerical.toPython(y = "y", a = "tan(y)").submit():
             self.assertEqual(entry.a, math.tan(entry.y))
 

@@ -871,15 +871,12 @@ class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
             return self.pythoneval([endpoint])
 
     def imageFromTurningPoints(self, domain, turningPointAboveMin, turningPointBelowMax, wholeimage):
-        if turningPointAboveMin > turningPointBelowMax:
+        if turningPointAboveMin > turningPointBelowMax or (turningPointAboveMin.real == turningPointBelowMax.real and (domain.min == turningPointAboveMin or domain.max == turningPointBelowMax)):
             # monotonic on this interval
             one, two = self.projection(domain.min), self.projection(domain.max)
-            if one < two:
-                return real(one, two)
-            else:
-                return real(two, one)
+            return real(almost.min(one, two), almost.max(one, two))
 
-        elif turningPointAboveMin == turningPointBelowMax:
+        elif turningPointAboveMin.real == turningPointBelowMax.real:
             # monotonic to turning point
             one, two, three = self.projection(domain.min), self.projection(turningPointAboveMin), self.projection(domain.max)
             return real(almost.min(one, two, three), almost.max(one, two, three))
@@ -1039,11 +1036,17 @@ class Sin(FlatNumeric1D):
         return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "sin", ast.Load()), args, [], None, None)
 
     def image(self, domain):
-        if math.isinf(domain.min.real) or math.isinf(domain.max.real):
+        if domain.min == -inf or domain.max == inf:
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name))
+        elif math.isinf(domain.min.real) or math.isinf(domain.max.real):
             return real(-1.0, 1.0)
         # sin has turning points at (N + 1/2)*pi
         turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
         turningPointBelowMax = (math.floor(domain.max.real / math.pi - 0.5) + 0.5) * math.pi
+        if isinstance(domain.min, almost) and domain.min.real == turningPointAboveMin:
+            turningPointAboveMin = almost(turningPointAboveMin)
+        if isinstance(domain.max, almost) and domain.max.real == turningPointBelowMax:
+            turningPointBelowMax = almost(turningPointBelowMax)
         return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
 
 StandardLibrary.table[Sin.name] = Sin()
@@ -1055,11 +1058,17 @@ class Cos(FlatNumeric1D):
         return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "cos", ast.Load()), args, [], None, None)
 
     def image(self, domain):
-        if math.isinf(domain.min.real) or math.isinf(domain.max.real):
+        if domain.min == -inf or domain.max == inf:
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name))
+        elif math.isinf(domain.min.real) or math.isinf(domain.max.real):
             return real(-1.0, 1.0)
         # cos has turning points at N*pi
         turningPointAboveMin = (math.ceil(domain.min.real / math.pi)) * math.pi
         turningPointBelowMax = (math.floor(domain.max.real / math.pi)) * math.pi
+        if isinstance(domain.min, almost) and domain.min.real == turningPointAboveMin:
+            turningPointAboveMin = almost(turningPointAboveMin)
+        if isinstance(domain.max, almost) and domain.max.real == turningPointBelowMax:
+            turningPointBelowMax = almost(turningPointBelowMax)
         return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
 
 StandardLibrary.table[Cos.name] = Cos()
@@ -1072,26 +1081,48 @@ class Tan(FlatNumeric1D):
 
     def image(self, domain):
         if math.isinf(domain.min.real) or math.isinf(domain.max.real):
-            return real(-1.0, 1.0)
-        # tan has turning points at (N + 1/2)*pi
-        turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
-        turningPointBelowMax = (math.floor(domain.max.real / math.pi - 0.5) + 0.5) * math.pi
+            return extended
 
-        if turningPointAboveMin > turningPointBelowMax:
-            # monotonic on this interval
-            one, two = self.projection(domain.min), self.projection(domain.max)
-            if one < two:
-                return real(one, two)
+        # tan has turning points at (N + 1/2)*pi
+        minscaled = domain.min.real / math.pi + 0.5
+        maxscaled = domain.max.real / math.pi - 0.5
+        turningPointAboveMin = (math.ceil(minscaled) - 0.5) * math.pi
+        turningPointBelowMax = (math.floor(maxscaled) + 0.5) * math.pi
+        if isinstance(domain.min, almost) and domain.min.real == turningPointAboveMin:
+            turningPointAboveMin = almost(turningPointAboveMin)
+        if isinstance(domain.max, almost) and domain.max.real == turningPointBelowMax:
+            turningPointBelowMax = almost(turningPointBelowMax)
+
+        if turningPointAboveMin > turningPointBelowMax or (turningPointAboveMin.real == turningPointBelowMax.real and (domain.min == turningPointAboveMin or domain.max == turningPointBelowMax)):
+            if minscaled == math.ceil(minscaled):
+                # min is just touching a pole
+                if isinstance(domain.min, almost):
+                    one = almost(-inf)
+                else:
+                    one = -inf
             else:
-                return real(two, one)
+                # or not
+                one = self.projection(domain.min)
+
+            if maxscaled == math.ceil(maxscaled):
+                # max is just touching a pole
+                if isinstance(domain.max, almost):
+                    two = almost(inf)
+                else:
+                    two = inf
+            else:
+                # or not
+                two = self.projection(domain.max)
+
+            # monotonic on this interval
+            return real(one, two)
 
         elif turningPointAboveMin == turningPointBelowMax:
             # monotonic to turning point, then infinity at that point
             one, two = self.projection(domain.min), self.projection(domain.max)
-            if round(math.ceil(domain.min.real / math.pi + 0.5)) % 2 == 1:
-                return real(almost.min(one, two), inf)
-            else:
-                return real(-inf, almost.max(one, two))
+            # might result in a single interval if they touch/overlap, otherwise not
+            return union(real(one, inf), real(-inf, two))
+
         else:
             # the whole image
             return extended
