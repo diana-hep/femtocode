@@ -16,6 +16,7 @@
 
 import ast
 import json
+import math
 import re
 import sys
 import unittest
@@ -446,3 +447,93 @@ class TestLibStandard(unittest.TestCase):
 
         for entry in nonflat.toPython(pt = "muons.map($1.pt)", phi = "muons.map($1.phi)", a = "muons.map(mu => mu.pt + mu.phi)").submit():
             self.assertEqual(mapp(zip(entry.pt, entry.phi), lambda x: x[0] + x[1]), entry.a)
+
+########################################################## Core math
+
+    def test_round(self):
+        for entry in numerical.toPython(x = "x", y = "y", a = "round(y)").submit():
+            self.assertEqual(entry.a, entry.x)
+
+    def test_floor(self):
+        for entry in numerical.toPython(x = "x", y = "y", a = "floor(y)").submit():
+            self.assertEqual(entry.a, entry.x)
+
+    def test_ceil(self):
+        for entry in numerical.toPython(x = "x", y = "y", a = "ceil(y)").submit():
+            self.assertEqual(entry.a, entry.x + 1)
+
+    def test_abs(self):
+        for entry in numerical.toPython(y = "y", a = "abs(y - 50)").submit():
+            self.assertEqual(entry.a, abs(entry.y - 50))
+
+    def test_sqrt(self):
+        for entry in numerical.toPython(ylim = "ylim", a = "sqrt(ylim)").submit():
+            self.assertEqual(entry.a, math.sqrt(entry.ylim))
+
+    def test_exp(self):
+        for entry in numerical.toPython(y = "y", a = "exp(y)").submit():
+            self.assertEqual(entry.a, math.exp(entry.y))
+
+    def test_log(self):
+        for entry in numerical.toPython(ylim = "ylim", a = "log(ylim)").submit():
+            self.assertEqual(entry.a, math.log(entry.ylim))
+
+    def test_log2(self):
+        for entry in numerical.toPython(ylim = "ylim", a = "log2(ylim)").submit():
+            self.assertEqual(entry.a, math.log(entry.ylim, 2))
+
+    def test_log10(self):
+        for entry in numerical.toPython(ylim = "ylim", a = "log10(ylim)").submit():
+            self.assertEqual(entry.a, math.log(entry.ylim, 10))
+
+    def test_sin(self):
+        for entry in numerical.toPython(y = "y", a = "sin(y)").submit():
+            self.assertEqual(entry.a, math.sin(entry.y))
+
+    def test_cos(self):
+        for entry in numerical.toPython(y = "y", a = "cos(y)").submit():
+            self.assertEqual(entry.a, math.cos(entry.y))
+
+    def test_tan(self):
+        for entry in numerical.toPython(y = "y", a = "tan(y)").submit():
+            self.assertEqual(entry.a, math.tan(entry.y))
+
+    def test_asin(self):
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "asin(ylim2 / 10)").submit():
+            self.assertEqual(entry.a, math.asin(entry.ylim2 / 10))
+
+    def test_acos(self):
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "acos(ylim2 / 10)").submit():
+            self.assertEqual(entry.a, math.acos(entry.ylim2 / 10))
+
+    def test_atan(self):
+        for entry in numerical.toPython(y = "y", a = "atan(y)").submit():
+            self.assertEqual(entry.a, math.atan(entry.y))
+
+    def test_atan2(self):
+        for entry in numerical.toPython(y = "y", a = "atan2(y, y)").submit():
+            self.assertEqual(entry.a, math.atan2(entry.y, entry.y))
+
+    def test_sinh(self):
+        for entry in numerical.toPython(y = "y", a = "sinh(y)").submit():
+            self.assertEqual(entry.a, math.sinh(entry.y))
+
+    def test_cosh(self):
+        for entry in numerical.toPython(y = "y", a = "cosh(y)").submit():
+            self.assertEqual(entry.a, math.cosh(entry.y))
+
+    def test_tanh(self):
+        for entry in numerical.toPython(y = "y", a = "tanh(y)").submit():
+            self.assertEqual(entry.a, math.tanh(entry.y))
+
+    def test_asinh(self):
+        for entry in numerical.toPython(y = "y", a = "asinh(y)").submit():
+            self.assertEqual(entry.a, math.asinh(entry.y))
+
+    def test_acosh(self):
+        for entry in numerical.toPython(ylim = "ylim", a = "acosh(ylim + 1)").submit():
+            self.assertEqual(entry.a, math.acosh(entry.ylim + 1))
+
+    def test_atanh(self):
+        for entry in numerical.toPython(ylim2 = "ylim2", a = "atanh(ylim2 / 10)").submit():
+            self.assertEqual(entry.a, math.atanh(entry.ylim2 / 10))

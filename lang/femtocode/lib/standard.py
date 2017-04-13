@@ -761,6 +761,11 @@ class Map(lispytree.BuiltinFunction):
         else:
             return None
 
+    def pythoneval(self, args, debug=False):
+        if len(args) != 2:
+            raise FemtocodeError("The {0} function takes exactly two arguments.".format(self.name))
+        return super(Map, self).pythoneval(args, debug)
+
     def buildtyped(self, args, frame):
         if len(args) != 2:
             return impossible("Exactly two arguments required."), [], frame
@@ -834,15 +839,20 @@ StandardLibrary.table[Map.name] = Map()
 ########################################################## Core math
 
 class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    def pythoneval(self, args, debug=False):
+        if len(args) != 1:
+            raise FemtocodeError("The {0} function takes exactly one argument.".format(self.name))
+        return super(FlatNumeric1D, self).pythoneval(args, debug)
+
     def buildtyped(self, args, frame):
         if len(args) != 1:
-            return impossible("The {0} function takes exactly one argument.".format(self.name))
+            return impossible("The {0} function takes exactly one argument.".format(self.name)), typedargs, frame
 
         typedargs = _buildargs(args, frame)
-        if not isNumber(typedargs[0]):
-            return impossible("The {0} function can only be used on numbers.".format(self.name))
+        if not isNumber(typedargs[0].schema):
+            return impossible("The {0} function can only be used on numbers.".format(self.name)), typedargs, frame
         else:
-            return self.image(typedargs[0])
+            return self.image(typedargs[0].schema), typedargs, frame
 
     def image(self, domain):
         raise NotImplementedError
@@ -873,7 +883,21 @@ class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
 
 class RoundlikeFlatNumeric1D(FlatNumeric1D):
     def image(self, domain):
-        return integer(int(round(domain.min.real)), int(round(domain.max.real)))
+        if domain.min == -inf:
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name)), typedargs, frame
+        elif domain.min == almost(-inf):
+            min = domain.min
+        else:
+            min = self.projection(domain.min)
+
+        if domain.max == inf:
+            return impossible("The {0} function cannot be used on intervals that include to infinity (though almost(-inf) and almost(inf) are okay).".format(self.name)), typedargs, frame
+        elif domain.max == almost(inf):
+            max = domain.max
+        else:
+            max = self.projection(domain.max)
+
+        return integer(min, max)
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         if isInt(argschemas[0]):
@@ -882,7 +906,7 @@ class RoundlikeFlatNumeric1D(FlatNumeric1D):
         else:
             return [ast.Assign([target], self.pythonast(args, tonative))]
 
-class Round(FlatNumeric1D):
+class Round(RoundlikeFlatNumeric1D):
     name = "round"
 
     def pythonast(self, args, tonative=False):
@@ -890,19 +914,19 @@ class Round(FlatNumeric1D):
 
 StandardLibrary.table[Round.name] = Round()
 
-class Floor(FlatNumeric1D):
+class Floor(RoundlikeFlatNumeric1D):
     name = "floor"
 
     def pythonast(self, args, tonative=False):
-        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Name("floor", ast.Load()), args, [], None, None)], [], None, None)
+        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "floor", ast.Load()), args, [], None, None)], [], None, None)
 
 StandardLibrary.table[Floor.name] = Floor()
 
-class Ceil(FlatNumeric1D):
+class Ceil(RoundlikeFlatNumeric1D):
     name = "ceil"
 
     def pythonast(self, args, tonative=False):
-        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Name("ceil", ast.Load()), args, [], None, None)], [], None, None)
+        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "ceil", ast.Load()), args, [], None, None)], [], None, None)
 
 StandardLibrary.table[Ceil.name] = Ceil()
 
@@ -944,12 +968,12 @@ class LoglikeFlatNumeric1D(FlatNumeric1D):
         if domain.min.real < 0:
             return impossible("The {0} function can only be used on non-negative numbers.".format(self.name))
         if domain.min == 0:
-            low = -inf
+            min = -inf
         elif domain.min == almost(0):
-            low = almost(-inf)
+            min = almost(-inf)
         else:
-            low = self.projection(domain.min)
-        return real(low, self.projection(domain.high))
+            min = self.projection(domain.min)
+        return real(min, self.projection(domain.max))
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
         return [ast.Assign([target], self.pythonast(args, tonative))]
@@ -1040,7 +1064,7 @@ class Tan(FlatNumeric1D):
         return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "tan", ast.Load()), args, [], None, None)
 
     def image(self, domain):
-        if math.icosf(domain.min.real) or math.icosf(domain.max.real):
+        if math.isinf(domain.min.real) or math.isinf(domain.max.real):
             return real(-1.0, 1.0)
         # tan has turning points at (N + 1/2)*pi
         turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
@@ -1109,18 +1133,23 @@ StandardLibrary.table[ATan.name] = ATan()
 class ATan2(statementlist.FlatFunction, lispytree.BuiltinFunction):
     name = "atan2"
 
+    def pythoneval(self, args, debug=False):
+        if len(args) != 2:
+            raise FemtocodeError("The {0} function takes exactly two arguments.".format(self.name))
+        return super(ATan2, self).pythoneval(args, debug)
+
     def pythonast(self, args, tonative=False):
         return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atan2", ast.Load()), args, [], None, None)
         
     def buildtyped(self, args, frame):
         if len(args) != 2:
-            return impossible("The {0} function takes exactly two arguments.".format(self.name))
+            return impossible("The {0} function takes exactly two arguments.".format(self.name)), typedargs, frame
 
         typedargs = _buildargs(args, frame)
-        if not isNumber(typedargs[0]):
-            return impossible("The {0} function can only be used on numbers.".format(self.name))
+        if not isNumber(typedargs[0].schema) or not isNumber(typedargs[1].schema):
+            return impossible("The {0} function can only be used on numbers.".format(self.name)), typedargs, frame
         else:
-            return real(-math.pi/2, math.pi/2)
+            return real(-math.pi/2, math.pi/2), typedargs, frame
 
 StandardLibrary.table[ATan2.name] = ATan2()
 
@@ -1186,10 +1215,13 @@ class ACosh(FlatNumeric1D):
             return impossible("The {0} function can only be used on numbers greater than 1.".format(self.name))
         return real(self.projection(domain.min), self.projection(domain.max))
 
+StandardLibrary.table[ACosh.name] = ACosh()
+
 class ATanh(FlatNumeric1D):
     name = "atanh"
 
     def pythonast(self, args, tonative=False):
+        arg, = args
         return ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("inf")], [], None, None), ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(-1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atanh", ast.Load()), args, [], None, None)))
 
     def image(self, domain):
