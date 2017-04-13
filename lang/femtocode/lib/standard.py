@@ -833,10 +833,10 @@ StandardLibrary.table[Map.name] = Map()
 
 ########################################################## Core math
 
-class FlatReal1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
+class FlatNumeric1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
     def buildtyped(self, args, frame):
         if len(args) != 1:
-            return impossible("The {0} function takes only one argument.".format(self.name))
+            return impossible("The {0} function takes exactly one argument.".format(self.name))
 
         typedargs = _buildargs(args, frame)
         if not isNumber(typedargs[0]):
@@ -871,7 +871,42 @@ class FlatReal1D(statementlist.FlatFunction, lispytree.BuiltinFunction):
             # the whole image
             return wholeimage
 
-class Abs(FlatReal1D):
+class RoundlikeFlatNumeric1D(FlatNumeric1D):
+    def image(self, domain):
+        return integer(int(round(domain.min.real)), int(round(domain.max.real)))
+
+    def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
+        if isInt(argschemas[0]):
+            # if it's already an integer, don't generate any runtime code
+            return [ast.Assign([target], [args[0]])]
+        else:
+            return [ast.Assign([target], self.pythonast(args, tonative))]
+
+class Round(FlatNumeric1D):
+    name = "round"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Name("round", ast.Load()), args, [], None, None)], [], None, None)
+
+StandardLibrary.table[Round.name] = Round()
+
+class Floor(FlatNumeric1D):
+    name = "floor"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Name("floor", ast.Load()), args, [], None, None)], [], None, None)
+
+StandardLibrary.table[Floor.name] = Floor()
+
+class Ceil(FlatNumeric1D):
+    name = "ceil"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Name("int", ast.Load()), [ast.Call(ast.Name("ceil", ast.Load()), args, [], None, None)], [], None, None)
+
+StandardLibrary.table[Ceil.name] = Ceil()
+
+class Abs(FlatNumeric1D):
     name = "abs"
 
     def pythonast(self, args, tonative=False):
@@ -891,19 +926,19 @@ class Abs(FlatReal1D):
 
 StandardLibrary.table[Abs.name] = Abs()
 
-class ExplikeFlatReal1D(FlatReal1D):
+class ExplikeFlatNumeric1D(FlatNumeric1D):
     def image(self, domain):
         # positively monotonic everywhere
         return real(self.projection(domain.min), self.projection(domain.max))
 
-class SqrtlikeFlatReal1D(FlatReal1D):
+class SqrtlikeFlatNumeric1D(FlatNumeric1D):
     def image(self, domain):
         # positively monotonic with negative values excluded
         if domain.min.real < 0:
             return impossible("The {0} function can only be used on non-negative numbers.".format(self.name))
         return real(self.projection(domain.min), self.projection(domain.max))
 
-class LoglikeFlatReal1D(FlatReal1D):
+class LoglikeFlatNumeric1D(FlatNumeric1D):
     def image(self, domain):
         # positively monotonic with negative values excluded and 0 mapped to -inf
         if domain.min.real < 0:
@@ -917,7 +952,7 @@ class LoglikeFlatReal1D(FlatReal1D):
         return real(low, self.projection(domain.high))
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
-        return [ast.Assign([target], self.pythonast(args))]
+        return [ast.Assign([target], self.pythonast(args, tonative))]
 
     def pythonast(self, args, tonative=False):
         arg, = args
@@ -932,7 +967,7 @@ class LoglikeFlatReal1D(FlatReal1D):
             else:
                 return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
 
-class Sqrt(SqrtlikeFlatReal1D):
+class Sqrt(SqrtlikeFlatNumeric1D):
     name = "sqrt"
 
     def pythonast(self, args, tonative=False):
@@ -940,7 +975,7 @@ class Sqrt(SqrtlikeFlatReal1D):
 
 StandardLibrary.table[Sqrt.name] = Sqrt()
 
-class Exp(ExplikeFlatReal1D):
+class Exp(ExplikeFlatNumeric1D):
     name = "exp"
 
     def pythonast(self, args, tonative=False):
@@ -948,25 +983,25 @@ class Exp(ExplikeFlatReal1D):
 
 StandardLibrary.table[Exp.name] = Exp()
 
-class Log(LoglikeFlatReal1D):
+class Log(LoglikeFlatNumeric1D):
     name = "log"
     base = math.e
 
 StandardLibrary.table[Log.name] = Log()
 
-class Log2(LoglikeFlatReal1D):
+class Log2(LoglikeFlatNumeric1D):
     name = "log2"
     base = 2
 
 StandardLibrary.table[Log2.name] = Log2()
 
-class Log10(LoglikeFlatReal1D):
+class Log10(LoglikeFlatNumeric1D):
     name = "log10"
     base = 10
 
 StandardLibrary.table[Log10.name] = Log10()
     
-class Sin(FlatReal1D):
+class Sin(FlatNumeric1D):
     name = "sin"
 
     def pythonast(self, args, tonative=False):
@@ -975,40 +1010,191 @@ class Sin(FlatReal1D):
     def image(self, domain):
         if math.isinf(domain.min.real) or math.isinf(domain.max.real):
             return real(-1.0, 1.0)
+        # sin has turning points at (N + 1/2)*pi
         turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
         turningPointBelowMax = (math.floor(domain.max.real / math.pi - 0.5) + 0.5) * math.pi
         return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
 
 StandardLibrary.table[Sin.name] = Sin()
 
-class Cos(FlatReal1D):
+class Cos(FlatNumeric1D):
     name = "cos"
 
     def pythonast(self, args, tonative=False):
         return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "cos", ast.Load()), args, [], None, None)
 
     def image(self, domain):
-        if math.icosf(domain.min.real) or math.icosf(domain.max.real):
+        if math.isinf(domain.min.real) or math.isinf(domain.max.real):
             return real(-1.0, 1.0)
+        # cos has turning points at N*pi
         turningPointAboveMin = (math.ceil(domain.min.real / math.pi)) * math.pi
         turningPointBelowMax = (math.floor(domain.max.real / math.pi)) * math.pi
         return self.imageFromTurningPoints(domain, turningPointAboveMin, turningPointBelowMax, real(-1.0, 1.0))
 
 StandardLibrary.table[Cos.name] = Cos()
 
-# TODO:
-###########
-# tan
-# atan2
-# asin
-# acos
-# atan
-# sinh
-# cosh
-# tanh
-# asinh
-# acosh
-# atanh
-# some sort of rounding? (should change type to integer)
+class Tan(FlatNumeric1D):
+    name = "tan"
 
-# also important: turn the indexes and skips into simple values on the stack for a speed comparison to a baseline of 45 ms for the 2 GB file
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "tan", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if math.icosf(domain.min.real) or math.icosf(domain.max.real):
+            return real(-1.0, 1.0)
+        # tan has turning points at (N + 1/2)*pi
+        turningPointAboveMin = (math.ceil(domain.min.real / math.pi + 0.5) - 0.5) * math.pi
+        turningPointBelowMax = (math.floor(domain.max.real / math.pi - 0.5) + 0.5) * math.pi
+
+        if turningPointAboveMin > turningPointBelowMax:
+            # monotonic on this interval
+            one, two = self.projection(domain.min), self.projection(domain.max)
+            if one < two:
+                return real(one, two)
+            else:
+                return real(two, one)
+
+        elif turningPointAboveMin == turningPointBelowMax:
+            # monotonic to turning point, then infinity at that point
+            one, two = self.projection(domain.min), self.projection(domain.max)
+            if round(math.ceil(domain.min.real / math.pi + 0.5)) % 2 == 1:
+                return real(almost.min(one, two), inf)
+            else:
+                return real(-inf, almost.max(one, two))
+        else:
+            # the whole image
+            return extended
+
+StandardLibrary.table[Tan.name] = Tan()
+
+class ASin(FlatNumeric1D):
+    name = "asin"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "asin", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if domain.min.real < -1 or domain.max.real > 1:
+            return impossible("The {0} function can only be used on the interval between -1 and 1 (inclusive).".format(self.name))
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[ASin.name] = ASin()
+
+class ACos(FlatNumeric1D):
+    name = "acos"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "acos", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        if domain.min.real < -1 or domain.max.real > 1:
+            return impossible("The {0} function can only be used on the interval between -1 and 1 (inclusive).".format(self.name))
+        return real(self.projection(domain.max), self.projection(domain.min))
+
+StandardLibrary.table[ACos.name] = ACos()
+
+class ATan(FlatNumeric1D):
+    name = "atan"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atan", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[ATan.name] = ATan()
+
+# not a 1D function, but it goes with atan
+
+class ATan2(statementlist.FlatFunction, lispytree.BuiltinFunction):
+    name = "atan2"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atan2", ast.Load()), args, [], None, None)
+        
+    def buildtyped(self, args, frame):
+        if len(args) != 2:
+            return impossible("The {0} function takes exactly two arguments.".format(self.name))
+
+        typedargs = _buildargs(args, frame)
+        if not isNumber(typedargs[0]):
+            return impossible("The {0} function can only be used on numbers.".format(self.name))
+        else:
+            return real(-math.pi/2, math.pi/2)
+
+StandardLibrary.table[ATan2.name] = ATan2()
+
+class Sinh(FlatNumeric1D):
+    name = "sinh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "sinh", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[Sinh.name] = Sinh()
+
+class Cosh(FlatNumeric1D):
+    name = "cosh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "cosh", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        # cosh has a turning point at 0
+        if domain.max.real <= 0:
+            return real(self.projection(domain.max), self.projection(domain.min))
+        elif domain.min.real >= 0:
+            return real(self.projection(domain.min), self.projection(domain.max))
+        else:
+            return real(1, almost.max(self.projection(domain.min), self.projection(domain.max)))
+
+StandardLibrary.table[Cosh.name] = Cosh()
+
+class Tanh(FlatNumeric1D):
+    name = "tanh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "tanh", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[Tanh.name] = Tanh()
+
+class ASinh(FlatNumeric1D):
+    name = "asinh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "asinh", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[ASinh.name] = ASinh()
+
+class ACosh(FlatNumeric1D):
+    name = "acosh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "acosh", ast.Load()), args, [], None, None)
+
+    def image(self, domain):
+        # positively monotonic with values less than 1 excluded
+        if domain.min.real < 1:
+            return impossible("The {0} function can only be used on numbers greater than 1.".format(self.name))
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+class ATanh(FlatNumeric1D):
+    name = "atanh"
+
+    def pythonast(self, args, tonative=False):
+        return ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("inf")], [], None, None), ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(-1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atanh", ast.Load()), args, [], None, None)))
+
+    def image(self, domain):
+        if domain.min.real < -1 or domain.max.real > 1:
+            return impossible("The {0} function can only be used on the interval between -1 and 1 (inclusive).".format(self.name))
+        return real(self.projection(domain.min), self.projection(domain.max))
+
+StandardLibrary.table[ATanh.name] = ATanh()
