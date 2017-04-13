@@ -587,41 +587,119 @@ class TestLibStandard(unittest.TestCase):
             self.assertEqual(entry.a, math.tan(entry.y))
 
     def test_asin(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 0.5)).type("asin(x)"), real(math.asin(0.1), math.asin(0.5)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(0.5))).type("asin(x)"), real(math.asin(0.1), almost(math.asin(0.5))))
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("asin(x)"), real(math.asin(0.1), math.asin(1.0)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(1.0))).type("asin(x)"), real(math.asin(0.1), almost(math.asin(1.0))))
+        self.assertEqual(session.source("Test", x=real(-1.0, 0.5)).type("asin(x)"), real(math.asin(-1.0), math.asin(0.5)))
+        self.assertEqual(session.source("Test", x=real(almost(-1.0), 0.5)).type("asin(x)"), real(almost(math.asin(-1.0)), math.asin(0.5)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, 1.1)).type("asin(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, almost(1.1))).type("asin(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1.1, 0.5)).type("asin(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-1.1), 0.5)).type("asin(x)"))
         for entry in numerical.toPython(ylim2 = "ylim2", a = "asin(ylim2 / 10)").submit():
             self.assertEqual(entry.a, math.asin(entry.ylim2 / 10))
 
     def test_acos(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 0.5)).type("acos(x)"), real(math.acos(0.5), math.acos(0.1)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(0.5))).type("acos(x)"), real(almost(math.acos(0.5)), math.acos(0.1)))
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("acos(x)"), real(math.acos(1.0), math.acos(0.1)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(1.0))).type("acos(x)"), real(almost(math.acos(1.0)), math.acos(0.1)))
+        self.assertEqual(session.source("Test", x=real(-1.0, 0.5)).type("acos(x)"), real(math.acos(0.5), math.acos(-1.0)))
+        self.assertEqual(session.source("Test", x=real(almost(-1.0), 0.5)).type("acos(x)"), real(math.acos(0.5), almost(math.acos(-1.0))))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, 1.1)).type("acos(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, almost(1.1))).type("acos(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1.1, 0.5)).type("acos(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-1.1), 0.5)).type("acos(x)"))
         for entry in numerical.toPython(ylim2 = "ylim2", a = "acos(ylim2 / 10)").submit():
             self.assertEqual(entry.a, math.acos(entry.ylim2 / 10))
 
     def test_atan(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("atan(x)"), real(math.atan(0.1), math.atan(1.0)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(1.0))).type("atan(x)"), real(math.atan(0.1), almost(math.atan(1.0))))
+        self.assertEqual(session.source("Test", x=real(almost(0.1), 1.0)).type("atan(x)"), real(almost(math.atan(0.1)), math.atan(1.0)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(inf))).type("atan(x)"), real(math.atan(0.1), almost(math.pi/2)))
+        self.assertEqual(session.source("Test", x=real(0.1, inf)).type("atan(x)"), real(math.atan(0.1), math.pi/2))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), 1.0)).type("atan(x)"), real(almost(-math.pi/2), math.atan(1.0)))
+        self.assertEqual(session.source("Test", x=real(-inf, 1.0)).type("atan(x)"), real(-math.pi/2, math.atan(1.0)))
+        self.assertEqual(session.source("Test", x=real).type("atan(x)"), real(almost(-math.pi/2), almost(math.pi/2)))
+        self.assertEqual(session.source("Test", x=extended).type("atan(x)"), real(-math.pi/2, math.pi/2))
         for entry in numerical.toPython(y = "y", a = "atan(y)").submit():
             self.assertEqual(entry.a, math.atan(entry.y))
 
     def test_atan2(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0), y=real(0.1, 1.0)).type("atan2(y, x)"), real(-math.pi/2, math.pi/2))
+        self.assertEqual(session.source("Test", x=real, y=real).type("atan2(y, x)"), real(-math.pi/2, math.pi/2))
         for entry in numerical.toPython(y = "y", a = "atan2(y, y)").submit():
             self.assertEqual(entry.a, math.atan2(entry.y, entry.y))
+            break
 
     def test_sinh(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("sinh(x)"), real(math.sinh(3.14), math.sinh(6.5)))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(6.5))).type("sinh(x)"), real(math.sinh(3.14), almost(math.sinh(6.5))))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(inf))).type("sinh(x)"), real(math.sinh(3.14), almost(math.sinh(inf))))
+        self.assertEqual(session.source("Test", x=real(3.14, inf)).type("sinh(x)"), real(math.sinh(3.14), inf))
+        self.assertEqual(session.source("Test", x=real).type("sinh(x)"), real(almost(-inf), almost(inf)))
+        self.assertEqual(session.source("Test", x=extended).type("sinh(x)"), real(-inf, inf))
         for entry in numerical.toPython(y = "y", a = "sinh(y)").submit():
             self.assertEqual(entry.a, math.sinh(entry.y))
 
     def test_cosh(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("cosh(x)"), real(math.cosh(3.14), math.cosh(6.5)))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(6.5))).type("cosh(x)"), real(math.cosh(3.14), almost(math.cosh(6.5))))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(inf))).type("cosh(x)"), real(math.cosh(3.14), almost(math.cosh(inf))))
+        self.assertEqual(session.source("Test", x=real(3.14, inf)).type("cosh(x)"), real(math.cosh(3.14), inf))
+        self.assertEqual(session.source("Test", x=real(-3.14, 6.5)).type("cosh(x)"), real(1.0, math.cosh(6.5)))
+        self.assertEqual(session.source("Test", x=real(-13.14, 6.5)).type("cosh(x)"), real(1.0, math.cosh(13.14)))
+        self.assertEqual(session.source("Test", x=real(-3.14, almost(6.5))).type("cosh(x)"), real(1.0, almost(math.cosh(6.5))))
+        self.assertEqual(session.source("Test", x=real(-13.14, almost(6.5))).type("cosh(x)"), real(1.0, math.cosh(13.14)))
+        self.assertEqual(session.source("Test", x=real(-3.14, almost(inf))).type("cosh(x)"), real(1.0, almost(math.cosh(inf))))
+        self.assertEqual(session.source("Test", x=real(-3.14, inf)).type("cosh(x)"), real(1.0, inf))
+        self.assertEqual(session.source("Test", x=real).type("cosh(x)"), real(1.0, almost(inf)))
+        self.assertEqual(session.source("Test", x=extended).type("cosh(x)"), real(1.0, inf))
         for entry in numerical.toPython(y = "y", a = "cosh(y)").submit():
             self.assertEqual(entry.a, math.cosh(entry.y))
 
     def test_tanh(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("tanh(x)"), real(math.tanh(3.14), math.tanh(6.5)))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(6.5))).type("tanh(x)"), real(math.tanh(3.14), almost(math.tanh(6.5))))
+        self.assertEqual(session.source("Test", x=real(3.14, inf)).type("tanh(x)"), real(math.tanh(3.14), 1.0))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(inf))).type("tanh(x)"), real(math.tanh(3.14), almost(1.0)))
+        self.assertEqual(session.source("Test", x=real(-inf, almost(inf))).type("tanh(x)"), real(-1.0, almost(1.0)))
+        self.assertEqual(session.source("Test", x=real(almost(-inf), almost(inf))).type("tanh(x)"), real(almost(-1.0), almost(1.0)))
         for entry in numerical.toPython(y = "y", a = "tanh(y)").submit():
             self.assertEqual(entry.a, math.tanh(entry.y))
 
     def test_asinh(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("asinh(x)"), real(math.asinh(3.14), math.asinh(6.5)))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(6.5))).type("asinh(x)"), real(math.asinh(3.14), almost(math.asinh(6.5))))
+        self.assertEqual(session.source("Test", x=real(3.14, inf)).type("asinh(x)"), real(math.asinh(3.14), inf))
+        self.assertEqual(session.source("Test", x=real(3.14, almost(inf))).type("asinh(x)"), real(math.asinh(3.14), almost(inf)))
+        self.assertEqual(session.source("Test", x=real).type("asinh(x)"), real)
+        self.assertEqual(session.source("Test", x=extended).type("asinh(x)"), extended)
         for entry in numerical.toPython(y = "y", a = "asinh(y)").submit():
             self.assertEqual(entry.a, math.asinh(entry.y))
 
     def test_acosh(self):
+        self.assertEqual(session.source("Test", x=real(3.14, 6.5)).type("acosh(x)"), real(math.acosh(3.14), math.acosh(6.5)))
+        self.assertEqual(session.source("Test", x=real(almost(1), 6.5)).type("acosh(x)"), real(almost(0), math.acosh(6.5)))
+        self.assertEqual(session.source("Test", x=real(1, 6.5)).type("acosh(x)"), real(0, math.acosh(6.5)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0, 6.5)).type("acosh(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0, 0.5)).type("acosh(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0, almost(0.5))).type("acosh(x)"))
         for entry in numerical.toPython(ylim = "ylim", a = "acosh(ylim + 1)").submit():
             self.assertEqual(entry.a, math.acosh(entry.ylim + 1))
 
     def test_atanh(self):
+        self.assertEqual(session.source("Test", x=real(0.1, 0.5)).type("atanh(x)"), real(math.atanh(0.1), math.atanh(0.5)))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(0.5))).type("atanh(x)"), real(math.atanh(0.1), almost(math.atanh(0.5))))
+        self.assertEqual(session.source("Test", x=real(0.1, 1.0)).type("atanh(x)"), real(math.atanh(0.1), inf))
+        self.assertEqual(session.source("Test", x=real(0.1, almost(1.0))).type("atanh(x)"), real(math.atanh(0.1), almost(inf)))
+        self.assertEqual(session.source("Test", x=real(-1.0, 0.5)).type("atanh(x)"), real(-inf, math.atanh(0.5)))
+        self.assertEqual(session.source("Test", x=real(almost(-1.0), 0.5)).type("atanh(x)"), real(almost(-inf), math.atanh(0.5)))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, 1.1)).type("atanh(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(0.1, almost(1.1))).type("atanh(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(-1.1, 0.5)).type("atanh(x)"))
+        self.assertRaises(FemtocodeError, lambda: session.source("Test", x=real(almost(-1.1), 0.5)).type("atanh(x)"))
         for entry in numerical.toPython(ylim2 = "ylim2", a = "atanh(ylim2 / 10)").submit():
             self.assertEqual(entry.a, math.atanh(entry.ylim2 / 10))
