@@ -282,8 +282,6 @@ class NamedTypedParamNode(NamedParamNode):
 
 class NumEntries(ParamNode): pass
 class Countdown(ParamNode): pass
-class Index(NamedParamNode): pass
-class Skip(NamedParamNode): pass
 class SizeArray(NamedParamNode): pass
 class OutSizeArray(NamedParamNode): pass
 class DataArray(NamedTypedParamNode): pass
@@ -484,13 +482,7 @@ class Loop(Serializable):
             parameters.append(SizeArray(size))
             params.append(arrayname)
             uniqueToSizeArray.append(arrayname)
-
-            # parameters.append(Index(size))
-            # params.append(indexname)
             uniqueToSizeIndex.append(indexname)
-
-            # parameters.append(Skip(size))
-            # params.append(skipname)
             uniqueToSizeSkip.append(skipname)
 
         uniqueToExplodeDataNames = {}
@@ -507,10 +499,6 @@ class Loop(Serializable):
 
                             parameters.append(DataArray(explodedata.data, Loop.argschemaToDataType(explodedata.schema)))
                             params.append(arrayname)
-
-                            # parameters.append(Index(explodedata.data))
-                            # params.append(indexname)
-
                             break
 
         uniqueToExplodeDataNames = sorted(uniqueToExplodeDataNames.items())
@@ -1013,12 +1001,6 @@ class Executor(Serializable):
                         elif isinstance(param, Countdown):
                             arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
 
-                        elif isinstance(param, Index):
-                            arguments.append(self.makeArray(param.name.depth() + 1, sizeType, True))
-
-                        elif isinstance(param, Skip):
-                            arguments.append(self.makeArray(param.name.depth(), sizeType, True))
-
                         elif isinstance(param, SizeArray):
                             arguments.append(inarrays[param.name])
 
@@ -1045,12 +1027,6 @@ class Executor(Serializable):
 
                     elif isinstance(param, Countdown):
                         arguments.append(self.makeArray(len(loop.explosions), sizeType, True))
-
-                    elif isinstance(param, Index):
-                        arguments.append(self.makeArray(param.name.depth() + 1, sizeType, True))
-
-                    elif isinstance(param, Skip):
-                        arguments.append(self.makeArray(param.name.depth(), sizeType, True))
 
                     elif isinstance(param, (SizeArray, DataArray)):
                         arguments.append(inarrays[param.name])

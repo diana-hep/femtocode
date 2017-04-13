@@ -53,12 +53,6 @@ def compileToNative(loopFunction, inputs):
         elif isinstance(param, Countdown):
             sig.append(numbaSizeType)
 
-        elif isinstance(param, Index):
-            sig.append(numbaSizeType)
-
-        elif isinstance(param, Skip):
-            sig.append(numbaSizeType)
-
         elif isinstance(param, (SizeArray, OutSizeArray)):
             sig.append(numbaSizeType)
 
