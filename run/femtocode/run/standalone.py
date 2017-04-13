@@ -150,16 +150,19 @@ if __name__ == "__main__":
 
     pending = session.source("MuOnia").toPython(mass = """
 
-muons.map(mu1 => muons.map(mu2 =>
+muons.map(mu1 => muons.map({mu2 =>
 
-  mu1.pt + mu2.pt
+  p1x = mu1.pt * cos(mu1.phi);
 
-))
 
-""").submit()
+  p1x + mu2.pt
+
+}))
+
+""").submit(debug = False)
 
     final = pending.await()
     print pending.wallTime, pending.computeTime
-    for event in final:
+    for i, event in enumerate(final):
         print event
-        break
+        if i == 10: break

@@ -43,7 +43,7 @@ for i in xrange(100):
     semiflat.dataset.fill({"muon": semiflat.dataset.types["muon"](pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10)), "jet": semiflat.dataset.types["jet"](mass=float(i), pt=float(i), eta=(float(i) % 10 - 5), phi=((float(i) % 60 - 30)/10))})
 
 nonflat = session.source("NonFlat", met=real(0, almost(inf)), muons=collection(record(pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))), jets=collection(record(mass=real(0, almost(inf)), pt=real(0, almost(inf)), eta=real, phi=real(-pi, pi))))
-for i in xrange(100):
+for i in xrange(10):   # FIXME: 100
     muons = []
     jets = []
     for j in xrange(i % 3):
@@ -447,6 +447,33 @@ class TestLibStandard(unittest.TestCase):
 
         for entry in nonflat.toPython(pt = "muons.map($1.pt)", phi = "muons.map($1.phi)", a = "muons.map(mu => mu.pt + mu.phi)").submit():
             self.assertEqual(mapp(zip(entry.pt, entry.phi), lambda x: x[0] + x[1]), entry.a)
+
+    def test_map_realistic(self):
+        nonflat.define(mumass = "0.105658").toPython(mass = """
+muons.map(mu1 => muons.map({mu2 =>
+
+  p1x = mu1.pt * cos(mu1.phi);
+  p1y = mu1.pt * sin(mu1.phi);
+  p1z = mu1.pt * sinh(mu1.eta);
+  E1 = sqrt(p1x**2 + p1y**2 + p1z**2 + mumass**2);
+
+  p2x = mu2.pt * cos(mu2.phi);
+  p2y = mu2.pt * sin(mu2.phi);
+  p2z = mu2.pt * sinh(mu2.eta);
+  E2 = sqrt(p2x**2 + p2y**2 + p2z**2 + mumass**2);
+
+  px = p1x + p2x;
+  py = p1y + p2y;
+  pz = p1z + p2z;
+  E = E1 + E2;
+
+  if E**2 - px**2 - py**2 - pz**2 >= 0:
+    sqrt(E**2 - px**2 - py**2 - pz**2)
+  else:
+    None
+
+}))
+""").submit()
 
 ########################################################## Core math
 
