@@ -51,11 +51,11 @@ class ExecutionFailure(Serializable):
 
     def reraise(self):
         if isinstance(self.exception, string_types):
-            out = "Server raised: {0}\n\n----%<-------------------------------------------------------------\n\nServer {1}".format(self.exception, self.traceback)
+            out = "Server raised: {0}\n\n--%<-----------------------------------------------------------------\n\nServer {1}".format(self.exception, self.traceback)
             raise RuntimeError(out)
 
         elif isinstance(self.traceback, string_types):
-            out = "Server raised: {0}\n\n----%<-------------------------------------------------------------\n\nServer {1}".format(str(self.exception), self.traceback)
+            out = "Server raised: {0}\n\n--%<-----------------------------------------------------------------\n\nServer {1}".format(str(self.exception), self.traceback)
             raise RuntimeError(out)
 
         else:

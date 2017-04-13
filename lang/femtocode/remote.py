@@ -93,7 +93,7 @@ class FutureQueryResult(object):
                 obj = urlopen(self.url, self.future.query.toJsonString()).read()
 
             except HTTPError as err:
-                out = "Remote server raised {0}\n\n----%<-------------------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
+                out = "Remote server raised {0}\n\n--%<-----------------------------------------------------------------\n\nREMOTE {1}".format(str(err), err.read())
                 raise RuntimeError(out)
 
             else:

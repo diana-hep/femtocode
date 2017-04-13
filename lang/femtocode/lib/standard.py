@@ -130,16 +130,15 @@ class Div(statementlist.FlatFunction, lispytree.BuiltinFunction):
             return inference.divide(typedargs[0].schema, typedargs[1].schema), typedargs, frame
 
     def buildexec(self, target, schema, args, argschemas, newname, references, tonative):
-        if tonative:
-            # native arithmetic already returns inf/-inf on division by zero
-            return super(Div, self).buildexec(target, schema, args, argschemas, newname, references, tonative)
-        else:
-            return statementsToAst("""
-                try:
-                    OUT = ARG0 / ARG1
-                except ZeroDivisionError:
-                    OUT = float("inf") * (1 if ARG0 > 0 else -1)
-                """, OUT = target, ARG0 = args[0], ARG1 = args[1])
+        return statementsToAst("""
+            if ARG1 == 0:
+                if ARG0 > 0:
+                    OUT = PINF
+                else:
+                    OUT = MINF
+            else:
+                OUT = ARG0 / ARG1
+            """, OUT = target, ARG0 = args[0], ARG1 = args[1], PINF = ast.Num(inf), MINF = ast.Num(-inf))
 
 StandardLibrary.table[Div.name] = Div()
 
@@ -204,20 +203,20 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                 if MATH.isnan(x) and y == 0:
                     OUT = 1.0
                 elif MATH.isnan(x) or MATH.isnan(y):
-                    OUT = float("nan")
+                    OUT = NAN
                 elif x == 0 and y < 0:
-                    OUT = float("inf")
+                    OUT = PINF
                 elif MATH.isinf(y):
                     if x == 1 or x == -1:
-                        OUT = float("nan")
+                        OUT = NAN
                     elif abs(x) < 1:
                         if y > 0:
                             OUT = 0.0
                         else:
-                            OUT = float("inf")
+                            OUT = PINF
                     else:
                         if y > 0:
-                            OUT = float("inf")
+                            OUT = PINF
                         else:
                             OUT = 0.0
                 elif MATH.isinf(x):
@@ -227,29 +226,32 @@ class Pow(statementlist.FlatFunction, lispytree.BuiltinFunction):
                         OUT = 0.0
                     else:
                         if x < 0 and round(y) == y and y % 2 == 1:
-                            OUT = float("-inf")
+                            OUT = MINF
                         else:
-                            OUT = float("inf")
+                            OUT = PINF
                 elif x < 0 and round(y) != y:
-                    OUT = float("nan")
+                    OUT = NAN
                 else:
                     try:
                         OUT = MATH.pow(x, y)
                     except OverflowError:
                         if abs(y) < 1:
                             if x < 0:
-                                OUT = float("nan")
+                                OUT = NAN
                             else:
                                 OUT = 1.0
                         else:
                             if (abs(x) > 1 and y < 0) or (abs(x) < 1 and y > 0):
                                 OUT = 0.0
                             else:
-                                OUT = float("inf")
+                                OUT = PINF
                 """, OUT = target, MATH=ast.Name("$math", ast.Load()),
                                    ARG0 = args[0], ARG1 = args[1],
                                    x = ast.Name(x, ast.Load()), y = ast.Name(y, ast.Load()),
-                                   X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()))
+                                   X = ast.Name(x, ast.Store()), Y = ast.Name(y, ast.Store()),
+                                   PINF = ast.Num(inf),
+                                   MINF = ast.Num(-inf),
+                                   NAN = ast.Num(float("nan")))
 
 StandardLibrary.table[Pow.name] = Pow()
 
@@ -984,16 +986,18 @@ class LoglikeFlatNumeric1D(FlatNumeric1D):
 
     def pythonast(self, args, tonative=False):
         arg, = args
+        justlog = ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None)
         if self.base == math.e:
             if tonative:
-                return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None)
+                return justlog
             else:
-                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), justlog, ast.Num(-inf))
         else:
+            scaled = ast.BinOp(justlog, ast.Div(), ast.Num(math.log(self.base)))
             if tonative:
-                return ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None)
+                return scaled
             else:
-                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "log", ast.Load()), [arg, ast.Num(self.base)], [], None, None), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None))
+                return ast.IfExp(ast.Compare(arg, [ast.Gt()], [ast.Num(0)]), scaled, ast.Num(-inf))
 
 class Sqrt(SqrtlikeFlatNumeric1D):
     name = "sqrt"
@@ -1260,7 +1264,7 @@ class ATanh(FlatNumeric1D):
 
     def pythonast(self, args, tonative=False):
         arg, = args
-        return ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("inf")], [], None, None), ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(-1)]), ast.Call(ast.Name("float", ast.Load()), [ast.Str("-inf")], [], None, None), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atanh", ast.Load()), args, [], None, None)))
+        return ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(1)]), ast.Num(inf), ast.IfExp(ast.Compare(arg, [ast.Eq()], [ast.Num(-1)]), ast.Num(-inf), ast.Call(ast.Attribute(ast.Name("$math", ast.Load()), "atanh", ast.Load()), args, [], None, None)))
 
     def image(self, domain):
         if domain.min.real < -1 or domain.max.real > 1:
