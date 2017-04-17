@@ -124,42 +124,40 @@ class MetadataFromLDRD(object):
         schemaFromDB = dict((k, Schema.fromJson(v)) for k, v in apiDataset.schema["fields"].items())
 
         ldrdcolumns = {}
-        def get(name, apiname, tpe, hasSize):
+        def get(name, apiname, tpe, sizename):
             if isinstance(tpe, Collection):
-                get(name.coll(), apiname, tpe.items, True)
+                get(name.coll(), apiname, tpe.items, name.coll().size())
 
             elif isinstance(tpe, Record):
                 for fn, ft in tpe.fields.items():
-                    get(name.rec(fn), apiname + "." + fn, ft, hasSize)
+                    get(name.rec(fn), apiname + "." + fn, ft, sizename)
 
             elif isinstance(tpe, Union):
                 raise NotImplementedError
 
             else:
                 if columns is None or name in columns:
-                    ldrdcolumns[name] = LDRDColumn(name,
-                                                   name.size() if hasSize else None,
-                                                   None,                 # fill in later
-                                                   apiname,
-                                                   None)                 # fill in later
+                    ldrdcolumns[name] = LDRDColumn(name, sizename, None, apiname, None)    # fill in two fields later
 
         rgids = apiDataset.rgids
-        assert set(rgids) == set(range(len(rgids)))
+        assert set(rgids) == set(range(len(rgids)))   # Igor says this could be false
         rginfos = apiDataset.rginfo(rgids)
 
         for n, t in schemaFromDB.items():
             get(ColumnName(n), n, t, False)
 
+        allColumns = apiDataset.allColumns
+
         striped_columns = []
         for c in ldrdcolumns.values():
-            striped_columns.append(apiDataset.column(c.apidata))
+            striped_columns.append(allColumns[c.apidata])
             desc = striped_columns[-1].descriptor
             c.dataType = str(numpy.dtype(desc.ConvertToNPType))
             c.apisize = desc.SizeColumn
 
         relevant = dict((x["RGID"], x) for x in rginfos if x["RGID"] in groups)
 
-        if len(striped_columns) > 0:
+        if len(striped_columns) > 0 and len(groups) > 0:
             stripe_sizes = apiDataset.stripeSizes(striped_columns, rgids)
         else:
             stripe_sizes = []

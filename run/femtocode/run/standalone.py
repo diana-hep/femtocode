@@ -130,8 +130,11 @@ class StandaloneSession(object):
 ########################################### TODO: temporary!
 
 if __name__ == "__main__":
-    session = StandaloneSession()
-    session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
+    from femtocode.ldrdio.dataset import MetadataFromLDRD
+
+    session = StandaloneSession(numMinions = 1, metadata = MetadataFromLDRD("http://dbdata0vm.fnal.gov:9091/striped/app"))
+    # session = StandaloneSession()
+    # session.metadata.directory = "/home/pivarski/diana/femtocode/tests"
 
     # def callback(outputdataset):
     #     print outputdataset, len(list(outputdataset))
@@ -148,8 +151,9 @@ if __name__ == "__main__":
     # for event in complete:
     #     print event
 
-    pending = session.source("MuOnia").define(mumass = "0.105658").toPython(mass = """
-muons.map(mu1 => muons.map({mu2 =>
+    for x in "one", "two":
+        pending = session.source("ZZ_13TeV_pythia8").define(mumass = "0.105658").toPython(mass = """
+Muon.map(mu1 => Muon.map({mu2 =>
 
   p1x = mu1.pt * cos(mu1.phi);
   p1y = mu1.pt * sin(mu1.phi);
@@ -172,13 +176,13 @@ muons.map(mu1 => muons.map({mu2 =>
     None
 
 }))
-""").submit()
+""").submit(debug = True)
 
-    final = pending.await()
-    print pending.wallTime, pending.computeTime
-    outfile = open("/tmp/downloads/dimuon_masses.txt", "w")
-    for i, event in enumerate(final):
-        for one in event.mass:
-            for two in one:
-                outfile.write(repr(two) + "\n")
-    outfile.close()
+        final = pending.await()
+        print pending.wallTime, pending.computeTime
+    # outfile = open("/tmp/downloads/dimuon_masses.txt", "w")
+    # for i, event in enumerate(final):
+    #     for one in event.mass:
+    #         for two in one:
+    #             outfile.write(repr(two) + "\n")
+    # outfile.close()
