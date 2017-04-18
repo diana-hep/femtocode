@@ -140,7 +140,7 @@ workflow = session.source("b-physics")                   # pull from a named dat
            pt = bin(100, 0, 100, "dimuon.pt"),
            eta = bin(100, -5, 5, "dimuon.eta"),
            phi = bin(314, 0, 2*pi, "dimuon.phi + pi"),
-           muons = foreach("goodmuons", "mu", bundle(    # also make plots with one muon per entry
+           muons = loop("goodmuons", "mu", bundle(       # also make plots with one muon per entry
                pt = bin(100, 0, 100, "mu.pt"),
                eta = bin(100, -5, 5, "mu.eta"),
                phi = bin(314, -pi, pi, "mu.phi")
@@ -416,7 +416,7 @@ This operation has only been tested on Linux, and it likely constrains the serve
 **In 3 months:**
 
    * Adding ufunc interface to the ROOT codebase.
-   * Updating Histogrammar with Femtocode-friendly features (such as `foreach`).
+   * Updating Histogrammar with Femtocode-friendly features (such as `loop`).
    * Adding aggregation actions to workflows.
    * Adding `filter` to workflows.
    * Focus group with physicists.
