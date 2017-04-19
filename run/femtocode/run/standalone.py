@@ -56,6 +56,7 @@ class FutureQueryResult(object):
         self.computeTime = 0.0
         self.data = None
         self._lock = threading.Lock()
+        self._onupdateRunning = threading.Lock()
 
         if ondone is not None:
             self._ondone = FutureQueryResult.OnDone(ondone)
@@ -77,12 +78,13 @@ class FutureQueryResult(object):
             self.computeTime = computeTime
             self.data = data
 
-        if self._onupdate is not None:
-            self._onupdate(data)                 # not self.data because not in lock
+        if self._onupdate is not None and not self._onupdateRunning.locked():  # if rapid-fire, skip calls
+            with self._onupdateRunning:
+                self._onupdate(data)             # not self.data because not in _lock
 
         if done:
             if self._ondone is not None:
-                self._ondone.incoming.put(data)  # not self.data because not in lock
+                self._ondone.incoming.put(data)  # not self.data because not in _lock
             self._doneevent.set()
 
     def await(self, timeout=None):
