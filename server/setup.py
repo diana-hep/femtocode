@@ -22,7 +22,7 @@ import femtocode.version
 setup(name = "femtocode-server",
       version = femtocode.version.__version__,
       packages = find_packages(),
-      scripts = ["scripts/femtocode-dispatch", "scripts/femtocode-accumulate", "scripts/femtocode-compute", "scripts/femtocode-mongodb-populate"],
+      scripts = [],
       description = "",
       long_description = """""",
       author = "Jim Pivarski (DIANA-HEP)",
