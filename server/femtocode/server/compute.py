@@ -143,7 +143,7 @@ class Compute(HTTPServer):
 if __name__ == "__main__":
     from femtocode.dataset import MetadataFromJson
 
-    metadb = MetadataFromJson("/home/pivarski/diana/femtocode/tests/")
+    metadb = MetadataFromJson("../tests/")
     # metadb = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
 
     minion = Minion(queue.Queue())

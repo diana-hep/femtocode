@@ -209,7 +209,7 @@ class Dispatch(HTTPServer):
 if __name__ == "__main__":
     from femtocode.dataset import MetadataFromJson
 
-    metadb = MetadataFromJson("/home/pivarski/diana/femtocode/tests/")
+    metadb = MetadataFromJson("../tests/")
     # metadb = MetadataFromMongoDB("mongodb://localhost:27017", "metadb", "datasets", ROOTDataset, 1.0)
     store = ResultStore("mongodb://localhost:27017", "store", "queries", "groups", 1.0)
     watchman = Watchman(["http://localhost:8081"], 1.0, 0.1)
