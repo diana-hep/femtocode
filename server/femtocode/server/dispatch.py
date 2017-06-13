@@ -190,7 +190,7 @@ class Dispatch(HTTPServer):
                         missing = status.missingGroupids()
                         if len(missing) > 0:
                             # compile the query into machine code (ONLY IF submitting)
-                            executor = NativeExecutor(query)
+                            executor = NativeExecutor(query, False)
                             # submit; failure is only non-None if there are no survivors, so no need to cancel anything
                             failure = self.watchman.assign(executor, status.groupidToUniqueid(), missing)
 

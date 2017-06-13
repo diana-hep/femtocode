@@ -22,6 +22,7 @@ from femtocode.asts import lispytree
 from femtocode.asts import statementlist
 from femtocode.asts import typedtree
 from femtocode.dataset import Dataset
+from femtocode.dataset import ColumnName
 from femtocode.defs import *
 from femtocode import parser
 from femtocode.lib.standard import StandardLibrary
@@ -79,7 +80,7 @@ class Query(Serializable):
     def toJson(self):
         return {"dataset": self.dataset.toJson(),
                 "libs": [lib.toJson() for lib in self.libs],
-                "inputs": self.inputs,
+                "inputs": dict((str(k), v.toJson()) for k, v in self.inputs.items()),
                 "statements": self.statements.toJson(),
                 "actions": [action.toJson() for action in self.actions],
                 "cancelled": self.cancelled,
@@ -88,7 +89,7 @@ class Query(Serializable):
     @staticmethod
     def fromJson(obj):
         assert isinstance(obj, dict)
-        assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "inputs", "statements", "actions", "cancelled", "crosscheck"])
+        assert set(obj.keys()).difference(set(["_id"])) == set(["dataset", "libs", "inputs", "statements", "actions", "cancelled", "crosscheck"])
 
         if set(obj["dataset"].keys()).difference(set(["_id"])) == set(["name"]):
             dataset = Query.DatasetName.fromJson(obj["dataset"])
@@ -97,6 +98,8 @@ class Query(Serializable):
 
         libs = [Library.fromJson(lib) for lib in obj["libs"]]
 
+        inputs = dict((ColumnName.parse(k), Schema.fromJson(v)) for k, v in obj["inputs"].items())
+
         statements = statementlist.Statement.fromJson(obj["statements"])
         assert isinstance(statements, statementlist.Statements)
 
@@ -104,7 +107,7 @@ class Query(Serializable):
         for action in actions:
             assert isinstance(action, statementlist.Action)
         
-        return Query(dataset, libs, obj["inputs"], statements, actions, obj["cancelled"], Workflow.fromJson(obj["crosscheck"]))
+        return Query(dataset, libs, inputs, statements, actions, obj["cancelled"], Workflow.fromJson(obj["crosscheck"]))
 
 class Workflow(Serializable):
     def __init__(self):
