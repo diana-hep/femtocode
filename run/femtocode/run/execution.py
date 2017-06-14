@@ -65,7 +65,9 @@ def compileToNative(loopFunction, inputs):
 def serializeNative(nativefcn):
     assert len(nativefcn.overloads) == 1, "expected function to have exactly one signature"
     cres = nativefcn.overloads.values()[0]
-    llvmnames = [x.name for x in cres.library._final_module.functions if x.name.startswith("cpython.")]
+    llvmnames = [x.name for x in cres.library._final_module.functions if "cpython" in x.name]
+    # print [x.name for x in cres.library._final_module.functions]
+    # print llvmnames
     assert len(llvmnames) == 1, "expected only one function from dynamically generated Python"
     return llvmnames[0], cres.library._compiled_object
 
