@@ -71,6 +71,10 @@ class InProgress(object):
             if len(self.queryToGroupids[executor.query]) == 0:
                 del self.queryToGroupids[executor.query]
 
+    def removeAll(self, executor):
+        for groupid in executor.groupidToUniqueid:
+            self.remove(executor, groupid)
+
     def cancel(self, query):
         with self.lock:
             if query in self.queryToGroupids:
