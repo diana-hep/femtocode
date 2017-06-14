@@ -87,7 +87,7 @@ class NativeDistribExecutor(NativeExecutor):
         executor.groupidToUniqueid = groupidToUniqueid
         executor.inprogress = inprogress
         executor.store = store
-        
+
     def __init__(self, query, groupidToUniqueid, inprogress, store):
         super(NativeDistribExecutor, self).__init__(query)
         self.groupidToUniqueid = groupidToUniqueid
@@ -103,8 +103,9 @@ class NativeDistribExecutor(NativeExecutor):
 
     def oneFailure(self, failure):
         self.query.cancelled = True
-        self.inprogress.remove(self, groupid)
-        self.store.setresult(self.groupidToUniqueid[groupid], 0.0, failure)
+        self.inprogress.removeAll(self)
+        for groupid, uniqueid in self.groupidToUniqueid.iteritems():
+            self.store.setresult(uniqueid, 0.0, failure)
 
 class Compute(HTTPServer):
     def __init__(self, metadb, cacheMaster, store):
@@ -131,7 +132,7 @@ class Compute(HTTPServer):
                 # if any of the groups are new, queue them up to get serviced
                 if len(newgroupids) > 0:
                     self.cacheMaster.incoming.put(message.executor)
-                        
+
             elif isinstance(message, CancelQuery):
                 # ensure that all instances of this query have .cancelled = True
                 self.inprogress.cancel(message.query)
