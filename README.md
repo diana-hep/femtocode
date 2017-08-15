@@ -1,5 +1,7 @@
 # Femtocode
 
+**Note:** This project is on hold while we develop a query system _without_ a custom query language first. [See HEPQuery](https://github.com/diana-hep/hepquery).
+
 ## Introduction
 
 Femtocode is a language and a system to support fast queries on structured data, such as high-energy physics data.
@@ -392,6 +394,10 @@ This operation has only been tested on Linux, and it likely constrains the serve
 
 ## Status and projections
 
+**On hold.** See the message at the top of this page.
+
+<!--
+
 **Done:**
 
    * Core of language parsing, type checking, type inference and logical inference. However, only two functions have been fully implemented (`+` and `.map`).
@@ -440,3 +446,5 @@ This operation has only been tested on Linux, and it likely constrains the serve
    * Object store database, ZFS, and/or JBoD array for faster handling of cache-misses.
    * Caching frequently used intermediate expressions.
    * GPU back-end for groups of “flat” functions.
+
+-->
